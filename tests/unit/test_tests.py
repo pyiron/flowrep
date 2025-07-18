@@ -1,10 +1,10 @@
 import unittest
 
-import pyiron_module_template
+import chefflow
 
 
 class TestVersion(unittest.TestCase):
     def test_version(self):
-        version = pyiron_module_template.__version__
+        version = chefflow.__version__
         print(version)
         self.assertTrue(version.startswith("0"))
