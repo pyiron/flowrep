@@ -1,0 +1,25 @@
+# This runs jobs which pyiron modules should run on pushes or PRs to main
+
+name: Push-Pull
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  pyiron:
+    uses: pyiron/actions/.github/workflows/push-pull.yml@actions-4.0.8
+    secrets: inherit
+    with:
+      do-coveralls: false
+      do-codecov: true
+      # The test matrix supports up to four python versions
+      python-version-alt3: 'exclude'
+      python-version-alt2: '3.11'
+      python-version-alt1: '3.12'
+      python-version: '3.13'
+      # Test lower bounds:
+      alternate-tests-env-files: .ci_support/lower-bounds.yml
+      alternate-tests-python-version: '3.11'
+      alternate-tests-dir: tests/unit
