@@ -855,7 +855,7 @@ def _nest_nodes(
     injected_nodes: dict[str, Any] = {}
     for cf_key in list(topological_sort(cf_graph))[::-1]:
         subgraph = nx.relabel_nodes(subgraphs[cf_key], test_dict)
-        new_key = "injected_" + cf_key.replace("/", "_") len(cf_key) > 0 else cf_key
+        new_key = "injected_" + cf_key.replace("/", "_") if len(cf_key) > 0 else cf_key
         current_nodes = {}
         for key in _extract_functions_from_graph(subgraphs[cf_key]):
             if key in test_dict:

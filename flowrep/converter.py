@@ -100,7 +100,9 @@ def parse_metadata(value: Any) -> TypeMetadata:
         `triples`, `uri` and `shape`. See `semantikon.dataclasses.TypeMetadata` for more details.
     """
     metadata = value.__metadata__[0]
-    return TypeMetadata(**{k: v for k, v in zip(metadata[::2], metadata[1::2], strict=False)})
+    return TypeMetadata(
+        **{k: v for k, v in zip(metadata[::2], metadata[1::2], strict=False)}
+    )
 
 
 def meta_to_dict(
@@ -131,9 +133,7 @@ def extract_undefined_name(error_message: str) -> str:
     match = re.search(r"name '(.+?)' is not defined", error_message)
     if match:
         return match.group(1)
-    raise ValueError(
-        f"No undefined name found in the error message: {error_message}"
-    )
+    raise ValueError(f"No undefined name found in the error message: {error_message}")
 
 
 def _resolve_annotation(annotation, func_globals=None):
@@ -385,7 +385,12 @@ def units(func: Callable) -> Callable:
             return func(*args, **new_kwargs)
         elif isinstance(output_units, tuple):
             return tuple(
-                [oo * ff for oo, ff in zip(output_units, func(*args, **new_kwargs), strict=False)]
+                [
+                    oo * ff
+                    for oo, ff in zip(
+                        output_units, func(*args, **new_kwargs), strict=False
+                    )
+                ]
             )
         else:
             return output_units * func(*args, **new_kwargs)
