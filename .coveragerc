@@ -1,5 +1,5 @@
 # .coveragerc to control coverage.py
 [run]
-source = chefflow
-omit = chefflow/_version.py
+source = flowrep
+omit = flowrep/_version.py
 concurrency = multiprocessing

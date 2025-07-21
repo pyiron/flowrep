@@ -1,4 +1,4 @@
-.. chefflow documentation master file
+.. flowrep documentation master file
 
 .. _index:
 

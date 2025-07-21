@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Create a bug report to help us eliminate issues and improve chefflow
+about: Create a bug report to help us eliminate issues and improve flowrep
 title: ''
 labels: bug
 assignees: ''
