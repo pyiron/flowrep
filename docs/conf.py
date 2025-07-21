@@ -62,7 +62,7 @@ source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
 
 # General information about the project.
-project = "pyiron_module_template"
+project = "flowrep"
 copyright = (
     "2024, Max-Planck-Institut für Nachhaltige Materialien GmbH - Computational Materials Design (CM) Department "
     "All rights reserved"
@@ -252,8 +252,8 @@ latex_elements = {
 latex_documents = [
     (
         "index",
-        "pyiron_module_template.tex",
-        "pyiron_module_template Documentation",
+        "flowrep.tex",
+        "flowrep Documentation",
         "Max-Planck-Institut für Nachhaltige Materialien GmbH - Computational Materials Design (CM) Department",
         "manual",
     ),
@@ -287,8 +287,8 @@ latex_documents = [
 man_pages = [
     (
         "index",
-        "pyiron_module_template",
-        "pyiron_module_template Documentation",
+        "flowrep",
+        "flowrep Documentation",
         [
             "Max-Planck-Institut für Nachhaltige Materialien GmbH - Computational Materials Design (CM) Department"
         ],
@@ -308,10 +308,10 @@ man_pages = [
 texinfo_documents = [
     (
         "index",
-        "pyiron_module_template",
-        "pyiron_module_template Documentation",
+        "flowrep",
+        "flowrep Documentation",
         "Max-Planck-Institut für Nachhaltige Materialien GmbH - Computational Materials Design (CM) Department",
-        "pyiron_module_template",
+        "flowrep",
         "One line description of project.",
         "Miscellaneous",
     ),
@@ -329,7 +329,7 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 # texinfo_no_detailmenu = False
 
-main(["-e", "-o", "apidoc", "../pyiron_module_template", "--force"])
+main(["-e", "-o", "apidoc", "../flowrep", "--force"])
 
 curdir = os.path.dirname(os.path.abspath(__file__))
 if os.path.exists(os.path.join(curdir, "source/notebooks")):
