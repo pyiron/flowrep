@@ -11,7 +11,6 @@ from flowrep.converter import (
     parse_input_args,
     parse_metadata,
     parse_output_args,
-    with_explicit_defaults,
 )
 from semantikon.metadata import u, use_default
 
@@ -246,34 +245,12 @@ class TestParser(unittest.TestCase):
             return x
 
         with mock.patch(
-            "semantikon.converter.get_return_expressions", return_value=123
+            "flowrep.converter.get_return_expressions", return_value=123
         ):
             with self.assertRaises(
                 TypeError, msg="expected None, a string, or a tuple of strings"
             ):
                 get_return_labels(f)
-
-    def test_use_default(self):
-
-        @with_explicit_defaults
-        def f(x=use_default(3)):
-            return x
-
-        @with_explicit_defaults
-        def g(a, x=use_default(2, msg="hello"), y=1):
-            return a + x + y
-
-        with warnings.catch_warnings(record=True) as w:
-            self.assertEqual(f(), 3)
-            self.assertEqual(len(w), 1)
-            self.assertEqual(w[0].message.args[0], "'x' not provided, using default: 3")
-            self.assertEqual(f(4), 4)
-            self.assertEqual(len(w), 1)
-            self.assertEqual(g(1), 4)
-            self.assertEqual(len(w), 2)
-            self.assertEqual(w[-1].message.args[0], "hello")
-            self.assertEqual(g(a=2, x=2), 5)
-            self.assertEqual(len(w), 2)
 
 
 if __name__ == "__main__":
