@@ -253,20 +253,7 @@ def get_annotated_type_hints(func: Callable) -> dict[str, Any]:
         key "return".
     """
     try:
-        if sys.version_info[:2] >= (3, 11):
-            # Use the official, public API
-            return get_type_hints(func, include_extras=True)
-        else:
-            # Manually inspect __annotations__ and resolve them
-            hints = {}
-            sig = inspect.signature(func)
-            for name, param in sig.parameters.items():
-                hints[name] = _resolve_annotation(param.annotation, func.__globals__)
-            if sig.return_annotation is not inspect.Signature.empty:
-                hints["return"] = _resolve_annotation(
-                    sig.return_annotation, func.__globals__
-                )
-            return hints
+        return get_type_hints(func, include_extras=True)
     except NameError:
         hints = {}
         for key, value in func.__annotations__.items():
