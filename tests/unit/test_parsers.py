@@ -2,6 +2,7 @@ import unittest
 import warnings
 from typing import TYPE_CHECKING
 from unittest import mock
+
 from semantikon.metadata import u, use_default
 
 from flowrep.converter import (

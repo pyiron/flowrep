@@ -6,12 +6,12 @@ import inspect
 import re
 import sys
 import textwrap
+from collections.abc import Callable
 from copy import deepcopy
 from functools import update_wrapper, wraps
 from typing import (
     Annotated,
     Any,
-    Callable,
     Generic,
     TypeVar,
     get_args,
@@ -100,7 +100,7 @@ def parse_metadata(value: Any) -> TypeMetadata:
         `triples`, `uri` and `shape`. See `semantikon.dataclasses.TypeMetadata` for more details.
     """
     metadata = value.__metadata__[0]
-    return TypeMetadata(**{k: v for k, v in zip(metadata[::2], metadata[1::2])})
+    return TypeMetadata(**{k: v for k, v in zip(metadata[::2], metadata[1::2], strict=False)})
 
 
 def meta_to_dict(
@@ -132,7 +132,7 @@ def extract_undefined_name(error_message: str) -> str:
     if match:
         return match.group(1)
     raise ValueError(
-        "No undefined name found in the error message: {}".format(error_message)
+        f"No undefined name found in the error message: {error_message}"
     )
 
 
@@ -253,7 +253,7 @@ def get_annotated_type_hints(func: Callable) -> dict[str, Any]:
         key "return".
     """
     try:
-        if sys.version_info >= (3, 11):
+        if sys.version_info[:2] >= (3, 11):
             # Use the official, public API
             return get_type_hints(func, include_extras=True)
         else:
@@ -336,7 +336,7 @@ def _get_ret_units(
 ) -> Quantity | None:
     if output == {}:
         return None
-    ret = _to_units_container(output.get("units", None), ureg)
+    ret = _to_units_container(output.get("units"), ureg)
     names = {key: 1.0 * value.units for key, value in names.items()}
     return ureg.Quantity(1, _replace_units(ret[0], names) if ret[1] else ret[0])
 
@@ -355,9 +355,7 @@ def _is_dimensionless(output: Quantity | tuple[Quantity, ...] | None) -> bool:
         return True
     if isinstance(output, tuple):
         return all([_is_dimensionless(oo) for oo in output])
-    if output.to_base_units().magnitude == 1.0 and output.dimensionless:
-        return True
-    return False
+    return output.to_base_units().magnitude == 1.0 and output.dimensionless
 
 
 def units(func: Callable) -> Callable:
@@ -400,7 +398,7 @@ def units(func: Callable) -> Callable:
             return func(*args, **new_kwargs)
         elif isinstance(output_units, tuple):
             return tuple(
-                [oo * ff for oo, ff in zip(output_units, func(*args, **new_kwargs))]
+                [oo * ff for oo, ff in zip(output_units, func(*args, **new_kwargs), strict=False)]
             )
         else:
             return output_units * func(*args, **new_kwargs)
@@ -455,5 +453,5 @@ def semantikon_class(cls: type) -> type:
             setattr(cls, key, value)  # Append type hints to attributes
     except AttributeError:
         pass
-    setattr(cls, "_is_semantikon_class", True)
+    cls._is_semantikon_class = True
     return cls
