@@ -9,3 +9,4 @@ dependencies:
 - versioneer
 - numpy =2.3.1
 - setuptools >=68
+- sematnikon =0.0.21
