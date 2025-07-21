@@ -203,6 +203,7 @@ def workflow_with_if_else(a=10, b=20):
         x = multiply(x, b)
     else:
         x = multiply(x, a)
+        x = multiply(x, a)
     return x
 
 
@@ -895,8 +896,11 @@ class TestWorkflow(unittest.TestCase):
             sorted(
                 [
                     ("inputs.x", "multiply_1.inputs.x"),
+                    ("inputs.x", "multiply_2.inputs.x"),  # This must not be here
                     ("inputs.a", "multiply_1.inputs.y"),
-                    ("multiply_1.outputs.output", "outputs.x"),
+                    ("multiply_1.outputs.output", "multiply_2.inputs.x"),
+                    ("inputs.a", "multiply_2.inputs.y"),
+                    ("multiply_2.outputs.output", "outputs.x"),
                 ]
             ),
         )

@@ -4,7 +4,6 @@
 import ast
 import inspect
 import re
-import sys
 import textwrap
 from collections.abc import Callable
 from copy import deepcopy

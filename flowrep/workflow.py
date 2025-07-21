@@ -993,7 +993,7 @@ class _Workflow:
         try:
             self._workflow["nodes"][node][io][var]["value"] = value
         except KeyError:
-            raise KeyError(f"{path} not found in {node}")
+            raise KeyError(f"{path} not found in {node}") from None
 
     def _execute_node(self, function: str) -> Any:
         node = self._workflow["nodes"][function]
@@ -1004,7 +1004,7 @@ class _Workflow:
                     content["value"] = content["default"]
                 input_data[key] = content["value"]
         except KeyError:
-            raise KeyError(f"value not defined for {function}")
+            raise KeyError(f"value not defined for {function}") from None
         if "function" not in node:
             workflow = _Workflow(node)
             outputs = [
@@ -1041,7 +1041,7 @@ class _Workflow:
                 values = self._get_value(item)
                 nodes = self._graph.edges(item)
                 if "." not in item and len(nodes) > 1:
-                    for value, node in zip(values, nodes):
+                    for value, node in zip(values, nodes, strict=False):
                         self._set_value(node[1], value)
                 else:
                     for node in nodes:
@@ -1147,7 +1147,7 @@ def get_ports(
     if get_origin(return_hint) is tuple and separate_return_tuple:
         output_annotations = {
             label: meta_to_dict(ann, flatten_metadata=False)
-            for label, ann in zip(return_labels, get_args(return_hint))
+            for label, ann in zip(return_labels, get_args(return_hint), strict=False)
         }
     else:
         output_annotations = {
