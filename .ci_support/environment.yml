@@ -3,4 +3,4 @@ channels:
 dependencies:
   - numpy =2.3.1
   - setuptools >=68
-  - sematnikon =0.0.21 
+  - semantikon =0.0.21 
