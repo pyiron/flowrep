@@ -13,7 +13,7 @@ from flowrep.converter import (
     parse_output_args,
     with_explicit_defaults,
 )
-from flowrep.metadata import u, use_default
+from semantikon.metadata import u, use_default
 
 if TYPE_CHECKING:
 
