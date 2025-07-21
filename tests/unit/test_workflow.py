@@ -722,7 +722,7 @@ class TestWorkflow(unittest.TestCase):
                 if hasattr(fnc, "_semantikon_metadata"):
                     # Nest the metadata in the entry
                     metadata = fnc._semantikon_metadata
-                    for k in metadata.keys():
+                    for k in metadata:
                         entry.pop(k)
                     entry["metadata"] = metadata
 

@@ -1,9 +1,8 @@
 import unittest
-import warnings
 from typing import TYPE_CHECKING
 from unittest import mock
 
-from semantikon.metadata import u, use_default
+from semantikon.metadata import u
 
 from flowrep.converter import (
     NotAstNameError,
@@ -139,7 +138,7 @@ class TestParser(unittest.TestCase):
                 return distance / duration
 
         input_args = parse_input_args(get_speed_multiple_args)
-        for value, key in zip(input_args.values(), ["meter", "second", "second"]):
+        for value, key in zip(input_args.values(), ["meter", "second", "second"], strict=True):
             self.assertEqual(value["units"], key)
 
     def test_future(self):
@@ -245,11 +244,8 @@ class TestParser(unittest.TestCase):
         def f(x):
             return x
 
-        with mock.patch("flowrep.converter.get_return_expressions", return_value=123):
-            with self.assertRaises(
-                TypeError, msg="expected None, a string, or a tuple of strings"
-            ):
-                get_return_labels(f)
+        with mock.patch("flowrep.converter.get_return_expressions", return_value=123), self.assertRaises( TypeError, msg="expected None, a string, or a tuple of strings"):
+            get_return_labels(f)
 
 
 if __name__ == "__main__":
