@@ -1,8 +1,8 @@
 import abc
 import dataclasses
 import functools
-from collections.abc import Iterable, MutableMapping
-from typing import Any, Callable, Generic, Iterator, TypeAlias, TypeVar
+from collections.abc import Callable, Iterable, Iterator, MutableMapping
+from typing import Any, Generic, TypeAlias, TypeVar
 
 import typeguard
 

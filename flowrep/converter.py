@@ -1,4 +1,3 @@
-# coding: utf-8
 # Copyright (c) Max-Planck-Institut für Eisenforschung GmbH - Computational Materials Design (CM) Department
 # Distributed under the terms of "New BSD License", see the LICENSE file.
 
@@ -7,7 +6,6 @@ import inspect
 import re
 import sys
 import textwrap
-import warnings
 from copy import deepcopy
 from functools import update_wrapper, wraps
 from typing import (
@@ -29,7 +27,7 @@ from pint.registry_helpers import (
     _to_units_container,
 )
 
-from flowrep.datastructure import ExplicitDefault, TypeMetadata
+from semantikon.datastructure import TypeMetadata
 
 __author__ = "Sam Waseda"
 __copyright__ = (
