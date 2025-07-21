@@ -2,11 +2,11 @@ import unittest
 
 import networkx as nx
 
-import semantikon.workflow as swf
+import flowrep.workflow as swf
 from semantikon import datastructure
 from semantikon.converter import parse_input_args
 from semantikon.metadata import u
-from semantikon.workflow import (
+from flowrep.workflow import (
     _detect_io_variables_from_control_flow,
     _get_control_flow_graph,
     _get_node_outputs,

@@ -11,15 +11,7 @@ from typing import Any, Callable, Generic, Iterable, TypeVar, cast, get_args, ge
 import networkx as nx
 from networkx.algorithms.dag import topological_sort
 
-from semantikon.converter import (
-    get_annotated_type_hints,
-    get_return_expressions,
-    get_return_labels,
-    meta_to_dict,
-    parse_input_args,
-    parse_output_args,
-)
-from semantikon.datastructure import (
+from flowrep.datastructure import (
     MISSING,
     CoreMetadata,
     Edges,

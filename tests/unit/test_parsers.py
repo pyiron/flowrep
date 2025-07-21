@@ -3,7 +3,7 @@ import warnings
 from typing import TYPE_CHECKING
 from unittest import mock
 
-from semantikon.converter import (
+from flowrep.converter import (
     NotAstNameError,
     get_function_dict,
     get_return_expressions,
@@ -13,7 +13,7 @@ from semantikon.converter import (
     parse_output_args,
     with_explicit_defaults,
 )
-from semantikon.metadata import u, use_default
+from flowrep.metadata import u, use_default
 
 if TYPE_CHECKING:
 

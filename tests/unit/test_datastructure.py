@@ -3,7 +3,7 @@ import unittest
 
 import typeguard
 
-from semantikon import datastructure
+from flowrep import datastructure
 
 
 @dataclasses.dataclass
