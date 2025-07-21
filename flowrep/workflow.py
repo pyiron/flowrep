@@ -5,8 +5,9 @@ import dataclasses
 import inspect
 import textwrap
 from collections import deque
+from collections.abc import Callable, Iterable
 from functools import cached_property, update_wrapper
-from typing import Any, Callable, Generic, Iterable, TypeVar, cast, get_args, get_origin
+from typing import Any, Generic, TypeVar, cast, get_args, get_origin
 
 import networkx as nx
 from networkx.algorithms.dag import topological_sort
@@ -232,8 +233,8 @@ class FunctionDictFlowAnalyzer:
         assert node["test"]["_type"] == "Call"
         control_flow = self._convert_control_flow(control_flow, tag="While")
         self._parse_function_call(node["test"], control_flow=f"{control_flow}-test")
-        for node in node["body"]:
-            self._visit_node(node, control_flow=f"{control_flow}-body")
+        for n in node["body"]:
+            self._visit_node(n, control_flow=f"{control_flow}-body")
 
     def _handle_for(self, node, control_flow: str | None = None):
         assert node["iter"]["_type"] == "Call"
@@ -245,8 +246,8 @@ class FunctionDictFlowAnalyzer:
         self._parse_outputs(
             [node["target"]], unique_func_name, control_flow=control_flow
         )
-        for node in node["body"]:
-            self._visit_node(node, control_flow=f"{control_flow}-body")
+        for n in node["body"]:
+            self._visit_node(n, control_flow=f"{control_flow}-body")
 
     def _handle_expr(self, node, control_flow: str | None = None) -> str:
         value = node["value"]
@@ -388,10 +389,7 @@ class FunctionDictFlowAnalyzer:
         return f"{base_name}_{i}"
 
     def _convert_control_flow(self, control_flow: str | None, tag: str) -> str:
-        if control_flow is None:
-            control_flow = ""
-        else:
-            control_flow = f"{control_flow.split('-')[0]}/"
+        control_flow = "" if control_flow is None else f"{control_flow.split('-')[0]}/"
         counter = 0
         while True:
             if f"{control_flow}{tag}_{counter}" not in self._control_flow_list:
@@ -619,7 +617,7 @@ def _get_node_outputs(func: Callable, counts: int | None = None) -> dict[str, di
         return {key: {} for key in output_vars}
     else:
         assert counts is None or len(output_hints) == counts
-        return {key: hint for key, hint in zip(output_vars, output_hints)}
+        return {key: hint for key, hint in zip(output_vars, output_hints, strict=False)}
 
 
 def _get_output_counts(graph: nx.DiGraph) -> dict[str, int]:
@@ -857,10 +855,7 @@ def _nest_nodes(
     injected_nodes: dict[str, Any] = {}
     for cf_key in list(topological_sort(cf_graph))[::-1]:
         subgraph = nx.relabel_nodes(subgraphs[cf_key], test_dict)
-        if len(cf_key) > 0:
-            new_key = "injected_" + cf_key.replace("/", "_")
-        else:
-            new_key = cf_key
+        new_key = "injected_" + cf_key.replace("/", "_") len(cf_key) > 0 else cf_key
         current_nodes = {}
         for key in _extract_functions_from_graph(subgraphs[cf_key]):
             if key in test_dict:
