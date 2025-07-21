@@ -26,7 +26,6 @@ from pint.registry_helpers import (
     _replace_units,
     _to_units_container,
 )
-
 from semantikon.datastructure import TypeMetadata
 
 __author__ = "Sam Waseda"

@@ -2,6 +2,7 @@ import unittest
 import warnings
 from typing import TYPE_CHECKING
 from unittest import mock
+from semantikon.metadata import u, use_default
 
 from flowrep.converter import (
     NotAstNameError,
@@ -12,7 +13,6 @@ from flowrep.converter import (
     parse_metadata,
     parse_output_args,
 )
-from semantikon.metadata import u, use_default
 
 if TYPE_CHECKING:
 

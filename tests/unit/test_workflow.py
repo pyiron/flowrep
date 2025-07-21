@@ -1,11 +1,11 @@
 import unittest
 
 import networkx as nx
-
-import flowrep.workflow as fwf
 from semantikon import datastructure
 from semantikon.converter import parse_input_args
 from semantikon.metadata import u
+
+import flowrep.workflow as fwf
 
 
 def operation(x: float, y: float) -> tuple[float, float]:
