@@ -6,7 +6,6 @@ from semantikon.metadata import u
 
 from flowrep.converter import (
     NotAstNameError,
-    get_function_dict,
     get_return_expressions,
     get_return_labels,
     parse_input_args,
@@ -47,9 +46,6 @@ class TestParser(unittest.TestCase):
         self.assertEqual(output_args["label"], "speed")
         self.assertEqual(get_speed._semantikon_metadata["uri"], "abc")
         self.assertRaises(TypeError, u, "abc")
-        f_dict = get_function_dict(get_speed)
-        self.assertEqual(f_dict["uri"], "abc")
-        self.assertEqual(f_dict["label"], "get_speed")
 
     def test_extra_function_metadata(self):
         def f(x):
