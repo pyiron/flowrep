@@ -24,11 +24,12 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "numpy==2.3.1"
+    "numpy==2.3.1",
+    "semantikon==0.0.21" 
 ]
 dynamic = [ "version",]
 authors = [
-    { name = "Lorem Ipsum", email = "lorem@ipsum.com" },
+    { name = "Sam Waseda", email = "waseda@mpie.de" },
 ]
 
 [project.license]
