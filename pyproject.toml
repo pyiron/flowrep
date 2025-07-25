@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowrep"
-description = "flowrep - Your pyiron-like module."
+description = "flowrep - Your premier tool for workflow representations"
 readme = "docs/README.md"
 keywords = [ "pyiron",]
 requires-python = ">=3.11, <3.14"
@@ -25,7 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy==2.3.1",
-    "semantikon==0.0.21" 
+    "semantikon==0.0.21",
 ]
 dynamic = [ "version",]
 authors = [
