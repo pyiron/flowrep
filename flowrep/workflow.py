@@ -2,7 +2,9 @@ import ast
 import builtins
 import copy
 import dataclasses
+import hashlib
 import inspect
+import json
 import textwrap
 from collections import deque
 from collections.abc import Callable, Iterable
@@ -1254,3 +1256,81 @@ def parse_workflow(
         edges=edges,
         metadata=metadata,
     )
+
+
+def hash_graph(G: nx.DiGraph) -> str:
+    """
+    Generate a hash for the given directed graph.
+
+    Args:
+        G (nx.DiGraph): The directed graph to hash.
+
+    Returns:
+        str: A hash string representing the graph.
+    """
+    node_data = sorted((n, dict(G.nodes[n])) for n in G.nodes)
+    edge_data = sorted((u, v, dict(d)) for u, v, d in G.edges(data=True))
+    payload = {
+        "directed": G.is_directed(),
+        "multigraph": G.is_multigraph(),
+        "nodes": node_data,
+        "edges": edge_data,
+    }
+    json_str = json.dumps(payload, sort_keys=True)
+    return "flowrep_" + hashlib.sha256(json_str.encode("utf-8")).hexdigest()
+
+
+def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
+    """
+    Generate a hash dictionary for the edges of a workflow.
+    
+    Args:
+        edges (list[tuple[str, str]]): A list of edges in the workflow.
+
+    Returns:
+        dict[str, str]: A dictionary mapping output ports to their corresponding graph hashes.
+    """
+    missing_edges = wf._get_missing_edges(edges)
+    all_edges = sorted(edges + missing_edges)
+    G = nx.DiGraph(all_edges)
+
+    unique_ports = set(port for edge in all_edges for port in edge)
+    output_ports = [port for port in unique_ports if len(port.split(".")) > 2 and port.split(".")[-2] == "outputs"]
+
+    hash_dict = {}
+    for output_port in output_ports:
+        subG = subgraph_reaching_target(G, output_port)
+        hash_dict[output_port] = hash_graph(subG)
+
+    for edges in all_edges:
+        if edges[0] in hash_dict:
+            hash_dict[edges[1]] = hash_dict[edges[0]]
+
+    return hash_dict
+
+
+def _replace_input_ports(edges, inputs):
+    edges = [list(edge) for edge in edges]
+    for edge in edges:
+        arg = edge[0].split(".")[-1]
+        if edge[0].startswith("inputs") and arg in inputs:
+            if "value" in inputs[arg]:
+                edge[0] = inputs[arg]["value"]
+            elif "default" in inputs[arg]:
+                edge[0] = inputs[arg]["default"]
+    return edges
+
+
+def separate_data(workflow_dict):
+    workflow_dict = copy.deepcopy(workflow_dict)
+    edges = _replace_input_ports(workflow_dict["edges"], workflow_dict["inputs"])
+    hash_dict = _get_hash_dict(workflow_dict["edges"])
+    data_dict = {}
+    for node, metadata in workflow_dict["nodes"].items():
+        for io_ in ["inputs", "outputs"]:
+            for arg, content in metadata[io_].items():
+                key = f"{node}.{io_}.{arg}"
+                if key in hash_dict and "value" in content:
+                    data_dict[hash_dict[key]] = content["value"]
+                    content["value"] = hash_dict[key]
+    return workflow_dict, data_dict
