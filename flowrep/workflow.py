@@ -1333,9 +1333,9 @@ def _replace_input_ports(
         arg = edge[0].split(".")[-1]
         if edge[0].startswith("inputs") and arg in inputs:
             if "value" in inputs[arg]:
-                edge[0] = inputs[arg]["value"]
+                edge[0] = str(inputs[arg]["value"])
             elif "default" in inputs[arg]:
-                edge[0] = inputs[arg]["default"]
+                edge[0] = str(inputs[arg]["default"])
     return edges
 
 
