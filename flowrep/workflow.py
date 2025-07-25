@@ -1349,7 +1349,9 @@ def separate_data(
         workflow_dict (dict[str, Any]): The workflow dictionary to process.
 
     Returns:
-        tuple[dict[str, Any], dict[str, Any]]: A tuple containing the modified workflow dictionary
+        tuple[dict[str, Any], dict[str, Any]]: A tuple containing:
+            - dict[str, Any]: The modified workflow dictionary with updated edges and nodes.
+            - dict[str, Any]: The extracted data dictionary, mapping hash keys to their corresponding data values.
     """
     workflow_dict = copy.deepcopy(workflow_dict)
     edges = _replace_input_ports(workflow_dict["edges"], workflow_dict["inputs"])
