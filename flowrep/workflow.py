@@ -1302,7 +1302,7 @@ def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
     Returns:
         dict[str, str]: A dictionary mapping output ports to their corresponding graph hashes.
     """
-    missing_edges = _get_missing_edges(edges)
+    missing_edges = [list(edge) for edge in _get_missing_edges(edges)]
     all_edges = sorted(edges + missing_edges)
     G = nx.DiGraph(all_edges)
 
