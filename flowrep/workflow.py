@@ -1258,6 +1258,18 @@ def parse_workflow(
     )
 
 
+def _subgraph_reaching_target(G: nx.DiGraph, target: str) -> nx.DiGraph:
+    # Step 1: Reverse the graph
+    reversed_G = G.reverse(copy=False)
+
+    # Step 2: Find all nodes that can reach the target
+    nodes_that_reach_target = nx.descendants(reversed_G, target)
+    nodes_that_reach_target.add(target)  # Include T itself
+
+    # Step 3: Induce subgraph on original graph
+    return G.subgraph(nodes_that_reach_target).copy()
+
+
 def hash_graph(G: nx.DiGraph) -> str:
     """
     Generate a hash for the given directed graph.
@@ -1290,7 +1302,7 @@ def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
     Returns:
         dict[str, str]: A dictionary mapping output ports to their corresponding graph hashes.
     """
-    missing_edges = wf._get_missing_edges(edges)
+    missing_edges = _get_missing_edges(edges)
     all_edges = sorted(edges + missing_edges)
     G = nx.DiGraph(all_edges)
 
@@ -1299,7 +1311,7 @@ def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
 
     hash_dict = {}
     for output_port in output_ports:
-        subG = subgraph_reaching_target(G, output_port)
+        subG = _subgraph_reaching_target(G, output_port)
         hash_dict[output_port] = hash_graph(subG)
 
     for edges in all_edges:
@@ -1309,7 +1321,7 @@ def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
     return hash_dict
 
 
-def _replace_input_ports(edges, inputs):
+def _replace_input_ports(edges: list[tuple[str, str]], inputs: dict[str, dict]) -> list[tuple[str, str]]:
     edges = [list(edge) for edge in edges]
     for edge in edges:
         arg = edge[0].split(".")[-1]
@@ -1321,7 +1333,16 @@ def _replace_input_ports(edges, inputs):
     return edges
 
 
-def separate_data(workflow_dict):
+def separate_data(workflow_dict: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """
+    Separate the data from the workflow dictionary.
+    
+    Args:
+        workflow_dict (dict[str, Any]): The workflow dictionary to process.
+
+    Returns:
+        tuple[dict[str, Any], dict[str, Any]]: A tuple containing the modified workflow dictionary
+    """
     workflow_dict = copy.deepcopy(workflow_dict)
     edges = _replace_input_ports(workflow_dict["edges"], workflow_dict["inputs"])
     hash_dict = _get_hash_dict(workflow_dict["edges"])

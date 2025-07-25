@@ -916,5 +916,18 @@ class TestWorkflow(unittest.TestCase):
         self.assertRaises(NotImplementedError, fwf.get_workflow_dict, f)
 
 
+    def test_separate_data(self):
+
+        @fwf.workflow
+        def workflow_with_data(a=10, b=20):
+            x = add(a, b)
+            y = multiply(x, b)
+            return x, y
+
+        workflow_dict, data = fwf.separate_data(workflow_with_data._semantikon_workflow)
+        self.assertEqual(data, {})
+        workflow_dict, data = fwf.separate_data(workflow_with_data.run())
+        self.assertIn(workflow_dict["nodes"]["add_0"]["outputs"]["output"]["value"], data)
+
 if __name__ == "__main__":
     unittest.main()
