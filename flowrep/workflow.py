@@ -1353,7 +1353,7 @@ def separate_data(
     """
     workflow_dict = copy.deepcopy(workflow_dict)
     edges = _replace_input_ports(workflow_dict["edges"], workflow_dict["inputs"])
-    hash_dict = _get_hash_dict(workflow_dict["edges"])
+    hash_dict = _get_hash_dict(edges)
     data_dict = {}
     for node, metadata in workflow_dict["nodes"].items():
         for io_ in ["inputs", "outputs"]:
