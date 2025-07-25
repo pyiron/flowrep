@@ -1295,7 +1295,7 @@ def hash_graph(G: nx.DiGraph) -> str:
 def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
     """
     Generate a hash dictionary for the edges of a workflow.
-    
+
     Args:
         edges (list[tuple[str, str]]): A list of edges in the workflow.
 
@@ -1307,7 +1307,11 @@ def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
     G = nx.DiGraph(all_edges)
 
     unique_ports = set(port for edge in all_edges for port in edge)
-    output_ports = [port for port in unique_ports if len(port.split(".")) > 2 and port.split(".")[-2] == "outputs"]
+    output_ports = [
+        port
+        for port in unique_ports
+        if len(port.split(".")) > 2 and port.split(".")[-2] == "outputs"
+    ]
 
     hash_dict = {}
     for output_port in output_ports:
@@ -1321,7 +1325,9 @@ def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
     return hash_dict
 
 
-def _replace_input_ports(edges: list[tuple[str, str]], inputs: dict[str, dict]) -> list[tuple[str, str]]:
+def _replace_input_ports(
+    edges: list[tuple[str, str]], inputs: dict[str, dict]
+) -> list[tuple[str, str]]:
     edges = [list(edge) for edge in edges]
     for edge in edges:
         arg = edge[0].split(".")[-1]
@@ -1333,10 +1339,12 @@ def _replace_input_ports(edges: list[tuple[str, str]], inputs: dict[str, dict]) 
     return edges
 
 
-def separate_data(workflow_dict: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+def separate_data(
+    workflow_dict: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Separate the data from the workflow dictionary.
-    
+
     Args:
         workflow_dict (dict[str, Any]): The workflow dictionary to process.
 
