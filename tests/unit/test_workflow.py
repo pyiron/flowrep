@@ -929,9 +929,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertIn(
             workflow_dict["nodes"]["add_0"]["outputs"]["output"]["value"], data
         )
-        self.assertEqual(
-            workflow_dict["nodes"]["add_0"]["inputs"]["x"]["value"], 10
-        )
+        self.assertEqual(workflow_dict["nodes"]["add_0"]["inputs"]["x"]["value"], 10)
         self.assertTrue(workflow_dict["outputs"]["x"]["value"].startswith("flowrep"))
         self.assertTrue(workflow_dict["outputs"]["y"]["value"].startswith("flowrep"))
         self.assertNotEqual(
