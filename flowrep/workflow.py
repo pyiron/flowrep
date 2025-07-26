@@ -1328,6 +1328,16 @@ def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
 def _replace_input_ports(
     edges: list[tuple[str, str]], inputs: dict[str, dict]
 ) -> list[tuple[str, str]]:
+    """
+    Replace input ports in the edges with their corresponding values from the inputs dictionary.
+
+    Args:
+        edges (list[tuple[str, str]]): A list of edges in the workflow.
+        inputs (dict[str, dict]): A dictionary containing input ports and their values.
+
+    Returns:
+        list[tuple[str, str]]: A list of edges with input ports replaced by their values.
+    """
     edges = [list(edge) for edge in edges]
     for edge in edges:
         arg = edge[0].split(".")[-1]
