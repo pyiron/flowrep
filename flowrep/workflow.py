@@ -1318,8 +1318,10 @@ def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
         subG = _subgraph_reaching_target(G, output_port)
         hash_dict[output_port] = hash_graph(subG)
 
+    available_keys = list(hash_dict.keys())
+
     for edges in all_edges:
-        if edges[0] in hash_dict:
+        if edges[0] in available_keys:
             hash_dict[edges[1]] = hash_dict[edges[0]]
 
     return hash_dict
@@ -1369,7 +1371,7 @@ def separate_data(
     data_dict = {}
     for key, hash_data in hash_dict.items():
         try:
-            if not key.startswith("outputs") or not key.startswith("inputs"):
+            if not key.startswith("outputs") and not key.startswith("inputs"):
                 key = "nodes." + key
             value = _get_entry(workflow_dict, key + ".value")
             _set_entry(workflow_dict, key + ".value", hash_data)
