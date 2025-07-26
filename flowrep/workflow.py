@@ -1357,11 +1357,53 @@ def separate_data(
     edges = _replace_input_ports(workflow_dict["edges"], workflow_dict["inputs"])
     hash_dict = _get_hash_dict(edges)
     data_dict = {}
-    for node, metadata in workflow_dict["nodes"].items():
-        for io_ in ["inputs", "outputs"]:
-            for arg, content in metadata[io_].items():
-                key = f"{node}.{io_}.{arg}"
-                if key in hash_dict and "value" in content:
-                    data_dict[hash_dict[key]] = content["value"]
-                    content["value"] = hash_dict[key]
+    for key, hash_data in hash_dict.items():
+        try:
+            value = _get_entry(workflow_dict, key + ".value")
+            _set_entry(workflow_dict, key + ".value", hash_data)
+            data_dict[hash_data] = value
+        except KeyError:
+            pass
     return workflow_dict, data_dict
+
+
+def _get_entry(data: dict[str, Any], key: str) -> Any:
+    """
+    Get a value from a nested dictionary at the specified key path.
+
+    Args:
+        data (dict[str, Any]): The dictionary to search.
+        key (str): The key path to retrieve the value from, separated by dots.
+
+    Returns:
+        Any: The value at the specified key path.
+    
+    Raises:
+        KeyError: If the key path does not exist in the dictionary.
+    """
+    for item in key.split("."):
+        data = data[item]
+    return data
+
+
+def _set_entry(
+    data: dict[str, Any], key: str, value: Any, create_missing: bool = False
+) -> None:
+    """
+    Set a value in a nested dictionary at the specified key path.
+
+    Args:
+        data (dict[str, Any]): The dictionary to modify.
+        key (str): The key path to set the value at, separated by dots.
+        value (Any): The value to set.
+        create_missing (bool): Whether to create missing keys in the path.
+    """
+    keys = key.split(".")
+    for k in keys[:-1]:
+        if k not in data:
+            if create_missing:
+                data[k] = {}
+            else:
+                raise KeyError(f"Key '{k}' not found in data.")
+        data = data[k]
+    data[keys[-1]] = value

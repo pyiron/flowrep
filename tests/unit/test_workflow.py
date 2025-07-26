@@ -930,6 +930,21 @@ class TestWorkflow(unittest.TestCase):
             workflow_dict["nodes"]["add_0"]["outputs"]["output"]["value"], data
         )
 
+    def test_get_and_set_entry(self):
+
+        def yet_another_workflow(a=10, b=20):
+            x = add(a, b)
+            y = multiply(x, b)
+            return x, y
+
+        workflow_dict = fwf.get_workflow_dict(yet_another_workflow)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.default"), 10)
+        self.assertRaises(
+            KeyError, fwf._get_entry, workflow_dict, "inputs.x.default"
+        )
+        fwf._set_entry(workflow_dict, "inputs.a.value", 42)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.value"), 42)
+
 
 if __name__ == "__main__":
     unittest.main()
