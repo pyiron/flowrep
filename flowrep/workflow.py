@@ -1359,6 +1359,8 @@ def separate_data(
     data_dict = {}
     for key, hash_data in hash_dict.items():
         try:
+            if not key.startswith("outputs") or not key.startswith("inputs"):
+                key = "nodes." + key
             value = _get_entry(workflow_dict, key + ".value")
             _set_entry(workflow_dict, key + ".value", hash_data)
             data_dict[hash_data] = value
