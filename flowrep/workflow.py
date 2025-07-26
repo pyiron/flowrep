@@ -1379,7 +1379,7 @@ def _get_entry(data: dict[str, Any], key: str) -> Any:
 
     Returns:
         Any: The value at the specified key path.
-    
+
     Raises:
         KeyError: If the key path does not exist in the dictionary.
     """

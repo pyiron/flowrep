@@ -939,9 +939,7 @@ class TestWorkflow(unittest.TestCase):
 
         workflow_dict = fwf.get_workflow_dict(yet_another_workflow)
         self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.default"), 10)
-        self.assertRaises(
-            KeyError, fwf._get_entry, workflow_dict, "inputs.x.default"
-        )
+        self.assertRaises(KeyError, fwf._get_entry, workflow_dict, "inputs.x.default")
         fwf._set_entry(workflow_dict, "inputs.a.value", 42)
         self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.value"), 42)
 
