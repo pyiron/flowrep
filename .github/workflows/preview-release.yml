@@ -5,9 +5,8 @@
 name: Preview Release
 
 on:
-  pull_request:
-#  release:
-#    types: [ published ]
+  release:
+    types: [ published ]
 
 jobs:
   pyiron:
@@ -16,4 +15,4 @@ jobs:
     with:
       semantic-upper-bound: 'minor'
       lower-bound-yaml: '.ci_support/lower-bounds.yml'
-      publish-to-pypi: false
+      publish-to-pypi: true
