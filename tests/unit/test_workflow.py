@@ -926,7 +926,7 @@ class TestWorkflow(unittest.TestCase):
         workflow_dict = fwf.get_workflow_dict(workflow_with_data)
         graph = fwf._edges_to_graph(workflow_dict["edges"])
         graph = fwf._replace_input_ports(graph, workflow_dict)
-        data_dict = fwf._get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
+        data_dict = fwf.get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
         self.assertEqual(
             data_dict,
             {
@@ -940,8 +940,8 @@ class TestWorkflow(unittest.TestCase):
                 "outputs": ["output"],
             },
         )
-        add_hashed = fwf._get_node_hash("add_0", graph, workflow_dict["nodes"])
-        data_dict = fwf._get_hashed_node_dict(
+        add_hashed = fwf.get_node_hash("add_0", graph, workflow_dict["nodes"])
+        data_dict = fwf.get_hashed_node_dict(
             "multiply_0", graph, workflow_dict["nodes"]
         )
         self.assertEqual(

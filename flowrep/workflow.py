@@ -1278,7 +1278,9 @@ def _replace_input_ports(
     return G
 
 
-def _get_hashed_node_dict(node, graph, nodes_dict):
+def get_hashed_node_dict(node, graph, nodes_dict):
+    if "function" not in nodes_dict[node]:
+        raise ValueError("Hashing works only on flat data")
     data_dict = {
         "nodes": _get_function_metadata(nodes_dict[node]["function"]),
         "inputs": {},
@@ -1294,7 +1296,7 @@ def _get_hashed_node_dict(node, graph, nodes_dict):
         if len(pre_predecessor) > 0:
             assert len(pre_predecessor) == 1
             value = (
-                _get_node_hash(pre_predecessor[0], graph, nodes_dict)
+                get_node_hash(pre_predecessor[0], graph, nodes_dict)
                 + "@"
                 + predecessor.split(".")[-1]
             )
@@ -1306,8 +1308,8 @@ def _get_hashed_node_dict(node, graph, nodes_dict):
     return data_dict
 
 
-def _get_node_hash(node, graph, nodes_dict):
-    data_dict = _get_hashed_node_dict(node=node, graph=graph, nodes_dict=nodes_dict)
+def get_node_hash(node, graph, nodes_dict):
+    data_dict = get_hashed_node_dict(node=node, graph=graph, nodes_dict=nodes_dict)
     return hashlib.sha256(str(data_dict).encode("utf-8")).hexdigest()
 
 
