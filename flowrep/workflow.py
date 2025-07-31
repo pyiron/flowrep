@@ -1279,7 +1279,25 @@ def _replace_input_ports(
     return G
 
 
-def get_hashed_node_dict(node, graph, nodes_dict):
+def get_hashed_node_dict(
+    node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]
+) -> dict[str, Any]:
+    """
+    Get a dictionary representation of a node for hashing purposes and database
+    entries. This function extracts the metadata of the node, its inputs, and
+    outputs, and returns a dictionary that can be hashed.
+
+    Args:
+        node (str): The name of the node to be hashed.
+        graph (nx.DiGraph): The directed graph representing the function.
+        nodes_dict (dict[str, dict]): A dictionary containing metadata for all nodes.
+
+    Returns:
+        dict[str, Any]: A dictionary representation of the node for hashing.
+
+    Raises:
+        ValueError: If the node does not have a function or if the data is not flat.
+    """
     if "function" not in nodes_dict[node]:
         raise ValueError("Hashing works only on flat data")
     data_dict = {
@@ -1309,7 +1327,20 @@ def get_hashed_node_dict(node, graph, nodes_dict):
     return data_dict
 
 
-def get_node_hash(node, graph, nodes_dict):
+def get_node_hash(
+    node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]
+) -> dict[str, Any]:
+    """
+    Get a hash of the node's metadata, inputs, and outputs.
+
+    Args:
+        node (str): The name of the node to be hashed.
+        graph (nx.DiGraph): The directed graph representing the function.
+        nodes_dict (dict[str, dict]): A dictionary containing metadata for all nodes.
+
+    Returns:
+        str: A SHA-256 hash of the node's metadata, inputs, and outputs.
+    """
     data_dict = get_hashed_node_dict(node=node, graph=graph, nodes_dict=nodes_dict)
     return hashlib.sha256(str(data_dict).encode("utf-8")).hexdigest()
 
