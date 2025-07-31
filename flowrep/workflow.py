@@ -1387,7 +1387,7 @@ def _set_entry(
     data[keys[-1]] = value
 
 
-def _get_function_metadata(cls: Callable) -> tuple[str, str, str]:
+def _get_function_metadata(cls: Callable) -> dict[str, str]:
     module = cls.__module__
     qualname = cls.__qualname__
     from importlib import import_module
