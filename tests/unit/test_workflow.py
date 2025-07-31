@@ -924,8 +924,7 @@ class TestWorkflow(unittest.TestCase):
             return x, y
 
         workflow_dict = fwf.get_workflow_dict(workflow_with_data)
-        graph = fwf._edges_to_graph(workflow_dict["edges"])
-        graph = fwf._replace_input_ports(graph, workflow_dict)
+        graph = fwf.get_workflow_graph(workflow_dict)
         data_dict = fwf.get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
         self.assertEqual(
             data_dict,
@@ -957,6 +956,8 @@ class TestWorkflow(unittest.TestCase):
                 "outputs": ["output"],
             },
         )
+        graph = fwf.get_workflow_graph(example_workflow._semantikon_workflow)
+        self.assertRaises(ValueError, fwf.get_hashed_node_dict, "add_0", graph, example_workflow._semantikon_workflow["nodes"])
 
     @unittest.skip("This test is not implemented yet")
     def test_separate_data(self):

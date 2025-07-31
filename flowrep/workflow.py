@@ -1257,10 +1257,11 @@ def parse_workflow(
     )
 
 
-def _edges_to_graph(edges: list[tuple[str, str]]) -> nx.DiGraph:
+def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
+    edges = cast(list[tuple[str, str]], workflow_dict["edges"])
     missing_edges = [edge for edge in _get_missing_edges(edges)]
     all_edges = sorted(edges + missing_edges)
-    return nx.DiGraph(all_edges)
+    return _replace_input_ports(nx.DiGraph(all_edges), workflow_dict)
 
 
 def _replace_input_ports(
