@@ -957,7 +957,13 @@ class TestWorkflow(unittest.TestCase):
             },
         )
         graph = fwf.get_workflow_graph(example_workflow._semantikon_workflow)
-        self.assertRaises(ValueError, fwf.get_hashed_node_dict, "add_0", graph, example_workflow._semantikon_workflow["nodes"])
+        self.assertRaises(
+            ValueError,
+            fwf.get_hashed_node_dict,
+            "add_0",
+            graph,
+            example_workflow._semantikon_workflow["nodes"],
+        )
 
     @unittest.skip("This test is not implemented yet")
     def test_separate_data(self):
