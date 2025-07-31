@@ -1258,127 +1258,58 @@ def parse_workflow(
     )
 
 
-def _subgraph_reaching_target(G: nx.DiGraph, target: str) -> nx.DiGraph:
-    # Step 1: Reverse the graph
-    reversed_G = G.reverse(copy=False)
-
-    # Step 2: Find all nodes that can reach the target
-    nodes_that_reach_target = nx.descendants(reversed_G, target)
-    nodes_that_reach_target.add(target)  # Include T itself
-
-    # Step 3: Induce subgraph on original graph
-    return G.subgraph(nodes_that_reach_target).copy()
-
-
-def hash_graph(G: nx.DiGraph) -> str:
-    """
-    Generate a hash for the given directed graph.
-
-    Args:
-        G (nx.DiGraph): The directed graph to hash.
-
-    Returns:
-        str: A hash string representing the graph.
-    """
-    node_data = sorted((n, dict(G.nodes[n])) for n in G.nodes)
-    edge_data = sorted((u, v, dict(d)) for u, v, d in G.edges(data=True))
-    payload = {
-        "directed": G.is_directed(),
-        "multigraph": G.is_multigraph(),
-        "nodes": node_data,
-        "edges": edge_data,
-    }
-    json_str = json.dumps(payload, sort_keys=True)
-    return "flowrep_" + hashlib.sha256(json_str.encode("utf-8")).hexdigest()
-
-
-def _get_hash_dict(edges: list[tuple[str, str]]) -> dict[str, str]:
-    """
-    Generate a hash dictionary for the edges of a workflow.
-
-    Args:
-        edges (list[tuple[str, str]]): A list of edges in the workflow.
-
-    Returns:
-        dict[str, str]: A dictionary mapping output ports to their corresponding graph hashes.
-    """
-    missing_edges = [list(edge) for edge in _get_missing_edges(edges)]
+def _edges_to_graph(edges: list[tuple[str, str]]) -> nx.DiGraph:
+    missing_edges = [edge for edge in _get_missing_edges(edges)]
     all_edges = sorted(edges + missing_edges)
-    G = nx.DiGraph(all_edges)
-
-    unique_ports = set(port for edge in all_edges for port in edge)
-    output_ports = [
-        port
-        for port in unique_ports
-        if len(port.split(".")) > 2 and port.split(".")[-2] == "outputs"
-    ]
-
-    hash_dict = {}
-    for output_port in output_ports:
-        subG = _subgraph_reaching_target(G, output_port)
-        hash_dict[output_port] = hash_graph(subG)
-
-    available_keys = list(hash_dict.keys())
-
-    for edges in all_edges:
-        if edges[0] in available_keys:
-            hash_dict[edges[1]] = hash_dict[edges[0]]
-
-    return hash_dict
+    return nx.DiGraph(all_edges)
 
 
 def _replace_input_ports(
-    edges: list[tuple[str, str]], inputs: dict[str, dict]
-) -> list[tuple[str, str]]:
-    """
-    Replace input ports in the edges with their corresponding values from the inputs dictionary.
-
-    Args:
-        edges (list[tuple[str, str]]): A list of edges in the workflow.
-        inputs (dict[str, dict]): A dictionary containing input ports and their values.
-
-    Returns:
-        list[tuple[str, str]]: A list of edges with input ports replaced by their values.
-    """
-    edges = [list(edge) for edge in edges]
-    for edge in edges:
-        arg = edge[0].split(".")[-1]
-        if edge[0].startswith("inputs") and arg in inputs:
-            if "value" in inputs[arg]:
-                edge[0] = str(inputs[arg]["value"])
-            elif "default" in inputs[arg]:
-                edge[0] = str(inputs[arg]["default"])
-    return edges
+    graph: nx.DiGraph, workflow_dict: dict[str, Any]
+) -> nx.DiGraph:
+    G = graph.copy()
+    for n in list(G.nodes):
+        if G.in_degree(n) == 0:
+            assert n.startswith("inputs.")
+            data = _get_entry(workflow_dict, n)
+            if "value" in data:
+                nx.relabel_nodes(G, {n: data["value"]}, copy=False)
+            elif "default" in data:
+                nx.relabel_nodes(G, {n: data["default"]}, copy=False)
+    return G
 
 
-def separate_data(
-    workflow_dict: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """
-    Separate the data from the workflow dictionary.
+def _get_hashed_node_dict(node, graph, nodes_dict):
+    data_dict = {
+        "nodes": _get_function_metadata(nodes_dict[node]["function"]),
+        "inputs": {},
+        "outputs": list(nodes_dict[node]["outputs"].keys()),
+    }
+    connected_inputs = []
+    for key in nodes_dict[node]["inputs"]:
+        tag = f"{node}.inputs.{key}"
+        predecessor = list(graph.predecessors(tag))
+        assert len(predecessor) == 1
+        predecessor = predecessor[0]
+        pre_predecessor = list(graph.predecessors(predecessor))
+        if len(pre_predecessor) > 0:
+            assert len(pre_predecessor) == 1
+            value = (
+                _get_node_hash(pre_predecessor[0], graph, nodes_dict)
+                + "@"
+                + predecessor.split(".")[-1]
+            )
+            connected_inputs.append(key)
+        else:
+            value = predecessor
+        data_dict["inputs"][key] = value
+    data_dict["nodes"]["connected_inputs"] = connected_inputs
+    return data_dict
 
-    Args:
-        workflow_dict (dict[str, Any]): The workflow dictionary to process.
 
-    Returns:
-        tuple[dict[str, Any], dict[str, Any]]: A tuple containing:
-            - dict[str, Any]: The modified workflow dictionary with updated edges and nodes.
-            - dict[str, Any]: The extracted data dictionary, mapping hash keys to their corresponding data values.
-    """
-    workflow_dict = copy.deepcopy(workflow_dict)
-    edges = _replace_input_ports(workflow_dict["edges"], workflow_dict["inputs"])
-    hash_dict = _get_hash_dict(edges)
-    data_dict = {}
-    for key, hash_data in hash_dict.items():
-        try:
-            if not key.startswith("outputs") and not key.startswith("inputs"):
-                key = "nodes." + key
-            value = _get_entry(workflow_dict, key + ".value")
-            _set_entry(workflow_dict, key + ".value", hash_data)
-            data_dict[hash_data] = value
-        except KeyError:
-            pass
-    return workflow_dict, data_dict
+def _get_node_hash(node, graph, nodes_dict):
+    data_dict = _get_hashed_node_dict(node=node, graph=graph, nodes_dict=nodes_dict)
+    return hashlib.sha256(str(data_dict).encode("utf-8")).hexdigest()
 
 
 def _get_entry(data: dict[str, Any], key: str) -> Any:

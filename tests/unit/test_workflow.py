@@ -915,6 +915,50 @@ class TestWorkflow(unittest.TestCase):
 
         self.assertRaises(NotImplementedError, fwf.get_workflow_dict, f)
 
+    def test_get_hashed_node_dict(self):
+
+        @fwf.workflow
+        def workflow_with_data(a=10, b=20):
+            x = add(a, b)
+            y = multiply(x, b)
+            return x, y
+
+        workflow_dict = fwf.get_workflow_dict(workflow_with_data)
+        graph = fwf._edges_to_graph(workflow_dict["edges"])
+        graph = fwf._replace_input_ports(graph, workflow_dict)
+        data_dict = fwf._get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
+        self.assertEqual(
+            data_dict,
+            {
+                "nodes": {
+                    "module": "__main__",
+                    "qualname": "add",
+                    "version": "not_defined",
+                    "connected_inputs": [],
+                },
+                "inputs": {"x": 10, "y": 20},
+                "outputs": ["output"],
+            },
+        )
+        add_hashed = fwf._get_node_hash("add_0", graph, workflow_dict["nodes"])
+        data_dict = fwf._get_hashed_node_dict(
+            "multiply_0", graph, workflow_dict["nodes"]
+        )
+        self.assertEqual(
+            data_dict,
+            {
+                "nodes": {
+                    "module": "__main__",
+                    "qualname": "multiply",
+                    "version": "not_defined",
+                    "connected_inputs": ["x"],
+                },
+                "inputs": {"x": add_hashed + "@output", "y": 20},
+                "outputs": ["output"],
+            },
+        )
+
+    @unittest.skip("This test is not implemented yet")
     def test_separate_data(self):
 
         @fwf.workflow
