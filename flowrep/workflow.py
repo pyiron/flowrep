@@ -1424,8 +1424,8 @@ def _set_entry(
 
 
 def get_type(cls: Any) -> tuple[str, str, str]:
-    module = cls.__class__.__module__
-    qualname = cls.__class__.__qualname__
+    module = cls.__module__
+    qualname = cls.__qualname__
     from importlib import import_module
 
     base_module = import_module(module.split(".")[0])
