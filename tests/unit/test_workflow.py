@@ -931,7 +931,7 @@ class TestWorkflow(unittest.TestCase):
             data_dict,
             {
                 "nodes": {
-                    "module": "__main__",
+                    "module": add.__module__,
                     "qualname": "add",
                     "version": "not_defined",
                     "connected_inputs": [],
@@ -948,7 +948,7 @@ class TestWorkflow(unittest.TestCase):
             data_dict,
             {
                 "nodes": {
-                    "module": "__main__",
+                    "module": multiply.__module__,
                     "qualname": "multiply",
                     "version": "not_defined",
                     "connected_inputs": ["x"],
