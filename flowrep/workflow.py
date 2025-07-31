@@ -1329,7 +1329,7 @@ def get_hashed_node_dict(
 
 def get_node_hash(
     node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]
-) -> dict[str, Any]:
+) -> str:
     """
     Get a hash of the node's metadata, inputs, and outputs.
 
