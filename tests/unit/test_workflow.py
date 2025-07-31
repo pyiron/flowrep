@@ -959,6 +959,16 @@ class TestWorkflow(unittest.TestCase):
         fwf._set_entry(workflow_dict, "inputs.a.value", 42)
         self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.value"), 42)
 
+    def test_get_function_metadata(self):
+        self.assertEqual(
+            fwf._get_function_metadata(operation),
+            {
+                "module": operation.__module__,
+                "qualname": operation.__qualname__,
+                "version": "not_defined",
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
