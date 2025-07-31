@@ -1328,9 +1328,7 @@ def get_hashed_node_dict(
     return data_dict
 
 
-def get_node_hash(
-    node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]
-) -> str:
+def get_node_hash(node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]) -> str:
     """
     Get a hash of the node's metadata, inputs, and outputs.
 
@@ -1343,7 +1341,9 @@ def get_node_hash(
         str: A SHA-256 hash of the node's metadata, inputs, and outputs.
     """
     data_dict = get_hashed_node_dict(node=node, graph=graph, nodes_dict=nodes_dict)
-    return hashlib.sha256(json.dumps(data_dict, sort_keys=True).encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        json.dumps(data_dict, sort_keys=True).encode("utf-8")
+    ).hexdigest()
 
 
 def _get_entry(data: dict[str, Any], key: str) -> Any:
