@@ -915,6 +915,78 @@ class TestWorkflow(unittest.TestCase):
 
         self.assertRaises(NotImplementedError, fwf.get_workflow_dict, f)
 
+    def test_get_hashed_node_dict(self):
+
+        def workflow_with_data(a=10, b=20):
+            x = add(a, b)
+            y = multiply(x, b)
+            return x, y
+
+        workflow_dict = fwf.get_workflow_dict(workflow_with_data)
+        graph = fwf.get_workflow_graph(workflow_dict)
+        data_dict = fwf.get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
+        self.assertEqual(
+            data_dict,
+            {
+                "nodes": {
+                    "module": add.__module__,
+                    "qualname": "add",
+                    "version": "not_defined",
+                    "connected_inputs": [],
+                },
+                "inputs": {"x": 10, "y": 20},
+                "outputs": ["output"],
+            },
+        )
+        add_hashed = fwf.get_node_hash("add_0", graph, workflow_dict["nodes"])
+        data_dict = fwf.get_hashed_node_dict(
+            "multiply_0", graph, workflow_dict["nodes"]
+        )
+        self.assertEqual(
+            data_dict,
+            {
+                "nodes": {
+                    "module": multiply.__module__,
+                    "qualname": "multiply",
+                    "version": "not_defined",
+                    "connected_inputs": ["x"],
+                },
+                "inputs": {"x": add_hashed + "@output", "y": 20},
+                "outputs": ["output"],
+            },
+        )
+        graph = fwf.get_workflow_graph(example_workflow._semantikon_workflow)
+        self.assertRaises(
+            ValueError,
+            fwf.get_hashed_node_dict,
+            "add_0",
+            graph,
+            example_workflow._semantikon_workflow["nodes"],
+        )
+
+    def test_get_and_set_entry(self):
+
+        def yet_another_workflow(a=10, b=20):
+            x = add(a, b)
+            y = multiply(x, b)
+            return x, y
+
+        workflow_dict = fwf.get_workflow_dict(yet_another_workflow)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.default"), 10)
+        self.assertRaises(KeyError, fwf._get_entry, workflow_dict, "inputs.x.default")
+        fwf._set_entry(workflow_dict, "inputs.a.value", 42)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.value"), 42)
+
+    def test_get_function_metadata(self):
+        self.assertEqual(
+            fwf._get_function_metadata(operation),
+            {
+                "module": operation.__module__,
+                "qualname": operation.__qualname__,
+                "version": "not_defined",
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
