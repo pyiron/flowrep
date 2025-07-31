@@ -917,7 +917,6 @@ class TestWorkflow(unittest.TestCase):
 
     def test_get_hashed_node_dict(self):
 
-        @fwf.workflow
         def workflow_with_data(a=10, b=20):
             x = add(a, b)
             y = multiply(x, b)
@@ -964,38 +963,6 @@ class TestWorkflow(unittest.TestCase):
             graph,
             example_workflow._semantikon_workflow["nodes"],
         )
-
-    @unittest.skip("This test is not implemented yet")
-    def test_separate_data(self):
-
-        @fwf.workflow
-        def workflow_with_data(a=10, b=20):
-            x = add(a, b)
-            y = multiply(x, b)
-            return x, y
-
-        workflow_dict, data = fwf.separate_data(workflow_with_data._semantikon_workflow)
-        self.assertEqual(data, {})
-        workflow_dict, data = fwf.separate_data(workflow_with_data.run())
-        self.assertIn(
-            workflow_dict["nodes"]["add_0"]["outputs"]["output"]["value"], data
-        )
-        self.assertEqual(workflow_dict["nodes"]["add_0"]["inputs"]["x"]["value"], 10)
-        self.assertTrue(workflow_dict["outputs"]["x"]["value"].startswith("flowrep"))
-        self.assertTrue(workflow_dict["outputs"]["y"]["value"].startswith("flowrep"))
-        self.assertNotEqual(
-            workflow_dict["outputs"]["x"]["value"],
-            workflow_dict["outputs"]["y"]["value"],
-        )
-        self.assertIn(
-            workflow_dict["outputs"]["x"]["value"],
-            data,
-        )
-        self.assertNotIn(
-            workflow_dict["inputs"]["a"]["value"],
-            data,
-        )
-        self.assertTrue(all(key.startswith("flowrep") for key in data))
 
     def test_get_and_set_entry(self):
 
