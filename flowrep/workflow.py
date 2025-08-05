@@ -2,7 +2,9 @@ import ast
 import builtins
 import copy
 import dataclasses
+import hashlib
 import inspect
+import json
 import textwrap
 from collections import deque
 from collections.abc import Callable, Iterable
@@ -1254,3 +1256,151 @@ def parse_workflow(
         edges=edges,
         metadata=metadata,
     )
+
+
+def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
+    edges = cast(list[tuple[str, str]], workflow_dict["edges"])
+    missing_edges = [edge for edge in _get_missing_edges(edges)]
+    all_edges = sorted(edges + missing_edges)
+    return _replace_input_ports(nx.DiGraph(all_edges), workflow_dict)
+
+
+def _replace_input_ports(
+    graph: nx.DiGraph, workflow_dict: dict[str, Any]
+) -> nx.DiGraph:
+    G = graph.copy()
+    for n in list(G.nodes):
+        if G.in_degree(n) == 0:
+            assert n.startswith("inputs.")
+            data = _get_entry(workflow_dict, n)
+            if "value" in data:
+                nx.relabel_nodes(G, {n: data["value"]}, copy=False)
+            elif "default" in data:
+                nx.relabel_nodes(G, {n: data["default"]}, copy=False)
+    return G
+
+
+def get_hashed_node_dict(
+    node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]
+) -> dict[str, Any]:
+    """
+    Get a dictionary representation of a node for hashing purposes and database
+    entries. This function extracts the metadata of the node, its inputs, and
+    outputs, and returns a dictionary that can be hashed.
+
+    Args:
+        node (str): The name of the node to be hashed.
+        graph (nx.DiGraph): The directed graph representing the function.
+        nodes_dict (dict[str, dict]): A dictionary containing metadata for all nodes.
+
+    Returns:
+        dict[str, Any]: A dictionary representation of the node for hashing.
+
+    Raises:
+        ValueError: If the node does not have a function or if the data is not flat.
+    """
+    if "function" not in nodes_dict[node]:
+        raise ValueError("Hashing works only on flat data")
+    data_dict = {
+        "nodes": _get_function_metadata(nodes_dict[node]["function"]),
+        "inputs": {},
+        "outputs": list(nodes_dict[node]["outputs"].keys()),
+    }
+    connected_inputs = []
+    for key in nodes_dict[node]["inputs"]:
+        tag = f"{node}.inputs.{key}"
+        predecessor = list(graph.predecessors(tag))
+        assert len(predecessor) == 1
+        predecessor = predecessor[0]
+        pre_predecessor = list(graph.predecessors(predecessor))
+        if len(pre_predecessor) > 0:
+            assert len(pre_predecessor) == 1
+            value = (
+                get_node_hash(pre_predecessor[0], graph, nodes_dict)
+                + "@"
+                + predecessor.split(".")[-1]
+            )
+            connected_inputs.append(key)
+        else:
+            value = predecessor
+        data_dict["inputs"][key] = value
+    data_dict["nodes"]["connected_inputs"] = connected_inputs
+    return data_dict
+
+
+def get_node_hash(node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]) -> str:
+    """
+    Get a hash of the node's metadata, inputs, and outputs.
+
+    Args:
+        node (str): The name of the node to be hashed.
+        graph (nx.DiGraph): The directed graph representing the function.
+        nodes_dict (dict[str, dict]): A dictionary containing metadata for all nodes.
+
+    Returns:
+        str: A SHA-256 hash of the node's metadata, inputs, and outputs.
+    """
+    data_dict = get_hashed_node_dict(node=node, graph=graph, nodes_dict=nodes_dict)
+    return hashlib.sha256(
+        json.dumps(data_dict, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+
+def _get_entry(data: dict[str, Any], key: str) -> Any:
+    """
+    Get a value from a nested dictionary at the specified key path.
+
+    Args:
+        data (dict[str, Any]): The dictionary to search.
+        key (str): The key path to retrieve the value from, separated by dots.
+
+    Returns:
+        Any: The value at the specified key path.
+
+    Raises:
+        KeyError: If the key path does not exist in the dictionary.
+    """
+    for item in key.split("."):
+        data = data[item]
+    return data
+
+
+def _set_entry(
+    data: dict[str, Any], key: str, value: Any, create_missing: bool = False
+) -> None:
+    """
+    Set a value in a nested dictionary at the specified key path.
+
+    Args:
+        data (dict[str, Any]): The dictionary to modify.
+        key (str): The key path to set the value at, separated by dots.
+        value (Any): The value to set.
+        create_missing (bool): Whether to create missing keys in the path.
+    """
+    keys = key.split(".")
+    for k in keys[:-1]:
+        if k not in data:
+            if create_missing:
+                data[k] = {}
+            else:
+                raise KeyError(f"Key '{k}' not found in data.")
+        data = data[k]
+    data[keys[-1]] = value
+
+
+def _get_function_metadata(cls: Callable) -> dict[str, str]:
+    module = cls.__module__
+    qualname = cls.__qualname__
+    from importlib import import_module
+
+    base_module = import_module(module.split(".")[0])
+    version = (
+        base_module.__version__
+        if hasattr(base_module, "__version__")
+        else "not_defined"
+    )
+    return {
+        "module": module,
+        "qualname": qualname,
+        "version": version,
+    }
