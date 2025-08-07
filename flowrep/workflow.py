@@ -1302,7 +1302,7 @@ def get_hashed_node_dict(
     if "function" not in nodes_dict[node]:
         raise ValueError("Hashing works only on flat data")
     data_dict = {
-        "nodes": _get_function_metadata(nodes_dict[node]["function"]),
+        "node": _get_function_metadata(nodes_dict[node]["function"]),
         "inputs": {},
         "outputs": list(nodes_dict[node]["outputs"].keys()),
     }
@@ -1324,7 +1324,7 @@ def get_hashed_node_dict(
         else:
             value = predecessor
         data_dict["inputs"][key] = value
-    data_dict["nodes"]["connected_inputs"] = connected_inputs
+    data_dict["node"]["connected_inputs"] = connected_inputs
     return data_dict
 
 
