@@ -928,7 +928,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual(
             data_dict,
             {
-                "nodes": {
+                "node": {
                     "module": add.__module__,
                     "qualname": "add",
                     "version": "not_defined",
@@ -945,7 +945,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual(
             data_dict,
             {
-                "nodes": {
+                "node": {
                     "module": multiply.__module__,
                     "qualname": "multiply",
                     "version": "not_defined",
