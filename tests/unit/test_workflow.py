@@ -924,7 +924,7 @@ class TestWorkflow(unittest.TestCase):
 
         workflow_dict = fwf.get_workflow_dict(workflow_with_data)
         graph = fwf.get_workflow_graph(workflow_dict)
-        data_dict = fwf.get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
+        data_dict = fwf._get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])[0]
         self.assertEqual(
             data_dict,
             {
@@ -938,10 +938,10 @@ class TestWorkflow(unittest.TestCase):
                 "outputs": ["output"],
             },
         )
-        add_hashed = fwf.get_node_hash("add_0", graph, workflow_dict["nodes"])
-        data_dict = fwf.get_hashed_node_dict(
+        add_hashed = fwf._get_node_hash("add_0", graph, workflow_dict["nodes"])
+        data_dict = fwf._get_hashed_node_dict(
             "multiply_0", graph, workflow_dict["nodes"]
-        )
+        )[0]
         self.assertEqual(
             data_dict,
             {
@@ -958,7 +958,7 @@ class TestWorkflow(unittest.TestCase):
         graph = fwf.get_workflow_graph(example_workflow._semantikon_workflow)
         self.assertRaises(
             ValueError,
-            fwf.get_hashed_node_dict,
+            fwf._get_hashed_node_dict,
             "add_0",
             graph,
             example_workflow._semantikon_workflow["nodes"],

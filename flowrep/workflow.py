@@ -1280,9 +1280,9 @@ def _replace_input_ports(
     return G
 
 
-def get_hashed_node_dict(
-    node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]
-) -> dict[str, Any]:
+def _get_hashed_node_dict(
+    node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict], hash_dict: dict[str, str] | None = None
+) -> tuple[dict[str, Any], dict[str, str]]:
     """
     Get a dictionary representation of a node for hashing purposes and database
     entries. This function extracts the metadata of the node, its inputs, and
@@ -1299,6 +1299,8 @@ def get_hashed_node_dict(
     Raises:
         ValueError: If the node does not have a function or if the data is not flat.
     """
+    if hash_dict is None:
+        hash_dict = {}
     if "function" not in nodes_dict[node]:
         raise ValueError("Hashing works only on flat data")
     data_dict = {
@@ -1315,8 +1317,13 @@ def get_hashed_node_dict(
         pre_predecessor = list(graph.predecessors(predecessor))
         if len(pre_predecessor) > 0:
             assert len(pre_predecessor) == 1
+            if pre_predecessor[0] in hash_dict:
+                hash_value = hash_dict[pre_predecessor[0]]
+            else:
+                hash_value = _get_node_hash(pre_predecessor[0], graph, nodes_dict)
+                hash_dict[pre_predecessor[0]] = hash_value
             value = (
-                get_node_hash(pre_predecessor[0], graph, nodes_dict)
+                hash_value
                 + "@"
                 + predecessor.split(".")[-1]
             )
@@ -1325,10 +1332,10 @@ def get_hashed_node_dict(
             value = predecessor
         data_dict["inputs"][key] = value
     data_dict["node"]["connected_inputs"] = connected_inputs
-    return data_dict
+    return data_dict, hash_dict
 
 
-def get_node_hash(node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]) -> str:
+def _get_node_hash(node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]) -> str:
     """
     Get a hash of the node's metadata, inputs, and outputs.
 
@@ -1340,7 +1347,7 @@ def get_node_hash(node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]) -> 
     Returns:
         str: A SHA-256 hash of the node's metadata, inputs, and outputs.
     """
-    data_dict = get_hashed_node_dict(node=node, graph=graph, nodes_dict=nodes_dict)
+    data_dict = _get_hashed_node_dict(node=node, graph=graph, nodes_dict=nodes_dict)[0]
     return hashlib.sha256(
         json.dumps(data_dict, sort_keys=True).encode("utf-8")
     ).hexdigest()
