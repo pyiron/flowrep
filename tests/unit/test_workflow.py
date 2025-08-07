@@ -266,7 +266,11 @@ class TestWorkflow(unittest.TestCase):
                         "output_0": {"dtype": float},
                         "output_1": {"dtype": float},
                     },
-                    "function": f"{operation.__module__}.operation",
+                    "function": {
+                        "module": operation.__module__,
+                        "qualname": operation.__qualname__,
+                        "version": "not_defined",
+                    },
                     "type": "Function",
                 },
                 "add_0": {
@@ -275,7 +279,11 @@ class TestWorkflow(unittest.TestCase):
                         "y": {"dtype": float, "default": 1},
                     },
                     "outputs": {"output": {"dtype": float}},
-                    "function": f"{add.__module__}.add",
+                    "function": {
+                        "module": add.__module__,
+                        "qualname": add.__qualname__,
+                        "version": "not_defined",
+                    },
                     "uri": "add",
                     "type": "Function",
                 },
@@ -285,7 +293,11 @@ class TestWorkflow(unittest.TestCase):
                         "y": {"dtype": float, "default": 5},
                     },
                     "outputs": {"output": {"dtype": float}},
-                    "function": f"{multiply.__module__}.multiply",
+                    "function": {
+                        "module": multiply.__module__,
+                        "qualname": multiply.__qualname__,
+                        "version": "not_defined",
+                    },
                     "type": "Function",
                 },
             },
@@ -301,7 +313,7 @@ class TestWorkflow(unittest.TestCase):
             "type": "Workflow",
         }
         self.assertEqual(
-            fwf.separate_functions(example_macro._semantikon_workflow)[0], ref_data
+            fwf.serialize_functions(example_macro._semantikon_workflow), ref_data
         )
 
     def test_get_workflow_dict_macro(self):
@@ -315,7 +327,11 @@ class TestWorkflow(unittest.TestCase):
                     "outputs": {"f": {}},
                     "nodes": {
                         "operation_0": {
-                            "function": f"{operation.__module__}.operation",
+                            "function": {
+                                "module": operation.__module__,
+                                "qualname": operation.__qualname__,
+                                "version": "not_defined",
+                            },
                             "inputs": {"x": {"dtype": float}, "y": {"dtype": float}},
                             "outputs": {
                                 "output_0": {"dtype": float},
@@ -324,7 +340,11 @@ class TestWorkflow(unittest.TestCase):
                             "type": "Function",
                         },
                         "add_0": {
-                            "function": f"{add.__module__}.add",
+                            "function": {
+                                "module": add.__module__,
+                                "qualname": add.__qualname__,
+                                "version": "not_defined",
+                            },
                             "inputs": {
                                 "x": {"dtype": float, "default": 2.0},
                                 "y": {"dtype": float, "default": 1},
@@ -334,7 +354,11 @@ class TestWorkflow(unittest.TestCase):
                             "type": "Function",
                         },
                         "multiply_0": {
-                            "function": f"{multiply.__module__}.multiply",
+                            "function": {
+                                "module": multiply.__module__,
+                                "qualname": multiply.__qualname__,
+                                "version": "not_defined",
+                            },
                             "inputs": {
                                 "x": {"dtype": float},
                                 "y": {"dtype": float, "default": 5},
@@ -356,7 +380,11 @@ class TestWorkflow(unittest.TestCase):
                     "uri": "this macro has metadata",
                 },
                 "add_0": {
-                    "function": f"{add.__module__}.add",
+                    "function": {
+                        "module": add.__module__,
+                        "qualname": add.__qualname__,
+                        "version": "not_defined",
+                    },
                     "inputs": {
                         "x": {"dtype": float, "default": 2.0},
                         "y": {"dtype": float, "default": 1},
@@ -376,7 +404,7 @@ class TestWorkflow(unittest.TestCase):
             "label": "example_workflow",
             "type": "Workflow",
         }
-        self.assertEqual(fwf.separate_functions(result)[0], ref_data, msg=result)
+        self.assertEqual(fwf.serialize_functions(result), ref_data, msg=result)
 
     def test_parallel_execution(self):
         graph = fwf.analyze_function(parallel_execution)[0]
@@ -426,27 +454,6 @@ class TestWorkflow(unittest.TestCase):
             fwf.workflow(example_invalid_multiple_operation)
         with self.assertRaises(NotImplementedError):
             fwf.workflow(example_invalid_local_var_def)
-
-    def test_separate_functions(self):
-        old_data = example_workflow._semantikon_workflow
-        data, function_dict = fwf.separate_functions(old_data)
-        # add is deep copied due to the decorator
-        del function_dict[f"{add.__module__}.add"]
-        self.assertEqual(
-            function_dict,
-            {
-                f"{operation.__module__}.operation": operation,
-                f"{multiply.__module__}.multiply": multiply,
-            },
-        )
-        self.assertEqual(
-            data["nodes"]["example_macro_0"]["nodes"]["operation_0"]["function"],
-            f"{operation.__module__}.operation",
-        )
-        self.assertEqual(
-            old_data["nodes"]["example_macro_0"]["nodes"]["operation_0"]["function"],
-            operation,
-        )
 
     def test_separate_types(self):
         old_data = example_workflow._semantikon_workflow

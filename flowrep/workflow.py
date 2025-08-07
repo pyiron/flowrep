@@ -88,9 +88,7 @@ def separate_types(
     return data, class_dict
 
 
-def separate_functions(
-    data: dict[str, Any], function_dict: dict[str, Callable] | None = None
-) -> tuple[dict[str, Any], dict[str, Callable]]:
+def serialize_functions(data: dict[str, Any]) -> dict[str, Any]:
     """
     Separate functions from the data dictionary and store them in a function
     dictionary. The functions inside the data dictionary will be replaced by
@@ -99,33 +97,20 @@ def separate_functions(
     Args:
         data (dict[str, Any]): The data dictionary containing nodes and
             functions.
-        function_dict (dict[str, Callable], optional): A dictionary to store
-            functions. It is mainly used due to the recursivity of this
-            function. Defaults to None.
 
     Returns:
         tuple: A tuple containing the modified data dictionary and the
             function dictionary.
     """
     data = copy.deepcopy(data)
-    if function_dict is None:
-        function_dict = {}
     if "nodes" in data:
         for key, node in data["nodes"].items():
-            child_node, child_function_dict = separate_functions(node, function_dict)
-            function_dict.update(child_function_dict)
-            data["nodes"][key] = child_node
+            data["nodes"][key] = serialize_functions(node)
     elif "function" in data and not isinstance(data["function"], str):
-        fnc_object = data["function"]
-        as_string = fnc_object.__module__ + "." + fnc_object.__qualname__
-        function_dict[as_string] = fnc_object
-        data["function"] = as_string
+        data["function"] = _get_function_metadata(data["function"])
     if "test" in data and not isinstance(data["test"]["function"], str):
-        fnc_object = data["test"]["function"]
-        as_string = fnc_object.__module__ + fnc_object.__qualname__
-        function_dict[as_string] = fnc_object
-        data["test"]["function"] = as_string
-    return data, function_dict
+        data["test"]["function"] = _get_function_metadata(data["test"]["function"])
+    return data
 
 
 class FunctionDictFlowAnalyzer:
