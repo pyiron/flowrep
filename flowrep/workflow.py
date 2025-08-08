@@ -1265,6 +1265,12 @@ def _replace_input_ports(
     return G
 
 
+def _hash(data_dict: dict[str, Any]) -> str:
+    return hashlib.sha256(
+        json.dumps(data_dict, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+
 def _get_hashed_node_dict(
     node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict], hash_dict: dict[str, str] | None = None
 ) -> tuple[dict[str, Any], dict[str, str]]:
@@ -1333,9 +1339,7 @@ def _get_node_hash(node: str, graph: nx.DiGraph, nodes_dict: dict[str, dict]) ->
         str: A SHA-256 hash of the node's metadata, inputs, and outputs.
     """
     data_dict = _get_hashed_node_dict(node=node, graph=graph, nodes_dict=nodes_dict)[0]
-    return hashlib.sha256(
-        json.dumps(data_dict, sort_keys=True).encode("utf-8")
-    ).hexdigest()
+    return _hash(data_dict)
 
 
 def _get_entry(data: dict[str, Any], key: str) -> Any:
