@@ -1323,6 +1323,7 @@ def _get_hashed_node_dict(
             value = predecessor
         data_dict["inputs"][key] = value
     data_dict["node"]["connected_inputs"] = connected_inputs
+    hash_dict[node] = _hash(data_dict)
     return data_dict, hash_dict
 
 
