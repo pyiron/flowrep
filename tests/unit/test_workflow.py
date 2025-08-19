@@ -1,10 +1,11 @@
 import unittest
 
 import networkx as nx
-from semantikon import datastructure
+from semantikon import datastructure as sds
 from semantikon.converter import parse_input_args
 from semantikon.metadata import u
 
+import flowrep.datastructure as ds
 import flowrep.workflow as fwf
 
 
@@ -631,34 +632,34 @@ class TestWorkflow(unittest.TestCase):
         node = fwf.get_node(complex_function)
 
         with self.subTest("Node parsing"):
-            self.assertIsInstance(node, fwf.Function)
-            self.assertIsInstance(node.inputs, fwf.Inputs)
-            self.assertIsInstance(node.outputs, fwf.Outputs)
-            self.assertIsInstance(node.metadata, fwf.CoreMetadata)
-            self.assertEqual(node.type, datastructure.Function.__name__)
+            self.assertIsInstance(node, ds.Function)
+            self.assertIsInstance(node.inputs, ds.Inputs)
+            self.assertIsInstance(node.outputs, ds.Outputs)
+            self.assertIsInstance(node.metadata, sds.CoreMetadata)
+            self.assertEqual(node.type, ds.Function.__name__)
             self.assertEqual(node.label, complex_function.__name__)
             self.assertEqual(node.metadata.uri, "some URI")
 
         with self.subTest("Input parsing"):
-            self.assertIsInstance(node.inputs.x, fwf.Input)
+            self.assertIsInstance(node.inputs.x, ds.Input)
             self.assertIs(node.inputs.x.dtype, float)
             self.assertAlmostEqual(node.inputs.x.default, 2.0)
-            self.assertIsInstance(node.inputs.x.metadata, datastructure.TypeMetadata)
+            self.assertIsInstance(node.inputs.x.metadata, sds.TypeMetadata)
             self.assertEqual(node.inputs.x.metadata.units, "meter")
             self.assertIs(node.inputs.y.dtype, float)
             self.assertAlmostEqual(node.inputs.y.default, 1.0)
-            self.assertIsInstance(node.inputs.y.metadata, datastructure.TypeMetadata)
+            self.assertIsInstance(node.inputs.y.metadata, sds.TypeMetadata)
             self.assertEqual(node.inputs.y.metadata.units, "second")
             self.assertEqual(node.inputs.y.metadata.extra["something_extra"], 42)
 
         with self.subTest("Output parsing"):
-            self.assertIsInstance(node.outputs.x, fwf.Output)
+            self.assertIsInstance(node.outputs.x, ds.Output)
             self.assertIs(node.outputs.x.dtype, float)
-            self.assertIsInstance(node.outputs.x.metadata, datastructure.TypeMetadata)
+            self.assertIsInstance(node.outputs.x.metadata, sds.TypeMetadata)
             self.assertEqual(node.outputs.x.metadata.units, "meter")
             self.assertIs(node.outputs.speed.dtype, float)
             self.assertIsInstance(
-                node.outputs.speed.metadata, datastructure.TypeMetadata
+                node.outputs.speed.metadata, sds.TypeMetadata
             )
             self.assertEqual(node.outputs.speed.metadata.units, "meter/second")
             self.assertEqual(node.outputs.speed.metadata.uri, "VELOCITY")
@@ -667,22 +668,22 @@ class TestWorkflow(unittest.TestCase):
     def test_complex_macro(self):
         node = fwf.get_node(complex_macro)
         with self.subTest("Node parsing"):
-            self.assertIsInstance(node, fwf.Workflow)
-            self.assertIsInstance(node.inputs, fwf.Inputs)
+            self.assertIsInstance(node, ds.Workflow)
+            self.assertIsInstance(node.inputs, ds.Inputs)
             self.assertAlmostEqual(node.inputs.x.default, 2.0)
-            self.assertIsInstance(node.inputs.x.metadata, datastructure.TypeMetadata)
+            self.assertIsInstance(node.inputs.x.metadata, sds.TypeMetadata)
             self.assertEqual(node.inputs.x.metadata.units, "meter")
-            self.assertIsInstance(node.outputs, fwf.Outputs)
-            self.assertIsInstance(node.metadata, fwf.CoreMetadata)
-            self.assertEqual(node.type, datastructure.Workflow.__name__)
+            self.assertIsInstance(node.outputs, ds.Outputs)
+            self.assertIsInstance(node.metadata, sds.CoreMetadata)
+            self.assertEqual(node.type, ds.Workflow.__name__)
             self.assertEqual(node.label, complex_macro.__name__)
             self.assertEqual(node.metadata.uri, "some other URI")
 
         with self.subTest("Graph-node parsing"):
-            self.assertIsInstance(node.nodes, fwf.Nodes)
-            self.assertIsInstance(node.nodes.complex_function_0, fwf.Function)
+            self.assertIsInstance(node.nodes, ds.Nodes)
+            self.assertIsInstance(node.nodes.complex_function_0, ds.Function)
             self.assertEqual("complex_function_0", node.nodes.complex_function_0.label)
-            self.assertIsInstance(node.edges, fwf.Edges)
+            self.assertIsInstance(node.edges, ds.Edges)
             self.assertDictEqual(
                 {
                     f"{node.nodes.complex_function_0.label}.inputs.{node.nodes.complex_function_0.inputs.x.label}": f"inputs.{node.inputs.x.label}",
@@ -695,21 +696,21 @@ class TestWorkflow(unittest.TestCase):
     def test_complex_workflow(self):
         node = fwf.get_node(complex_workflow)
         with self.subTest("Node parsing"):
-            self.assertIsInstance(node, fwf.Workflow)
-            self.assertIsInstance(node.inputs, fwf.Inputs)
+            self.assertIsInstance(node, ds.Workflow)
+            self.assertIsInstance(node.inputs, ds.Inputs)
             self.assertAlmostEqual(node.inputs.x.default, 2.0)
-            self.assertIsInstance(node.inputs.x.metadata, datastructure.TypeMetadata)
+            self.assertIsInstance(node.inputs.x.metadata, sds.TypeMetadata)
             self.assertEqual(node.inputs.x.metadata.units, "meter")
-            self.assertIsInstance(node.outputs, fwf.Outputs)
-            self.assertIsInstance(node.metadata, fwf.CoreMetadata)
-            self.assertEqual(node.type, datastructure.Workflow.__name__)
+            self.assertIsInstance(node.outputs, ds.Outputs)
+            self.assertIsInstance(node.metadata, sds.CoreMetadata)
+            self.assertEqual(node.type, ds.Workflow.__name__)
             self.assertEqual(node.label, complex_workflow.__name__)
             self.assertTupleEqual(node.metadata.triples, ("a", "b", "c"))
 
         with self.subTest("Graph-node parsing"):
-            self.assertIsInstance(node.nodes, fwf.Nodes)
-            self.assertIsInstance(node.nodes.complex_macro_0, fwf.Workflow)
-            self.assertIsInstance(node.edges, fwf.Edges)
+            self.assertIsInstance(node.nodes, ds.Nodes)
+            self.assertIsInstance(node.nodes.complex_macro_0, ds.Workflow)
+            self.assertIsInstance(node.edges, ds.Edges)
             self.assertDictEqual(
                 {
                     f"{node.nodes.complex_macro_0.label}.inputs.{node.nodes.complex_macro_0.inputs.x.label}": f"inputs.{node.inputs.x.label}",

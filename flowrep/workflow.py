@@ -24,18 +24,11 @@ from semantikon.converter import (
 from semantikon.datastructure import (
     MISSING,
     CoreMetadata,
-    Edges,
-    Function,
-    Input,
-    Inputs,
     Missing,
-    Nodes,
-    Output,
-    Outputs,
-    PortType,
     TypeMetadata,
-    Workflow,
 )
+
+from flowrep import datastructure as ds
 
 F = TypeVar("F", bound=Callable[..., object])
 
@@ -1125,7 +1118,7 @@ def workflow(func: Callable) -> FunctionWithWorkflow:
 
 def get_ports(
     func: Callable, separate_return_tuple: bool = True, strict: bool = False
-) -> tuple[Inputs, Outputs]:
+) -> tuple[ds.Inputs, ds.Outputs]:
     type_hints = get_annotated_type_hints(func)
     return_hint = type_hints.pop("return", inspect.Parameter.empty)
     return_labels = get_return_labels(
@@ -1147,12 +1140,12 @@ def get_ports(
         for key, value in inspect.signature(func).parameters.items()
     }
     return (
-        Inputs(**{k: Input(label=k, **v) for k, v in input_annotations.items()}),
-        Outputs(**{k: Output(label=k, **v) for k, v in output_annotations.items()}),
+        ds.Inputs(**{k: ds.Input(label=k, **v) for k, v in input_annotations.items()}),
+        ds.Outputs(**{k: ds.Output(label=k, **v) for k, v in output_annotations.items()}),
     )
 
 
-def get_node(func: Callable, label: str | None = None) -> Function | Workflow:
+def get_node(func: Callable, label: str | None = None) -> ds.Function | ds.Workflow:
     metadata_dict = (
         func._semantikon_metadata if hasattr(func, "_semantikon_metadata") else MISSING
     )
@@ -1170,9 +1163,9 @@ def get_node(func: Callable, label: str | None = None) -> Function | Workflow:
 
 def parse_function(
     func: Callable, metadata: CoreMetadata | Missing, label: str | None = None
-) -> Function:
+) -> ds.Function:
     inputs, outputs = get_ports(func)
-    return Function(
+    return ds.Function(
         label=func.__name__ if label is None else label,
         inputs=inputs,
         outputs=outputs,
@@ -1182,8 +1175,8 @@ def parse_function(
 
 
 def _port_from_dictionary(
-    io_dictionary: dict[str, object], label: str, port_class: type[PortType]
-) -> PortType:
+    io_dictionary: dict[str, object], label: str, port_class: type[ds.PortType]
+) -> ds.PortType:
     """
     Take a traditional _semantikon_workflow dictionary's input or output subdictionary
     and nest the metadata (if any) as a dataclass.
@@ -1198,31 +1191,31 @@ def _port_from_dictionary(
     return port_class.from_dict(io_dictionary)
 
 
-def _input_from_dictionary(io_dictionary: dict[str, object], label: str) -> Input:
-    return _port_from_dictionary(io_dictionary, label, Input)
+def _input_from_dictionary(io_dictionary: dict[str, object], label: str) -> ds.Input:
+    return _port_from_dictionary(io_dictionary, label, ds.Input)
 
 
-def _output_from_dictionary(io_dictionary: dict[str, object], label: str) -> Output:
-    return _port_from_dictionary(io_dictionary, label, Output)
+def _output_from_dictionary(io_dictionary: dict[str, object], label: str) -> ds.Output:
+    return _port_from_dictionary(io_dictionary, label, ds.Output)
 
 
 def parse_workflow(
     semantikon_workflow: dict[str, Any], metadata: CoreMetadata | Missing = MISSING
-) -> Workflow:
+) -> ds.Workflow:
     label = semantikon_workflow["label"]
-    inputs = Inputs(
+    inputs = ds.Inputs(
         **{
             k: _input_from_dictionary(v, label=k)
             for k, v in semantikon_workflow["inputs"].items()
         }
     )
-    outputs = Outputs(
+    outputs = ds.Outputs(
         **{
             k: _output_from_dictionary(v, label=k)
             for k, v in semantikon_workflow["outputs"].items()
         }
     )
-    nodes = Nodes(
+    nodes = ds.Nodes(
         **{
             k: (
                 get_node(v["function"], label=k)
@@ -1232,8 +1225,8 @@ def parse_workflow(
             for k, v in semantikon_workflow["nodes"].items()
         }
     )
-    edges = Edges(**{v: k for k, v in semantikon_workflow["edges"]})
-    return Workflow(
+    edges = ds.Edges(**{v: k for k, v in semantikon_workflow["edges"]})
+    return ds.Workflow(
         label=label,
         inputs=inputs,
         outputs=outputs,

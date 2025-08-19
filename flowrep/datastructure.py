@@ -5,50 +5,8 @@ from collections.abc import Iterable, MutableMapping
 from typing import Any, Callable, Generic, Iterator, TypeAlias, TypeVar
 
 import typeguard
+from semantikon import datastructure as sds
 
-
-class Missing:
-    def __repr__(self):
-        return "<MISSING>"
-
-
-MISSING = Missing()
-missing = functools.partial(dataclasses.field, default=MISSING)
-
-
-class _HasToDictionary(Iterable[tuple[str, Any]], abc.ABC):
-    @abc.abstractmethod
-    def __iter__(self) -> Iterator[tuple[str, Any]]:
-        pass
-
-    def to_dictionary(self) -> dict[str, Any]:
-        d = {}
-        for k, v in self:
-            if isinstance(v, _HasToDictionary):
-                d[k] = v.to_dictionary()
-            elif v is not MISSING:
-                d[k] = v
-        return d
-
-
-@dataclasses.dataclass(slots=True)
-class _VariadicDataclass(_HasToDictionary):
-
-    def __iter__(self) -> Iterator[tuple[str, Any]]:
-        yield from (
-            (f.name, val)
-            for f in dataclasses.fields(self)
-            if (val := getattr(self, f.name)) is not MISSING
-        )
-
-    @classmethod
-    def from_dict(cls, kwargs: dict[str, Any]):  # -> typing.Self only available 3.11+
-        """Type-guarded instantiation from a dictionary"""
-
-        for field in dataclasses.fields(cls):
-            if field.name in kwargs:
-                typeguard.check_type(kwargs[field.name], field.type)
-        return cls(**kwargs)
 
 
 TripleType: TypeAlias = tuple[str | None, str, str | None] | tuple[str, str]
@@ -63,29 +21,12 @@ RestrictionLike: TypeAlias = (
 ShapeType: TypeAlias = tuple[int, ...]
 
 
-@dataclasses.dataclass(slots=True)
-class CoreMetadata(_VariadicDataclass):
-    uri: str | Missing = missing()
-    triples: TriplesLike | Missing = missing()
-    restrictions: RestrictionLike | Missing = missing()
 
 
 @dataclasses.dataclass(slots=True)
-class TypeMetadata(CoreMetadata):
-    label: str | Missing = missing()
-    units: str | Missing = missing()
-    shape: ShapeType | Missing = missing()
-    derived_from: str | Missing = missing()
-    extra: dict[str, Any] | Missing = missing()
-
-
-_MetadataType = TypeVar("_MetadataType", bound=CoreMetadata)
-
-
-@dataclasses.dataclass(slots=True)
-class _Lexical(_VariadicDataclass, Generic[_MetadataType]):
+class _Lexical(sds._VariadicDataclass, Generic[sds._MetadataType]):
     label: str
-    metadata: _MetadataType | Missing
+    metadata: sds._MetadataType | sds.Missing
 
     @property
     def type(self) -> str:
@@ -97,10 +38,10 @@ class _Lexical(_VariadicDataclass, Generic[_MetadataType]):
 
 
 @dataclasses.dataclass(slots=True)
-class _Port(_Lexical[TypeMetadata]):
-    metadata: TypeMetadata | Missing = missing()
-    dtype: type | Missing = missing()
-    value: object | Missing = missing()
+class _Port(_Lexical[sds.TypeMetadata]):
+    metadata: sds.TypeMetadata | sds.Missing = sds.missing()
+    dtype: type | sds.Missing = sds.missing()
+    value: object | sds.Missing = sds.missing()
 
 
 @dataclasses.dataclass(slots=True)
@@ -110,14 +51,14 @@ class Output(_Port):
 
 @dataclasses.dataclass(slots=True)
 class Input(_Port):
-    default: Any | Missing = missing()
+    default: Any | sds.Missing = sds.missing()
 
 
 _ItemType = TypeVar("_ItemType")
 
 
 class _HasToDictionarMapping(
-    _HasToDictionary, MutableMapping[str, _ItemType], Generic[_ItemType]
+    sds._HasToDictionary, MutableMapping[str, _ItemType], Generic[_ItemType]
 ):
     def __init__(self, **kwargs: _ItemType) -> None:
         self._data: dict[str, _ItemType] = kwargs
@@ -154,8 +95,8 @@ class Outputs(_IO[Output]): ...
 
 
 @dataclasses.dataclass(slots=True)
-class _Node(_Lexical[CoreMetadata]):
-    metadata: CoreMetadata | Missing
+class _Node(_Lexical[sds.CoreMetadata]):
+    metadata: sds.CoreMetadata | sds.Missing
     inputs: Inputs
     outputs: Outputs
 
