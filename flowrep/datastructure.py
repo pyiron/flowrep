@@ -1,13 +1,8 @@
-import abc
 import dataclasses
-import functools
-from collections.abc import Iterable, MutableMapping
-from typing import Any, Callable, Generic, Iterator, TypeAlias, TypeVar
+from collections.abc import Callable, Iterator, MutableMapping
+from typing import Any, Generic, TypeAlias, TypeVar
 
-import typeguard
 from semantikon import datastructure as sds
-
-
 
 TripleType: TypeAlias = tuple[str | None, str, str | None] | tuple[str, str]
 TriplesLike: TypeAlias = tuple[TripleType, ...] | TripleType
