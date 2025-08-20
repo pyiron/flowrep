@@ -1,12 +1,12 @@
 import unittest
 
 import networkx as nx
-
-import flowrep.datastructure as ds
-import flowrep.workflow as fwf
 from semantikon import datastructure as sds
 from semantikon.converter import parse_input_args
 from semantikon.metadata import u
+
+import flowrep.datastructure as ds
+import flowrep.workflow as fwf
 
 
 def operation(x: float, y: float) -> tuple[float, float]:

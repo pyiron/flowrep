@@ -13,8 +13,6 @@ from typing import Any, Generic, TypeVar, cast, get_args, get_origin
 
 import networkx as nx
 from networkx.algorithms.dag import topological_sort
-
-from flowrep import datastructure as ds
 from semantikon.converter import (
     get_annotated_type_hints,
     get_return_expressions,
@@ -29,6 +27,8 @@ from semantikon.datastructure import (
     Missing,
     TypeMetadata,
 )
+
+from flowrep import datastructure as ds
 
 F = TypeVar("F", bound=Callable[..., object])
 
