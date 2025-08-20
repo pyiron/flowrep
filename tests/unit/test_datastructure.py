@@ -1,9 +1,9 @@
 import unittest
 
-from flowrep.datastructure import _HasToDictionarMapping
+from flowrep.datastructure import _HasToDictionaryMapping
 
 
-class ConcreteHtDM(_HasToDictionarMapping[int]): ...
+class ConcreteHtDM(_HasToDictionaryMapping[int]): ...
 
 
 class TestHasToDictionaryMapping(unittest.TestCase):

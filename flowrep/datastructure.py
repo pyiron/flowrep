@@ -50,7 +50,7 @@ class Input(_Port):
 _ItemType = TypeVar("_ItemType")
 
 
-class _HasToDictionarMapping(
+class _HasToDictionaryMapping(
     sds._HasToDictionary, MutableMapping[str, _ItemType], Generic[_ItemType]
 ):
     def __init__(self, **kwargs: _ItemType) -> None:
@@ -78,7 +78,7 @@ class _HasToDictionarMapping(
 PortType = TypeVar("PortType", bound=_Port)
 
 
-class _IO(_HasToDictionarMapping[PortType], Generic[PortType]): ...
+class _IO(_HasToDictionaryMapping[PortType], Generic[PortType]): ...
 
 
 class Inputs(_IO[Input]): ...
@@ -99,13 +99,13 @@ class Function(_Node):
     function: Callable
 
 
-class Nodes(_HasToDictionarMapping[_Node]): ...
+class Nodes(_HasToDictionaryMapping[_Node]): ...
 
 
 EdgeType: TypeAlias = tuple[str, str]
 
 
-class Edges(_HasToDictionarMapping[str]):
+class Edges(_HasToDictionaryMapping[str]):
     """
     Key value pairs are stored as `{target: source}` such that each upstream source can
     be used in multiple places, but each downstream target can have only a single
