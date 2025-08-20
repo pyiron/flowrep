@@ -1141,7 +1141,9 @@ def get_ports(
     }
     return (
         ds.Inputs(**{k: ds.Input(label=k, **v) for k, v in input_annotations.items()}),
-        ds.Outputs(**{k: ds.Output(label=k, **v) for k, v in output_annotations.items()}),
+        ds.Outputs(
+            **{k: ds.Output(label=k, **v) for k, v in output_annotations.items()}
+        ),
     )
 
 

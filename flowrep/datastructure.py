@@ -16,8 +16,6 @@ RestrictionLike: TypeAlias = (
 ShapeType: TypeAlias = tuple[int, ...]
 
 
-
-
 @dataclasses.dataclass(slots=True)
 class _Lexical(sds._VariadicDataclass, Generic[sds._MetadataType]):
     label: str

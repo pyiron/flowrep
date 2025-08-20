@@ -658,9 +658,7 @@ class TestWorkflow(unittest.TestCase):
             self.assertIsInstance(node.outputs.x.metadata, sds.TypeMetadata)
             self.assertEqual(node.outputs.x.metadata.units, "meter")
             self.assertIs(node.outputs.speed.dtype, float)
-            self.assertIsInstance(
-                node.outputs.speed.metadata, sds.TypeMetadata
-            )
+            self.assertIsInstance(node.outputs.speed.metadata, sds.TypeMetadata)
             self.assertEqual(node.outputs.speed.metadata.units, "meter/second")
             self.assertEqual(node.outputs.speed.metadata.uri, "VELOCITY")
             self.assertIs(node.outputs.output_2.dtype, float)
