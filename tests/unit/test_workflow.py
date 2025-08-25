@@ -89,15 +89,6 @@ def complex_workflow(
     return c
 
 
-class ApeClass:
-    pass
-
-
-@u(uri="my_function")
-def multiple_types_for_ape(a: ApeClass, b: ApeClass) -> ApeClass:
-    return a + b
-
-
 def seemingly_cyclic_workflow(a=10, b=20):
     a = add(a, b)
     return a
