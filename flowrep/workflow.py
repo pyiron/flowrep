@@ -431,7 +431,7 @@ def _get_parent_graph(graph: nx.DiGraph, control_flow: str) -> nx.DiGraph:
 
 def _detect_io_variables_from_control_flow(
     graph: nx.DiGraph, subgraph: nx.DiGraph
-) -> dict[str, list]:
+) -> dict[str, list[str]]:
     """
     Detect input and output variables from a graph based on control flow.
 
@@ -466,9 +466,27 @@ def _detect_io_variables_from_control_flow(
     var_inp_2 = _get_variables_from_subgraph(graph=parent_graph, io_="output")
     var_out_1 = _get_variables_from_subgraph(graph=parent_graph, io_="input")
     var_out_2 = _get_variables_from_subgraph(graph=sg_body, io_="output")
+    inputs = var_inp_1.intersection(var_inp_2)
+    input_stem = [inp.rsplit("_", 1)[0] for inp in inputs]
+    outputs = var_out_1.intersection(var_out_2)
+    # This is needed in order to add those outputs which are updated during
+    # the control flow to the outputs. For example, the variable x in the
+    # following workflow has to be in the outputs because it is updated in the
+    # while loop, even though it is not used subsequently.
+    # def f(x):
+    #     while h(x):
+    #         x, y = k(y)
+    #     return y
+    output_candidate = {}
+    for edges in subgraph.edges:
+        if edges[0] == "input" or edges[1] == "output":
+            continue
+        if edges[1].rsplit("_", 1)[0] in input_stem:
+            output_candidate[edges[1].rsplit("_", 1)[0]] = edges[1]
+    outputs.update(set(output_candidate.values()))
     return {
-        "inputs": list(var_inp_1.intersection(var_inp_2)),
-        "outputs": list(var_out_1.intersection(var_out_2)),
+        "inputs": list(inputs),
+        "outputs": list(outputs),
     }
 
 

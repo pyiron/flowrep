@@ -478,7 +478,7 @@ class TestWorkflow(unittest.TestCase):
         )
         self.assertEqual(
             sorted(wf["nodes"]["injected_While_0"]["outputs"].keys()),
-            ["z"],
+            ["x", "z"],
         )
         self.assertEqual(
             sorted(wf["nodes"]["injected_While_0"]["edges"]),
@@ -491,6 +491,7 @@ class TestWorkflow(unittest.TestCase):
                     ("inputs.a", "multiply_0.inputs.x"),
                     ("add_1.outputs.output", "multiply_0.inputs.y"),
                     ("multiply_0.outputs.output", "outputs.z"),
+                    ("add_1.outputs.output", "outputs.x"),
                 ]
             ),
         )
@@ -749,7 +750,7 @@ class TestWorkflow(unittest.TestCase):
             {key: sorted(value) for key, value in io_vars.items()},
             {
                 "inputs": ["a_0", "b_0", "x_0"],
-                "outputs": ["z_0"],
+                "outputs": ["x_1", "z_0"],
             },
         )
 
@@ -816,6 +817,7 @@ class TestWorkflow(unittest.TestCase):
                     ("inputs.a", "multiply_0.inputs.x"),
                     ("add_1.outputs.output", "multiply_0.inputs.y"),
                     ("multiply_0.outputs.output", "outputs.z"),
+                    ("add_1.outputs.output", "outputs.x"),
                 ]
             ),
         )
