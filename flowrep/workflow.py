@@ -768,6 +768,38 @@ def _get_edges(graph: nx.DiGraph, nodes: dict[str, dict]) -> list[tuple[str, str
     return list(new_graph.edges)
 
 
+def _new_get_edges(graph: nx.DiGraph) -> list[tuple[str, str]]:
+    edges = []
+    nodes_to_remove = []
+    for edge in graph.edges.data():
+        if edge[0] == "input":
+            edges.append([edge[0] + "s." + _remove_index(edge[1]), edge[1]])
+            nodes_to_remove.append(edge[1])
+        elif edge[1] == "output":
+            edges.append([edge[0], edge[1] + "s." + _remove_index(edge[0])])
+            nodes_to_remove.append(edge[0])
+        elif edge[2]["type"] == "input":
+            if "input_name" in edge[2]:
+                tag = edge[2]["input_name"]
+            elif "input_index" in edge[2]:
+                tag = str(edge[2]["input_index"])
+            else:
+                raise ValueError
+            edges.append([edge[0], f"{edge[1]}.inputs.{tag}"])
+            nodes_to_remove.append(edge[0])
+        elif edge[2]["type"] == "output":
+            if "output_index" in edge[2]:
+                tag = edge[2]["output_index"]
+            elif "output_name" in edge[2]:
+                tag = edge[2]["output_name"]
+            else:
+                tag = 0
+            edges.append([f"{edge[0]}.outputs.{tag}", edge[1]])
+            nodes_to_remove.append(edge[1])
+    new_graph = _remove_and_reconnect_nodes(nx.DiGraph(edges), nodes_to_remove)
+    return list(new_graph.edges)
+
+
 def get_node_dict(
     function: Callable,
     inputs: dict[str, dict] | None = None,

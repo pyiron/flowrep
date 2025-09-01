@@ -198,6 +198,28 @@ def workflow_with_if_else(a=10, b=20):
     return x
 
 
+class TestWorkflowNew(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.maxDiff = None
+
+    def test_new_get_edges(self):
+        graph, f_dict = fwf.analyze_function(example_macro)
+        self.assertEqual(
+            sorted(fwf._new_get_edges(graph)),
+            sorted(
+                [
+                    ("inputs.a", "operation_0.inputs.0"),
+                    ("inputs.b", "operation_0.inputs.1"),
+                    ("operation_0.outputs.0", "add_0.inputs.0"),
+                    ("operation_0.outputs.1", "add_0.inputs.y"),
+                    ("add_0.outputs.0", "multiply_0.inputs.0"),
+                    ("multiply_0.outputs.0", "outputs.f"),
+                ]
+            ),
+        )
+
+
 class TestWorkflow(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
