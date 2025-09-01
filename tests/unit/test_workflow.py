@@ -491,7 +491,7 @@ class TestWorkflow(unittest.TestCase):
                     ("inputs.a", "multiply_0.inputs.x"),
                     ("add_1.outputs.output", "multiply_0.inputs.y"),
                     ("multiply_0.outputs.output", "outputs.z"),
-                    ('add_1.outputs.output', 'outputs.x'),
+                    ("add_1.outputs.output", "outputs.x"),
                 ]
             ),
         )
@@ -817,7 +817,7 @@ class TestWorkflow(unittest.TestCase):
                     ("inputs.a", "multiply_0.inputs.x"),
                     ("add_1.outputs.output", "multiply_0.inputs.y"),
                     ("multiply_0.outputs.output", "outputs.z"),
-                    ('add_1.outputs.output', 'outputs.x'),
+                    ("add_1.outputs.output", "outputs.x"),
                 ]
             ),
         )
