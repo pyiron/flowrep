@@ -230,13 +230,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual(
             node_dict,
             {
-                "inputs": {
-                    "x": {"dtype": float, "default": 2.0},
-                    "y": {"dtype": float, "default": 1},
-                },
-                "outputs": {"output": {"dtype": float}},
                 "function": add,
-                "uri": "add",
                 "type": "Function",
             },
         )
