@@ -1,6 +1,6 @@
 channels:
-  - conda-forge
+- conda-forge
 dependencies:
-  - numpy =2.3.1
-  - setuptools >=68
-  - semantikon =0.0.21 
+- numpy =2.3.1
+- setuptools >=68
+- semantikon =0.0.22
