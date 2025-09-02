@@ -662,14 +662,8 @@ def _get_nodes(
             data_dict = func._semantikon_workflow.copy()
             result[label] = data_dict
             result[label]["label"] = label
-            if hasattr(func, "_semantikon_metadata"):
-                result[label].update(func._semantikon_metadata)
         else:
-            result[label] = get_node_dict(
-                function=func,
-                inputs=parse_input_args(func),
-                outputs=_get_node_outputs(func, output_counts.get(label, 1)),
-            )
+            result[label] = get_node_dict(function=func)
     return result
 
 
@@ -729,46 +723,7 @@ def _remove_and_reconnect_nodes(
     return G
 
 
-def _get_edges(graph: nx.DiGraph, nodes: dict[str, dict]) -> list[tuple[str, str]]:
-    io_dict = {
-        key: {
-            "input": list(data["inputs"].keys()),
-            "output": list(data["outputs"].keys()),
-        }
-        for key, data in nodes.items()
-    }
-    edges = []
-    nodes_to_remove = []
-    for edge in graph.edges.data():
-        if edge[0] == "input":
-            edges.append([edge[0] + "s." + _remove_index(edge[1]), edge[1]])
-            nodes_to_remove.append(edge[1])
-        elif edge[1] == "output":
-            edges.append([edge[0], edge[1] + "s." + _remove_index(edge[0])])
-            nodes_to_remove.append(edge[0])
-        elif edge[2]["type"] == "input":
-            if "input_name" in edge[2]:
-                tag = edge[2]["input_name"]
-            elif "input_index" in edge[2]:
-                tag = io_dict[edge[1]]["input"][edge[2]["input_index"]]
-            else:
-                raise ValueError
-            edges.append([edge[0], edge[1] + ".inputs." + tag])
-            nodes_to_remove.append(edge[0])
-        elif edge[2]["type"] == "output":
-            if "output_index" in edge[2]:
-                tag = io_dict[edge[0]]["output"][edge[2]["output_index"]]
-            elif "output_name" in edge[2]:
-                tag = edge[2]["output_name"]
-            else:
-                tag = io_dict[edge[0]]["output"][0]
-            edges.append([edge[0] + ".outputs." + tag, edge[1]])
-            nodes_to_remove.append(edge[1])
-    new_graph = _remove_and_reconnect_nodes(nx.DiGraph(edges), nodes_to_remove)
-    return list(new_graph.edges)
-
-
-def _new_get_edges(graph: nx.DiGraph) -> list[tuple[str, str]]:
+def _get_edges(graph: nx.DiGraph) -> list[tuple[str, str]]:
     edges = []
     nodes_to_remove = []
     for edge in graph.edges.data():
@@ -802,8 +757,6 @@ def _new_get_edges(graph: nx.DiGraph) -> list[tuple[str, str]]:
 
 def get_node_dict(
     function: Callable,
-    inputs: dict[str, dict] | None = None,
-    outputs: dict[str, dict] | None = None,
 ) -> dict:
     """
     Get a dictionary representation of the function node.
@@ -816,18 +769,10 @@ def get_node_dict(
     Returns:
         (dict) A dictionary representation of the function node.
     """
-    if inputs is None:
-        inputs = parse_input_args(function)
-    if outputs is None:
-        outputs = _get_node_outputs(function)
     data = {
-        "inputs": inputs,
-        "outputs": outputs,
         "function": function,
         "type": "Function",
     }
-    if hasattr(function, "_semantikon_metadata"):
-        data.update(function._semantikon_metadata)
     return data
 
 
@@ -839,8 +784,6 @@ def _to_workflow_dict_entry(
     label: str,
     **kwargs,
 ) -> dict[str, object]:
-    assert all("inputs" in v for v in nodes.values())
-    assert all("outputs" in v for v in nodes.values())
     assert all(
         "function" in v or ("nodes" in v and "edges" in v) for v in nodes.values()
     )
@@ -904,7 +847,7 @@ def _nest_nodes(
         io_ = _detect_io_variables_from_control_flow(graph, subgraph)
         injected_nodes[new_key] = {
             "nodes": current_nodes,
-            "edges": _get_edges(subgraph, current_nodes),
+            "edges": _get_edges(subgraph),
             "label": new_key,
             "inputs": {_remove_index(key): {} for key in io_["inputs"]},
             "outputs": {_remove_index(key): {} for key in io_["outputs"]},

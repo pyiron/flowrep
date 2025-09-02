@@ -198,28 +198,6 @@ def workflow_with_if_else(a=10, b=20):
     return x
 
 
-class TestWorkflowNew(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.maxDiff = None
-
-    def test_new_get_edges(self):
-        graph, f_dict = fwf.analyze_function(example_macro)
-        self.assertEqual(
-            sorted(fwf._new_get_edges(graph)),
-            sorted(
-                [
-                    ("inputs.a", "operation_0.inputs.0"),
-                    ("inputs.b", "operation_0.inputs.1"),
-                    ("operation_0.outputs.0", "add_0.inputs.0"),
-                    ("operation_0.outputs.1", "add_0.inputs.y"),
-                    ("add_0.outputs.0", "multiply_0.inputs.0"),
-                    ("multiply_0.outputs.0", "outputs.f"),
-                ]
-            ),
-        )
-
-
 class TestWorkflow(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -274,11 +252,6 @@ class TestWorkflow(unittest.TestCase):
             "outputs": {"f": {}},
             "nodes": {
                 "operation_0": {
-                    "inputs": {"x": {"dtype": float}, "y": {"dtype": float}},
-                    "outputs": {
-                        "output_0": {"dtype": float},
-                        "output_1": {"dtype": float},
-                    },
                     "function": {
                         "module": operation.__module__,
                         "qualname": operation.__qualname__,
@@ -287,25 +260,14 @@ class TestWorkflow(unittest.TestCase):
                     "type": "Function",
                 },
                 "add_0": {
-                    "inputs": {
-                        "x": {"dtype": float, "default": 2.0},
-                        "y": {"dtype": float, "default": 1},
-                    },
-                    "outputs": {"output": {"dtype": float}},
                     "function": {
                         "module": add.__module__,
                         "qualname": add.__qualname__,
                         "version": "not_defined",
                     },
-                    "uri": "add",
                     "type": "Function",
                 },
                 "multiply_0": {
-                    "inputs": {
-                        "x": {"dtype": float},
-                        "y": {"dtype": float, "default": 5},
-                    },
-                    "outputs": {"output": {"dtype": float}},
                     "function": {
                         "module": multiply.__module__,
                         "qualname": multiply.__qualname__,
@@ -315,12 +277,12 @@ class TestWorkflow(unittest.TestCase):
                 },
             },
             "edges": [
-                ("inputs.a", "operation_0.inputs.x"),
-                ("inputs.b", "operation_0.inputs.y"),
-                ("operation_0.outputs.output_0", "add_0.inputs.x"),
-                ("operation_0.outputs.output_1", "add_0.inputs.y"),
-                ("add_0.outputs.output", "multiply_0.inputs.x"),
-                ("multiply_0.outputs.output", "outputs.f"),
+                ("inputs.a", "operation_0.inputs.0"),
+                ("inputs.b", "operation_0.inputs.1"),
+                ("operation_0.outputs.0", "add_0.inputs.0"),
+                ("operation_0.outputs.1", "add_0.inputs.y"),
+                ("add_0.outputs.0", "multiply_0.inputs.0"),
+                ("multiply_0.outputs.0", "outputs.f"),
             ],
             "label": "example_macro",
             "type": "Workflow",
@@ -345,11 +307,6 @@ class TestWorkflow(unittest.TestCase):
                                 "qualname": operation.__qualname__,
                                 "version": "not_defined",
                             },
-                            "inputs": {"x": {"dtype": float}, "y": {"dtype": float}},
-                            "outputs": {
-                                "output_0": {"dtype": float},
-                                "output_1": {"dtype": float},
-                            },
                             "type": "Function",
                         },
                         "add_0": {
@@ -358,12 +315,6 @@ class TestWorkflow(unittest.TestCase):
                                 "qualname": add.__qualname__,
                                 "version": "not_defined",
                             },
-                            "inputs": {
-                                "x": {"dtype": float, "default": 2.0},
-                                "y": {"dtype": float, "default": 1},
-                            },
-                            "outputs": {"output": {"dtype": float}},
-                            "uri": "add",
                             "type": "Function",
                         },
                         "multiply_0": {
@@ -372,25 +323,19 @@ class TestWorkflow(unittest.TestCase):
                                 "qualname": multiply.__qualname__,
                                 "version": "not_defined",
                             },
-                            "inputs": {
-                                "x": {"dtype": float},
-                                "y": {"dtype": float, "default": 5},
-                            },
-                            "outputs": {"output": {"dtype": float}},
                             "type": "Function",
                         },
                     },
                     "edges": [
-                        ("inputs.a", "operation_0.inputs.x"),
-                        ("inputs.b", "operation_0.inputs.y"),
-                        ("operation_0.outputs.output_0", "add_0.inputs.x"),
-                        ("operation_0.outputs.output_1", "add_0.inputs.y"),
-                        ("add_0.outputs.output", "multiply_0.inputs.x"),
-                        ("multiply_0.outputs.output", "outputs.f"),
+                        ("inputs.a", "operation_0.inputs.0"),
+                        ("inputs.b", "operation_0.inputs.1"),
+                        ("operation_0.outputs.0", "add_0.inputs.0"),
+                        ("operation_0.outputs.1", "add_0.inputs.y"),
+                        ("add_0.outputs.0", "multiply_0.inputs.0"),
+                        ("multiply_0.outputs.0", "outputs.f"),
                     ],
                     "label": "example_macro_0",
                     "type": "Workflow",
-                    "uri": "this macro has metadata",
                 },
                 "add_0": {
                     "function": {
@@ -398,21 +343,15 @@ class TestWorkflow(unittest.TestCase):
                         "qualname": add.__qualname__,
                         "version": "not_defined",
                     },
-                    "inputs": {
-                        "x": {"dtype": float, "default": 2.0},
-                        "y": {"dtype": float, "default": 1},
-                    },
-                    "outputs": {"output": {"dtype": float}},
-                    "uri": "add",
                     "type": "Function",
                 },
             },
             "edges": [
-                ("inputs.a", "example_macro_0.inputs.a"),
-                ("inputs.b", "example_macro_0.inputs.b"),
-                ("inputs.b", "add_0.inputs.y"),
-                ("example_macro_0.outputs.f", "add_0.inputs.x"),
-                ("add_0.outputs.output", "outputs.z"),
+                ("inputs.a", "example_macro_0.inputs.0"),
+                ("inputs.b", "example_macro_0.inputs.1"),
+                ("inputs.b", "add_0.inputs.1"),
+                ("example_macro_0.outputs.0", "add_0.inputs.0"),
+                ("add_0.outputs.0", "outputs.z"),
             ],
             "label": "example_workflow",
             "type": "Workflow",
