@@ -3,7 +3,6 @@ import unittest
 import networkx as nx
 from semantikon import datastructure
 from semantikon.converter import parse_input_args
-from semantikon.metadata import u
 
 import flowrep.workflow as fwf
 
@@ -12,7 +11,6 @@ def operation(x: float, y: float) -> tuple[float, float]:
     return x + y, x - y
 
 
-@u(uri="add")
 def add(x: float = 2.0, y: float = 1) -> float:
     return x + y
 
@@ -22,7 +20,6 @@ def multiply(x: float, y: float = 5) -> float:
 
 
 @fwf.workflow
-@u(uri="this macro has metadata")
 def example_macro(a=10, b=20):
     c, d = operation(a, b)
     e = add(c, y=d)
@@ -58,33 +55,19 @@ def workflow_with_while(a=10, b=20):
     return z
 
 
-@u(uri="some URI")
-def complex_function(
-    x: u(float, units="meter") = 2.0,
-    y: u(float, units="second", something_extra=42) = 1,
-) -> tuple[
-    u(float, units="meter"),
-    u(float, units="meter/second", uri="VELOCITY"),
-    float,
-]:
+def complex_function(x=2.0, y=1) -> tuple[float, float]:
     speed = x / y
     return x, speed, speed / y
 
 
 @fwf.workflow
-@u(uri="some other URI")
-def complex_macro(
-    x: u(float, units="meter") = 2.0,
-):
+def complex_macro(x=2.0):
     a, b, c = complex_function(x)
     return b, c
 
 
 @fwf.workflow
-@u(triples=("a", "b", "c"))
-def complex_workflow(
-    x: u(float, units="meter") = 2.0,
-):
+def complex_workflow(x=2.0):
     b, c = complex_macro(x)
     return c
 
