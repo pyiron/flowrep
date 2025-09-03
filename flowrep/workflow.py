@@ -18,21 +18,6 @@ from semantikon.converter import (
     parse_input_args,
     parse_output_args,
 )
-from semantikon.datastructure import (
-    MISSING,
-    CoreMetadata,
-    Edges,
-    Function,
-    Input,
-    Inputs,
-    Missing,
-    Nodes,
-    Output,
-    Outputs,
-    PortType,
-    TypeMetadata,
-    Workflow,
-)
 
 F = TypeVar("F", bound=Callable[..., object])
 
