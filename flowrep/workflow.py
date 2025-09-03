@@ -14,10 +14,7 @@ from typing import Any, Generic, TypeVar, cast, get_args, get_origin
 import networkx as nx
 from networkx.algorithms.dag import topological_sort
 from semantikon.converter import (
-    get_annotated_type_hints,
     get_return_expressions,
-    get_return_labels,
-    meta_to_dict,
     parse_input_args,
     parse_output_args,
 )
