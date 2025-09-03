@@ -36,40 +36,6 @@ class FunctionWithWorkflow(Generic[F]):
         return getattr(self.func, item)
 
 
-def separate_types(
-    data: dict[str, Any], class_dict: dict[str, type] | None = None
-) -> tuple[dict[str, Any], dict[str, type]]:
-    """
-    Separate types from the data dictionary and store them in a class dictionary.
-    The types inside the data dictionary will be replaced by their name (which
-    would for example make it easier to hash it).
-
-    Args:
-        data (dict[str, Any]): The data dictionary containing nodes and types.
-        class_dict (dict[str, type], optional): A dictionary to store types. It
-            is mainly used due to the recursivity of this function. Defaults to
-            None.
-
-    Returns:
-        tuple: A tuple containing the modified data dictionary and the
-            class dictionary.
-    """
-    data = copy.deepcopy(data)
-    if class_dict is None:
-        class_dict = {}
-    if "nodes" in data:
-        for key, node in data["nodes"].items():
-            child_node, child_class_dict = separate_types(node, class_dict)
-            class_dict.update(child_class_dict)
-            data["nodes"][key] = child_node
-    for io_ in ["inputs", "outputs"]:
-        for key, content in data[io_].items():
-            if "dtype" in content and isinstance(content["dtype"], type):
-                class_dict[content["dtype"].__name__] = content["dtype"]
-                data[io_][key]["dtype"] = content["dtype"].__name__
-    return data, class_dict
-
-
 def serialize_functions(data: dict[str, Any]) -> dict[str, Any]:
     """
     Separate functions from the data dictionary and store them in a function

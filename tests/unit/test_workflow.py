@@ -384,11 +384,6 @@ class TestWorkflow(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             fwf.workflow(example_invalid_local_var_def)
 
-    def test_separate_types(self):
-        old_data = example_workflow._semantikon_workflow
-        class_dict = fwf.separate_types(old_data)[1]
-        self.assertEqual(class_dict, {"float": float})
-
     def test_seemingly_cyclic_workflow(self):
         data = fwf.get_workflow_dict(seemingly_cyclic_workflow)
         self.assertIn("a", data["inputs"])
@@ -422,12 +417,12 @@ class TestWorkflow(unittest.TestCase):
             sorted(wf["nodes"]["injected_While_0"]["edges"]),
             sorted(
                 [
-                    ("inputs.x", "test.inputs.a"),
-                    ("inputs.b", "test.inputs.b"),
-                    ("inputs.b", "add_1.inputs.y"),
-                    ("inputs.a", "add_1.inputs.x"),
-                    ("inputs.a", "multiply_0.inputs.x"),
-                    ("add_1.outputs.output", "multiply_0.inputs.y"),
+                    ("inputs.x", "test.inputs.0"),
+                    ("inputs.b", "test.inputs.1"),
+                    ("inputs.b", "add_1.inputs.1"),
+                    ("inputs.a", "add_1.inputs.0"),
+                    ("inputs.a", "multiply_0.inputs.0"),
+                    ("add_1.outputs.output", "multiply_0.inputs.1"),
                     ("multiply_0.outputs.output", "outputs.z"),
                     ("add_1.outputs.output", "outputs.x"),
                 ]
@@ -467,7 +462,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertIn("add_0", data["nodes"])
         self.assertIn("y", data["outputs"])
         self.assertIn(
-            ("add_0.outputs.output", "check_positive_0.inputs.x"), data["edges"]
+            ("add_0.outputs.output", "check_positive_0.inputs.0"), data["edges"]
         )
         self.assertEqual(data["nodes"]["check_positive_0"]["outputs"], {})
 
@@ -477,12 +472,12 @@ class TestWorkflow(unittest.TestCase):
             self.assertIn("add_0", wf.nodes.keys())
             self.assertIn("y", wf.outputs.keys())
             self.assertIn(
-                ("add_0.outputs.output", "check_positive_0.inputs.x"),
+                ("add_0.outputs.output", "check_positive_0.inputs.0"),
                 wf.edges.to_tuple(),
             )
-            self.assertIn("check_positive_0.inputs.x", wf.edges)
+            self.assertIn("check_positive_0.inputs.0", wf.edges)
             self.assertEqual(
-                wf.edges["check_positive_0.inputs.x"],
+                wf.edges["check_positive_0.inputs.0"],
                 "add_0.outputs.output",
             )
 
@@ -779,8 +774,8 @@ class TestWorkflow(unittest.TestCase):
             sorted(
                 [
                     ("inputs.b", "injected_If_0.inputs.b"),
-                    ("inputs.a", "add_0.inputs.x"),
-                    ("inputs.b", "add_0.inputs.y"),
+                    ("inputs.a", "add_0.inputs.0"),
+                    ("inputs.b", "add_0.inputs.1"),
                     ("add_0.outputs.output", "injected_If_0.inputs.x"),
                     ("injected_If_0.outputs.x", "outputs.x"),
                 ]
@@ -790,10 +785,10 @@ class TestWorkflow(unittest.TestCase):
             sorted(data["nodes"]["injected_If_0"]["edges"]),
             sorted(
                 [
-                    ("inputs.x", "multiply_0.inputs.x"),
-                    ("inputs.b", "multiply_0.inputs.y"),
-                    ("inputs.x", "test.inputs.a"),
-                    ("inputs.b", "test.inputs.b"),
+                    ("inputs.x", "multiply_0.inputs.0"),
+                    ("inputs.b", "multiply_0.inputs.1"),
+                    ("inputs.x", "test.inputs.0"),
+                    ("inputs.b", "test.inputs.1"),
                     ("multiply_0.outputs.output", "outputs.x"),
                 ]
             ),
