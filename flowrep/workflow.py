@@ -740,7 +740,7 @@ def _get_edges(graph: nx.DiGraph) -> list[tuple[str, str]]:
             edges.append([edge[0], f"{edge[1]}.inputs.{tag}"])
             nodes_to_remove.append(edge[0])
         elif edge[2]["type"] == "output":
-            tag = edge[2].get("output_name", edge[2].get("output_index", 0))
+            tag = edge[2].get("output_name", edge[2].get("output_index", "output"))
             edges.append([f"{edge[0]}.outputs.{tag}", edge[1]])
             nodes_to_remove.append(edge[1])
     new_graph = _remove_and_reconnect_nodes(nx.DiGraph(edges), nodes_to_remove)
@@ -911,6 +911,8 @@ def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]
 class _Workflow:
     def __init__(self, workflow_dict: dict[str, Any]):
         self._workflow = workflow_dict
+        self._inputs = {}
+        self._outputs = {}
 
     @cached_property
     def _all_edges(self) -> list[tuple[str, str]]:
@@ -969,23 +971,27 @@ class _Workflow:
 
     def _execute_node(self, function: str) -> Any:
         node = self._workflow["nodes"][function]
-        input_data = {}
+        input_kwargs = {}
+        input_args = []
         try:
             for key, content in node["inputs"].items():
                 if "value" not in content:
                     content["value"] = content["default"]
-                input_data[key] = content["value"]
+                try:
+                    input_args.append(int(content["value"]))
+                except ValueError:
+                    input_kwargs[key] = content["value"]
         except KeyError:
             raise KeyError(f"value not defined for {function}") from None
         if "function" not in node:
             workflow = _Workflow(node)
             outputs = [
-                d["value"] for d in workflow.run(**input_data)["outputs"].values()
+                d["value"] for d in workflow.run(*input_args, **input_kwargs)["outputs"].values()
             ]
             if len(outputs) == 1:
                 outputs = outputs[0]
         else:
-            outputs = node["function"](**input_data)
+            outputs = node["function"](*input_args, **input_kwargs)
         return outputs
 
     def _set_value(self, tag, value):
