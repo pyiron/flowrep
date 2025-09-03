@@ -893,8 +893,6 @@ def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]
 class _Workflow:
     def __init__(self, workflow_dict: dict[str, Any]):
         self._workflow = workflow_dict
-        self._inputs = {}
-        self._outputs = {}
 
     @cached_property
     def _all_edges(self) -> list[tuple[str, str]]:
@@ -946,6 +944,10 @@ class _Workflow:
 
     def _set_value_from_node(self, path, value):
         node, io, var = path.split(".")
+        if io not in self._workflow["nodes"][node]:
+            self._workflow["nodes"][node][io] = {}
+        if var not in self._workflow["nodes"][node][io]:
+            self._workflow["nodes"][node][io][var] = {}
         try:
             self._workflow["nodes"][node][io][var]["value"] = value
         except KeyError:
