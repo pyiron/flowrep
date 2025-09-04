@@ -1,7 +1,6 @@
 import ast
 import builtins
 import copy
-import dataclasses
 import hashlib
 import inspect
 import json
@@ -9,7 +8,7 @@ import textwrap
 from collections import deque
 from collections.abc import Callable, Iterable
 from functools import cached_property, update_wrapper
-from typing import Any, Generic, TypeVar, cast, get_args, get_origin
+from typing import Any, Generic, TypeVar, cast
 
 import networkx as nx
 from networkx.algorithms.dag import topological_sort
