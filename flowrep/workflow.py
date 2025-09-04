@@ -935,7 +935,8 @@ class _Workflow:
         if "function" not in node:
             workflow = _Workflow(node)
             outputs = [
-                d["value"] for d in workflow.run(*input_args, **input_kwargs)["outputs"].values()
+                d["value"]
+                for d in workflow.run(*input_args, **input_kwargs)["outputs"].values()
             ]
             if len(outputs) == 1:
                 outputs = outputs[0]
