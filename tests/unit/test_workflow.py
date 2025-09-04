@@ -464,7 +464,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertIn(
             ("add_0.outputs.output", "check_positive_0.inputs.0"), data["edges"]
         )
-        self.assertEqual(data["nodes"]["check_positive_0"]["outputs"], {})
+        self.assertNotIn("outputs", data["nodes"]["check_positive_0"])
 
         with self.subTest("As dataclass"):
             wf = fwf.get_node(fwf.workflow(workflow_with_leaf))
@@ -732,8 +732,8 @@ class TestWorkflow(unittest.TestCase):
                 [
                     ("inputs.a", "injected_For_0.inputs.a"),
                     ("inputs.b", "injected_For_0.inputs.b"),
-                    ("inputs.a", "add_0.inputs.x"),
-                    ("inputs.b", "add_0.inputs.y"),
+                    ("inputs.a", "add_0.inputs.0"),
+                    ("inputs.b", "add_0.inputs.1"),
                     ("add_0.outputs.output", "injected_For_0.inputs.x"),
                     ("injected_For_0.outputs.z", "outputs.z"),
                 ]
@@ -743,12 +743,12 @@ class TestWorkflow(unittest.TestCase):
             sorted(data["nodes"]["injected_For_0"]["edges"]),
             sorted(
                 [
-                    ("inputs.x", "iter.inputs.a"),
-                    ("inputs.b", "iter.inputs.b"),
-                    ("iter.outputs.output", "add_1.inputs.y"),
-                    ("inputs.a", "add_1.inputs.x"),
-                    ("inputs.a", "multiply_0.inputs.x"),
-                    ("add_1.outputs.output", "multiply_0.inputs.y"),
+                    ("inputs.x", "iter.inputs.0"),
+                    ("inputs.b", "iter.inputs.1"),
+                    ("iter.outputs.output", "add_1.inputs.1"),
+                    ("inputs.a", "add_1.inputs.0"),
+                    ("inputs.a", "multiply_0.inputs.0"),
+                    ("add_1.outputs.output", "multiply_0.inputs.1"),
                     ("multiply_0.outputs.output", "outputs.z"),
                     ("add_1.outputs.output", "outputs.x"),
                 ]
@@ -803,8 +803,8 @@ class TestWorkflow(unittest.TestCase):
                 [
                     ("inputs.b", "injected_If_0.inputs.b"),
                     ("inputs.a", "injected_Else_0.inputs.a"),
-                    ("inputs.a", "add_0.inputs.x"),
-                    ("inputs.b", "add_0.inputs.y"),
+                    ("inputs.a", "add_0.inputs.0"),
+                    ("inputs.b", "add_0.inputs.1"),
                     ("add_0.outputs.output", "injected_If_0.inputs.x"),
                     ("add_0.outputs.output", "injected_Else_0.inputs.x"),
                     ("injected_If_0.outputs.x", "outputs.x"),
@@ -816,10 +816,10 @@ class TestWorkflow(unittest.TestCase):
             sorted(data["nodes"]["injected_If_0"]["edges"]),
             sorted(
                 [
-                    ("inputs.x", "multiply_0.inputs.x"),
-                    ("inputs.b", "multiply_0.inputs.y"),
-                    ("inputs.x", "test.inputs.a"),
-                    ("inputs.b", "test.inputs.b"),
+                    ("inputs.x", "multiply_0.inputs.0"),
+                    ("inputs.b", "multiply_0.inputs.1"),
+                    ("inputs.x", "test.inputs.0"),
+                    ("inputs.b", "test.inputs.1"),
                     ("multiply_0.outputs.output", "outputs.x"),
                 ]
             ),
@@ -828,11 +828,11 @@ class TestWorkflow(unittest.TestCase):
             sorted(data["nodes"]["injected_Else_0"]["edges"]),
             sorted(
                 [
-                    ("inputs.x", "multiply_1.inputs.x"),
-                    ("inputs.x", "multiply_2.inputs.x"),  # This must not be here
-                    ("inputs.a", "multiply_1.inputs.y"),
-                    ("multiply_1.outputs.output", "multiply_2.inputs.x"),
-                    ("inputs.a", "multiply_2.inputs.y"),
+                    ("inputs.x", "multiply_1.inputs.0"),
+                    ("inputs.x", "multiply_2.inputs.0"),  # This must not be here
+                    ("inputs.a", "multiply_1.inputs.1"),
+                    ("multiply_1.outputs.output", "multiply_2.inputs.0"),
+                    ("inputs.a", "multiply_2.inputs.1"),
                     ("multiply_2.outputs.output", "outputs.x"),
                 ]
             ),
