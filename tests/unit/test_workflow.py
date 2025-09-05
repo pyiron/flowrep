@@ -705,7 +705,7 @@ class TestWorkflow(unittest.TestCase):
                     "version": "not_defined",
                     "connected_inputs": [],
                 },
-                "inputs": {"x": 10, "y": 20},
+                "inputs": {"0": 10, "1": 20},
                 "outputs": ["output"],
             },
         )
@@ -720,9 +720,9 @@ class TestWorkflow(unittest.TestCase):
                     "module": multiply.__module__,
                     "qualname": "multiply",
                     "version": "not_defined",
-                    "connected_inputs": ["x"],
+                    "connected_inputs": ["0"],
                 },
-                "inputs": {"x": add_hashed + "@output", "y": 20},
+                "inputs": {"0": add_hashed + "@output", "1": 20},
                 "outputs": ["output"],
             },
         )
