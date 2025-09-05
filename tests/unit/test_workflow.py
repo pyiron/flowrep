@@ -757,6 +757,10 @@ class TestWorkflow(unittest.TestCase):
                 "version": "not_defined",
             },
         )
+        self.assertEqual(
+            fwf._get_function_metadata(fwf._get_function_metadata(operation)),
+            fwf._get_function_metadata(operation),
+        )
 
 
 if __name__ == "__main__":

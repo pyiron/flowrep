@@ -1194,7 +1194,9 @@ def _set_entry(
     data[keys[-1]] = value
 
 
-def _get_function_metadata(cls: Callable) -> dict[str, str]:
+def _get_function_metadata(cls: Callable | dict[str, str]) -> dict[str, str]:
+    if isinstance(cls, dict) and "module" in cls and "qualname" in cls:
+        return cls
     module = cls.__module__
     qualname = cls.__qualname__
     from importlib import import_module
