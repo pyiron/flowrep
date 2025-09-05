@@ -1,8 +1,6 @@
 import unittest
 
 import networkx as nx
-from semantikon import datastructure
-from semantikon.converter import parse_input_args
 
 import flowrep.workflow as fwf
 
