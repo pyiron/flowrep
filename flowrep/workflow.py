@@ -1307,7 +1307,7 @@ def get_hashed_node_dict(
     data_dict = {
         "node": _get_function_metadata(nodes_dict[node]["function"]),
         "inputs": {},
-        "outputs": [tag.split(".")[-1] for tag in graph.successors(node)]
+        "outputs": [tag.split(".")[-1] for tag in graph.successors(node)],
     }
     connected_inputs = []
     for tag in graph.predecessors(node):
