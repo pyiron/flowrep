@@ -1110,7 +1110,7 @@ def get_hashed_node_dict(
     data_dict = {
         "node": _get_function_metadata(nodes_dict[node]["function"]),
         "inputs": {},
-        "outputs": list(nodes_dict[node]["outputs"].keys()),
+        "outputs": [tag.split(".")[-1] for tag in graph.successors(node)]
     }
     connected_inputs = []
     for key in nodes_dict[node]["inputs"]:
