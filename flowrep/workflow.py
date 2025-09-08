@@ -416,8 +416,8 @@ def _detect_io_variables_from_control_flow(
     inputs = var_inp_1.intersection(var_inp_2)
     input_stem = [inp.rsplit("_", 1)[0] for inp in inputs]
     outputs = var_out_1.intersection(var_out_2)
-    # This is needed in order to add those outputs which are updated during
-    # the control flow to the outputs. For example, the variable x in the
+    # Lines below are needed in order to add those outputs which are updated
+    # during the control flow to the outputs. For example, the variable x in the
     # following workflow has to be in the outputs because it is updated in the
     # while loop, even though it is not used subsequently.
     # def f(x):
