@@ -189,12 +189,12 @@ class TestWorkflow(unittest.TestCase):
         all_data = [
             ("operation_0", "c_0", {"type": "output", "output_index": 0}),
             ("operation_0", "d_0", {"type": "output", "output_index": 1}),
-            ("c_0", "add_0", {"type": "input", "input_index": 0}),
+            ("c_0", "add_0", {"type": "input", "input_name": "x"}),
             ("d_0", "add_0", {"type": "input", "input_name": "y"}),
-            ("a_0", "operation_0", {"type": "input", "input_index": 0}),
-            ("b_0", "operation_0", {"type": "input", "input_index": 1}),
+            ("a_0", "operation_0", {"type": "input", "input_name": "x"}),
+            ("b_0", "operation_0", {"type": "input", "input_name": "y"}),
             ("add_0", "e_0", {"type": "output"}),
-            ("e_0", "multiply_0", {"type": "input", "input_index": 0}),
+            ("e_0", "multiply_0", {"type": "input", "input_name": "x"}),
             ("multiply_0", "f_0", {"type": "output"}),
             ("f_0", "output", {"type": "input"}),
             ("input", "a_0", {"type": "output"}),
@@ -252,11 +252,11 @@ class TestWorkflow(unittest.TestCase):
                 },
             },
             "edges": [
-                ("inputs.a", "operation_0.inputs.0"),
-                ("inputs.b", "operation_0.inputs.1"),
-                ("operation_0.outputs.0", "add_0.inputs.0"),
+                ("inputs.a", "operation_0.inputs.x"),
+                ("inputs.b", "operation_0.inputs.y"),
+                ("operation_0.outputs.0", "add_0.inputs.x"),
                 ("operation_0.outputs.1", "add_0.inputs.y"),
-                ("add_0.outputs.output", "multiply_0.inputs.0"),
+                ("add_0.outputs.output", "multiply_0.inputs.x"),
                 ("multiply_0.outputs.output", "outputs.f"),
             ],
             "label": "example_macro",
@@ -302,11 +302,11 @@ class TestWorkflow(unittest.TestCase):
                         },
                     },
                     "edges": [
-                        ("inputs.a", "operation_0.inputs.0"),
-                        ("inputs.b", "operation_0.inputs.1"),
-                        ("operation_0.outputs.0", "add_0.inputs.0"),
+                        ("inputs.a", "operation_0.inputs.x"),
+                        ("inputs.b", "operation_0.inputs.y"),
+                        ("operation_0.outputs.0", "add_0.inputs.x"),
                         ("operation_0.outputs.1", "add_0.inputs.y"),
-                        ("add_0.outputs.output", "multiply_0.inputs.0"),
+                        ("add_0.outputs.output", "multiply_0.inputs.x"),
                         ("multiply_0.outputs.output", "outputs.f"),
                     ],
                     "label": "example_macro_0",
@@ -322,10 +322,10 @@ class TestWorkflow(unittest.TestCase):
                 },
             },
             "edges": [
-                ("inputs.a", "example_macro_0.inputs.0"),
-                ("inputs.b", "example_macro_0.inputs.1"),
-                ("inputs.b", "add_0.inputs.1"),
-                ("example_macro_0.outputs.output", "add_0.inputs.0"),
+                ("inputs.a", "example_macro_0.inputs.a"),
+                ("inputs.b", "example_macro_0.inputs.b"),
+                ("inputs.b", "add_0.inputs.y"),
+                ("example_macro_0.outputs.output", "add_0.inputs.x"),
                 ("add_0.outputs.output", "outputs.z"),
             ],
             "label": "example_workflow",
@@ -415,12 +415,12 @@ class TestWorkflow(unittest.TestCase):
             sorted(wf["nodes"]["injected_While_0"]["edges"]),
             sorted(
                 [
-                    ("inputs.x", "test.inputs.0"),
-                    ("inputs.b", "test.inputs.1"),
-                    ("inputs.b", "add_1.inputs.1"),
-                    ("inputs.a", "add_1.inputs.0"),
-                    ("inputs.a", "multiply_0.inputs.0"),
-                    ("add_1.outputs.output", "multiply_0.inputs.1"),
+                    ("inputs.x", "test.inputs.a"),
+                    ("inputs.b", "test.inputs.b"),
+                    ("inputs.b", "add_1.inputs.y"),
+                    ("inputs.a", "add_1.inputs.x"),
+                    ("inputs.a", "multiply_0.inputs.x"),
+                    ("add_1.outputs.output", "multiply_0.inputs.y"),
                     ("multiply_0.outputs.output", "outputs.z"),
                     ("add_1.outputs.output", "outputs.x"),
                 ]
@@ -460,7 +460,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertIn("add_0", data["nodes"])
         self.assertIn("y", data["outputs"])
         self.assertIn(
-            ("add_0.outputs.output", "check_positive_0.inputs.0"), data["edges"]
+            ("add_0.outputs.output", "check_positive_0.inputs.x"), data["edges"]
         )
         self.assertNotIn("outputs", data["nodes"]["check_positive_0"])
 
@@ -568,8 +568,8 @@ class TestWorkflow(unittest.TestCase):
                 [
                     ("inputs.a", "injected_For_0.inputs.a"),
                     ("inputs.b", "injected_For_0.inputs.b"),
-                    ("inputs.a", "add_0.inputs.0"),
-                    ("inputs.b", "add_0.inputs.1"),
+                    ("inputs.a", "add_0.inputs.x"),
+                    ("inputs.b", "add_0.inputs.y"),
                     ("add_0.outputs.output", "injected_For_0.inputs.x"),
                     ("injected_For_0.outputs.z", "outputs.z"),
                 ]
@@ -579,12 +579,12 @@ class TestWorkflow(unittest.TestCase):
             sorted(data["nodes"]["injected_For_0"]["edges"]),
             sorted(
                 [
-                    ("inputs.x", "iter.inputs.0"),
-                    ("inputs.b", "iter.inputs.1"),
-                    ("iter.outputs.output", "add_1.inputs.1"),
-                    ("inputs.a", "add_1.inputs.0"),
-                    ("inputs.a", "multiply_0.inputs.0"),
-                    ("add_1.outputs.output", "multiply_0.inputs.1"),
+                    ("inputs.x", "iter.inputs.a"),
+                    ("inputs.b", "iter.inputs.b"),
+                    ("iter.outputs.output", "add_1.inputs.y"),
+                    ("inputs.a", "add_1.inputs.x"),
+                    ("inputs.a", "multiply_0.inputs.x"),
+                    ("add_1.outputs.output", "multiply_0.inputs.y"),
                     ("multiply_0.outputs.output", "outputs.z"),
                     ("add_1.outputs.output", "outputs.x"),
                 ]
@@ -610,8 +610,8 @@ class TestWorkflow(unittest.TestCase):
             sorted(
                 [
                     ("inputs.b", "injected_If_0.inputs.b"),
-                    ("inputs.a", "add_0.inputs.0"),
-                    ("inputs.b", "add_0.inputs.1"),
+                    ("inputs.a", "add_0.inputs.x"),
+                    ("inputs.b", "add_0.inputs.y"),
                     ("add_0.outputs.output", "injected_If_0.inputs.x"),
                     ("injected_If_0.outputs.x", "outputs.x"),
                 ]
@@ -621,10 +621,10 @@ class TestWorkflow(unittest.TestCase):
             sorted(data["nodes"]["injected_If_0"]["edges"]),
             sorted(
                 [
-                    ("inputs.x", "multiply_0.inputs.0"),
-                    ("inputs.b", "multiply_0.inputs.1"),
-                    ("inputs.x", "test.inputs.0"),
-                    ("inputs.b", "test.inputs.1"),
+                    ("inputs.x", "multiply_0.inputs.x"),
+                    ("inputs.b", "multiply_0.inputs.y"),
+                    ("inputs.x", "test.inputs.a"),
+                    ("inputs.b", "test.inputs.b"),
                     ("multiply_0.outputs.output", "outputs.x"),
                 ]
             ),
@@ -639,8 +639,8 @@ class TestWorkflow(unittest.TestCase):
                 [
                     ("inputs.b", "injected_If_0.inputs.b"),
                     ("inputs.a", "injected_Else_0.inputs.a"),
-                    ("inputs.a", "add_0.inputs.0"),
-                    ("inputs.b", "add_0.inputs.1"),
+                    ("inputs.a", "add_0.inputs.x"),
+                    ("inputs.b", "add_0.inputs.y"),
                     ("add_0.outputs.output", "injected_If_0.inputs.x"),
                     ("add_0.outputs.output", "injected_Else_0.inputs.x"),
                     ("injected_If_0.outputs.x", "outputs.x"),
@@ -652,10 +652,10 @@ class TestWorkflow(unittest.TestCase):
             sorted(data["nodes"]["injected_If_0"]["edges"]),
             sorted(
                 [
-                    ("inputs.x", "multiply_0.inputs.0"),
-                    ("inputs.b", "multiply_0.inputs.1"),
-                    ("inputs.x", "test.inputs.0"),
-                    ("inputs.b", "test.inputs.1"),
+                    ("inputs.x", "multiply_0.inputs.x"),
+                    ("inputs.b", "multiply_0.inputs.y"),
+                    ("inputs.x", "test.inputs.a"),
+                    ("inputs.b", "test.inputs.b"),
                     ("multiply_0.outputs.output", "outputs.x"),
                 ]
             ),
@@ -664,11 +664,11 @@ class TestWorkflow(unittest.TestCase):
             sorted(data["nodes"]["injected_Else_0"]["edges"]),
             sorted(
                 [
-                    ("inputs.x", "multiply_1.inputs.0"),
-                    ("inputs.x", "multiply_2.inputs.0"),  # This must not be here
-                    ("inputs.a", "multiply_1.inputs.1"),
-                    ("multiply_1.outputs.output", "multiply_2.inputs.0"),
-                    ("inputs.a", "multiply_2.inputs.1"),
+                    ("inputs.x", "multiply_1.inputs.x"),
+                    ("inputs.x", "multiply_2.inputs.x"),  # This must not be here
+                    ("inputs.a", "multiply_1.inputs.y"),
+                    ("multiply_1.outputs.output", "multiply_2.inputs.x"),
+                    ("inputs.a", "multiply_2.inputs.y"),
                     ("multiply_2.outputs.output", "outputs.x"),
                 ]
             ),
@@ -703,7 +703,7 @@ class TestWorkflow(unittest.TestCase):
                     "version": "not_defined",
                     "connected_inputs": [],
                 },
-                "inputs": {"0": 10, "1": 20},
+                "inputs": {"x": 10, "y": 20},
                 "outputs": ["output"],
             },
         )
@@ -718,9 +718,9 @@ class TestWorkflow(unittest.TestCase):
                     "module": multiply.__module__,
                     "qualname": "multiply",
                     "version": "not_defined",
-                    "connected_inputs": ["0"],
+                    "connected_inputs": ["x"],
                 },
-                "inputs": {"0": add_hashed + "@output", "1": 20},
+                "inputs": {"x": add_hashed + "@output", "y": 20},
                 "outputs": ["output"],
             },
         )
