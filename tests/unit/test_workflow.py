@@ -760,6 +760,12 @@ class TestWorkflow(unittest.TestCase):
             fwf._get_function_metadata(operation),
         )
 
+    def test_get_function_keyword(self):
+        def my_test_function(x, /, y, *, z):
+            return x + y + z
+
+        self.assertEqual(fwf._get_function_keywords(my_test_function), [0, "y", "z"])
+
 
 if __name__ == "__main__":
     unittest.main()

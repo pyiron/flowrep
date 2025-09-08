@@ -1213,3 +1213,14 @@ def _get_function_metadata(cls: Callable | dict[str, str]) -> dict[str, str]:
         "qualname": qualname,
         "version": version,
     }
+
+
+def _get_function_keywords(function: Callable) -> dict[str, Any]:
+    signature = inspect.signature(function)
+    items = []
+    for ii, (name, param) in enumerate(signature.parameters.items()):
+        if param.kind == inspect.Parameter.POSITIONAL_ONLY:
+            items.append(ii)
+        else:
+            items.append(name)
+    return items
