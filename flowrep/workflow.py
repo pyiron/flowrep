@@ -1215,7 +1215,7 @@ def _get_function_metadata(cls: Callable | dict[str, str]) -> dict[str, str]:
     }
 
 
-def _get_function_keywords(function: Callable) -> dict[str, Any]:
+def _get_function_keywords(function: Callable) -> list[str | int]:
     signature = inspect.signature(function)
     items = []
     for ii, (name, param) in enumerate(signature.parameters.items()):
