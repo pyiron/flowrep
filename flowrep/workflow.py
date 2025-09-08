@@ -207,10 +207,12 @@ class FunctionDictFlowAnalyzer:
         if control_flow is not None:
             self.function_defs[unique_func_name]["control_flow"] = control_flow
 
+        arg_list = _get_function_keywords(self.scope[func_name])
+
         # Parse inputs (positional + keyword)
         for i, arg in enumerate(value.get("args", [])):
             self._add_input_edge(
-                arg, unique_func_name, input_index=i, control_flow=control_flow
+                arg, unique_func_name, input_name=arg_list[i], control_flow=control_flow
             )
         for kw in value.get("keywords", []):
             self._add_input_edge(
