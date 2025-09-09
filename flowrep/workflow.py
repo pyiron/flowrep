@@ -603,11 +603,6 @@ def _get_nodes(
     for label, function in data.items():
         func = function["function"]
         if hasattr(func, "_semantikon_workflow"):
-            if output_counts[label] != len(func._semantikon_workflow["outputs"]):
-                raise ValueError(
-                    f"{label} has {len(func._semantikon_workflow['outputs'])} outputs, "
-                    f"but {output_counts[label]} expected"
-                )
             data_dict = func._semantikon_workflow.copy()
             result[label] = data_dict
             result[label]["label"] = label
@@ -718,8 +713,6 @@ def get_node_dict(
 
 
 def _to_workflow_dict_entry(
-    inputs: dict[str, dict],
-    outputs: dict[str, dict],
     nodes: dict[str, dict],
     edges: list[tuple[str, str]],
     label: str,
@@ -729,8 +722,6 @@ def _to_workflow_dict_entry(
         "function" in v or ("nodes" in v and "edges" in v) for v in nodes.values()
     )
     return {
-        "inputs": inputs,
-        "outputs": outputs,
         "nodes": nodes,
         "edges": edges,
         "label": label,
@@ -785,13 +776,10 @@ def _nest_nodes(
                 current_nodes[key] = nodes[key]
             else:
                 current_nodes[key] = injected_nodes.pop(key)
-        io_ = _detect_io_variables_from_control_flow(graph, subgraph)
         injected_nodes[new_key] = {
             "nodes": current_nodes,
             "edges": _get_edges(subgraph),
             "label": new_key,
-            "inputs": {_remove_index(key): {} for key in io_["inputs"]},
-            "outputs": {_remove_index(key): {} for key in io_["outputs"]},
         }
         for tag in ["test", "iter"]:
             if tag in injected_nodes[new_key]["nodes"]:
@@ -814,8 +802,6 @@ def get_workflow_dict(func: Callable) -> dict[str, object]:
     nodes = _get_nodes(f_dict, _get_output_counts(graph))
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
     return _to_workflow_dict_entry(
-        inputs=parse_input_args(func),
-        outputs=_get_node_outputs(func),
         nodes=nested_nodes,
         edges=edges,
         label=func.__name__,
