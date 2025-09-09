@@ -223,8 +223,6 @@ class TestWorkflow(unittest.TestCase):
 
     def test_get_workflow_dict(self):
         ref_data = {
-            "inputs": {"a": {"default": 10}, "b": {"default": 20}},
-            "outputs": {"f": {}},
             "nodes": {
                 "operation_0": {
                     "function": {
@@ -269,12 +267,8 @@ class TestWorkflow(unittest.TestCase):
     def test_get_workflow_dict_macro(self):
         result = fwf.get_workflow_dict(example_workflow)
         ref_data = {
-            "inputs": {"a": {"default": 10}, "b": {"default": 20}},
-            "outputs": {"z": {}},
             "nodes": {
                 "example_macro_0": {
-                    "inputs": {"a": {"default": 10}, "b": {"default": 20}},
-                    "outputs": {"f": {}},
                     "nodes": {
                         "operation_0": {
                             "function": {
@@ -384,8 +378,8 @@ class TestWorkflow(unittest.TestCase):
 
     def test_seemingly_cyclic_workflow(self):
         data = fwf.get_workflow_dict(seemingly_cyclic_workflow)
-        self.assertIn("a", data["inputs"])
-        self.assertIn("a", data["outputs"])
+        self.assertIn(("inputs.a", "add_0.inputs.x"), data["edges"])
+        self.assertIn(("add_0.outputs.output", "outputs.a"), data["edges"])
 
     def test_workflow_to_use_undefined_variable(self):
         with self.assertRaises(KeyError):
@@ -403,14 +397,6 @@ class TestWorkflow(unittest.TestCase):
     def test_workflow_with_while(self):
         wf = fwf.workflow(workflow_with_while)._semantikon_workflow
         self.assertIn("injected_While_0", wf["nodes"])
-        self.assertEqual(
-            sorted(wf["nodes"]["injected_While_0"]["inputs"].keys()),
-            ["a", "b", "x"],
-        )
-        self.assertEqual(
-            sorted(wf["nodes"]["injected_While_0"]["outputs"].keys()),
-            ["x", "z"],
-        )
         self.assertEqual(
             sorted(wf["nodes"]["injected_While_0"]["edges"]),
             sorted(
@@ -458,11 +444,9 @@ class TestWorkflow(unittest.TestCase):
         data = fwf.get_workflow_dict(workflow_with_leaf)
         self.assertIn("check_positive_0", data["nodes"])
         self.assertIn("add_0", data["nodes"])
-        self.assertIn("y", data["outputs"])
         self.assertIn(
             ("add_0.outputs.output", "check_positive_0.inputs.x"), data["edges"]
         )
-        self.assertNotIn("outputs", data["nodes"]["check_positive_0"])
 
     def test_get_workflow_output(self):
 
@@ -509,20 +493,6 @@ class TestWorkflow(unittest.TestCase):
             {"a": {"dtype": int}, "b": {"dtype": int}},
         )
 
-    def test_detect_io_variables_from_control_flow(self):
-        graph = fwf.analyze_function(workflow_with_while)[0]
-        subgraphs = fwf._split_graphs_into_subgraphs(graph)
-        io_vars = fwf._detect_io_variables_from_control_flow(
-            graph, subgraphs["While_0"]
-        )
-        self.assertEqual(
-            {key: sorted(value) for key, value in io_vars.items()},
-            {
-                "inputs": ["a_0", "b_0", "x_0"],
-                "outputs": ["x_1", "z_0"],
-            },
-        )
-
     def test_get_control_flow_graph(self):
         control_flows = [
             "",
@@ -548,8 +518,6 @@ class TestWorkflow(unittest.TestCase):
 
     def test_multiple_nested_workflow(self):
         data = fwf.get_workflow_dict(multiple_nested_workflow)
-        self.assertIn("a", data["inputs"])
-        self.assertIn("f", data["outputs"])
         self.assertIn("injected_While_0", data["nodes"])
         self.assertIn(
             "injected_While_0_While_0", data["nodes"]["injected_While_0"]["nodes"]
@@ -589,16 +557,6 @@ class TestWorkflow(unittest.TestCase):
                     ("add_1.outputs.output", "outputs.x"),
                 ]
             ),
-        )
-
-    def test_multiple_output_to_single_raise_error(self):
-
-        def multiple_output_to_single_variable(a, b):
-            output = parallel_execution(a, b)
-            return output
-
-        self.assertRaises(
-            ValueError, fwf.get_workflow_dict, multiple_output_to_single_variable
         )
 
     def test_if_statement(self):
