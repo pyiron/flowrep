@@ -7,6 +7,7 @@ dependencies:
 - sphinx-gallery
 - sphinx-rtd-theme
 - versioneer
+- python >=3.11, <3.14
 - numpy =2.3.3
 - setuptools >=68
 - semantikon =0.0.22
