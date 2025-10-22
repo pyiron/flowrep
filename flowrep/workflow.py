@@ -72,17 +72,27 @@ class FunctionDictFlowAnalyzer:
         self._control_flow_list = []
         self._parallel_var = {}
 
+    @staticmethod
+    def get_inputs_with_default(inp):
+        args = [tag["arg"] for tag in inp["args"]]
+        defaults = []
+        for d in inp["defaults"]:
+            assert d["_type"] == "Constant"
+            defaults.append(d["value"])
+        return dict(zip(args[-len(defaults):], defaults))
+
     def analyze(self) -> tuple[nx.DiGraph, dict[str, Any]]:
         for arg in self.ast_dict.get("args", {}).get("args", []):
             if arg["_type"] == "arg":
                 self._add_output_edge("input", arg["arg"])
+        inputs = self.get_inputs_with_default(self.ast_dict.get("args", {}))
         return_was_called = False
         for node in self.ast_dict.get("body", []):
             assert not return_was_called
             self._visit_node(node)
             if node["_type"] == "Return":
                 return_was_called = True
-        return self.graph, self.function_defs
+        return self.graph, self.function_defs, inputs
 
     def _visit_node(self, node, control_flow: str | None = None):
         if node["_type"] == "Assign":
@@ -555,27 +565,6 @@ def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any]]:
     return analyzer.analyze()
 
 
-def _get_node_outputs(func: Callable, counts: int | None = None) -> dict[str, dict]:
-    output_hints = parse_output_args(
-        func, separate_tuple=(counts is None or counts > 1)
-    )
-    output_vars = get_return_expressions(func)
-    if output_vars is None or len(output_vars) == 0:
-        return {}
-    if (counts is not None and counts == 1) or isinstance(output_vars, str):
-        if isinstance(output_vars, str):
-            return {output_vars: cast(dict, output_hints)}
-        else:
-            return {"output": cast(dict, output_hints)}
-    assert isinstance(output_vars, tuple), output_vars
-    assert counts is None or len(output_vars) == counts, output_vars
-    if output_hints == {}:
-        return {key: {} for key in output_vars}
-    else:
-        assert counts is None or len(output_hints) == counts
-        return {key: hint for key, hint in zip(output_vars, output_hints, strict=False)}
-
-
 def _get_output_counts(graph: nx.DiGraph) -> dict[str, int]:
     """
     Get the number of outputs for each node in the graph.
@@ -715,6 +704,7 @@ def get_node_dict(
 
 
 def _to_workflow_dict_entry(
+    inputs: dict[str, dict],
     nodes: dict[str, dict],
     edges: list[tuple[str, str]],
     label: str,
@@ -724,6 +714,7 @@ def _to_workflow_dict_entry(
         "function" in v or ("nodes" in v and "edges" in v) for v in nodes.values()
     )
     return {
+        "inputs": inputs,
         "nodes": nodes,
         "edges": edges,
         "label": label,
@@ -800,10 +791,11 @@ def get_workflow_dict(func: Callable) -> dict[str, object]:
         dict: A dictionary representation of the workflow, including inputs,
             outputs, nodes, edges, and label.
     """
-    graph, f_dict = analyze_function(func)
+    graph, f_dict, inputs = analyze_function(func)
     nodes = _get_nodes(f_dict, _get_output_counts(graph))
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
     return _to_workflow_dict_entry(
+        inputs=inputs,
         nodes=nested_nodes,
         edges=edges,
         label=func.__name__,
@@ -876,34 +868,25 @@ class _Workflow:
     def _set_inputs(self, *args, **kwargs):
         kwargs = self._sanitize_input(*args, **kwargs)
         for key, value in kwargs.items():
-            if key not in self._workflow["inputs"]:
-                raise TypeError(f"Unexpected keyword argument '{key}'")
-            self._workflow["inputs"][key]["value"] = value
-
-    def _get_value_from_data(self, node: dict[str, Any]) -> Any:
-        if "value" not in node:
-            if "default" not in node:
-                raise KeyError(f"No value or default defined in node: {node}")
-            node["value"] = node["default"]
-        return node["value"]
+            self._workflow["inputs"][key] = value
 
     def _get_value_from_global(self, path: str) -> Any:
         io, var = path.split(".")
         assert io in self._workflow, f"{io} not in workflow"
         assert var in self._workflow[io], f"{var} not in workflow {io}"
-        return self._get_value_from_data(self._workflow[io][var])
+        return self._workflow[io][var]
 
     def _get_value_from_node(self, path: str) -> Any:
         node, io, var = path.split(".")
-        return self._get_value_from_data(self._workflow["nodes"][node][io][var])
+        return self._workflow["nodes"][node][io][var]
 
     def _set_value_from_global(self, path, value):
         io, var = path.split(".")
-        self._workflow[io][var]["value"] = value
+        self._workflow[io][var] = value
 
     def _set_value_from_node(self, path, value):
         node, io, var = path.split(".")
-        self._workflow["nodes"][node][io][var]["value"] = value
+        self._workflow["nodes"][node][io][var] = value
 
     def _execute_node(self, function: str) -> Any:
         node = self._workflow["nodes"][function]
@@ -911,20 +894,17 @@ class _Workflow:
         input_args = []
         try:
             for key, content in node.get("inputs", {}).items():
-                if "value" not in content:
-                    content["value"] = content["default"]
                 try:
-                    input_args.append(int(content["value"]))
+                    input_args.append(int(content))
                 except ValueError:
-                    input_kwargs[key] = content["value"]
+                    input_kwargs[key] = content
         except KeyError:
             raise KeyError(f"value not defined for {function}") from None
         if "function" not in node:
             workflow = _Workflow(node)
-            outputs = [
-                d["value"]
-                for d in workflow.run(*input_args, **input_kwargs)["outputs"].values()
-            ]
+            outputs = list(
+                workflow.run(*input_args, **input_kwargs)["outputs"].values()
+            )
             if len(outputs) == 1:
                 outputs = outputs[0]
         else:
@@ -961,7 +941,7 @@ class _Workflow:
                 else:
                     for node in nodes:
                         self._set_value(node[1], values)
-        return self._workflow
+        return tools.recursive_dd_to_dict(self._workflow)
 
 
 def find_parallel_execution_levels(G: nx.DiGraph) -> list[list[str]]:
@@ -1066,10 +1046,7 @@ def _replace_input_ports(
         if G.in_degree(n) == 0:
             assert n.startswith("inputs.")
             data = _get_entry(workflow_dict, n)
-            if "value" in data:
-                nx.relabel_nodes(G, {n: data["value"]}, copy=False)
-            elif "default" in data:
-                nx.relabel_nodes(G, {n: data["default"]}, copy=False)
+            nx.relabel_nodes(G, {n: data}, copy=False)
     return G
 
 
