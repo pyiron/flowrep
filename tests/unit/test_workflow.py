@@ -1,9 +1,6 @@
 import unittest
 
 import networkx as nx
-from semantikon import datastructure
-from semantikon.converter import parse_input_args
-from semantikon.metadata import u
 
 import flowrep.workflow as fwf
 
@@ -12,7 +9,6 @@ def operation(x: float, y: float) -> tuple[float, float]:
     return x + y, x - y
 
 
-@u(uri="add")
 def add(x: float = 2.0, y: float = 1) -> float:
     return x + y
 
@@ -22,7 +18,6 @@ def multiply(x: float, y: float = 5) -> float:
 
 
 @fwf.workflow
-@u(uri="this macro has metadata")
 def example_macro(a=10, b=20):
     c, d = operation(a, b)
     e = add(c, y=d)
@@ -58,33 +53,19 @@ def workflow_with_while(a=10, b=20):
     return z
 
 
-@u(uri="some URI")
-def complex_function(
-    x: u(float, units="meter") = 2.0,
-    y: u(float, units="second", something_extra=42) = 1,
-) -> tuple[
-    u(float, units="meter"),
-    u(float, units="meter/second", uri="VELOCITY"),
-    float,
-]:
+def complex_function(x=2.0, y=1) -> tuple[float, float]:
     speed = x / y
     return x, speed, speed / y
 
 
 @fwf.workflow
-@u(uri="some other URI")
-def complex_macro(
-    x: u(float, units="meter") = 2.0,
-):
+def complex_macro(x=2.0):
     a, b, c = complex_function(x)
     return b, c
 
 
 @fwf.workflow
-@u(triples=("a", "b", "c"))
-def complex_workflow(
-    x: u(float, units="meter") = 2.0,
-):
+def complex_workflow(x=2.0):
     b, c = complex_macro(x)
     return c
 
@@ -208,12 +189,12 @@ class TestWorkflow(unittest.TestCase):
         all_data = [
             ("operation_0", "c_0", {"type": "output", "output_index": 0}),
             ("operation_0", "d_0", {"type": "output", "output_index": 1}),
-            ("c_0", "add_0", {"type": "input", "input_index": 0}),
+            ("c_0", "add_0", {"type": "input", "input_name": "x"}),
             ("d_0", "add_0", {"type": "input", "input_name": "y"}),
-            ("a_0", "operation_0", {"type": "input", "input_index": 0}),
-            ("b_0", "operation_0", {"type": "input", "input_index": 1}),
+            ("a_0", "operation_0", {"type": "input", "input_name": "x"}),
+            ("b_0", "operation_0", {"type": "input", "input_name": "y"}),
             ("add_0", "e_0", {"type": "output"}),
-            ("e_0", "multiply_0", {"type": "input", "input_index": 0}),
+            ("e_0", "multiply_0", {"type": "input", "input_name": "x"}),
             ("multiply_0", "f_0", {"type": "output"}),
             ("f_0", "output", {"type": "input"}),
             ("input", "a_0", {"type": "output"}),
@@ -230,13 +211,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual(
             node_dict,
             {
-                "inputs": {
-                    "x": {"dtype": float, "default": 2.0},
-                    "y": {"dtype": float, "default": 1},
-                },
-                "outputs": {"output": {"dtype": float}},
                 "function": add,
-                "uri": "add",
                 "type": "Function",
             },
         )
@@ -248,15 +223,9 @@ class TestWorkflow(unittest.TestCase):
 
     def test_get_workflow_dict(self):
         ref_data = {
-            "inputs": {"a": {"default": 10}, "b": {"default": 20}},
-            "outputs": {"f": {}},
+            "inputs": {"a": 10, "b": 20},
             "nodes": {
                 "operation_0": {
-                    "inputs": {"x": {"dtype": float}, "y": {"dtype": float}},
-                    "outputs": {
-                        "output_0": {"dtype": float},
-                        "output_1": {"dtype": float},
-                    },
                     "function": {
                         "module": operation.__module__,
                         "qualname": operation.__qualname__,
@@ -265,25 +234,14 @@ class TestWorkflow(unittest.TestCase):
                     "type": "Function",
                 },
                 "add_0": {
-                    "inputs": {
-                        "x": {"dtype": float, "default": 2.0},
-                        "y": {"dtype": float, "default": 1},
-                    },
-                    "outputs": {"output": {"dtype": float}},
                     "function": {
                         "module": add.__module__,
                         "qualname": add.__qualname__,
                         "version": "not_defined",
                     },
-                    "uri": "add",
                     "type": "Function",
                 },
                 "multiply_0": {
-                    "inputs": {
-                        "x": {"dtype": float},
-                        "y": {"dtype": float, "default": 5},
-                    },
-                    "outputs": {"output": {"dtype": float}},
                     "function": {
                         "module": multiply.__module__,
                         "qualname": multiply.__qualname__,
@@ -295,8 +253,8 @@ class TestWorkflow(unittest.TestCase):
             "edges": [
                 ("inputs.a", "operation_0.inputs.x"),
                 ("inputs.b", "operation_0.inputs.y"),
-                ("operation_0.outputs.output_0", "add_0.inputs.x"),
-                ("operation_0.outputs.output_1", "add_0.inputs.y"),
+                ("operation_0.outputs.0", "add_0.inputs.x"),
+                ("operation_0.outputs.1", "add_0.inputs.y"),
                 ("add_0.outputs.output", "multiply_0.inputs.x"),
                 ("multiply_0.outputs.output", "outputs.f"),
             ],
@@ -310,23 +268,16 @@ class TestWorkflow(unittest.TestCase):
     def test_get_workflow_dict_macro(self):
         result = fwf.get_workflow_dict(example_workflow)
         ref_data = {
-            "inputs": {"a": {"default": 10}, "b": {"default": 20}},
-            "outputs": {"z": {}},
+            "inputs": {"a": 10, "b": 20},
             "nodes": {
                 "example_macro_0": {
-                    "inputs": {"a": {"default": 10}, "b": {"default": 20}},
-                    "outputs": {"f": {}},
+                    "inputs": {"a": 10, "b": 20},
                     "nodes": {
                         "operation_0": {
                             "function": {
                                 "module": operation.__module__,
                                 "qualname": operation.__qualname__,
                                 "version": "not_defined",
-                            },
-                            "inputs": {"x": {"dtype": float}, "y": {"dtype": float}},
-                            "outputs": {
-                                "output_0": {"dtype": float},
-                                "output_1": {"dtype": float},
                             },
                             "type": "Function",
                         },
@@ -336,12 +287,6 @@ class TestWorkflow(unittest.TestCase):
                                 "qualname": add.__qualname__,
                                 "version": "not_defined",
                             },
-                            "inputs": {
-                                "x": {"dtype": float, "default": 2.0},
-                                "y": {"dtype": float, "default": 1},
-                            },
-                            "outputs": {"output": {"dtype": float}},
-                            "uri": "add",
                             "type": "Function",
                         },
                         "multiply_0": {
@@ -350,25 +295,19 @@ class TestWorkflow(unittest.TestCase):
                                 "qualname": multiply.__qualname__,
                                 "version": "not_defined",
                             },
-                            "inputs": {
-                                "x": {"dtype": float},
-                                "y": {"dtype": float, "default": 5},
-                            },
-                            "outputs": {"output": {"dtype": float}},
                             "type": "Function",
                         },
                     },
                     "edges": [
                         ("inputs.a", "operation_0.inputs.x"),
                         ("inputs.b", "operation_0.inputs.y"),
-                        ("operation_0.outputs.output_0", "add_0.inputs.x"),
-                        ("operation_0.outputs.output_1", "add_0.inputs.y"),
+                        ("operation_0.outputs.0", "add_0.inputs.x"),
+                        ("operation_0.outputs.1", "add_0.inputs.y"),
                         ("add_0.outputs.output", "multiply_0.inputs.x"),
                         ("multiply_0.outputs.output", "outputs.f"),
                     ],
                     "label": "example_macro_0",
                     "type": "Workflow",
-                    "uri": "this macro has metadata",
                 },
                 "add_0": {
                     "function": {
@@ -376,12 +315,6 @@ class TestWorkflow(unittest.TestCase):
                         "qualname": add.__qualname__,
                         "version": "not_defined",
                     },
-                    "inputs": {
-                        "x": {"dtype": float, "default": 2.0},
-                        "y": {"dtype": float, "default": 1},
-                    },
-                    "outputs": {"output": {"dtype": float}},
-                    "uri": "add",
                     "type": "Function",
                 },
             },
@@ -389,7 +322,7 @@ class TestWorkflow(unittest.TestCase):
                 ("inputs.a", "example_macro_0.inputs.a"),
                 ("inputs.b", "example_macro_0.inputs.b"),
                 ("inputs.b", "add_0.inputs.y"),
-                ("example_macro_0.outputs.f", "add_0.inputs.x"),
+                ("example_macro_0.outputs.output", "add_0.inputs.x"),
                 ("add_0.outputs.output", "outputs.z"),
             ],
             "label": "example_workflow",
@@ -412,17 +345,17 @@ class TestWorkflow(unittest.TestCase):
 
     def test_run_single(self):
         data = example_macro.run()
-        self.assertEqual(example_macro(), data["outputs"]["f"]["value"])
+        self.assertEqual(example_macro(), data["outputs"]["f"])
 
     def test_run_parallel_execution(self):
         data = parallel_execution.run()
         results = parallel_execution()
-        self.assertEqual(results[0], data["outputs"]["e"]["value"])
-        self.assertEqual(results[1], data["outputs"]["f"]["value"])
+        self.assertEqual(results[0], data["outputs"]["e"])
+        self.assertEqual(results[1], data["outputs"]["f"])
 
     def test_run_nested(self):
         data = example_workflow.run()
-        self.assertEqual(example_workflow(), data["outputs"]["z"]["value"])
+        self.assertEqual(example_workflow(), data["outputs"]["z"])
 
     def test_not_implemented_error(self):
         def example_invalid_operator(a=10, b=20):
@@ -446,15 +379,10 @@ class TestWorkflow(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             fwf.workflow(example_invalid_local_var_def)
 
-    def test_separate_types(self):
-        old_data = example_workflow._semantikon_workflow
-        class_dict = fwf.separate_types(old_data)[1]
-        self.assertEqual(class_dict, {"float": float})
-
     def test_seemingly_cyclic_workflow(self):
         data = fwf.get_workflow_dict(seemingly_cyclic_workflow)
-        self.assertIn("a", data["inputs"])
-        self.assertIn("a", data["outputs"])
+        self.assertIn(("inputs.a", "add_0.inputs.x"), data["edges"])
+        self.assertIn(("add_0.outputs.output", "outputs.a"), data["edges"])
 
     def test_workflow_to_use_undefined_variable(self):
         with self.assertRaises(KeyError):
@@ -472,14 +400,6 @@ class TestWorkflow(unittest.TestCase):
     def test_workflow_with_while(self):
         wf = fwf.workflow(workflow_with_while)._semantikon_workflow
         self.assertIn("injected_While_0", wf["nodes"])
-        self.assertEqual(
-            sorted(wf["nodes"]["injected_While_0"]["inputs"].keys()),
-            ["a", "b", "x"],
-        )
-        self.assertEqual(
-            sorted(wf["nodes"]["injected_While_0"]["outputs"].keys()),
-            ["x", "z"],
-        )
         self.assertEqual(
             sorted(wf["nodes"]["injected_While_0"]["edges"]),
             sorted(
@@ -505,253 +425,12 @@ class TestWorkflow(unittest.TestCase):
             sorted(example_macro._semantikon_workflow["edges"]),
         )
 
-    def test_get_node_outputs(self):
-        self.assertEqual(
-            fwf._get_node_outputs(operation, counts=2),
-            {"output_0": {"dtype": float}, "output_1": {"dtype": float}},
-        )
-        self.assertEqual(
-            fwf._get_node_outputs(operation, counts=1),
-            {"output": {"dtype": tuple[float, float]}},
-        )
-        self.assertEqual(
-            fwf._get_node_outputs(parallel_execution, counts=2),
-            {"e": {}, "f": {}},
-        )
-        self.assertEqual(
-            fwf._get_node_outputs(parallel_execution, counts=1),
-            {"output": {}},
-        )
-
     def test_workflow_with_leaf(self):
         data = fwf.get_workflow_dict(workflow_with_leaf)
         self.assertIn("check_positive_0", data["nodes"])
         self.assertIn("add_0", data["nodes"])
-        self.assertIn("y", data["outputs"])
         self.assertIn(
             ("add_0.outputs.output", "check_positive_0.inputs.x"), data["edges"]
-        )
-        self.assertEqual(data["nodes"]["check_positive_0"]["outputs"], {})
-
-        with self.subTest("As dataclass"):
-            wf = fwf.get_node(fwf.workflow(workflow_with_leaf))
-            self.assertIn("check_positive_0", wf.nodes.keys())
-            self.assertIn("add_0", wf.nodes.keys())
-            self.assertIn("y", wf.outputs.keys())
-            self.assertIn(
-                ("add_0.outputs.output", "check_positive_0.inputs.x"),
-                wf.edges.to_tuple(),
-            )
-            self.assertIn("check_positive_0.inputs.x", wf.edges)
-            self.assertEqual(
-                wf.edges["check_positive_0.inputs.x"],
-                "add_0.outputs.output",
-            )
-
-    def test_get_workflow_output(self):
-
-        def test_function_1(a, b):
-            return a + b
-
-        self.assertEqual(
-            fwf._get_node_outputs(test_function_1),
-            {"output": {}},
-        )
-
-        def test_function_2(a, b):
-            return a
-
-        self.assertEqual(
-            fwf._get_node_outputs(test_function_2),
-            {"a": {}},
-        )
-
-        def test_function_3(a, b):
-            return a, b
-
-        self.assertEqual(
-            fwf._get_node_outputs(test_function_3),
-            {"a": {}, "b": {}},
-        )
-
-        def test_function_4(a, b):
-            return a + b, b
-
-        data = fwf._get_node_outputs(test_function_4)
-        self.assertEqual(data, {"output_0": {}, "b": {}})
-        data["output_0"]["value"] = 0
-        self.assertEqual(
-            data,
-            {"output_0": {"value": 0}, "b": {}},
-        )
-
-        def test_function_5(a: int, b: int) -> tuple[int, int]:
-            return a, b
-
-        self.assertEqual(
-            fwf._get_node_outputs(test_function_5),
-            {"a": {"dtype": int}, "b": {"dtype": int}},
-        )
-
-    def test_ports(self):
-        for fnc in (operation, add, multiply, my_while_condition, complex_function):
-            with self.subTest(fnc=fnc, msg=fnc.__name__):
-                inputs, outputs = fwf.get_ports(fnc)
-                full_entry = fwf.get_node_dict(fnc)
-                for entry, node in (
-                    (full_entry["inputs"], inputs),
-                    (full_entry["outputs"], outputs),
-                ):
-                    with self.subTest(node.__class__.__name__):
-                        node_dictionary = node.to_dictionary()
-
-                        # Transform the node to match the existing style
-                        for arg_dictionary in node_dictionary.values():
-                            arg_dictionary.pop("label")
-                            arg_dictionary.pop("type")
-                            metadata = arg_dictionary.pop("metadata", {})
-                            arg_dictionary.update(metadata)  # Flatten the metadata
-
-                        self.assertDictEqual(
-                            entry,
-                            node_dictionary,
-                            msg="Dictionary representation must be equivalent to "
-                            "existing dictionaries",
-                        )
-
-    def test_complex_function_node(self):
-        node = fwf.get_node(complex_function)
-
-        with self.subTest("Node parsing"):
-            self.assertIsInstance(node, fwf.Function)
-            self.assertIsInstance(node.inputs, fwf.Inputs)
-            self.assertIsInstance(node.outputs, fwf.Outputs)
-            self.assertIsInstance(node.metadata, fwf.CoreMetadata)
-            self.assertEqual(node.type, datastructure.Function.__name__)
-            self.assertEqual(node.label, complex_function.__name__)
-            self.assertEqual(node.metadata.uri, "some URI")
-
-        with self.subTest("Input parsing"):
-            self.assertIsInstance(node.inputs.x, fwf.Input)
-            self.assertIs(node.inputs.x.dtype, float)
-            self.assertAlmostEqual(node.inputs.x.default, 2.0)
-            self.assertIsInstance(node.inputs.x.metadata, datastructure.TypeMetadata)
-            self.assertEqual(node.inputs.x.metadata.units, "meter")
-            self.assertIs(node.inputs.y.dtype, float)
-            self.assertAlmostEqual(node.inputs.y.default, 1.0)
-            self.assertIsInstance(node.inputs.y.metadata, datastructure.TypeMetadata)
-            self.assertEqual(node.inputs.y.metadata.units, "second")
-            self.assertEqual(node.inputs.y.metadata.extra["something_extra"], 42)
-
-        with self.subTest("Output parsing"):
-            self.assertIsInstance(node.outputs.x, fwf.Output)
-            self.assertIs(node.outputs.x.dtype, float)
-            self.assertIsInstance(node.outputs.x.metadata, datastructure.TypeMetadata)
-            self.assertEqual(node.outputs.x.metadata.units, "meter")
-            self.assertIs(node.outputs.speed.dtype, float)
-            self.assertIsInstance(
-                node.outputs.speed.metadata, datastructure.TypeMetadata
-            )
-            self.assertEqual(node.outputs.speed.metadata.units, "meter/second")
-            self.assertEqual(node.outputs.speed.metadata.uri, "VELOCITY")
-            self.assertIs(node.outputs.output_2.dtype, float)
-
-    def test_complex_macro(self):
-        node = fwf.get_node(complex_macro)
-        with self.subTest("Node parsing"):
-            self.assertIsInstance(node, fwf.Workflow)
-            self.assertIsInstance(node.inputs, fwf.Inputs)
-            self.assertAlmostEqual(node.inputs.x.default, 2.0)
-            self.assertIsInstance(node.inputs.x.metadata, datastructure.TypeMetadata)
-            self.assertEqual(node.inputs.x.metadata.units, "meter")
-            self.assertIsInstance(node.outputs, fwf.Outputs)
-            self.assertIsInstance(node.metadata, fwf.CoreMetadata)
-            self.assertEqual(node.type, datastructure.Workflow.__name__)
-            self.assertEqual(node.label, complex_macro.__name__)
-            self.assertEqual(node.metadata.uri, "some other URI")
-
-        with self.subTest("Graph-node parsing"):
-            self.assertIsInstance(node.nodes, fwf.Nodes)
-            self.assertIsInstance(node.nodes.complex_function_0, fwf.Function)
-            self.assertEqual("complex_function_0", node.nodes.complex_function_0.label)
-            self.assertIsInstance(node.edges, fwf.Edges)
-            self.assertDictEqual(
-                {
-                    f"{node.nodes.complex_function_0.label}.inputs.{node.nodes.complex_function_0.inputs.x.label}": f"inputs.{node.inputs.x.label}",
-                    f"outputs.{node.outputs.b.label}": f"{node.nodes.complex_function_0.label}.outputs.{node.nodes.complex_function_0.outputs.speed.label}",
-                    f"outputs.{node.outputs.c.label}": f"{node.nodes.complex_function_0.label}.outputs.{node.nodes.complex_function_0.outputs.output_2.label}",
-                },
-                node.edges.to_dictionary(),
-            )
-
-    def test_complex_workflow(self):
-        node = fwf.get_node(complex_workflow)
-        with self.subTest("Node parsing"):
-            self.assertIsInstance(node, fwf.Workflow)
-            self.assertIsInstance(node.inputs, fwf.Inputs)
-            self.assertAlmostEqual(node.inputs.x.default, 2.0)
-            self.assertIsInstance(node.inputs.x.metadata, datastructure.TypeMetadata)
-            self.assertEqual(node.inputs.x.metadata.units, "meter")
-            self.assertIsInstance(node.outputs, fwf.Outputs)
-            self.assertIsInstance(node.metadata, fwf.CoreMetadata)
-            self.assertEqual(node.type, datastructure.Workflow.__name__)
-            self.assertEqual(node.label, complex_workflow.__name__)
-            self.assertTupleEqual(node.metadata.triples, ("a", "b", "c"))
-
-        with self.subTest("Graph-node parsing"):
-            self.assertIsInstance(node.nodes, fwf.Nodes)
-            self.assertIsInstance(node.nodes.complex_macro_0, fwf.Workflow)
-            self.assertIsInstance(node.edges, fwf.Edges)
-            self.assertDictEqual(
-                {
-                    f"{node.nodes.complex_macro_0.label}.inputs.{node.nodes.complex_macro_0.inputs.x.label}": f"inputs.{node.inputs.x.label}",
-                    f"outputs.{node.outputs.c.label}": f"{node.nodes.complex_macro_0.label}.outputs.{node.nodes.complex_macro_0.outputs.c.label}",
-                },
-                node.edges.to_dictionary(),
-            )
-
-    def test_function(self):
-        for fnc in (operation, add, multiply, my_while_condition):
-            with self.subTest(fnc=fnc, msg=fnc.__name__):
-                entry = fwf.get_node_dict(
-                    fnc,
-                    parse_input_args(fnc),
-                    fwf._get_node_outputs(fnc),
-                )
-                # Cheat and modify the entry to resemble the node structure
-                if hasattr(fnc, "_semantikon_metadata"):
-                    # Nest the metadata in the entry
-                    metadata = fnc._semantikon_metadata
-                    for k in metadata:
-                        entry.pop(k)
-                    entry["metadata"] = metadata
-
-                node_dictionary = fwf.get_node(fnc).to_dictionary()
-                # Cheat and modify the node_dictionary to match the entry format
-                node_dictionary.pop("label")
-                for io in (node_dictionary["inputs"], node_dictionary["outputs"]):
-                    for port_dictionary in io.values():
-                        port_dictionary.pop("type")
-                        port_dictionary.pop("label")
-
-                self.assertDictEqual(
-                    entry,
-                    node_dictionary,
-                    msg="Just an interim cyclicity test",
-                )
-
-    def test_detect_io_variables_from_control_flow(self):
-        graph = fwf.analyze_function(workflow_with_while)[0]
-        subgraphs = fwf._split_graphs_into_subgraphs(graph)
-        io_vars = fwf._detect_io_variables_from_control_flow(
-            graph, subgraphs["While_0"]
-        )
-        self.assertEqual(
-            {key: sorted(value) for key, value in io_vars.items()},
-            {
-                "inputs": ["a_0", "b_0", "x_0"],
-                "outputs": ["x_1", "z_0"],
-            },
         )
 
     def test_get_control_flow_graph(self):
@@ -779,8 +458,6 @@ class TestWorkflow(unittest.TestCase):
 
     def test_multiple_nested_workflow(self):
         data = fwf.get_workflow_dict(multiple_nested_workflow)
-        self.assertIn("a", data["inputs"])
-        self.assertIn("f", data["outputs"])
         self.assertIn("injected_While_0", data["nodes"])
         self.assertIn(
             "injected_While_0_While_0", data["nodes"]["injected_While_0"]["nodes"]
@@ -822,20 +499,9 @@ class TestWorkflow(unittest.TestCase):
             ),
         )
 
-    def test_multiple_output_to_single_raise_error(self):
-
-        def multiple_output_to_single_variable(a, b):
-            output = parallel_execution(a, b)
-            return output
-
-        self.assertRaises(
-            ValueError, fwf.get_workflow_dict, multiple_output_to_single_variable
-        )
-
     def test_if_statement(self):
         data = fwf.get_workflow_dict(workflow_with_if)
         self.assertIn("injected_If_0", data["nodes"])
-        self.assertIn("x", data["outputs"])
         self.assertEqual(
             sorted(data["edges"]),
             sorted(
@@ -972,10 +638,10 @@ class TestWorkflow(unittest.TestCase):
             return x, y
 
         workflow_dict = fwf.get_workflow_dict(yet_another_workflow)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.default"), 10)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a"), 10)
         self.assertRaises(KeyError, fwf._get_entry, workflow_dict, "inputs.x.default")
-        fwf._set_entry(workflow_dict, "inputs.a.value", 42)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.value"), 42)
+        fwf._set_entry(workflow_dict, "inputs.a", 42)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a"), 42)
 
     def test_get_function_metadata(self):
         self.assertEqual(
@@ -990,6 +656,12 @@ class TestWorkflow(unittest.TestCase):
             fwf._get_function_metadata(fwf._get_function_metadata(operation)),
             fwf._get_function_metadata(operation),
         )
+
+    def test_get_function_keyword(self):
+        def my_test_function(x, /, y, *, z):
+            return x + y + z
+
+        self.assertEqual(fwf._get_function_keywords(my_test_function), [0, "y", "z"])
 
 
 if __name__ == "__main__":

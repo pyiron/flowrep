@@ -1,7 +1,6 @@
 import ast
 import builtins
 import copy
-import dataclasses
 import hashlib
 import inspect
 import json
@@ -9,33 +8,12 @@ import textwrap
 from collections import deque
 from collections.abc import Callable, Iterable
 from functools import cached_property, update_wrapper
-from typing import Any, Generic, TypeVar, cast, get_args, get_origin
+from typing import Any, Generic, TypeVar, cast
 
 import networkx as nx
 from networkx.algorithms.dag import topological_sort
-from semantikon.converter import (
-    get_annotated_type_hints,
-    get_return_expressions,
-    get_return_labels,
-    meta_to_dict,
-    parse_input_args,
-    parse_output_args,
-)
-from semantikon.datastructure import (
-    MISSING,
-    CoreMetadata,
-    Edges,
-    Function,
-    Input,
-    Inputs,
-    Missing,
-    Nodes,
-    Output,
-    Outputs,
-    PortType,
-    TypeMetadata,
-    Workflow,
-)
+
+from flowrep import tools
 
 F = TypeVar("F", bound=Callable[..., object])
 
@@ -52,40 +30,6 @@ class FunctionWithWorkflow(Generic[F]):
 
     def __getattr__(self, item):
         return getattr(self.func, item)
-
-
-def separate_types(
-    data: dict[str, Any], class_dict: dict[str, type] | None = None
-) -> tuple[dict[str, Any], dict[str, type]]:
-    """
-    Separate types from the data dictionary and store them in a class dictionary.
-    The types inside the data dictionary will be replaced by their name (which
-    would for example make it easier to hash it).
-
-    Args:
-        data (dict[str, Any]): The data dictionary containing nodes and types.
-        class_dict (dict[str, type], optional): A dictionary to store types. It
-            is mainly used due to the recursivity of this function. Defaults to
-            None.
-
-    Returns:
-        tuple: A tuple containing the modified data dictionary and the
-            class dictionary.
-    """
-    data = copy.deepcopy(data)
-    if class_dict is None:
-        class_dict = {}
-    if "nodes" in data:
-        for key, node in data["nodes"].items():
-            child_node, child_class_dict = separate_types(node, class_dict)
-            class_dict.update(child_class_dict)
-            data["nodes"][key] = child_node
-    for io_ in ["inputs", "outputs"]:
-        for key, content in data[io_].items():
-            if "dtype" in content and isinstance(content["dtype"], type):
-                class_dict[content["dtype"].__name__] = content["dtype"]
-                data[io_][key]["dtype"] = content["dtype"].__name__
-    return data, class_dict
 
 
 def serialize_functions(data: dict[str, Any]) -> dict[str, Any]:
@@ -123,17 +67,29 @@ class FunctionDictFlowAnalyzer:
         self._control_flow_list = []
         self._parallel_var = {}
 
+    @staticmethod
+    def get_inputs_with_default(inp):
+        if len(inp["defaults"]) == 0:
+            return {}
+        args = [tag["arg"] for tag in inp["args"]]
+        defaults = []
+        for d in inp["defaults"]:
+            assert d["_type"] == "Constant"
+            defaults.append(d["value"])
+        return dict(zip(args[-len(defaults) :], defaults, strict=True))
+
     def analyze(self) -> tuple[nx.DiGraph, dict[str, Any]]:
         for arg in self.ast_dict.get("args", {}).get("args", []):
             if arg["_type"] == "arg":
                 self._add_output_edge("input", arg["arg"])
+        inputs = self.get_inputs_with_default(self.ast_dict.get("args", {}))
         return_was_called = False
         for node in self.ast_dict.get("body", []):
             assert not return_was_called
             self._visit_node(node)
             if node["_type"] == "Return":
                 return_was_called = True
-        return self.graph, self.function_defs
+        return self.graph, self.function_defs, inputs
 
     def _visit_node(self, node, control_flow: str | None = None):
         if node["_type"] == "Assign":
@@ -260,10 +216,12 @@ class FunctionDictFlowAnalyzer:
         if control_flow is not None:
             self.function_defs[unique_func_name]["control_flow"] = control_flow
 
+        arg_list = _get_function_keywords(self.scope[func_name])
+
         # Parse inputs (positional + keyword)
         for i, arg in enumerate(value.get("args", [])):
             self._add_input_edge(
-                arg, unique_func_name, input_index=i, control_flow=control_flow
+                arg, unique_func_name, input_name=arg_list[i], control_flow=control_flow
             )
         for kw in value.get("keywords", []):
             self._add_input_edge(
@@ -469,8 +427,8 @@ def _detect_io_variables_from_control_flow(
     inputs = var_inp_1.intersection(var_inp_2)
     input_stem = [inp.rsplit("_", 1)[0] for inp in inputs]
     outputs = var_out_1.intersection(var_out_2)
-    # This is needed in order to add those outputs which are updated during
-    # the control flow to the outputs. For example, the variable x in the
+    # Lines below are needed in order to add those outputs which are updated
+    # during the control flow to the outputs. For example, the variable x in the
     # following workflow has to be in the outputs because it is updated in the
     # while loop, even though it is not used subsequently.
     # def f(x):
@@ -604,27 +562,6 @@ def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any]]:
     return analyzer.analyze()
 
 
-def _get_node_outputs(func: Callable, counts: int | None = None) -> dict[str, dict]:
-    output_hints = parse_output_args(
-        func, separate_tuple=(counts is None or counts > 1)
-    )
-    output_vars = get_return_expressions(func)
-    if output_vars is None or len(output_vars) == 0:
-        return {}
-    if (counts is not None and counts == 1) or isinstance(output_vars, str):
-        if isinstance(output_vars, str):
-            return {output_vars: cast(dict, output_hints)}
-        else:
-            return {"output": cast(dict, output_hints)}
-    assert isinstance(output_vars, tuple), output_vars
-    assert counts is None or len(output_vars) == counts, output_vars
-    if output_hints == {}:
-        return {key: {} for key in output_vars}
-    else:
-        assert counts is None or len(output_hints) == counts
-        return {key: hint for key, hint in zip(output_vars, output_hints, strict=False)}
-
-
 def _get_output_counts(graph: nx.DiGraph) -> dict[str, int]:
     """
     Get the number of outputs for each node in the graph.
@@ -654,22 +591,11 @@ def _get_nodes(
     for label, function in data.items():
         func = function["function"]
         if hasattr(func, "_semantikon_workflow"):
-            if output_counts[label] != len(func._semantikon_workflow["outputs"]):
-                raise ValueError(
-                    f"{label} has {len(func._semantikon_workflow['outputs'])} outputs, "
-                    f"but {output_counts[label]} expected"
-                )
             data_dict = func._semantikon_workflow.copy()
             result[label] = data_dict
             result[label]["label"] = label
-            if hasattr(func, "_semantikon_metadata"):
-                result[label].update(func._semantikon_metadata)
         else:
-            result[label] = get_node_dict(
-                function=func,
-                inputs=parse_input_args(func),
-                outputs=_get_node_outputs(func, output_counts.get(label, 1)),
-            )
+            result[label] = get_node_dict(function=func)
     return result
 
 
@@ -729,14 +655,7 @@ def _remove_and_reconnect_nodes(
     return G
 
 
-def _get_edges(graph: nx.DiGraph, nodes: dict[str, dict]) -> list[tuple[str, str]]:
-    io_dict = {
-        key: {
-            "input": list(data["inputs"].keys()),
-            "output": list(data["outputs"].keys()),
-        }
-        for key, data in nodes.items()
-    }
+def _get_edges(graph: nx.DiGraph) -> list[tuple[str, str]]:
     edges = []
     nodes_to_remove = []
     for edge in graph.edges.data():
@@ -747,22 +666,14 @@ def _get_edges(graph: nx.DiGraph, nodes: dict[str, dict]) -> list[tuple[str, str
             edges.append([edge[0], edge[1] + "s." + _remove_index(edge[0])])
             nodes_to_remove.append(edge[0])
         elif edge[2]["type"] == "input":
-            if "input_name" in edge[2]:
-                tag = edge[2]["input_name"]
-            elif "input_index" in edge[2]:
-                tag = io_dict[edge[1]]["input"][edge[2]["input_index"]]
-            else:
-                raise ValueError
-            edges.append([edge[0], edge[1] + ".inputs." + tag])
+            tag = edge[2].get("input_name", edge[2].get("input_index"))
+            if tag is None:
+                raise ValueError(f"Edge {edge} has no input_name or input_index")
+            edges.append([edge[0], f"{edge[1]}.inputs.{tag}"])
             nodes_to_remove.append(edge[0])
         elif edge[2]["type"] == "output":
-            if "output_index" in edge[2]:
-                tag = io_dict[edge[0]]["output"][edge[2]["output_index"]]
-            elif "output_name" in edge[2]:
-                tag = edge[2]["output_name"]
-            else:
-                tag = io_dict[edge[0]]["output"][0]
-            edges.append([edge[0] + ".outputs." + tag, edge[1]])
+            tag = edge[2].get("output_name", edge[2].get("output_index", "output"))
+            edges.append([f"{edge[0]}.outputs.{tag}", edge[1]])
             nodes_to_remove.append(edge[1])
     new_graph = _remove_and_reconnect_nodes(nx.DiGraph(edges), nodes_to_remove)
     return list(new_graph.edges)
@@ -770,8 +681,6 @@ def _get_edges(graph: nx.DiGraph, nodes: dict[str, dict]) -> list[tuple[str, str
 
 def get_node_dict(
     function: Callable,
-    inputs: dict[str, dict] | None = None,
-    outputs: dict[str, dict] | None = None,
 ) -> dict:
     """
     Get a dictionary representation of the function node.
@@ -784,37 +693,25 @@ def get_node_dict(
     Returns:
         (dict) A dictionary representation of the function node.
     """
-    if inputs is None:
-        inputs = parse_input_args(function)
-    if outputs is None:
-        outputs = _get_node_outputs(function)
     data = {
-        "inputs": inputs,
-        "outputs": outputs,
         "function": function,
         "type": "Function",
     }
-    if hasattr(function, "_semantikon_metadata"):
-        data.update(function._semantikon_metadata)
     return data
 
 
 def _to_workflow_dict_entry(
     inputs: dict[str, dict],
-    outputs: dict[str, dict],
     nodes: dict[str, dict],
     edges: list[tuple[str, str]],
     label: str,
     **kwargs,
 ) -> dict[str, object]:
-    assert all("inputs" in v for v in nodes.values())
-    assert all("outputs" in v for v in nodes.values())
     assert all(
         "function" in v or ("nodes" in v and "edges" in v) for v in nodes.values()
     )
     return {
         "inputs": inputs,
-        "outputs": outputs,
         "nodes": nodes,
         "edges": edges,
         "label": label,
@@ -869,13 +766,10 @@ def _nest_nodes(
                 current_nodes[key] = nodes[key]
             else:
                 current_nodes[key] = injected_nodes.pop(key)
-        io_ = _detect_io_variables_from_control_flow(graph, subgraph)
         injected_nodes[new_key] = {
             "nodes": current_nodes,
-            "edges": _get_edges(subgraph, current_nodes),
+            "edges": _get_edges(subgraph),
             "label": new_key,
-            "inputs": {_remove_index(key): {} for key in io_["inputs"]},
-            "outputs": {_remove_index(key): {} for key in io_["outputs"]},
         }
         for tag in ["test", "iter"]:
             if tag in injected_nodes[new_key]["nodes"]:
@@ -894,12 +788,11 @@ def get_workflow_dict(func: Callable) -> dict[str, object]:
         dict: A dictionary representation of the workflow, including inputs,
             outputs, nodes, edges, and label.
     """
-    graph, f_dict = analyze_function(func)
+    graph, f_dict, inputs = analyze_function(func)
     nodes = _get_nodes(f_dict, _get_output_counts(graph))
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
     return _to_workflow_dict_entry(
-        inputs=parse_input_args(func),
-        outputs=_get_node_outputs(func),
+        inputs=inputs,
         nodes=nested_nodes,
         edges=edges,
         label=func.__name__,
@@ -943,7 +836,7 @@ def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]
 
 class _Workflow:
     def __init__(self, workflow_dict: dict[str, Any]):
-        self._workflow = workflow_dict
+        self._workflow = tools.dict_to_recursive_dd(workflow_dict)
 
     @cached_property
     def _all_edges(self) -> list[tuple[str, str]]:
@@ -972,53 +865,47 @@ class _Workflow:
     def _set_inputs(self, *args, **kwargs):
         kwargs = self._sanitize_input(*args, **kwargs)
         for key, value in kwargs.items():
-            if key not in self._workflow["inputs"]:
-                raise TypeError(f"Unexpected keyword argument '{key}'")
-            self._workflow["inputs"][key]["value"] = value
-
-    def _get_value_from_data(self, node: dict[str, Any]) -> Any:
-        if "value" not in node:
-            node["value"] = node["default"]
-        return node["value"]
+            self._workflow["inputs"][key] = value
 
     def _get_value_from_global(self, path: str) -> Any:
         io, var = path.split(".")
-        return self._get_value_from_data(self._workflow[io][var])
+        assert io in self._workflow, f"{io} not in workflow"
+        assert var in self._workflow[io], f"{var} not in workflow {io}"
+        return self._workflow[io][var]
 
     def _get_value_from_node(self, path: str) -> Any:
         node, io, var = path.split(".")
-        return self._get_value_from_data(self._workflow["nodes"][node][io][var])
+        return self._workflow["nodes"][node][io][var]
 
     def _set_value_from_global(self, path, value):
         io, var = path.split(".")
-        self._workflow[io][var]["value"] = value
+        self._workflow[io][var] = value
 
     def _set_value_from_node(self, path, value):
         node, io, var = path.split(".")
-        try:
-            self._workflow["nodes"][node][io][var]["value"] = value
-        except KeyError:
-            raise KeyError(f"{path} not found in {node}") from None
+        self._workflow["nodes"][node][io][var] = value
 
     def _execute_node(self, function: str) -> Any:
         node = self._workflow["nodes"][function]
-        input_data = {}
+        input_kwargs = {}
+        input_args = []
         try:
-            for key, content in node["inputs"].items():
-                if "value" not in content:
-                    content["value"] = content["default"]
-                input_data[key] = content["value"]
+            for key, content in node.get("inputs", {}).items():
+                try:
+                    input_args.append(int(content))
+                except ValueError:
+                    input_kwargs[key] = content
         except KeyError:
             raise KeyError(f"value not defined for {function}") from None
         if "function" not in node:
             workflow = _Workflow(node)
-            outputs = [
-                d["value"] for d in workflow.run(**input_data)["outputs"].values()
-            ]
+            outputs = list(
+                workflow.run(*input_args, **input_kwargs)["outputs"].values()
+            )
             if len(outputs) == 1:
                 outputs = outputs[0]
         else:
-            outputs = node["function"](**input_data)
+            outputs = node["function"](*input_args, **input_kwargs)
         return outputs
 
     def _set_value(self, tag, value):
@@ -1051,7 +938,7 @@ class _Workflow:
                 else:
                     for node in nodes:
                         self._set_value(node[1], values)
-        return self._workflow
+        return tools.recursive_dd_to_dict(self._workflow)
 
 
 def find_parallel_execution_levels(G: nx.DiGraph) -> list[list[str]]:
@@ -1141,126 +1028,6 @@ def workflow(func: Callable) -> FunctionWithWorkflow:
     return func_with_metadata
 
 
-def get_ports(
-    func: Callable, separate_return_tuple: bool = True, strict: bool = False
-) -> tuple[Inputs, Outputs]:
-    type_hints = get_annotated_type_hints(func)
-    return_hint = type_hints.pop("return", inspect.Parameter.empty)
-    return_labels = get_return_labels(
-        func, separate_tuple=separate_return_tuple, strict=strict
-    )
-    if get_origin(return_hint) is tuple and separate_return_tuple:
-        output_annotations = {
-            label: meta_to_dict(ann, flatten_metadata=False)
-            for label, ann in zip(return_labels, get_args(return_hint), strict=False)
-        }
-    else:
-        output_annotations = {
-            return_labels[0]: meta_to_dict(return_hint, flatten_metadata=False)
-        }
-    input_annotations = {
-        key: meta_to_dict(
-            type_hints.get(key, value.annotation), value.default, flatten_metadata=False
-        )
-        for key, value in inspect.signature(func).parameters.items()
-    }
-    return (
-        Inputs(**{k: Input(label=k, **v) for k, v in input_annotations.items()}),
-        Outputs(**{k: Output(label=k, **v) for k, v in output_annotations.items()}),
-    )
-
-
-def get_node(func: Callable, label: str | None = None) -> Function | Workflow:
-    metadata_dict = (
-        func._semantikon_metadata if hasattr(func, "_semantikon_metadata") else MISSING
-    )
-    metadata = (
-        metadata_dict
-        if isinstance(metadata_dict, Missing)
-        else CoreMetadata.from_dict(metadata_dict)
-    )
-
-    if hasattr(func, "_semantikon_workflow"):
-        return parse_workflow(func._semantikon_workflow, metadata)
-    else:
-        return parse_function(func, metadata, label=label)
-
-
-def parse_function(
-    func: Callable, metadata: CoreMetadata | Missing, label: str | None = None
-) -> Function:
-    inputs, outputs = get_ports(func)
-    return Function(
-        label=func.__name__ if label is None else label,
-        inputs=inputs,
-        outputs=outputs,
-        function=func,
-        metadata=metadata,
-    )
-
-
-def _port_from_dictionary(
-    io_dictionary: dict[str, object], label: str, port_class: type[PortType]
-) -> PortType:
-    """
-    Take a traditional _semantikon_workflow dictionary's input or output subdictionary
-    and nest the metadata (if any) as a dataclass.
-    """
-    metadata_kwargs = {}
-    for field in dataclasses.fields(TypeMetadata):
-        if field.name in io_dictionary:
-            metadata_kwargs[field.name] = io_dictionary.pop(field.name)
-    if len(metadata_kwargs) > 0:
-        io_dictionary["metadata"] = TypeMetadata.from_dict(metadata_kwargs)
-    io_dictionary["label"] = label
-    return port_class.from_dict(io_dictionary)
-
-
-def _input_from_dictionary(io_dictionary: dict[str, object], label: str) -> Input:
-    return _port_from_dictionary(io_dictionary, label, Input)
-
-
-def _output_from_dictionary(io_dictionary: dict[str, object], label: str) -> Output:
-    return _port_from_dictionary(io_dictionary, label, Output)
-
-
-def parse_workflow(
-    semantikon_workflow: dict[str, Any], metadata: CoreMetadata | Missing = MISSING
-) -> Workflow:
-    label = semantikon_workflow["label"]
-    inputs = Inputs(
-        **{
-            k: _input_from_dictionary(v, label=k)
-            for k, v in semantikon_workflow["inputs"].items()
-        }
-    )
-    outputs = Outputs(
-        **{
-            k: _output_from_dictionary(v, label=k)
-            for k, v in semantikon_workflow["outputs"].items()
-        }
-    )
-    nodes = Nodes(
-        **{
-            k: (
-                get_node(v["function"], label=k)
-                if "function" in v
-                else parse_workflow(v)
-            )
-            for k, v in semantikon_workflow["nodes"].items()
-        }
-    )
-    edges = Edges(**{v: k for k, v in semantikon_workflow["edges"]})
-    return Workflow(
-        label=label,
-        inputs=inputs,
-        outputs=outputs,
-        nodes=nodes,
-        edges=edges,
-        metadata=metadata,
-    )
-
-
 def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
     edges = cast(list[tuple[str, str]], workflow_dict["edges"])
     missing_edges = [edge for edge in _get_missing_edges(edges)]
@@ -1276,10 +1043,7 @@ def _replace_input_ports(
         if G.in_degree(n) == 0:
             assert n.startswith("inputs.")
             data = _get_entry(workflow_dict, n)
-            if "value" in data:
-                nx.relabel_nodes(G, {n: data["value"]}, copy=False)
-            elif "default" in data:
-                nx.relabel_nodes(G, {n: data["default"]}, copy=False)
+            nx.relabel_nodes(G, {n: data}, copy=False)
     return G
 
 
@@ -1410,3 +1174,14 @@ def _get_function_metadata(cls: Callable | dict[str, str]) -> dict[str, str]:
         "qualname": qualname,
         "version": version,
     }
+
+
+def _get_function_keywords(function: Callable) -> list[str | int]:
+    signature = inspect.signature(function)
+    items = []
+    for ii, (name, param) in enumerate(signature.parameters.items()):
+        if param.kind == inspect.Parameter.POSITIONAL_ONLY:
+            items.append(ii)
+        else:
+            items.append(name)
+    return items
