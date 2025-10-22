@@ -79,7 +79,7 @@ class FunctionDictFlowAnalyzer:
         for d in inp["defaults"]:
             assert d["_type"] == "Constant"
             defaults.append(d["value"])
-        return dict(zip(args[-len(defaults):], defaults))
+        return dict(zip(args[-len(defaults) :], defaults))
 
     def analyze(self) -> tuple[nx.DiGraph, dict[str, Any]]:
         for arg in self.ast_dict.get("args", {}).get("args", []):
