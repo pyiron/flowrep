@@ -18,6 +18,8 @@ from semantikon.converter import (
     parse_output_args,
 )
 
+from flowrep import tools
+
 F = TypeVar("F", bound=Callable[..., object])
 
 
@@ -845,7 +847,7 @@ def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]
 
 class _Workflow:
     def __init__(self, workflow_dict: dict[str, Any]):
-        self._workflow = workflow_dict
+        self._workflow = tools.dict_to_recursive_dd(workflow_dict)
 
     @cached_property
     def _all_edges(self) -> list[tuple[str, str]]:
@@ -880,11 +882,15 @@ class _Workflow:
 
     def _get_value_from_data(self, node: dict[str, Any]) -> Any:
         if "value" not in node:
+            if "default" not in node:
+                raise KeyError(f"No value or default defined in node: {node}")
             node["value"] = node["default"]
         return node["value"]
 
     def _get_value_from_global(self, path: str) -> Any:
         io, var = path.split(".")
+        assert io in self._workflow, f"{io} not in workflow"
+        assert var in self._workflow[io], f"{var} not in workflow {io}"
         return self._get_value_from_data(self._workflow[io][var])
 
     def _get_value_from_node(self, path: str) -> Any:
@@ -897,21 +903,14 @@ class _Workflow:
 
     def _set_value_from_node(self, path, value):
         node, io, var = path.split(".")
-        if io not in self._workflow["nodes"][node]:
-            self._workflow["nodes"][node][io] = {}
-        if var not in self._workflow["nodes"][node][io]:
-            self._workflow["nodes"][node][io][var] = {}
-        try:
-            self._workflow["nodes"][node][io][var]["value"] = value
-        except KeyError:
-            raise KeyError(f"{path} not found in {node}") from None
+        self._workflow["nodes"][node][io][var]["value"] = value
 
     def _execute_node(self, function: str) -> Any:
         node = self._workflow["nodes"][function]
         input_kwargs = {}
         input_args = []
         try:
-            for key, content in node["inputs"].items():
+            for key, content in node.get("inputs", {}).items():
                 if "value" not in content:
                     content["value"] = content["default"]
                 try:
