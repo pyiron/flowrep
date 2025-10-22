@@ -223,8 +223,7 @@ class TestWorkflow(unittest.TestCase):
 
     def test_get_workflow_dict(self):
         ref_data = {
-            "inputs": {"a": {"default": 10}, "b": {"default": 20}},
-            "outputs": {"f": {}},
+            "inputs": {"a": 10, "b": 20},
             "nodes": {
                 "operation_0": {
                     "function": {
@@ -269,12 +268,10 @@ class TestWorkflow(unittest.TestCase):
     def test_get_workflow_dict_macro(self):
         result = fwf.get_workflow_dict(example_workflow)
         ref_data = {
-            "inputs": {"a": {"default": 10}, "b": {"default": 20}},
-            "outputs": {"z": {}},
+            "inputs": {"a": 10, "b": 20},
             "nodes": {
                 "example_macro_0": {
-                    "inputs": {"a": {"default": 10}, "b": {"default": 20}},
-                    "outputs": {"f": {}},
+                    "inputs": {"a": 10, "b": 20},
                     "nodes": {
                         "operation_0": {
                             "function": {
@@ -348,17 +345,17 @@ class TestWorkflow(unittest.TestCase):
 
     def test_run_single(self):
         data = example_macro.run()
-        self.assertEqual(example_macro(), data["outputs"]["f"]["value"])
+        self.assertEqual(example_macro(), data["outputs"]["f"])
 
     def test_run_parallel_execution(self):
         data = parallel_execution.run()
         results = parallel_execution()
-        self.assertEqual(results[0], data["outputs"]["e"]["value"])
-        self.assertEqual(results[1], data["outputs"]["f"]["value"])
+        self.assertEqual(results[0], data["outputs"]["e"])
+        self.assertEqual(results[1], data["outputs"]["f"])
 
     def test_run_nested(self):
         data = example_workflow.run()
-        self.assertEqual(example_workflow(), data["outputs"]["z"]["value"])
+        self.assertEqual(example_workflow(), data["outputs"]["z"])
 
     def test_not_implemented_error(self):
         def example_invalid_operator(a=10, b=20):
@@ -384,8 +381,8 @@ class TestWorkflow(unittest.TestCase):
 
     def test_seemingly_cyclic_workflow(self):
         data = fwf.get_workflow_dict(seemingly_cyclic_workflow)
-        self.assertIn("a", data["inputs"])
-        self.assertIn("a", data["outputs"])
+        self.assertIn(("inputs.a", "add_0.inputs.x"), data["edges"])
+        self.assertIn(("add_0.outputs.output", "outputs.a"), data["edges"])
 
     def test_workflow_to_use_undefined_variable(self):
         with self.assertRaises(KeyError):
@@ -403,14 +400,6 @@ class TestWorkflow(unittest.TestCase):
     def test_workflow_with_while(self):
         wf = fwf.workflow(workflow_with_while)._semantikon_workflow
         self.assertIn("injected_While_0", wf["nodes"])
-        self.assertEqual(
-            sorted(wf["nodes"]["injected_While_0"]["inputs"].keys()),
-            ["a", "b", "x"],
-        )
-        self.assertEqual(
-            sorted(wf["nodes"]["injected_While_0"]["outputs"].keys()),
-            ["x", "z"],
-        )
         self.assertEqual(
             sorted(wf["nodes"]["injected_While_0"]["edges"]),
             sorted(
@@ -436,91 +425,12 @@ class TestWorkflow(unittest.TestCase):
             sorted(example_macro._semantikon_workflow["edges"]),
         )
 
-    def test_get_node_outputs(self):
-        self.assertEqual(
-            fwf._get_node_outputs(operation, counts=2),
-            {"output_0": {"dtype": float}, "output_1": {"dtype": float}},
-        )
-        self.assertEqual(
-            fwf._get_node_outputs(operation, counts=1),
-            {"output": {"dtype": tuple[float, float]}},
-        )
-        self.assertEqual(
-            fwf._get_node_outputs(parallel_execution, counts=2),
-            {"e": {}, "f": {}},
-        )
-        self.assertEqual(
-            fwf._get_node_outputs(parallel_execution, counts=1),
-            {"output": {}},
-        )
-
     def test_workflow_with_leaf(self):
         data = fwf.get_workflow_dict(workflow_with_leaf)
         self.assertIn("check_positive_0", data["nodes"])
         self.assertIn("add_0", data["nodes"])
-        self.assertIn("y", data["outputs"])
         self.assertIn(
             ("add_0.outputs.output", "check_positive_0.inputs.x"), data["edges"]
-        )
-        self.assertNotIn("outputs", data["nodes"]["check_positive_0"])
-
-    def test_get_workflow_output(self):
-
-        def test_function_1(a, b):
-            return a + b
-
-        self.assertEqual(
-            fwf._get_node_outputs(test_function_1),
-            {"output": {}},
-        )
-
-        def test_function_2(a, b):
-            return a
-
-        self.assertEqual(
-            fwf._get_node_outputs(test_function_2),
-            {"a": {}},
-        )
-
-        def test_function_3(a, b):
-            return a, b
-
-        self.assertEqual(
-            fwf._get_node_outputs(test_function_3),
-            {"a": {}, "b": {}},
-        )
-
-        def test_function_4(a, b):
-            return a + b, b
-
-        data = fwf._get_node_outputs(test_function_4)
-        self.assertEqual(data, {"output_0": {}, "b": {}})
-        data["output_0"]["value"] = 0
-        self.assertEqual(
-            data,
-            {"output_0": {"value": 0}, "b": {}},
-        )
-
-        def test_function_5(a: int, b: int) -> tuple[int, int]:
-            return a, b
-
-        self.assertEqual(
-            fwf._get_node_outputs(test_function_5),
-            {"a": {"dtype": int}, "b": {"dtype": int}},
-        )
-
-    def test_detect_io_variables_from_control_flow(self):
-        graph = fwf.analyze_function(workflow_with_while)[0]
-        subgraphs = fwf._split_graphs_into_subgraphs(graph)
-        io_vars = fwf._detect_io_variables_from_control_flow(
-            graph, subgraphs["While_0"]
-        )
-        self.assertEqual(
-            {key: sorted(value) for key, value in io_vars.items()},
-            {
-                "inputs": ["a_0", "b_0", "x_0"],
-                "outputs": ["x_1", "z_0"],
-            },
         )
 
     def test_get_control_flow_graph(self):
@@ -548,8 +458,6 @@ class TestWorkflow(unittest.TestCase):
 
     def test_multiple_nested_workflow(self):
         data = fwf.get_workflow_dict(multiple_nested_workflow)
-        self.assertIn("a", data["inputs"])
-        self.assertIn("f", data["outputs"])
         self.assertIn("injected_While_0", data["nodes"])
         self.assertIn(
             "injected_While_0_While_0", data["nodes"]["injected_While_0"]["nodes"]
@@ -591,20 +499,9 @@ class TestWorkflow(unittest.TestCase):
             ),
         )
 
-    def test_multiple_output_to_single_raise_error(self):
-
-        def multiple_output_to_single_variable(a, b):
-            output = parallel_execution(a, b)
-            return output
-
-        self.assertRaises(
-            ValueError, fwf.get_workflow_dict, multiple_output_to_single_variable
-        )
-
     def test_if_statement(self):
         data = fwf.get_workflow_dict(workflow_with_if)
         self.assertIn("injected_If_0", data["nodes"])
-        self.assertIn("x", data["outputs"])
         self.assertEqual(
             sorted(data["edges"]),
             sorted(
@@ -741,10 +638,10 @@ class TestWorkflow(unittest.TestCase):
             return x, y
 
         workflow_dict = fwf.get_workflow_dict(yet_another_workflow)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.default"), 10)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a"), 10)
         self.assertRaises(KeyError, fwf._get_entry, workflow_dict, "inputs.x.default")
-        fwf._set_entry(workflow_dict, "inputs.a.value", 42)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.value"), 42)
+        fwf._set_entry(workflow_dict, "inputs.a", 42)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a"), 42)
 
     def test_get_function_metadata(self):
         self.assertEqual(

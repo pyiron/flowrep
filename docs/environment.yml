@@ -9,4 +9,4 @@ dependencies:
 - versioneer
 - numpy =2.3.1
 - setuptools >=68
-- semantikon =0.0.22
+- networkx =3.4.2
