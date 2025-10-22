@@ -69,6 +69,8 @@ class FunctionDictFlowAnalyzer:
 
     @staticmethod
     def get_inputs_with_default(inp):
+        if len(inp["defaults"]) == 0:
+            return {}
         args = [tag["arg"] for tag in inp["args"]]
         defaults = []
         for d in inp["defaults"]:
