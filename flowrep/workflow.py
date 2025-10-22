@@ -12,11 +12,6 @@ from typing import Any, Generic, TypeVar, cast
 
 import networkx as nx
 from networkx.algorithms.dag import topological_sort
-from semantikon.converter import (
-    get_return_expressions,
-    parse_input_args,
-    parse_output_args,
-)
 
 from flowrep import tools
 
@@ -79,7 +74,7 @@ class FunctionDictFlowAnalyzer:
         for d in inp["defaults"]:
             assert d["_type"] == "Constant"
             defaults.append(d["value"])
-        return dict(zip(args[-len(defaults) :], defaults))
+        return dict(zip(args[-len(defaults) :], defaults, strict=True))
 
     def analyze(self) -> tuple[nx.DiGraph, dict[str, Any]]:
         for arg in self.ast_dict.get("args", {}).get("args", []):
