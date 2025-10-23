@@ -777,7 +777,9 @@ def _nest_nodes(
     return injected_nodes[""]["nodes"], injected_nodes[""]["edges"]
 
 
-def get_workflow_dict(func: Callable) -> dict[str, object]:
+def get_workflow_dict(
+    func: Callable, with_function: bool = False
+) -> dict[str, object]:
     """
     Get a dictionary representation of the workflow for a given function.
 
@@ -791,12 +793,15 @@ def get_workflow_dict(func: Callable) -> dict[str, object]:
     graph, f_dict, inputs = analyze_function(func)
     nodes = _get_nodes(f_dict, _get_output_counts(graph))
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
-    return _to_workflow_dict_entry(
+    result = _to_workflow_dict_entry(
         inputs=inputs,
         nodes=nested_nodes,
         edges=edges,
         label=func.__name__,
     )
+    if with_function:
+        result["function"] = func
+    return result
 
 
 def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]]:
