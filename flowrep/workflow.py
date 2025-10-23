@@ -777,9 +777,7 @@ def _nest_nodes(
     return injected_nodes[""]["nodes"], injected_nodes[""]["edges"]
 
 
-def get_workflow_dict(
-    func: Callable, with_function: bool = False
-) -> dict[str, object]:
+def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, object]:
     """
     Get a dictionary representation of the workflow for a given function.
 
