@@ -76,7 +76,9 @@ def seemingly_cyclic_workflow(a=10, b=20):
 
 
 def workflow_to_use_undefined_variable(a=10, b=20):
-    result = add(a, u)
+    # This nx has nothing to do with networkx, just a variable name
+    # so that ruff does not complain about unused imports
+    result = add(a, nx)
     return result
 
 
@@ -645,7 +647,7 @@ class TestWorkflow(unittest.TestCase):
 
     def test_get_function_metadata(self):
         self.assertEqual(
-            fwf._get_function_metadata(operation),
+            fwf.get_function_metadata(operation),
             {
                 "module": operation.__module__,
                 "qualname": operation.__qualname__,
@@ -653,8 +655,8 @@ class TestWorkflow(unittest.TestCase):
             },
         )
         self.assertEqual(
-            fwf._get_function_metadata(fwf._get_function_metadata(operation)),
-            fwf._get_function_metadata(operation),
+            fwf.get_function_metadata(fwf.get_function_metadata(operation)),
+            fwf.get_function_metadata(operation),
         )
 
     def test_get_function_keyword(self):
