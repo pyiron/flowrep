@@ -76,6 +76,8 @@ def seemingly_cyclic_workflow(a=10, b=20):
 
 
 def workflow_to_use_undefined_variable(a=10, b=20):
+    # This nx has nothing to do with networkx, just a variable name
+    # so that ruff does not complain about unused imports
     result = add(a, nx)
     return result
 
