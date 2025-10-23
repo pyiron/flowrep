@@ -596,7 +596,7 @@ def _get_nodes(
             result[label] = data_dict
             result[label]["label"] = label
             if with_function:
-                result[label]["function"] = func
+                result[label]["function"] = func.func
         else:
             result[label] = get_node_dict(function=func)
     return result
@@ -801,7 +801,7 @@ def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, 
         label=func.__name__,
     )
     if with_function:
-        result["function"] = func
+        result["function"] = func.func
     return result
 
 
