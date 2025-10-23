@@ -665,6 +665,14 @@ class TestWorkflow(unittest.TestCase):
 
         self.assertEqual(fwf._get_function_keywords(my_test_function), [0, "y", "z"])
 
+    def test_with_function(self):
+        data = fwf.get_workflow_dict(example_workflow)
+        self.assertNotIn("function", data)
+        self.assertNotIn("function", data["nodes"]["example_macro_0"])
+        data = fwf.get_workflow_dict(example_workflow, with_function=True)
+        self.assertIn("function", data)
+        self.assertIn("function", data["nodes"]["example_macro_0"])
+
 
 if __name__ == "__main__":
     unittest.main()

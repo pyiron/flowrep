@@ -586,6 +586,7 @@ def _get_nodes(
     data: dict[str, dict],
     output_counts: dict[str, int],
     control_flow: None | str = None,
+    with_function: bool = False,
 ) -> dict[str, dict]:
     result = {}
     for label, function in data.items():
@@ -594,6 +595,8 @@ def _get_nodes(
             data_dict = func._semantikon_workflow.copy()
             result[label] = data_dict
             result[label]["label"] = label
+            if with_function:
+                result[label]["function"] = func
         else:
             result[label] = get_node_dict(function=func)
     return result
@@ -777,7 +780,7 @@ def _nest_nodes(
     return injected_nodes[""]["nodes"], injected_nodes[""]["edges"]
 
 
-def get_workflow_dict(func: Callable) -> dict[str, object]:
+def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, object]:
     """
     Get a dictionary representation of the workflow for a given function.
 
@@ -789,14 +792,17 @@ def get_workflow_dict(func: Callable) -> dict[str, object]:
             outputs, nodes, edges, and label.
     """
     graph, f_dict, inputs = analyze_function(func)
-    nodes = _get_nodes(f_dict, _get_output_counts(graph))
+    nodes = _get_nodes(f_dict, _get_output_counts(graph), with_function=with_function)
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
-    return _to_workflow_dict_entry(
+    result = _to_workflow_dict_entry(
         inputs=inputs,
         nodes=nested_nodes,
         edges=edges,
         label=func.__name__,
     )
+    if with_function:
+        result["function"] = func
+    return result
 
 
 def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]]:
@@ -897,7 +903,7 @@ class _Workflow:
                     input_kwargs[key] = content
         except KeyError:
             raise KeyError(f"value not defined for {function}") from None
-        if "function" not in node:
+        if node["type"] == "Workflow":
             workflow = _Workflow(node)
             outputs = list(
                 workflow.run(*input_args, **input_kwargs)["outputs"].values()
