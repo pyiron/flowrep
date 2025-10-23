@@ -76,7 +76,7 @@ def seemingly_cyclic_workflow(a=10, b=20):
 
 
 def workflow_to_use_undefined_variable(a=10, b=20):
-    result = add(a, u)
+    result = add(a, nx)
     return result
 
 
