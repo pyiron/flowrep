@@ -51,9 +51,9 @@ def serialize_functions(data: dict[str, Any]) -> dict[str, Any]:
         for key, node in data["nodes"].items():
             data["nodes"][key] = serialize_functions(node)
     elif "function" in data and not isinstance(data["function"], str):
-        data["function"] = _get_function_metadata(data["function"])
+        data["function"] = get_function_metadata(data["function"])
     if "test" in data and not isinstance(data["test"]["function"], str):
-        data["test"]["function"] = _get_function_metadata(data["test"]["function"])
+        data["test"]["function"] = get_function_metadata(data["test"]["function"])
     return data
 
 
@@ -1069,7 +1069,7 @@ def get_hashed_node_dict(
     if "function" not in nodes_dict[node]:
         raise ValueError("Hashing works only on flat data")
     data_dict = {
-        "node": _get_function_metadata(nodes_dict[node]["function"]),
+        "node": get_function_metadata(nodes_dict[node]["function"]),
         "inputs": {},
         "outputs": [tag.split(".")[-1] for tag in graph.successors(node)],
     }
@@ -1156,7 +1156,7 @@ def _set_entry(
     data[keys[-1]] = value
 
 
-def _get_function_metadata(cls: Callable | dict[str, str]) -> dict[str, str]:
+def get_function_metadata(cls: Callable | dict[str, str]) -> dict[str, str]:
     if isinstance(cls, dict) and "module" in cls and "qualname" in cls:
         return cls
     module = cls.__module__
