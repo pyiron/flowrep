@@ -897,7 +897,7 @@ class _Workflow:
                     input_kwargs[key] = content
         except KeyError:
             raise KeyError(f"value not defined for {function}") from None
-        if "function" not in node:
+        if node["type"] == "Workflow":
             workflow = _Workflow(node)
             outputs = list(
                 workflow.run(*input_args, **input_kwargs)["outputs"].values()
