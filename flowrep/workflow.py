@@ -586,6 +586,7 @@ def _get_nodes(
     data: dict[str, dict],
     output_counts: dict[str, int],
     control_flow: None | str = None,
+    with_function: bool = False,
 ) -> dict[str, dict]:
     result = {}
     for label, function in data.items():
@@ -594,6 +595,8 @@ def _get_nodes(
             data_dict = func._semantikon_workflow.copy()
             result[label] = data_dict
             result[label]["label"] = label
+            if with_function:
+                result[label]["function"] = func
         else:
             result[label] = get_node_dict(function=func)
     return result
@@ -789,7 +792,7 @@ def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, 
             outputs, nodes, edges, and label.
     """
     graph, f_dict, inputs = analyze_function(func)
-    nodes = _get_nodes(f_dict, _get_output_counts(graph))
+    nodes = _get_nodes(f_dict, _get_output_counts(graph), with_function=with_function)
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
     result = _to_workflow_dict_entry(
         inputs=inputs,
