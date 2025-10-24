@@ -672,6 +672,8 @@ class TestWorkflow(unittest.TestCase):
         data = fwf.get_workflow_dict(example_workflow, with_function=True)
         self.assertIn("function", data)
         self.assertIn("function", data["nodes"]["example_macro_0"])
+        data = fwf.get_workflow_dict(workflow_with_while, with_function=True)
+        self.assertIn("function", data)
 
 
 if __name__ == "__main__":
