@@ -596,7 +596,7 @@ def _get_nodes(
             result[label] = data_dict
             result[label]["label"] = label
             if with_function:
-                result[label]["function"] = func
+                result[label]["function"] = func.func
         else:
             result[label] = get_node_dict(function=func)
     return result
@@ -790,6 +790,8 @@ def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, 
     Returns:
         dict: A dictionary representation of the workflow, including inputs,
             outputs, nodes, edges, and label.
+        with_function (bool): Whether to include the function object in the
+            workflow dictionary.
     """
     graph, f_dict, inputs = analyze_function(func)
     nodes = _get_nodes(f_dict, _get_output_counts(graph), with_function=with_function)
@@ -801,7 +803,7 @@ def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, 
         label=func.__name__,
     )
     if with_function:
-        result["function"] = func
+        result["function"] = func.func
     return result
 
 
