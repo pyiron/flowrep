@@ -554,7 +554,7 @@ def get_ast_dict(func: Callable) -> dict:
     return _function_to_ast_dict(tree)
 
 
-def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any]]:
+def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any], dict]:
     """Extracts the variable flow graph from a function"""
     ast_dict = get_ast_dict(func)
     scope = inspect.getmodule(func).__dict__ | vars(builtins)
