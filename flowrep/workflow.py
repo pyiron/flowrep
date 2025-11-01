@@ -75,6 +75,7 @@ class FunctionDictFlowAnalyzer:
         self._call_counter = {}
         self._control_flow_list = []
         self._parallel_var = {}
+        self._output_args = []
 
     @staticmethod
     def get_inputs_with_default(inp):
@@ -98,7 +99,7 @@ class FunctionDictFlowAnalyzer:
             self._visit_node(node)
             if node["_type"] == "Return":
                 return_was_called = True
-        return self.graph, self.function_defs, inputs
+        return self.graph, self.function_defs, inputs, self._output_args
 
     def _visit_node(self, node, control_flow: str | None = None):
         if node["_type"] == "Assign":
@@ -124,8 +125,10 @@ class FunctionDictFlowAnalyzer:
                 if elt["_type"] != "Name":
                     raise NotImplementedError("Only variable returns supported")
                 self._add_input_edge(elt, "output", input_index=idx)
+                self._output_args.append(elt["id"])
         elif node["value"]["_type"] == "Name":
             self._add_input_edge(node["value"], "output")
+            self._output_args.append(node["value"]["id"])
 
     def _handle_if(self, node, control_flow: str | None = None):
         assert node["test"]["_type"] == "Call"
@@ -717,6 +720,7 @@ def get_node_dict(
 
 def _to_workflow_dict_entry(
     inputs: dict[str, dict],
+    outputs: list[str],
     nodes: dict[str, dict],
     edges: list[tuple[str, str]],
     label: str,
@@ -727,6 +731,7 @@ def _to_workflow_dict_entry(
     )
     return {
         "inputs": inputs,
+        "outputs": outputs,
         "nodes": nodes,
         "edges": edges,
         "label": label,
@@ -792,7 +797,9 @@ def _nest_nodes(
     return injected_nodes[""]["nodes"], injected_nodes[""]["edges"]
 
 
-def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, object]:
+def get_workflow_dict(
+    func: Callable, with_function: bool = False, with_outputs: bool = False
+) -> dict[str, object]:
     """
     Get a dictionary representation of the workflow for a given function.
 
@@ -805,15 +812,18 @@ def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, 
         with_function (bool): Whether to include the function object in the
             workflow dictionary.
     """
-    graph, f_dict, inputs = analyze_function(func)
+    graph, f_dict, inputs, outputs = analyze_function(func)
     nodes = _get_nodes(f_dict, _get_output_counts(graph), with_function=with_function)
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
     result = _to_workflow_dict_entry(
         inputs=inputs,
+        outputs=outputs,
         nodes=nested_nodes,
         edges=edges,
         label=func.__name__,
     )
+    if not with_outputs:
+        result.pop("outputs")
     if with_function:
         if isinstance(func, FunctionWithWorkflow):
             result["function"] = func.func

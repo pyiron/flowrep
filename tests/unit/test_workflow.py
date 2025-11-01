@@ -331,6 +331,9 @@ class TestWorkflow(unittest.TestCase):
             "type": "Workflow",
         }
         self.assertEqual(fwf.serialize_functions(result), ref_data, msg=result)
+        results = fwf.get_workflow_dict(example_workflow, with_outputs=True)
+        self.assertIn("outputs", results)
+        self.assertEqual(results["outputs"], ["z"])
 
     def test_parallel_execution(self):
         graph = fwf.analyze_function(parallel_execution)[0]
