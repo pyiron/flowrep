@@ -19,11 +19,20 @@ F = TypeVar("F", bound=Callable[..., object])
 
 
 class FunctionWithWorkflow(Generic[F]):
-    def __init__(self, func: F, workflow: dict[str, object], run) -> None:
+    def __init__(self, func: F) -> None:
         self.func = func
-        self._semantikon_workflow: dict[str, object] = workflow
-        self.run = run
         update_wrapper(self, func)  # Copies __name__, __doc__, etc.
+
+    def _get_workflow(self) -> "_Workflow":
+        workflow_dict = self.serialize_workflow()
+        return _Workflow(workflow_dict)
+
+    def run(self):
+        w = self._get_workflow()
+        return w.run()
+
+    def serialize_workflow(self) -> dict[str, object]:
+        return get_workflow_dict(self.func)
 
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
@@ -591,8 +600,8 @@ def _get_nodes(
     result = {}
     for label, function in data.items():
         func = function["function"]
-        if hasattr(func, "_semantikon_workflow"):
-            data_dict = func._semantikon_workflow.copy()
+        if isinstance(func, FunctionWithWorkflow):
+            data_dict = func.serialize_workflow()
             result[label] = data_dict
             result[label]["label"] = label
             if with_function:
@@ -1036,9 +1045,7 @@ def workflow(func: Callable) -> FunctionWithWorkflow:
     which returns the dictionary representation of the workflow with all the
     intermediate steps and outputs.
     """
-    workflow_dict = get_workflow_dict(func)
-    w = _Workflow(workflow_dict)
-    func_with_metadata = FunctionWithWorkflow(func, workflow_dict, w.run)
+    func_with_metadata = FunctionWithWorkflow(func)
     return func_with_metadata
 
 
