@@ -264,7 +264,7 @@ class TestWorkflow(unittest.TestCase):
             "type": "Workflow",
         }
         self.assertEqual(
-            fwf.serialize_functions(example_macro._semantikon_workflow), ref_data
+            fwf.serialize_functions(example_macro.serialize_workflow()), ref_data
         )
 
     def test_get_workflow_dict_macro(self):
@@ -375,11 +375,11 @@ class TestWorkflow(unittest.TestCase):
             return result
 
         with self.assertRaises(NotImplementedError):
-            fwf.workflow(example_invalid_operator)
+            fwf.get_workflow_dict(example_invalid_operator)
         with self.assertRaises(NotImplementedError):
-            fwf.workflow(example_invalid_multiple_operation)
+            fwf.get_workflow_dict(example_invalid_multiple_operation)
         with self.assertRaises(NotImplementedError):
-            fwf.workflow(example_invalid_local_var_def)
+            fwf.get_workflow_dict(example_invalid_local_var_def)
 
     def test_seemingly_cyclic_workflow(self):
         data = fwf.get_workflow_dict(seemingly_cyclic_workflow)
@@ -388,7 +388,7 @@ class TestWorkflow(unittest.TestCase):
 
     def test_workflow_to_use_undefined_variable(self):
         with self.assertRaises(KeyError):
-            fwf.workflow(workflow_to_use_undefined_variable)
+            fwf.get_workflow_dict(workflow_to_use_undefined_variable)
 
     def test_get_sorted_edges(self):
         graph = nx.DiGraph()
@@ -400,7 +400,7 @@ class TestWorkflow(unittest.TestCase):
         )
 
     def test_workflow_with_while(self):
-        wf = fwf.workflow(workflow_with_while)._semantikon_workflow
+        wf = fwf.workflow(workflow_with_while).serialize_workflow()
         self.assertIn("injected_While_0", wf["nodes"])
         self.assertEqual(
             sorted(wf["nodes"]["injected_While_0"]["edges"]),
@@ -424,7 +424,7 @@ class TestWorkflow(unittest.TestCase):
         data = fwf.get_workflow_dict(reused_args)
         self.assertEqual(
             sorted(data["edges"]),
-            sorted(example_macro._semantikon_workflow["edges"]),
+            sorted(example_macro.serialize_workflow()["edges"]),
         )
 
     def test_workflow_with_leaf(self):
@@ -623,13 +623,13 @@ class TestWorkflow(unittest.TestCase):
                 "outputs": ["output"],
             },
         )
-        graph = fwf.get_workflow_graph(example_workflow._semantikon_workflow)
+        graph = fwf.get_workflow_graph(example_workflow.serialize_workflow())
         self.assertRaises(
             ValueError,
             fwf.get_hashed_node_dict,
             "add_0",
             graph,
-            example_workflow._semantikon_workflow["nodes"],
+            example_workflow.serialize_workflow()["nodes"],
         )
 
     def test_get_and_set_entry(self):
