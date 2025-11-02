@@ -31,8 +31,12 @@ class FunctionWithWorkflow(Generic[F]):
         w = self._get_workflow()
         return w.run()
 
-    def serialize_workflow(self, with_function: bool = False) -> dict[str, object]:
-        return get_workflow_dict(self.func, with_function=with_function)
+    def serialize_workflow(
+        self, with_function: bool = False, with_outputs: bool = False
+    ) -> dict[str, object]:
+        return get_workflow_dict(
+            self.func, with_function=with_function, with_outputs=with_outputs
+        )
 
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
