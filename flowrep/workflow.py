@@ -608,7 +608,7 @@ def _get_nodes(
     for label, function in data.items():
         func = function["function"]
         if isinstance(func, FunctionWithWorkflow):
-            data_dict = func.serialize_workflow()
+            data_dict = func.serialize_workflow(with_outputs=True)
             result[label] = data_dict
             result[label]["label"] = label
             if with_function:
@@ -788,6 +788,8 @@ def _nest_nodes(
                 current_nodes[test_dict[key]] = nodes[key]
             elif key in nodes:
                 current_nodes[key] = nodes[key]
+                if "outputs" in current_nodes[key]:
+                    current_nodes[key].pop("outputs")
             else:
                 current_nodes[key] = injected_nodes.pop(key)
         injected_nodes[new_key] = {
