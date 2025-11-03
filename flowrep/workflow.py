@@ -562,30 +562,8 @@ def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any]]:
     return analyzer.analyze()
 
 
-def _get_output_counts(graph: nx.DiGraph) -> dict[str, int]:
-    """
-    Get the number of outputs for each node in the graph.
-
-    Args:
-        graph (nx.DiGraph): The directed graph representing the function.
-
-    Returns:
-        dict: A dictionary mapping node names to the number of outputs.
-    """
-    f_dict: dict[str, int] = {}
-    for edge in graph.edges.data():
-        if edge[2]["type"] != "output":
-            continue
-        f_dict[edge[0]] = f_dict.get(edge[0], 0) + 1
-    if "input" in f_dict:
-        del f_dict["input"]
-    return f_dict
-
-
 def _get_nodes(
     data: dict[str, dict],
-    output_counts: dict[str, int],
-    control_flow: None | str = None,
     with_function: bool = False,
 ) -> dict[str, dict]:
     result = {}
@@ -797,7 +775,7 @@ def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, 
             workflow dictionary.
     """
     graph, f_dict, inputs = analyze_function(func)
-    nodes = _get_nodes(f_dict, _get_output_counts(graph), with_function=with_function)
+    nodes = _get_nodes(f_dict, with_function=with_function)
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
     result = _to_workflow_dict_entry(
         inputs=inputs,
