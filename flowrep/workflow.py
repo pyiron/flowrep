@@ -847,7 +847,7 @@ def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]
                 new_edge = (tag.split(".")[0], tag)
             if new_edge not in extra_edges:
                 extra_edges.append(new_edge)
-    return extra_edges
+    return edge_list + extra_edges
 
 
 class _Workflow:
@@ -856,8 +856,7 @@ class _Workflow:
 
     @cached_property
     def _all_edges(self) -> list[tuple[str, str]]:
-        edges = cast(dict[str, list], self._workflow)["edges"]
-        return edges + _get_missing_edges(edges)
+        return _get_missing_edges(cast(list[tuple[str, str]], self._workflow["edges"]))
 
     @cached_property
     def _graph(self) -> nx.DiGraph:
@@ -1043,9 +1042,7 @@ def workflow(func: Callable) -> FunctionWithWorkflow:
 
 
 def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
-    edges = cast(list[tuple[str, str]], workflow_dict["edges"])
-    missing_edges = [edge for edge in _get_missing_edges(edges)]
-    all_edges = sorted(edges + missing_edges)
+    all_edges = _get_missing_edges(cast(list[tuple[str, str]], workflow_dict["edges"]))
     return _replace_input_ports(nx.DiGraph(all_edges), workflow_dict)
 
 
