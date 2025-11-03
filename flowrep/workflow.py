@@ -19,11 +19,24 @@ F = TypeVar("F", bound=Callable[..., object])
 
 
 class FunctionWithWorkflow(Generic[F]):
-    def __init__(self, func: F, workflow: dict[str, object], run) -> None:
+    def __init__(self, func: F) -> None:
         self.func = func
-        self._semantikon_workflow: dict[str, object] = workflow
-        self.run = run
         update_wrapper(self, func)  # Copies __name__, __doc__, etc.
+
+    def _get_workflow(self) -> "_Workflow":
+        workflow_dict = self.serialize_workflow()
+        return _Workflow(workflow_dict)
+
+    def run(self):
+        w = self._get_workflow()
+        return w.run()
+
+    def serialize_workflow(
+        self, with_function: bool = False, with_outputs: bool = False
+    ) -> dict[str, object]:
+        return get_workflow_dict(
+            self.func, with_function=with_function, with_outputs=with_outputs
+        )
 
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
@@ -66,6 +79,7 @@ class FunctionDictFlowAnalyzer:
         self._call_counter = {}
         self._control_flow_list = []
         self._parallel_var = {}
+        self._output_args = []
 
     @staticmethod
     def get_inputs_with_default(inp):
@@ -89,7 +103,7 @@ class FunctionDictFlowAnalyzer:
             self._visit_node(node)
             if node["_type"] == "Return":
                 return_was_called = True
-        return self.graph, self.function_defs, inputs
+        return self.graph, self.function_defs, inputs, self._output_args
 
     def _visit_node(self, node, control_flow: str | None = None):
         if node["_type"] == "Assign":
@@ -115,8 +129,10 @@ class FunctionDictFlowAnalyzer:
                 if elt["_type"] != "Name":
                     raise NotImplementedError("Only variable returns supported")
                 self._add_input_edge(elt, "output", input_index=idx)
+                self._output_args.append(elt["id"])
         elif node["value"]["_type"] == "Name":
             self._add_input_edge(node["value"], "output")
+            self._output_args.append(node["value"]["id"])
 
     def _handle_if(self, node, control_flow: str | None = None):
         assert node["test"]["_type"] == "Call"
@@ -554,7 +570,7 @@ def get_ast_dict(func: Callable) -> dict:
     return _function_to_ast_dict(tree)
 
 
-def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any]]:
+def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any], dict]:
     """Extracts the variable flow graph from a function"""
     ast_dict = get_ast_dict(func)
     scope = inspect.getmodule(func).__dict__ | vars(builtins)
@@ -568,18 +584,13 @@ def _get_nodes(
 ) -> dict[str, dict]:
     result = {}
     for label, function in data.items():
-        func = function["function"]
-        if hasattr(func, "_semantikon_workflow"):
-            data_dict = func._semantikon_workflow.copy()
-            result[label] = data_dict
+        if isinstance(function["function"], FunctionWithWorkflow):
+            result[label] = function["function"].serialize_workflow(with_outputs=True)
             result[label]["label"] = label
             if with_function:
-                if isinstance(func, FunctionWithWorkflow):
-                    result[label]["function"] = func.func
-                else:
-                    result[label]["function"] = func
+                result[label]["function"] = function["function"].func
         else:
-            result[label] = get_node_dict(function=func)
+            result[label] = get_node_dict(function=function["function"])
     return result
 
 
@@ -639,7 +650,9 @@ def _remove_and_reconnect_nodes(
     return G
 
 
-def _get_edges(graph: nx.DiGraph) -> list[tuple[str, str]]:
+def _get_edges(
+    graph: nx.DiGraph, output_mapping: dict[str, list]
+) -> list[tuple[str, str]]:
     edges = []
     nodes_to_remove = []
     for edge in graph.edges.data():
@@ -656,7 +669,13 @@ def _get_edges(graph: nx.DiGraph) -> list[tuple[str, str]]:
             edges.append([edge[0], f"{edge[1]}.inputs.{tag}"])
             nodes_to_remove.append(edge[0])
         elif edge[2]["type"] == "output":
-            tag = edge[2].get("output_name", edge[2].get("output_index", "output"))
+            if edge[0] in output_mapping:
+                if "output_index" in edge[2]:
+                    tag = output_mapping[edge[0]][edge[2]["output_index"]]
+                else:
+                    tag = output_mapping[edge[0]][0]
+            else:
+                tag = edge[2].get("output_name", edge[2].get("output_index", "output"))
             edges.append([f"{edge[0]}.outputs.{tag}", edge[1]])
             nodes_to_remove.append(edge[1])
     new_graph = _remove_and_reconnect_nodes(nx.DiGraph(edges), nodes_to_remove)
@@ -686,6 +705,7 @@ def get_node_dict(
 
 def _to_workflow_dict_entry(
     inputs: dict[str, dict],
+    outputs: list[str],
     nodes: dict[str, dict],
     edges: list[tuple[str, str]],
     label: str,
@@ -696,6 +716,7 @@ def _to_workflow_dict_entry(
     )
     return {
         "inputs": inputs,
+        "outputs": outputs,
         "nodes": nodes,
         "edges": edges,
         "label": label,
@@ -743,16 +764,20 @@ def _nest_nodes(
         subgraph = nx.relabel_nodes(subgraphs[cf_key], test_dict)
         new_key = "injected_" + cf_key.replace("/", "_") if len(cf_key) > 0 else cf_key
         current_nodes = {}
+        output_mapping = {}
         for key in _extract_functions_from_graph(subgraphs[cf_key]):
             if key in test_dict:
                 current_nodes[test_dict[key]] = nodes[key]
             elif key in nodes:
                 current_nodes[key] = nodes[key]
+                if "outputs" in current_nodes[key]:
+                    output_mapping[key] = current_nodes[key]["outputs"]
+                    current_nodes[key].pop("outputs")
             else:
                 current_nodes[key] = injected_nodes.pop(key)
         injected_nodes[new_key] = {
             "nodes": current_nodes,
-            "edges": _get_edges(subgraph),
+            "edges": _get_edges(graph=subgraph, output_mapping=output_mapping),
             "label": new_key,
         }
         for tag in ["test", "iter"]:
@@ -761,7 +786,9 @@ def _nest_nodes(
     return injected_nodes[""]["nodes"], injected_nodes[""]["edges"]
 
 
-def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, object]:
+def get_workflow_dict(
+    func: Callable, with_function: bool = False, with_outputs: bool = False
+) -> dict[str, object]:
     """
     Get a dictionary representation of the workflow for a given function.
 
@@ -774,15 +801,18 @@ def get_workflow_dict(func: Callable, with_function: bool = False) -> dict[str, 
         with_function (bool): Whether to include the function object in the
             workflow dictionary.
     """
-    graph, f_dict, inputs = analyze_function(func)
+    graph, f_dict, inputs, outputs = analyze_function(func)
     nodes = _get_nodes(f_dict, with_function=with_function)
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
     result = _to_workflow_dict_entry(
         inputs=inputs,
+        outputs=outputs,
         nodes=nested_nodes,
         edges=edges,
         label=func.__name__,
     )
+    if not with_outputs:
+        result.pop("outputs")
     if with_function:
         if isinstance(func, FunctionWithWorkflow):
             result["function"] = func.func
@@ -823,7 +853,7 @@ def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]
                 new_edge = (tag.split(".")[0], tag)
             if new_edge not in extra_edges:
                 extra_edges.append(new_edge)
-    return extra_edges
+    return edge_list + extra_edges
 
 
 class _Workflow:
@@ -832,8 +862,7 @@ class _Workflow:
 
     @cached_property
     def _all_edges(self) -> list[tuple[str, str]]:
-        edges = cast(dict[str, list], self._workflow)["edges"]
-        return edges + _get_missing_edges(edges)
+        return _get_missing_edges(cast(list[tuple[str, str]], self._workflow["edges"]))
 
     @cached_property
     def _graph(self) -> nx.DiGraph:
@@ -1014,16 +1043,12 @@ def workflow(func: Callable) -> FunctionWithWorkflow:
     which returns the dictionary representation of the workflow with all the
     intermediate steps and outputs.
     """
-    workflow_dict = get_workflow_dict(func)
-    w = _Workflow(workflow_dict)
-    func_with_metadata = FunctionWithWorkflow(func, workflow_dict, w.run)
+    func_with_metadata = FunctionWithWorkflow(func)
     return func_with_metadata
 
 
 def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
-    edges = cast(list[tuple[str, str]], workflow_dict["edges"])
-    missing_edges = [edge for edge in _get_missing_edges(edges)]
-    all_edges = sorted(edges + missing_edges)
+    all_edges = _get_missing_edges(cast(list[tuple[str, str]], workflow_dict["edges"]))
     return _replace_input_ports(nx.DiGraph(all_edges), workflow_dict)
 
 

@@ -40,6 +40,12 @@ def parallel_execution(a=10, b=20):
     return e, f
 
 
+@fwf.workflow
+def parallel_macro(a=10, b=20):
+    c, d = parallel_execution(a, b)
+    return c, d
+
+
 def my_while_condition(a=10, b=20):
     return a < b
 
@@ -259,7 +265,7 @@ class TestWorkflow(unittest.TestCase):
             "type": "Workflow",
         }
         self.assertEqual(
-            fwf.serialize_functions(example_macro._semantikon_workflow), ref_data
+            fwf.serialize_functions(example_macro.serialize_workflow()), ref_data
         )
 
     def test_get_workflow_dict_macro(self):
@@ -319,13 +325,22 @@ class TestWorkflow(unittest.TestCase):
                 ("inputs.a", "example_macro_0.inputs.a"),
                 ("inputs.b", "example_macro_0.inputs.b"),
                 ("inputs.b", "add_0.inputs.y"),
-                ("example_macro_0.outputs.output", "add_0.inputs.x"),
+                ("example_macro_0.outputs.f", "add_0.inputs.x"),
                 ("add_0.outputs.output", "outputs.z"),
             ],
             "label": "example_workflow",
             "type": "Workflow",
         }
         self.assertEqual(fwf.serialize_functions(result), ref_data, msg=result)
+        results = fwf.get_workflow_dict(example_workflow, with_outputs=True)
+        self.assertIn("outputs", results)
+        self.assertEqual(results["outputs"], ["z"])
+
+    def test_parallel_macro(self):
+        result = fwf.serialize_functions(parallel_macro.serialize_workflow())
+        edges = result["edges"]
+        self.assertIn(("parallel_execution_0.outputs.e", "outputs.c"), edges)
+        self.assertIn(("parallel_execution_0.outputs.f", "outputs.d"), edges)
 
     def test_parallel_execution(self):
         graph = fwf.analyze_function(parallel_execution)[0]
@@ -370,11 +385,11 @@ class TestWorkflow(unittest.TestCase):
             return result
 
         with self.assertRaises(NotImplementedError):
-            fwf.workflow(example_invalid_operator)
+            fwf.get_workflow_dict(example_invalid_operator)
         with self.assertRaises(NotImplementedError):
-            fwf.workflow(example_invalid_multiple_operation)
+            fwf.get_workflow_dict(example_invalid_multiple_operation)
         with self.assertRaises(NotImplementedError):
-            fwf.workflow(example_invalid_local_var_def)
+            fwf.get_workflow_dict(example_invalid_local_var_def)
 
     def test_seemingly_cyclic_workflow(self):
         data = fwf.get_workflow_dict(seemingly_cyclic_workflow)
@@ -383,7 +398,7 @@ class TestWorkflow(unittest.TestCase):
 
     def test_workflow_to_use_undefined_variable(self):
         with self.assertRaises(KeyError):
-            fwf.workflow(workflow_to_use_undefined_variable)
+            fwf.get_workflow_dict(workflow_to_use_undefined_variable)
 
     def test_get_sorted_edges(self):
         graph = nx.DiGraph()
@@ -395,7 +410,7 @@ class TestWorkflow(unittest.TestCase):
         )
 
     def test_workflow_with_while(self):
-        wf = fwf.workflow(workflow_with_while)._semantikon_workflow
+        wf = fwf.workflow(workflow_with_while).serialize_workflow()
         self.assertIn("injected_While_0", wf["nodes"])
         self.assertEqual(
             sorted(wf["nodes"]["injected_While_0"]["edges"]),
@@ -419,7 +434,7 @@ class TestWorkflow(unittest.TestCase):
         data = fwf.get_workflow_dict(reused_args)
         self.assertEqual(
             sorted(data["edges"]),
-            sorted(example_macro._semantikon_workflow["edges"]),
+            sorted(example_macro.serialize_workflow()["edges"]),
         )
 
     def test_workflow_with_leaf(self):
@@ -618,13 +633,13 @@ class TestWorkflow(unittest.TestCase):
                 "outputs": ["output"],
             },
         )
-        graph = fwf.get_workflow_graph(example_workflow._semantikon_workflow)
+        graph = fwf.get_workflow_graph(example_workflow.serialize_workflow())
         self.assertRaises(
             ValueError,
             fwf.get_hashed_node_dict,
             "add_0",
             graph,
-            example_workflow._semantikon_workflow["nodes"],
+            example_workflow.serialize_workflow()["nodes"],
         )
 
     def test_get_and_set_entry(self):
