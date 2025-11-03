@@ -580,7 +580,6 @@ def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any], dict]:
 
 def _get_nodes(
     data: dict[str, dict],
-    control_flow: None | str = None,
     with_function: bool = False,
 ) -> dict[str, dict]:
     result = {}
