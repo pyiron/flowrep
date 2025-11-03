@@ -324,7 +324,7 @@ class TestWorkflow(unittest.TestCase):
                 ("inputs.a", "example_macro_0.inputs.a"),
                 ("inputs.b", "example_macro_0.inputs.b"),
                 ("inputs.b", "add_0.inputs.y"),
-                ("example_macro_0.outputs.output", "add_0.inputs.x"),
+                ("example_macro_0.outputs.f", "add_0.inputs.x"),
                 ("add_0.outputs.output", "outputs.z"),
             ],
             "label": "example_workflow",
