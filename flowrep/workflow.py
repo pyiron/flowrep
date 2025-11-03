@@ -650,7 +650,9 @@ def _remove_and_reconnect_nodes(
     return G
 
 
-def _get_edges(graph: nx.DiGraph, output_mapping: dict[str, list]) -> list[tuple[str, str]]:
+def _get_edges(
+    graph: nx.DiGraph, output_mapping: dict[str, list]
+) -> list[tuple[str, str]]:
     edges = []
     nodes_to_remove = []
     for edge in graph.edges.data():
