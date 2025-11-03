@@ -40,6 +40,12 @@ def parallel_execution(a=10, b=20):
     return e, f
 
 
+@fwf.workflow
+def parallel_macro(a=10, b=20):
+    c, d = parallel_execution(a, b)
+    return c, d
+
+
 def my_while_condition(a=10, b=20):
     return a < b
 
@@ -218,11 +224,6 @@ class TestWorkflow(unittest.TestCase):
             },
         )
 
-    def test_get_output_counts(self):
-        graph = fwf.analyze_function(example_macro)[0]
-        output_counts = fwf._get_output_counts(graph)
-        self.assertEqual(output_counts, {"operation_0": 2, "add_0": 1, "multiply_0": 1})
-
     def test_get_workflow_dict(self):
         ref_data = {
             "inputs": {"a": 10, "b": 20},
@@ -324,13 +325,22 @@ class TestWorkflow(unittest.TestCase):
                 ("inputs.a", "example_macro_0.inputs.a"),
                 ("inputs.b", "example_macro_0.inputs.b"),
                 ("inputs.b", "add_0.inputs.y"),
-                ("example_macro_0.outputs.output", "add_0.inputs.x"),
+                ("example_macro_0.outputs.f", "add_0.inputs.x"),
                 ("add_0.outputs.output", "outputs.z"),
             ],
             "label": "example_workflow",
             "type": "Workflow",
         }
         self.assertEqual(fwf.serialize_functions(result), ref_data, msg=result)
+        results = fwf.get_workflow_dict(example_workflow, with_outputs=True)
+        self.assertIn("outputs", results)
+        self.assertEqual(results["outputs"], ["z"])
+
+    def test_parallel_macro(self):
+        result = fwf.serialize_functions(parallel_macro.serialize_workflow())
+        edges = result["edges"]
+        self.assertIn(("parallel_execution_0.outputs.e", "outputs.c"), edges)
+        self.assertIn(("parallel_execution_0.outputs.f", "outputs.d"), edges)
 
     def test_parallel_execution(self):
         graph = fwf.analyze_function(parallel_execution)[0]
