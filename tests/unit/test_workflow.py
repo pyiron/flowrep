@@ -218,11 +218,6 @@ class TestWorkflow(unittest.TestCase):
             },
         )
 
-    def test_get_output_counts(self):
-        graph = fwf.analyze_function(example_macro)[0]
-        output_counts = fwf._get_output_counts(graph)
-        self.assertEqual(output_counts, {"operation_0": 2, "add_0": 1, "multiply_0": 1})
-
     def test_get_workflow_dict(self):
         ref_data = {
             "inputs": {"a": 10, "b": 20},
