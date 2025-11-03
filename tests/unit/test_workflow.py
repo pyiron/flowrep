@@ -40,6 +40,12 @@ def parallel_execution(a=10, b=20):
     return e, f
 
 
+@fwf.workflow
+def parallel_macro(a=10, b=20):
+    c, d = parallel_execution(a, b)
+    return c, d
+
+
 def my_while_condition(a=10, b=20):
     return a < b
 
@@ -329,6 +335,12 @@ class TestWorkflow(unittest.TestCase):
         results = fwf.get_workflow_dict(example_workflow, with_outputs=True)
         self.assertIn("outputs", results)
         self.assertEqual(results["outputs"], ["z"])
+
+    def test_parallel_macro(self):
+        result = fwf.serialize_functions(parallel_macro.serialize_workflow())
+        edges = result["edges"]
+        self.assertIn(("parallel_execution_0.outputs.e", "outputs.c"), edges)
+        self.assertIn(("parallel_execution_0.outputs.f", "outputs.d"), edges)
 
     def test_parallel_execution(self):
         graph = fwf.analyze_function(parallel_execution)[0]

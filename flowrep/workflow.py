@@ -667,9 +667,13 @@ def _get_edges(graph: nx.DiGraph, output_mapping: dict[str, list]) -> list[tuple
             edges.append([edge[0], f"{edge[1]}.inputs.{tag}"])
             nodes_to_remove.append(edge[0])
         elif edge[2]["type"] == "output":
-            tag = edge[2].get("output_name", edge[2].get("output_index", "output"))
-            if isinstance(tag, int) and edge[0].rsplit("_", 1)[0] in output_mapping:
-                tag = output_mapping[edge[0].rsplit("_", 1)[0]][tag]
+            if edge[0] in output_mapping:
+                if "output_index" in edge[2]:
+                    tag = output_mapping[edge[0]][edge[2]["output_index"]]
+                else:
+                    tag = output_mapping[edge[0]][0]
+            else:
+                tag = edge[2].get("output_name", edge[2].get("output_index", "output"))
             edges.append([f"{edge[0]}.outputs.{tag}", edge[1]])
             nodes_to_remove.append(edge[1])
     new_graph = _remove_and_reconnect_nodes(nx.DiGraph(edges), nodes_to_remove)
