@@ -3,6 +3,7 @@ import unittest
 import networkx as nx
 
 import flowrep.workflow as fwf
+from flowrep import tools
 
 
 def operation(x: float, y: float) -> tuple[float, float]:
@@ -265,7 +266,7 @@ class TestWorkflow(unittest.TestCase):
             "type": "Workflow",
         }
         self.assertEqual(
-            fwf.serialize_functions(example_macro.serialize_workflow()), ref_data
+            tools.serialize_functions(example_macro.serialize_workflow()), ref_data
         )
 
     def test_get_workflow_dict_macro(self):
@@ -331,13 +332,13 @@ class TestWorkflow(unittest.TestCase):
             "label": "example_workflow",
             "type": "Workflow",
         }
-        self.assertEqual(fwf.serialize_functions(result), ref_data, msg=result)
+        self.assertEqual(tools.serialize_functions(result), ref_data, msg=result)
         results = fwf.get_workflow_dict(example_workflow, with_outputs=True)
         self.assertIn("outputs", results)
         self.assertEqual(results["outputs"], ["z"])
 
     def test_parallel_macro(self):
-        result = fwf.serialize_functions(parallel_macro.serialize_workflow())
+        result = tools.serialize_functions(parallel_macro.serialize_workflow())
         edges = result["edges"]
         self.assertIn(("parallel_execution_0.outputs.e", "outputs.c"), edges)
         self.assertIn(("parallel_execution_0.outputs.f", "outputs.d"), edges)
@@ -602,7 +603,7 @@ class TestWorkflow(unittest.TestCase):
 
         workflow_dict = fwf.get_workflow_dict(workflow_with_data)
         graph = fwf.get_workflow_graph(workflow_dict)
-        data_dict = fwf.get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
+        data_dict = tools.get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
         self.assertEqual(
             data_dict,
             {
@@ -616,8 +617,8 @@ class TestWorkflow(unittest.TestCase):
                 "outputs": ["output"],
             },
         )
-        add_hashed = fwf.get_node_hash("add_0", graph, workflow_dict["nodes"])
-        data_dict = fwf.get_hashed_node_dict(
+        add_hashed = tools.get_node_hash("add_0", graph, workflow_dict["nodes"])
+        data_dict = tools.get_hashed_node_dict(
             "multiply_0", graph, workflow_dict["nodes"]
         )
         self.assertEqual(
@@ -636,7 +637,7 @@ class TestWorkflow(unittest.TestCase):
         graph = fwf.get_workflow_graph(example_workflow.serialize_workflow())
         self.assertRaises(
             ValueError,
-            fwf.get_hashed_node_dict,
+            tools.get_hashed_node_dict,
             "add_0",
             graph,
             example_workflow.serialize_workflow()["nodes"],
@@ -657,7 +658,7 @@ class TestWorkflow(unittest.TestCase):
 
     def test_get_function_metadata(self):
         self.assertEqual(
-            fwf.get_function_metadata(operation),
+            tools.get_function_metadata(operation),
             {
                 "module": operation.__module__,
                 "qualname": operation.__qualname__,
@@ -665,8 +666,8 @@ class TestWorkflow(unittest.TestCase):
             },
         )
         self.assertEqual(
-            fwf.get_function_metadata(fwf.get_function_metadata(operation)),
-            fwf.get_function_metadata(operation),
+            tools.get_function_metadata(tools.get_function_metadata(operation)),
+            tools.get_function_metadata(operation),
         )
 
     def test_get_function_keyword(self):
