@@ -1,11 +1,11 @@
 import copy
+import hashlib
+import json
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
 import networkx as nx
-import hashlib
-import json
 
 
 def serialize_functions(data: dict[str, Any]) -> dict[str, Any]:
