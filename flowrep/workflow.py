@@ -20,13 +20,13 @@ class FunctionWithWorkflow(Generic[F]):
         self.func = func
         update_wrapper(self, func)  # Copies __name__, __doc__, etc.
 
-    def _get_workflow(self) -> "_Workflow":
-        workflow_dict = self.serialize_workflow()
+    def _get_workflow(self, with_function: bool = False) -> "_Workflow":
+        workflow_dict = self.serialize_workflow(with_function=with_function)
         return _Workflow(workflow_dict)
 
-    def run(self):
-        w = self._get_workflow()
-        return w.run()
+    def run(self, with_function: bool = False, *args, **kwargs) -> dict[str, Any]:
+        w = self._get_workflow(with_function=with_function)
+        return w.run(*args, **kwargs)
 
     def serialize_workflow(
         self, with_function: bool = False, with_outputs: bool = False
