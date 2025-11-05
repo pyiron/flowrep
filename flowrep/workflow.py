@@ -565,6 +565,8 @@ def _get_nodes(
     result = {}
     for label, function in data.items():
         if isinstance(function["function"], FunctionWithWorkflow):
+            # To do: Not to use the private function (currently needed because
+            # it is replaced in semantikon)
             result[label] = function["function"]._serialize_workflow(with_outputs=True)
             result[label]["label"] = label
             if with_function:
