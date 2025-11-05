@@ -359,6 +359,9 @@ class TestWorkflow(unittest.TestCase):
     def test_run_single(self):
         data = example_macro.run()
         self.assertEqual(example_macro(), data["outputs"]["f"])
+        self.assertNotIn("function", data)
+        data = example_macro.run(with_function=True)
+        self.assertIn("function", data)
 
     def test_run_parallel_execution(self):
         data = parallel_execution.run()
