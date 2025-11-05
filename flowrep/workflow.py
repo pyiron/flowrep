@@ -21,14 +21,22 @@ class FunctionWithWorkflow(Generic[F]):
         update_wrapper(self, func)  # Copies __name__, __doc__, etc.
 
     def _get_workflow(self, with_function: bool = False) -> "_Workflow":
-        workflow_dict = self.serialize_workflow(with_function=with_function)
+        workflow_dict = self._serialize_workflow(with_function=with_function)
         return _Workflow(workflow_dict)
 
     def run(self, with_function: bool = False, *args, **kwargs) -> dict[str, Any]:
         w = self._get_workflow(with_function=with_function)
         return w.run(*args, **kwargs)
 
+    # This function is to be overwritten in semantikon
     def serialize_workflow(
+        self, with_function: bool = False, with_outputs: bool = False
+    ) -> dict[str, object]:
+        return self._serialize_workflow(
+            with_function=with_function, with_outputs=with_outputs
+        )
+
+    def _serialize_workflow(
         self, with_function: bool = False, with_outputs: bool = False
     ) -> dict[str, object]:
         return get_workflow_dict(
