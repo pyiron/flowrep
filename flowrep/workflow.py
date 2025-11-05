@@ -565,7 +565,7 @@ def _get_nodes(
     result = {}
     for label, function in data.items():
         if isinstance(function["function"], FunctionWithWorkflow):
-            result[label] = function["function"].serialize_workflow(with_outputs=True)
+            result[label] = function["function"]._serialize_workflow(with_outputs=True)
             result[label]["label"] = label
             if with_function:
                 result[label]["function"] = function["function"].func
