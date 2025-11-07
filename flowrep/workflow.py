@@ -24,7 +24,7 @@ class FunctionWithWorkflow(Generic[F]):
         workflow_dict = self._serialize_workflow(with_function=with_function)
         return _Workflow(workflow_dict)
 
-    def run(self, with_function: bool = False, *args, **kwargs) -> dict[str, Any]:
+    def run(self, *args, with_function: bool = False, **kwargs) -> dict[str, Any]:
         w = self._get_workflow(with_function=with_function)
         return w.run(*args, **kwargs)
 
@@ -896,7 +896,7 @@ class _Workflow:
             for key, content in node.get("inputs", {}).items():
                 try:
                     input_args.append(int(content))
-                except ValueError:
+                except (ValueError, TypeError):
                     input_kwargs[key] = content
         except KeyError:
             raise KeyError(f"value not defined for {function}") from None
