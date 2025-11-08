@@ -856,6 +856,10 @@ class _Workflow:
 
     def _sanitize_input(self, *args, **kwargs) -> dict[str, Any]:
         keys = list(self._workflow["inputs"].keys())
+        assert len(args) <= len(keys), (
+            f"{self._workflow['label']}() takes at most {len(keys)} "
+            f"positional arguments but {len(args)} were given"
+        )
         for ii, arg in enumerate(args):
             if keys[ii] in kwargs:
                 raise TypeError(
