@@ -47,6 +47,13 @@ def parallel_macro(a=10, b=20):
     return c, d
 
 
+@fwf.workflow
+def without_predefined_arguments(a, b):
+    x = add(a, b)
+    y = multiply(x, b)
+    return x, y
+
+
 def my_while_condition(a=10, b=20):
     return a < b
 
@@ -355,6 +362,16 @@ class TestWorkflow(unittest.TestCase):
                 ["e_0", "f_0"],
             ],
         )
+
+    def test_run_without_predefined_arguments(self):
+        data = without_predefined_arguments.run(a=5, b=3)
+        x, y = without_predefined_arguments(a=5, b=3)
+        self.assertEqual(x, data["outputs"]["x"])
+        self.assertEqual(y, data["outputs"]["y"])
+        data = without_predefined_arguments.run(5, 3)
+        x, y = without_predefined_arguments(a=5, b=3)
+        self.assertEqual(x, data["outputs"]["x"])
+        self.assertEqual(y, data["outputs"]["y"])
 
     def test_run_single(self):
         data = example_macro.run()
