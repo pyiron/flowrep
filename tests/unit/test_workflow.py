@@ -234,7 +234,6 @@ class TestWorkflow(unittest.TestCase):
 
     def test_get_workflow_dict(self):
         ref_data = {
-            "inputs": {"a": 10, "b": 20},
             "nodes": {
                 "operation_0": {
                     "function": {
