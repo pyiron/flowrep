@@ -21,7 +21,7 @@ class FunctionWithWorkflow(Generic[F]):
         update_wrapper(self, func)  # Copies __name__, __doc__, etc.
 
     def _get_workflow(self, with_function: bool = False) -> "_Workflow":
-        workflow_dict = self._serialize_workflow(with_function=with_function)
+        workflow_dict = self._serialize_workflow(with_function=with_function, with_io=True)
         return _Workflow(workflow_dict)
 
     def run(self, *args, with_function: bool = False, **kwargs) -> dict[str, Any]:
@@ -63,14 +63,13 @@ class FunctionDictFlowAnalyzer:
 
     @staticmethod
     def get_inputs_with_default(inp):
-        if len(inp["defaults"]) == 0:
-            return {}
         args = [tag["arg"] for tag in inp["args"]]
         defaults = []
         for d in inp["defaults"]:
             assert d["_type"] == "Constant"
-            defaults.append(d["value"])
-        return dict(zip(args[-len(defaults) :], defaults, strict=True))
+            defaults.append({"default": d["value"]})
+        defaults = (len(inp["args"]) - len(defaults)) * [{}] + defaults
+        return dict(zip(args, defaults, strict=True))
 
     def analyze(self) -> tuple[nx.DiGraph, dict[str, Any]]:
         for arg in self.ast_dict.get("args", {}).get("args", []):
@@ -561,6 +560,7 @@ def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any], dict]:
 def _get_nodes(
     data: dict[str, dict],
     with_function: bool = False,
+    with_inputs: bool = False,
 ) -> dict[str, dict]:
     result = {}
     for label, function in data.items():
@@ -572,7 +572,9 @@ def _get_nodes(
             if with_function:
                 result[label]["function"] = function["function"].func
         else:
-            result[label] = get_node_dict(function=function["function"])
+            result[label] = get_node_dict(
+                function=function["function"], with_inputs=with_inputs
+            )
     return result
 
 
@@ -666,6 +668,7 @@ def _get_edges(
 
 def get_node_dict(
     function: Callable,
+    with_inputs: bool = False,
 ) -> dict:
     """
     Get a dictionary representation of the function node.
@@ -682,6 +685,15 @@ def get_node_dict(
         "function": function,
         "type": "Function",
     }
+    if with_inputs:
+        sig = inspect.signature(function)
+        inputs = {}
+        for name, param in sig.parameters.items():
+            input_dict = {}
+            if param.default is not param.empty:
+                input_dict["default"] = param.default
+            inputs[name] = input_dict
+        data["inputs"] = inputs
     return data
 
 
@@ -784,7 +796,7 @@ def get_workflow_dict(
             workflow dictionary.
     """
     graph, f_dict, inputs, outputs = analyze_function(func)
-    nodes = _get_nodes(f_dict, with_function=with_function)
+    nodes = _get_nodes(f_dict, with_function=with_function, with_inputs=with_io)
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
     result = _to_workflow_dict_entry(
         inputs=inputs,
@@ -795,6 +807,7 @@ def get_workflow_dict(
     )
     if not with_io:
         result.pop("outputs")
+        result.pop("inputs")
     if with_function:
         if isinstance(func, FunctionWithWorkflow):
             result["function"] = func.func
@@ -864,7 +877,7 @@ class _Workflow:
             if keys[ii] in kwargs:
                 raise TypeError(
                     f"{self._workflow['label']}() got multiple values for"
-                    " argument '{keys[ii]}'"
+                    f" argument '{keys[ii]}'"
                 )
             kwargs[keys[ii]] = arg
         return kwargs
@@ -872,25 +885,27 @@ class _Workflow:
     def _set_inputs(self, *args, **kwargs):
         kwargs = self._sanitize_input(*args, **kwargs)
         for key, value in kwargs.items():
-            self._workflow["inputs"][key] = value
+            self._workflow["inputs"][key]["value"] = value
 
     def _get_value_from_global(self, path: str) -> Any:
         io, var = path.split(".")
         assert io in self._workflow, f"{io} not in workflow"
         assert var in self._workflow[io], f"{var} not in workflow {io}"
-        return self._workflow[io][var]
+        if "value" not in self._workflow[io][var] and "default" in self._workflow[io][var]:
+            self._workflow[io][var]["value"] = self._workflow[io][var]["default"]
+        return self._workflow[io][var]["value"]
 
     def _get_value_from_node(self, path: str) -> Any:
         node, io, var = path.split(".")
-        return self._workflow["nodes"][node][io][var]
+        return self._workflow["nodes"][node][io][var]["value"]
 
     def _set_value_from_global(self, path, value):
         io, var = path.split(".")
-        self._workflow[io][var] = value
+        self._workflow[io][var]["value"] = value
 
     def _set_value_from_node(self, path, value):
         node, io, var = path.split(".")
-        self._workflow["nodes"][node][io][var] = value
+        self._workflow["nodes"][node][io][var]["value"] = value
 
     def _execute_node(self, function: str) -> Any:
         node = self._workflow["nodes"][function]
