@@ -30,17 +30,17 @@ class FunctionWithWorkflow(Generic[F]):
 
     # This function is to be overwritten in semantikon
     def serialize_workflow(
-        self, with_function: bool = False, with_outputs: bool = False
+        self, with_function: bool = False, with_io: bool = False
     ) -> dict[str, object]:
         return self._serialize_workflow(
-            with_function=with_function, with_outputs=with_outputs
+            with_function=with_function, with_io=with_io
         )
 
     def _serialize_workflow(
-        self, with_function: bool = False, with_outputs: bool = False
+        self, with_function: bool = False, with_io: bool = False
     ) -> dict[str, object]:
         return get_workflow_dict(
-            self.func, with_function=with_function, with_outputs=with_outputs
+            self.func, with_function=with_function, with_io=with_io
         )
 
     def __call__(self, *args, **kwargs):
@@ -567,7 +567,7 @@ def _get_nodes(
         if isinstance(function["function"], FunctionWithWorkflow):
             # To do: Not to use the private function (currently needed because
             # it is replaced in semantikon)
-            result[label] = function["function"]._serialize_workflow(with_outputs=True)
+            result[label] = function["function"]._serialize_workflow(with_io=True)
             result[label]["label"] = label
             if with_function:
                 result[label]["function"] = function["function"].func
@@ -769,7 +769,7 @@ def _nest_nodes(
 
 
 def get_workflow_dict(
-    func: Callable, with_function: bool = False, with_outputs: bool = False
+    func: Callable, with_function: bool = False, with_io: bool = False
 ) -> dict[str, object]:
     """
     Get a dictionary representation of the workflow for a given function.
@@ -793,7 +793,7 @@ def get_workflow_dict(
         edges=edges,
         label=func.__name__,
     )
-    if not with_outputs:
+    if not with_io:
         result.pop("outputs")
     if with_function:
         if isinstance(func, FunctionWithWorkflow):

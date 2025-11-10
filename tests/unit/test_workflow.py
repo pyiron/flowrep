@@ -340,7 +340,7 @@ class TestWorkflow(unittest.TestCase):
             "type": "Workflow",
         }
         self.assertEqual(tools.serialize_functions(result), ref_data, msg=result)
-        results = fwf.get_workflow_dict(example_workflow, with_outputs=True)
+        results = fwf.get_workflow_dict(example_workflow, with_io=True)
         self.assertIn("outputs", results)
         self.assertEqual(results["outputs"], ["z"])
 
