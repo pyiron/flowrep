@@ -363,12 +363,12 @@ class TestWorkflow(unittest.TestCase):
     def test_run_without_predefined_arguments(self):
         data = without_predefined_arguments.run(a=5, b=3)
         x, y = without_predefined_arguments(a=5, b=3)
-        self.assertEqual(x, data["outputs"]["x"])
-        self.assertEqual(y, data["outputs"]["y"])
+        self.assertEqual(x, data["outputs"]["x"]["value"])
+        self.assertEqual(y, data["outputs"]["y"]["value"])
         data = without_predefined_arguments.run(5, 3)
         x, y = without_predefined_arguments(a=5, b=3)
-        self.assertEqual(x, data["outputs"]["x"])
-        self.assertEqual(y, data["outputs"]["y"])
+        self.assertEqual(x, data["outputs"]["x"]["value"])
+        self.assertEqual(y, data["outputs"]["y"]["value"])
 
     def test_run_single(self):
         data = example_macro.run()
