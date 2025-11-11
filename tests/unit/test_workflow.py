@@ -278,10 +278,8 @@ class TestWorkflow(unittest.TestCase):
     def test_get_workflow_dict_macro(self):
         result = fwf.get_workflow_dict(example_workflow)
         ref_data = {
-            "inputs": {"a": 10, "b": 20},
             "nodes": {
                 "example_macro_0": {
-                    "inputs": {"a": 10, "b": 20},
                     "nodes": {
                         "operation_0": {
                             "function": {

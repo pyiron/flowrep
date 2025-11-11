@@ -560,7 +560,6 @@ def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any], dict]:
 def _get_nodes(
     data: dict[str, dict],
     with_function: bool = False,
-    with_inputs: bool = False,
 ) -> dict[str, dict]:
     result = {}
     for label, function in data.items():
@@ -572,9 +571,7 @@ def _get_nodes(
             if with_function:
                 result[label]["function"] = function["function"].func
         else:
-            result[label] = get_node_dict(
-                function=function["function"], with_inputs=with_inputs
-            )
+            result[label] = get_node_dict(function=function["function"])
     return result
 
 
@@ -668,7 +665,6 @@ def _get_edges(
 
 def get_node_dict(
     function: Callable,
-    with_inputs: bool = False,
 ) -> dict:
     """
     Get a dictionary representation of the function node.
@@ -685,21 +681,12 @@ def get_node_dict(
         "function": function,
         "type": "Function",
     }
-    if with_inputs:
-        sig = inspect.signature(function)
-        inputs = {}
-        for name, param in sig.parameters.items():
-            input_dict = {}
-            if param.default is not param.empty:
-                input_dict["default"] = param.default
-            inputs[name] = input_dict
-        data["inputs"] = inputs
     return data
 
 
 def _to_workflow_dict_entry(
     inputs: dict[str, dict],
-    outputs: list[str],
+    outputs: list[str] | dict[str, dict],
     nodes: dict[str, dict],
     edges: list[tuple[str, str]],
     label: str,
@@ -708,6 +695,8 @@ def _to_workflow_dict_entry(
     assert all(
         "function" in v or ("nodes" in v and "edges" in v) for v in nodes.values()
     )
+    if isinstance(outputs, list):
+        outputs = {output: {} for output in outputs}
     return {
         "inputs": inputs,
         "outputs": outputs,
@@ -765,7 +754,7 @@ def _nest_nodes(
             elif key in nodes:
                 current_nodes[key] = nodes[key]
                 if "outputs" in current_nodes[key]:
-                    output_mapping[key] = current_nodes[key]["outputs"]
+                    output_mapping[key] = list(current_nodes[key]["outputs"].keys())
                     current_nodes[key].pop("outputs")
             else:
                 current_nodes[key] = injected_nodes.pop(key)
@@ -796,7 +785,7 @@ def get_workflow_dict(
             workflow dictionary.
     """
     graph, f_dict, inputs, outputs = analyze_function(func)
-    nodes = _get_nodes(f_dict, with_function=with_function, with_inputs=with_io)
+    nodes = _get_nodes(f_dict, with_function=with_function)
     nested_nodes, edges = _nest_nodes(graph, nodes, f_dict)
     result = _to_workflow_dict_entry(
         inputs=inputs,
@@ -890,13 +879,17 @@ class _Workflow:
     def _get_value_from_global(self, path: str) -> Any:
         io, var = path.split(".")
         assert io in self._workflow, f"{io} not in workflow"
-        assert var in self._workflow[io], f"{var} not in workflow {io}"
-        if "value" not in self._workflow[io][var] and "default" in self._workflow[io][var]:
-            self._workflow[io][var]["value"] = self._workflow[io][var]["default"]
-        return self._workflow[io][var]["value"]
+        data = self._workflow[io][var]
+        assert "value" in data or "default" in data, f"value for {path} not set in {data}"
+        if "value" not in data and "default" in data:
+            data["value"] = data["default"]
+        return data["value"]
 
     def _get_value_from_node(self, path: str) -> Any:
         node, io, var = path.split(".")
+        assert "value" in self._workflow["nodes"][node][io][var], (
+            f"value for {path} not set"
+        )
         return self._workflow["nodes"][node][io][var]["value"]
 
     def _set_value_from_global(self, path, value):
@@ -913,10 +906,11 @@ class _Workflow:
         input_args = []
         try:
             for key, content in node.get("inputs", {}).items():
+                assert "value" in content, f"value not defined for {function}"
                 try:
-                    input_args.append(int(content))
+                    input_args.append(int(content["value"]))
                 except (ValueError, TypeError):
-                    input_kwargs[key] = content
+                    input_kwargs[key] = content["value"]
         except KeyError:
             raise KeyError(f"value not defined for {function}") from None
         if node["type"] == "Workflow":
