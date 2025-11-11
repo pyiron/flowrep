@@ -797,6 +797,11 @@ def get_workflow_dict(
     if not with_io:
         result.pop("outputs")
         result.pop("inputs")
+        for node in result["nodes"].values():
+            if "outputs" in node:
+                node.pop("outputs")
+            if "inputs" in node:
+                node.pop("inputs")
     if with_function:
         if isinstance(func, FunctionWithWorkflow):
             result["function"] = func.func

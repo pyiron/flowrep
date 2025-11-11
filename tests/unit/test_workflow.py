@@ -339,7 +339,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual(tools.serialize_functions(result), ref_data, msg=result)
         results = fwf.get_workflow_dict(example_workflow, with_io=True)
         self.assertIn("outputs", results)
-        self.assertEqual(results["outputs"], ["z"])
+        self.assertEqual(results["outputs"], {"z": {}})
 
     def test_parallel_macro(self):
         result = tools.serialize_functions(parallel_macro.serialize_workflow())
