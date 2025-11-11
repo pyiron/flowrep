@@ -385,7 +385,7 @@ class TestWorkflow(unittest.TestCase):
 
     def test_run_nested(self):
         data = example_workflow.run()
-        self.assertEqual(example_workflow(), data["outputs"]["z"])
+        self.assertEqual(example_workflow(), data["outputs"]["z"]["value"])
 
     def test_not_implemented_error(self):
         def example_invalid_operator(a=10, b=20):
