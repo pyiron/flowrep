@@ -47,6 +47,13 @@ def parallel_macro(a=10, b=20):
     return c, d
 
 
+@fwf.workflow
+def without_predefined_arguments(a, b):
+    x = add(a, b)
+    y = multiply(x, b)
+    return x, y
+
+
 def my_while_condition(a=10, b=20):
     return a < b
 
@@ -227,7 +234,6 @@ class TestWorkflow(unittest.TestCase):
 
     def test_get_workflow_dict(self):
         ref_data = {
-            "inputs": {"a": 10, "b": 20},
             "nodes": {
                 "operation_0": {
                     "function": {
@@ -272,10 +278,8 @@ class TestWorkflow(unittest.TestCase):
     def test_get_workflow_dict_macro(self):
         result = fwf.get_workflow_dict(example_workflow)
         ref_data = {
-            "inputs": {"a": 10, "b": 20},
             "nodes": {
                 "example_macro_0": {
-                    "inputs": {"a": 10, "b": 20},
                     "nodes": {
                         "operation_0": {
                             "function": {
@@ -333,9 +337,9 @@ class TestWorkflow(unittest.TestCase):
             "type": "Workflow",
         }
         self.assertEqual(tools.serialize_functions(result), ref_data, msg=result)
-        results = fwf.get_workflow_dict(example_workflow, with_outputs=True)
+        results = fwf.get_workflow_dict(example_workflow, with_io=True)
         self.assertIn("outputs", results)
-        self.assertEqual(results["outputs"], ["z"])
+        self.assertEqual(results["outputs"], {"z": {}})
 
     def test_parallel_macro(self):
         result = tools.serialize_functions(parallel_macro.serialize_workflow())
@@ -356,9 +360,19 @@ class TestWorkflow(unittest.TestCase):
             ],
         )
 
+    def test_run_without_predefined_arguments(self):
+        data = without_predefined_arguments.run(a=5, b=3)
+        x, y = without_predefined_arguments(a=5, b=3)
+        self.assertEqual(x, data["outputs"]["x"]["value"])
+        self.assertEqual(y, data["outputs"]["y"]["value"])
+        data = without_predefined_arguments.run(5, 3)
+        x, y = without_predefined_arguments(a=5, b=3)
+        self.assertEqual(x, data["outputs"]["x"]["value"])
+        self.assertEqual(y, data["outputs"]["y"]["value"])
+
     def test_run_single(self):
         data = example_macro.run()
-        self.assertEqual(example_macro(), data["outputs"]["f"])
+        self.assertEqual(example_macro(), data["outputs"]["f"]["value"])
         self.assertNotIn("function", data)
         data = example_macro.run(with_function=True)
         self.assertIn("function", data)
@@ -366,12 +380,12 @@ class TestWorkflow(unittest.TestCase):
     def test_run_parallel_execution(self):
         data = parallel_execution.run()
         results = parallel_execution()
-        self.assertEqual(results[0], data["outputs"]["e"])
-        self.assertEqual(results[1], data["outputs"]["f"])
+        self.assertEqual(results[0], data["outputs"]["e"]["value"])
+        self.assertEqual(results[1], data["outputs"]["f"]["value"])
 
     def test_run_nested(self):
         data = example_workflow.run()
-        self.assertEqual(example_workflow(), data["outputs"]["z"])
+        self.assertEqual(example_workflow(), data["outputs"]["z"]["value"])
 
     def test_not_implemented_error(self):
         def example_invalid_operator(a=10, b=20):
@@ -599,12 +613,13 @@ class TestWorkflow(unittest.TestCase):
 
     def test_get_hashed_node_dict(self):
 
+        @fwf.workflow
         def workflow_with_data(a=10, b=20):
             x = add(a, b)
             y = multiply(x, b)
             return x, y
 
-        workflow_dict = fwf.get_workflow_dict(workflow_with_data)
+        workflow_dict = workflow_with_data.run()
         graph = fwf.get_workflow_graph(workflow_dict)
         data_dict = tools.get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
         self.assertEqual(
@@ -637,7 +652,7 @@ class TestWorkflow(unittest.TestCase):
                 "outputs": ["output"],
             },
         )
-        graph = fwf.get_workflow_graph(example_workflow.serialize_workflow())
+        graph = fwf.get_workflow_graph(example_workflow.run())
         self.assertRaises(
             ValueError,
             tools.get_hashed_node_dict,
@@ -653,11 +668,11 @@ class TestWorkflow(unittest.TestCase):
             y = multiply(x, b)
             return x, y
 
-        workflow_dict = fwf.get_workflow_dict(yet_another_workflow)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a"), 10)
-        self.assertRaises(KeyError, fwf._get_entry, workflow_dict, "inputs.x.default")
-        fwf._set_entry(workflow_dict, "inputs.a", 42)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a"), 42)
+        workflow_dict = fwf.get_workflow_dict(yet_another_workflow, with_io=True)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.default"), 10)
+        self.assertRaises(KeyError, fwf._get_entry, workflow_dict, "inputs.x.value")
+        fwf._set_entry(workflow_dict, "inputs.a.value", 42)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.value"), 42)
 
     def test_get_function_metadata(self):
         self.assertEqual(

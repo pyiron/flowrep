@@ -21,26 +21,26 @@ class FunctionWithWorkflow(Generic[F]):
         update_wrapper(self, func)  # Copies __name__, __doc__, etc.
 
     def _get_workflow(self, with_function: bool = False) -> "_Workflow":
-        workflow_dict = self._serialize_workflow(with_function=with_function)
+        workflow_dict = self._serialize_workflow(
+            with_function=with_function, with_io=True
+        )
         return _Workflow(workflow_dict)
 
-    def run(self, with_function: bool = False, *args, **kwargs) -> dict[str, Any]:
+    def run(self, *args, with_function: bool = False, **kwargs) -> dict[str, Any]:
         w = self._get_workflow(with_function=with_function)
         return w.run(*args, **kwargs)
 
     # This function is to be overwritten in semantikon
     def serialize_workflow(
-        self, with_function: bool = False, with_outputs: bool = False
+        self, with_function: bool = False, with_io: bool = False
     ) -> dict[str, object]:
-        return self._serialize_workflow(
-            with_function=with_function, with_outputs=with_outputs
-        )
+        return self._serialize_workflow(with_function=with_function, with_io=with_io)
 
     def _serialize_workflow(
-        self, with_function: bool = False, with_outputs: bool = False
+        self, with_function: bool = False, with_io: bool = False
     ) -> dict[str, object]:
         return get_workflow_dict(
-            self.func, with_function=with_function, with_outputs=with_outputs
+            self.func, with_function=with_function, with_io=with_io
         )
 
     def __call__(self, *args, **kwargs):
@@ -63,14 +63,13 @@ class FunctionDictFlowAnalyzer:
 
     @staticmethod
     def get_inputs_with_default(inp):
-        if len(inp["defaults"]) == 0:
-            return {}
         args = [tag["arg"] for tag in inp["args"]]
         defaults = []
         for d in inp["defaults"]:
             assert d["_type"] == "Constant"
-            defaults.append(d["value"])
-        return dict(zip(args[-len(defaults) :], defaults, strict=True))
+            defaults.append({"default": d["value"]})
+        defaults = (len(inp["args"]) - len(defaults)) * [{}] + defaults
+        return dict(zip(args, defaults, strict=True))
 
     def analyze(self) -> tuple[nx.DiGraph, dict[str, Any]]:
         for arg in self.ast_dict.get("args", {}).get("args", []):
@@ -567,7 +566,7 @@ def _get_nodes(
         if isinstance(function["function"], FunctionWithWorkflow):
             # To do: Not to use the private function (currently needed because
             # it is replaced in semantikon)
-            result[label] = function["function"]._serialize_workflow(with_outputs=True)
+            result[label] = function["function"]._serialize_workflow(with_io=True)
             result[label]["label"] = label
             if with_function:
                 result[label]["function"] = function["function"].func
@@ -687,7 +686,7 @@ def get_node_dict(
 
 def _to_workflow_dict_entry(
     inputs: dict[str, dict],
-    outputs: list[str],
+    outputs: list[str] | dict[str, dict],
     nodes: dict[str, dict],
     edges: list[tuple[str, str]],
     label: str,
@@ -696,6 +695,8 @@ def _to_workflow_dict_entry(
     assert all(
         "function" in v or ("nodes" in v and "edges" in v) for v in nodes.values()
     )
+    if isinstance(outputs, list):
+        outputs = {output: {} for output in outputs}
     return {
         "inputs": inputs,
         "outputs": outputs,
@@ -753,7 +754,7 @@ def _nest_nodes(
             elif key in nodes:
                 current_nodes[key] = nodes[key]
                 if "outputs" in current_nodes[key]:
-                    output_mapping[key] = current_nodes[key]["outputs"]
+                    output_mapping[key] = list(current_nodes[key]["outputs"].keys())
                     current_nodes[key].pop("outputs")
             else:
                 current_nodes[key] = injected_nodes.pop(key)
@@ -769,7 +770,7 @@ def _nest_nodes(
 
 
 def get_workflow_dict(
-    func: Callable, with_function: bool = False, with_outputs: bool = False
+    func: Callable, with_function: bool = False, with_io: bool = False
 ) -> dict[str, object]:
     """
     Get a dictionary representation of the workflow for a given function.
@@ -793,8 +794,14 @@ def get_workflow_dict(
         edges=edges,
         label=func.__name__,
     )
-    if not with_outputs:
+    if not with_io:
         result.pop("outputs")
+        result.pop("inputs")
+        for node in result["nodes"].values():
+            if "outputs" in node:
+                node.pop("outputs")
+            if "inputs" in node:
+                node.pop("inputs")
     if with_function:
         if isinstance(func, FunctionWithWorkflow):
             result["function"] = func.func
@@ -856,11 +863,15 @@ class _Workflow:
 
     def _sanitize_input(self, *args, **kwargs) -> dict[str, Any]:
         keys = list(self._workflow["inputs"].keys())
+        assert len(args) <= len(keys), (
+            f"{self._workflow['label']}() takes at most {len(keys)} "
+            f"positional arguments but {len(args)} were given"
+        )
         for ii, arg in enumerate(args):
             if keys[ii] in kwargs:
                 raise TypeError(
                     f"{self._workflow['label']}() got multiple values for"
-                    " argument '{keys[ii]}'"
+                    f" argument '{keys[ii]}'"
                 )
             kwargs[keys[ii]] = arg
         return kwargs
@@ -868,25 +879,33 @@ class _Workflow:
     def _set_inputs(self, *args, **kwargs):
         kwargs = self._sanitize_input(*args, **kwargs)
         for key, value in kwargs.items():
-            self._workflow["inputs"][key] = value
+            self._workflow["inputs"][key]["value"] = value
 
     def _get_value_from_global(self, path: str) -> Any:
         io, var = path.split(".")
         assert io in self._workflow, f"{io} not in workflow"
-        assert var in self._workflow[io], f"{var} not in workflow {io}"
-        return self._workflow[io][var]
+        data = self._workflow[io][var]
+        assert (
+            "value" in data or "default" in data
+        ), f"value for {path} not set in {data}"
+        if "value" not in data and "default" in data:
+            data["value"] = data["default"]
+        return data["value"]
 
     def _get_value_from_node(self, path: str) -> Any:
         node, io, var = path.split(".")
-        return self._workflow["nodes"][node][io][var]
+        assert (
+            "value" in self._workflow["nodes"][node][io][var]
+        ), f"value for {path} not set"
+        return self._workflow["nodes"][node][io][var]["value"]
 
     def _set_value_from_global(self, path, value):
         io, var = path.split(".")
-        self._workflow[io][var] = value
+        self._workflow[io][var]["value"] = value
 
     def _set_value_from_node(self, path, value):
         node, io, var = path.split(".")
-        self._workflow["nodes"][node][io][var] = value
+        self._workflow["nodes"][node][io][var]["value"] = value
 
     def _execute_node(self, function: str) -> Any:
         node = self._workflow["nodes"][function]
@@ -894,17 +913,21 @@ class _Workflow:
         input_args = []
         try:
             for key, content in node.get("inputs", {}).items():
+                assert "value" in content, f"value not defined for {function}"
                 try:
-                    input_args.append(int(content))
-                except ValueError:
-                    input_kwargs[key] = content
+                    input_args.append(int(content["value"]))
+                except (ValueError, TypeError):
+                    input_kwargs[key] = content["value"]
         except KeyError:
             raise KeyError(f"value not defined for {function}") from None
         if node["type"] == "Workflow":
             workflow = _Workflow(node)
-            outputs = list(
-                workflow.run(*input_args, **input_kwargs)["outputs"].values()
-            )
+            outputs = [
+                data["value"]
+                for data in workflow.run(*input_args, **input_kwargs)[
+                    "outputs"
+                ].values()
+            ]
             if len(outputs) == 1:
                 outputs = outputs[0]
         else:
@@ -1041,7 +1064,7 @@ def _replace_input_ports(
     for n in list(G.nodes):
         if G.in_degree(n) == 0:
             assert n.startswith("inputs.")
-            data = _get_entry(workflow_dict, n)
+            data = _get_entry(workflow_dict, n)["value"]
             nx.relabel_nodes(G, {n: data}, copy=False)
     return G
 
