@@ -920,9 +920,10 @@ class _Workflow:
             raise KeyError(f"value not defined for {function}") from None
         if node["type"] == "Workflow":
             workflow = _Workflow(node)
-            outputs = list(
-                workflow.run(*input_args, **input_kwargs)["outputs"].values()
-            )
+            outputs = [
+                data["value"]
+                for data in workflow.run(*input_args, **input_kwargs)["outputs"].values()
+            ]
             if len(outputs) == 1:
                 outputs = outputs[0]
         else:
@@ -1059,7 +1060,7 @@ def _replace_input_ports(
     for n in list(G.nodes):
         if G.in_degree(n) == 0:
             assert n.startswith("inputs.")
-            data = _get_entry(workflow_dict, n)
+            data = _get_entry(workflow_dict, n)["value"]
             nx.relabel_nodes(G, {n: data}, copy=False)
     return G
 

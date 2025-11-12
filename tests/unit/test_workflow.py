@@ -613,12 +613,13 @@ class TestWorkflow(unittest.TestCase):
 
     def test_get_hashed_node_dict(self):
 
+        @fwf.workflow
         def workflow_with_data(a=10, b=20):
             x = add(a, b)
             y = multiply(x, b)
             return x, y
 
-        workflow_dict = fwf.get_workflow_dict(workflow_with_data)
+        workflow_dict = workflow_with_data.run()
         graph = fwf.get_workflow_graph(workflow_dict)
         data_dict = tools.get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
         self.assertEqual(
@@ -651,7 +652,7 @@ class TestWorkflow(unittest.TestCase):
                 "outputs": ["output"],
             },
         )
-        graph = fwf.get_workflow_graph(example_workflow.serialize_workflow())
+        graph = fwf.get_workflow_graph(example_workflow.run())
         self.assertRaises(
             ValueError,
             tools.get_hashed_node_dict,
@@ -667,11 +668,11 @@ class TestWorkflow(unittest.TestCase):
             y = multiply(x, b)
             return x, y
 
-        workflow_dict = fwf.get_workflow_dict(yet_another_workflow)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a"), 10)
-        self.assertRaises(KeyError, fwf._get_entry, workflow_dict, "inputs.x.default")
-        fwf._set_entry(workflow_dict, "inputs.a", 42)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a"), 42)
+        workflow_dict = fwf.get_workflow_dict(yet_another_workflow, with_io=True)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.default"), 10)
+        self.assertRaises(KeyError, fwf._get_entry, workflow_dict, "inputs.x.value")
+        fwf._set_entry(workflow_dict, "inputs.a.value", 42)
+        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.value"), 42)
 
     def test_get_function_metadata(self):
         self.assertEqual(
