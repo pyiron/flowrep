@@ -21,7 +21,9 @@ class FunctionWithWorkflow(Generic[F]):
         update_wrapper(self, func)  # Copies __name__, __doc__, etc.
 
     def _get_workflow(self, with_function: bool = False) -> "_Workflow":
-        workflow_dict = self._serialize_workflow(with_function=with_function, with_io=True)
+        workflow_dict = self._serialize_workflow(
+            with_function=with_function, with_io=True
+        )
         return _Workflow(workflow_dict)
 
     def run(self, *args, with_function: bool = False, **kwargs) -> dict[str, Any]:
@@ -32,9 +34,7 @@ class FunctionWithWorkflow(Generic[F]):
     def serialize_workflow(
         self, with_function: bool = False, with_io: bool = False
     ) -> dict[str, object]:
-        return self._serialize_workflow(
-            with_function=with_function, with_io=with_io
-        )
+        return self._serialize_workflow(with_function=with_function, with_io=with_io)
 
     def _serialize_workflow(
         self, with_function: bool = False, with_io: bool = False
@@ -885,16 +885,18 @@ class _Workflow:
         io, var = path.split(".")
         assert io in self._workflow, f"{io} not in workflow"
         data = self._workflow[io][var]
-        assert "value" in data or "default" in data, f"value for {path} not set in {data}"
+        assert (
+            "value" in data or "default" in data
+        ), f"value for {path} not set in {data}"
         if "value" not in data and "default" in data:
             data["value"] = data["default"]
         return data["value"]
 
     def _get_value_from_node(self, path: str) -> Any:
         node, io, var = path.split(".")
-        assert "value" in self._workflow["nodes"][node][io][var], (
-            f"value for {path} not set"
-        )
+        assert (
+            "value" in self._workflow["nodes"][node][io][var]
+        ), f"value for {path} not set"
         return self._workflow["nodes"][node][io][var]["value"]
 
     def _set_value_from_global(self, path, value):
@@ -922,7 +924,9 @@ class _Workflow:
             workflow = _Workflow(node)
             outputs = [
                 data["value"]
-                for data in workflow.run(*input_args, **input_kwargs)["outputs"].values()
+                for data in workflow.run(*input_args, **input_kwargs)[
+                    "outputs"
+                ].values()
             ]
             if len(outputs) == 1:
                 outputs = outputs[0]
