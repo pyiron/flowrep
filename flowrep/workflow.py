@@ -671,8 +671,6 @@ def get_node_dict(
 
     Args:
         func (Callable): The function to be analyzed.
-        data_format (str): The format of the output. Options are "semantikon" and
-            "ape".
 
     Returns:
         (dict) A dictionary representation of the function node.
