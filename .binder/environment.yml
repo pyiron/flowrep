@@ -2,6 +2,6 @@ channels:
 - conda-forge
 dependencies:
 - python >=3.11, <3.14
-- numpy =2.3.4
+- numpy =2.3.5
 - setuptools >=68
 - networkx =3.5
