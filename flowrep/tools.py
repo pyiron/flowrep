@@ -33,24 +33,81 @@ def serialize_functions(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def get_function_metadata(cls: Callable | dict[str, str]) -> dict[str, str]:
+def get_function_metadata(
+    cls: Callable | dict[str, str], full_metadata: bool = False
+) -> dict[str, str]:
+    """
+    Get metadata for a given function or class.
+
+    Args:
+        cls (Callable | dict[str, str]): The function or class to get metadata for.
+        full_metadata (bool): Whether to include full metadata including hash,
+            docstring, and name.
+
+    Returns:
+        dict[str, str]: A dictionary containing the metadata of the function or class.
+    """
     if isinstance(cls, dict) and "module" in cls and "qualname" in cls:
         return cls
-    module = cls.__module__
-    qualname = cls.__qualname__
+    data = {
+        "module": cls.__module__,
+        "qualname": cls.__qualname__,
+    }
     from importlib import import_module
 
-    base_module = import_module(module.split(".")[0])
-    version = (
+    base_module = import_module(data["module"].split(".")[0])
+    data["version"] = (
         base_module.__version__
         if hasattr(base_module, "__version__")
         else "not_defined"
     )
-    return {
-        "module": module,
-        "qualname": qualname,
-        "version": version,
+    if not full_metadata:
+        return data
+    data["hash"] = hash_function(cls)
+    data["docstring"] = cls.__doc__ or ""
+    data["name"] = cls.__name__
+    return data
+
+
+def hash_function(fn: Callable) -> str:
+    """
+    Generate a SHA-256 hash for a given function based on its bytecode and
+    metadata.
+
+    Args:
+        fn (Callable): The function to be hashed.
+
+    Returns:
+        str: A SHA-256 hash of the function's bytecode and metadata.
+    """
+    h = hashlib.sha256()
+
+    code = fn.__code__
+
+    # include bytecode
+    h.update(code.co_code)
+
+    # include metadata
+    fields_dict = {
+        "co_argcount": code.co_argcount,
+        "co_posonlyargcount": code.co_posonlyargcount,
+        "co_kwonlyargcount": code.co_kwonlyargcount,
+        "co_nlocals": code.co_nlocals,
+        "co_stacksize": code.co_stacksize,
+        "co_flags": code.co_flags,
+        "co_consts": code.co_consts,
+        "co_names": code.co_names,
+        "co_varnames": code.co_varnames,
+        "co_freevars": code.co_freevars,
+        "co_cellvars": code.co_cellvars,
+        "defaults": fn.__defaults__,
+        "kwdefaults": fn.__kwdefaults__,
+        "annotations": fn.__annotations__,
     }
+
+    h.update(json.dumps(fields_dict, sort_keys=True, default=str).encode("utf-8"))
+
+    return h.hexdigest()
 
 
 def get_hashed_node_dict(
