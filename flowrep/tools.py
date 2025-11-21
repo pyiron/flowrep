@@ -37,7 +37,6 @@ def get_function_metadata(cls: Callable | dict[str, str]) -> dict[str, str]:
     if isinstance(cls, dict) and "module" in cls and "qualname" in cls:
         return cls
     module = cls.__module__
-    qualname = cls.__qualname__
     from importlib import import_module
 
     base_module = import_module(module.split(".")[0])
@@ -48,9 +47,53 @@ def get_function_metadata(cls: Callable | dict[str, str]) -> dict[str, str]:
     )
     return {
         "module": module,
-        "qualname": qualname,
+        "name": cls.__name__,
+        "qualname": cls.__qualname__,
         "version": version,
+        "hash": hash_function(cls),
+        "docstring": cls.__doc__ or "",
     }
+
+
+def hash_function(fn: Callable) -> str:
+    """
+    Generate a SHA-256 hash for a given function based on its bytecode and
+    metadata.
+
+    Args:
+        fn (Callable): The function to be hashed.
+
+    Returns:
+        str: A SHA-256 hash of the function's bytecode and metadata.
+    """
+    h = hashlib.sha256()
+
+    code = fn.__code__
+
+    # include bytecode
+    h.update(code.co_code)
+
+    # include metadata
+    fields = (
+        code.co_argcount,
+        code.co_posonlyargcount,
+        code.co_kwonlyargcount,
+        code.co_nlocals,
+        code.co_stacksize,
+        code.co_flags,
+        code.co_consts,
+        code.co_names,
+        code.co_varnames,
+        code.co_freevars,
+        code.co_cellvars,
+        fn.__defaults__,
+        fn.__kwdefaults__,
+        fn.__annotations__,
+    )
+
+    h.update(repr(fields).encode("utf-8"))
+
+    return h.hexdigest()
 
 
 def get_hashed_node_dict(

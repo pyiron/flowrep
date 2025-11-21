@@ -3,6 +3,11 @@ import unittest
 from flowrep import tools
 
 
+def example_function(x):
+    """An example function to be hashed."""
+    return x * 2
+
+
 class TestTools(unittest.TestCase):
     def test_defaultdict(self):
         d = tools.recursive_defaultdict()
@@ -15,6 +20,13 @@ class TestTools(unittest.TestCase):
         self.assertEqual(dd["x"]["y"]["z"], 2)
         plain = tools.recursive_dd_to_dict(dd)
         self.assertEqual(plain["a"]["b"]["c"], 1)
+
+    def test_get_function_metadata(self):
+        meta = tools.get_function_metadata(example_function)
+        self.assertIn("name", meta)
+        self.assertIn("module", meta)
+        self.assertIn("docstring", meta)
+        self.assertEqual(meta["name"], "example_function")
 
 
 if __name__ == "__main__":
