@@ -88,24 +88,24 @@ def hash_function(fn: Callable) -> str:
     h.update(code.co_code)
 
     # include metadata
-    fields = (
-        code.co_argcount,
-        code.co_posonlyargcount,
-        code.co_kwonlyargcount,
-        code.co_nlocals,
-        code.co_stacksize,
-        code.co_flags,
-        code.co_consts,
-        code.co_names,
-        code.co_varnames,
-        code.co_freevars,
-        code.co_cellvars,
-        fn.__defaults__,
-        fn.__kwdefaults__,
-        fn.__annotations__,
-    )
+    fields_dict = {
+        "co_argcount": code.co_argcount,
+        "co_posonlyargcount": code.co_posonlyargcount,
+        "co_kwonlyargcount": code.co_kwonlyargcount,
+        "co_nlocals": code.co_nlocals,
+        "co_stacksize": code.co_stacksize,
+        "co_flags": code.co_flags,
+        "co_consts": code.co_consts,
+        "co_names": code.co_names,
+        "co_varnames": code.co_varnames,
+        "co_freevars": code.co_freevars,
+        "co_cellvars": code.co_cellvars,
+        "defaults": fn.__defaults__,
+        "kwdefaults": fn.__kwdefaults__,
+        "annotations": fn.__annotations__,
+    }
 
-    h.update(repr(fields).encode("utf-8"))
+    h.update(json.dumps(fields_dict, sort_keys=True, default=str).encode("utf-8"))
 
     return h.hexdigest()
 
