@@ -22,11 +22,13 @@ class TestTools(unittest.TestCase):
         self.assertEqual(plain["a"]["b"]["c"], 1)
 
     def test_get_function_metadata(self):
-        meta = tools.get_function_metadata(example_function)
+        meta = tools.get_function_metadata(example_function, full_metadata=True)
         self.assertIn("name", meta)
         self.assertIn("module", meta)
         self.assertIn("docstring", meta)
         self.assertEqual(meta["name"], "example_function")
+        meta = tools.get_function_metadata(example_function, full_metadata=False)
+        self.assertNotIn("docstring", meta)
 
 
 if __name__ == "__main__":

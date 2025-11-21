@@ -33,26 +33,40 @@ def serialize_functions(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def get_function_metadata(cls: Callable | dict[str, str]) -> dict[str, str]:
+def get_function_metadata(
+    cls: Callable | dict[str, str], full_metadata: bool = False
+) -> dict[str, str]:
+    """
+    Get metadata for a given function or class.
+
+    Args:
+        cls (Callable | dict[str, str]): The function or class to get metadata for.
+        full_metadata (bool): Whether to include full metadata including hash,
+            docstring, and name.
+
+    Returns:
+        dict[str, str]: A dictionary containing the metadata of the function or class.
+    """
     if isinstance(cls, dict) and "module" in cls and "qualname" in cls:
         return cls
-    module = cls.__module__
+    data = {
+        "module": cls.__module__,
+        "qualname": cls.__qualname__,
+    }
     from importlib import import_module
 
-    base_module = import_module(module.split(".")[0])
-    version = (
+    base_module = import_module(data["module"].split(".")[0])
+    data["version"] = (
         base_module.__version__
         if hasattr(base_module, "__version__")
         else "not_defined"
     )
-    return {
-        "module": module,
-        "name": cls.__name__,
-        "qualname": cls.__qualname__,
-        "version": version,
-        "hash": hash_function(cls),
-        "docstring": cls.__doc__ or "",
-    }
+    if not full_metadata:
+        return data
+    data["hash"] = hash_function(cls)
+    data["docstring"] = cls.__doc__ or ""
+    data["name"] = cls.__name__
+    return data
 
 
 def hash_function(fn: Callable) -> str:
