@@ -25,7 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy==2.3.5",
-    "networkx==3.5",
+    "networkx==3.6",
 ]
 dynamic = [ "version",]
 authors = [
