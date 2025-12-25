@@ -8,6 +8,6 @@ dependencies:
 - sphinx-rtd-theme
 - versioneer
 - python >=3.11, <3.14
-- numpy =2.3.5
+- numpy =2.4.0
 - setuptools >=68
 - networkx =3.6.1
