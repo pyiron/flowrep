@@ -704,6 +704,9 @@ class TestWorkflow(unittest.TestCase):
         data = fwf.get_workflow_dict(workflow_with_while, with_function=True)
         self.assertIn("function", data)
 
+    def test_value(self):
+        self.assertAlmostEqual(example_macro.run(0.1, 0.2)["outputs"]["f"]["value"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
