@@ -913,7 +913,7 @@ class _Workflow:
             for key, content in node.get("inputs", {}).items():
                 assert "value" in content, f"value not defined for {function}"
                 try:
-                    input_args.append(int(content["value"]))
+                    input_args.append(content["value"])
                 except (ValueError, TypeError):
                     input_kwargs[key] = content["value"]
         except KeyError:
