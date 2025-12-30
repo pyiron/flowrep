@@ -102,7 +102,6 @@ def hash_function(fn: Callable) -> str:
         "co_cellvars": code.co_cellvars,
         "defaults": fn.__defaults__,
         "kwdefaults": fn.__kwdefaults__,
-        "annotations": fn.__annotations__,
     }
 
     h.update(json.dumps(fields_dict, sort_keys=True, default=str).encode("utf-8"))
