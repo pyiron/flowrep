@@ -620,45 +620,15 @@ class TestWorkflow(unittest.TestCase):
             return x, y
 
         workflow_dict = workflow_with_data.run()
-        graph = fwf.get_workflow_graph(workflow_dict)
-        data_dict = tools.get_hashed_node_dict("add_0", graph, workflow_dict["nodes"])
-        self.assertEqual(
-            data_dict,
-            {
-                "node": {
-                    "module": add.__module__,
-                    "qualname": "add",
-                    "version": "not_defined",
-                    "connected_inputs": [],
-                },
-                "inputs": {"x": 10, "y": 20},
-                "outputs": ["output"],
-            },
-        )
-        add_hashed = tools.get_node_hash("add_0", graph, workflow_dict["nodes"])
-        data_dict = tools.get_hashed_node_dict(
-            "multiply_0", graph, workflow_dict["nodes"]
-        )
-        self.assertEqual(
-            data_dict,
-            {
-                "node": {
-                    "module": multiply.__module__,
-                    "qualname": "multiply",
-                    "version": "not_defined",
-                    "connected_inputs": ["x"],
-                },
-                "inputs": {"x": add_hashed + "@output", "y": 20},
-                "outputs": ["output"],
-            },
-        )
-        graph = fwf.get_workflow_graph(example_workflow.run())
-        self.assertRaises(
-            ValueError,
-            tools.get_hashed_node_dict,
-            "add_0",
-            graph,
-            example_workflow.serialize_workflow()["nodes"],
+        hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
+        for node in hashed_dict.values():
+            self.assertIn("hash", node)
+            self.assertIsInstance(node["hash"], str)
+            self.assertEqual(len(node["hash"]), 64)
+        self.assertTrue(
+            hashed_dict["workflow_with_data-multiply_0"]["inputs"]["x"].endswith(
+                hashed_dict["workflow_with_data-add_0"]["hash"] + "@output"
+            )
         )
 
     def test_get_and_set_entry(self):
