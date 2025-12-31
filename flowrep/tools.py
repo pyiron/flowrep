@@ -5,8 +5,6 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
-import networkx as nx
-
 
 def serialize_functions(data: dict[str, Any]) -> dict[str, Any]:
     """
