@@ -1,6 +1,8 @@
 import ast
 import builtins
+import hashlib
 import inspect
+import json
 import textwrap
 from collections import deque
 from collections.abc import Callable, Iterable
@@ -1051,8 +1053,87 @@ def workflow(func: Callable) -> FunctionWithWorkflow:
 
 
 def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
-    all_edges = _get_missing_edges(cast(list[tuple[str, str]], workflow_dict["edges"]))
-    return _replace_input_ports(nx.DiGraph(all_edges), workflow_dict)
+    """
+    Convert a workflow dictionary into a directed graph representation.
+
+    Args:
+        workflow_dict (dict[str, Any]): The dictionary representation of the
+            workflow.
+
+    Returns:
+        nx.DiGraph: A directed graph representing the workflow.
+    """
+    G = nx.DiGraph(name=workflow_dict["label"])
+    for inp, data in workflow_dict.get("inputs", {}).items():
+        G.add_node(f"inputs.{inp}", step="input", **data)
+    for out, data in workflow_dict.get("outputs", {}).items():
+        G.add_node(f"outputs.{out}", step="output", **data)
+
+    for key, node in workflow_dict["nodes"].items():
+        assert node["type"] == "Function"
+        G.add_node(key, step="node", function=node["function"])
+        for inp, data in workflow_dict["nodes"][key].get("inputs", {}).items():
+            G.add_node(f"{key}.inputs.{inp}", step="input", **data)
+        for out, data in workflow_dict["nodes"][key].get("outputs", {}).items():
+            G.add_node(f"{key}.outputs.{out}", step="output", **data)
+    for edge in _get_missing_edges(cast(list[tuple[str, str]], workflow_dict["edges"])):
+        G.add_edge(*edge)
+    for node in G.nodes():
+        if len(node.split(".")) == 1:
+            continue
+        if node.split(".")[-2] == "inputs":
+            G.nodes[node]["step"] = "input"
+        elif node.split(".")[-2] == "outputs":
+            G.nodes[node]["step"] = "output"
+    mapping = {n: workflow_dict["label"] + "-" + n.replace(".", "-") for n in G.nodes()}
+    return nx.relabel_nodes(G, mapping, copy=True)
+
+
+def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
+    G = get_workflow_graph(workflow_dict)
+    hash_dict = {}
+
+    for node in list(nx.topological_sort(G)):
+        break_flag = False
+        if G.nodes[node]["step"] == "output":
+            for succ in G.successors(node):
+                if "hash" in G.nodes[node]:
+                    G.nodes[succ]["hash"] = G.nodes[node]["hash"]
+                else:
+                    break_flag = True
+        if G.nodes[node]["step"] != "node":
+            continue
+        hash_dict_tmp = {
+            "inputs": {},
+            "outputs": [
+                G.nodes[out].get("label", out.split("-")[-1])
+                for out in G.successors(node)
+            ],
+            "node": tools.get_function_metadata(G.nodes[node]["function"]),
+        }
+        hash_dict_tmp["node"]["connected_inputs"] = []
+        for inp in G.predecessors(node):
+            data = G.nodes[inp]
+            inp_name = data.get("label", inp.split("-")[-1])
+            if "hash" in data:
+                hash_dict_tmp["inputs"][inp_name] = data["hash"]
+                hash_dict_tmp["node"]["connected_inputs"].append(inp_name)
+            elif "value" in data:
+                hash_dict_tmp["inputs"][inp_name] = data["value"]
+            else:
+                break_flag = True
+        if break_flag:
+            continue
+        h = hashlib.sha256(
+            json.dumps(hash_dict_tmp, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+        for out in G.successors(node):
+            G.nodes[out]["hash"] = (
+                h + "@" + G.nodes[out].get("label", out.split("-")[-1])
+            )
+        hash_dict_tmp["hash"] = h
+        hash_dict[node] = hash_dict_tmp
+    return hash_dict
 
 
 def _replace_input_ports(
