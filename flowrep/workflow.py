@@ -1097,7 +1097,10 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
         break_flag = False
         if G.nodes[node]["step"] == "output":
             for succ in G.successors(node):
-                G.nodes[succ]["hash"] = G.nodes[node]["hash"]
+                if "hash" in G.nodes[node]:
+                    G.nodes[succ]["hash"] = G.nodes[node]["hash"]
+                else:
+                    break_flag = True
         if G.nodes[node]["step"] != "node":
             continue
         hash_dict_tmp = {

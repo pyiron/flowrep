@@ -630,6 +630,10 @@ class TestWorkflow(unittest.TestCase):
                 hashed_dict["workflow_with_data-add_0"]["hash"] + "@output"
             )
         )
+        workflow_dict = workflow_with_data.serialize_workflow()
+        hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
+        for node in hashed_dict.values():
+            self.assertNotIn("hash", node)
 
     def test_get_and_set_entry(self):
 
