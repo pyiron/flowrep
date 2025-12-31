@@ -6,6 +6,7 @@ import json
 import textwrap
 from collections import deque
 from collections.abc import Callable, Iterable
+from dataclasses import asdict, is_dataclass
 from functools import cached_property, update_wrapper
 from typing import Any, Generic, TypeVar, cast
 
@@ -1119,7 +1120,10 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
                 hash_dict_tmp["inputs"][inp_name] = data["hash"]
                 hash_dict_tmp["node"]["connected_inputs"].append(inp_name)
             elif "value" in data:
-                hash_dict_tmp["inputs"][inp_name] = data["value"]
+                if is_dataclass(data["value"]):
+                    hash_dict_tmp["inputs"][inp_name] = asdict(data["value"])
+                else:
+                    hash_dict_tmp["inputs"][inp_name] = data["value"]
             else:
                 break_flag = True
         if break_flag:
