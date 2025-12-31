@@ -1115,8 +1115,8 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
             if "hash" in data:
                 hash_dict_tmp["inputs"][inp_name] = data["hash"]
                 hash_dict_tmp["node"]["connected_inputs"].append(inp_name)
-            elif "value" in data or "default" in data:
-                hash_dict_tmp["inputs"][inp_name] = data.get("value", data.get("default"))
+            elif "value" in data:
+                hash_dict_tmp["inputs"][inp_name] = data["value"]
             else:
                 break_flag = True
         if break_flag:
