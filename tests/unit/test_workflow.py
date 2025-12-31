@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import dataclass
 
 import networkx as nx
 
@@ -193,6 +194,16 @@ def workflow_with_if_else(a=10, b=20):
         x = multiply(x, a)
         x = multiply(x, a)
     return x
+
+
+@dataclass
+class TestClass:
+    a: int = 10
+    b: int = 20
+
+
+def some_function(test: TestClass):
+    return test
 
 
 class TestWorkflow(unittest.TestCase):
@@ -634,6 +645,19 @@ class TestWorkflow(unittest.TestCase):
         hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
         for node in hashed_dict.values():
             self.assertNotIn("hash", node)
+
+        @fwf.workflow
+        def workflow_with_class(test: TestClass):
+            test = some_function(test)
+            return test
+
+        test_instance = TestClass()
+        workflow_dict = workflow_with_class.run(test=test_instance)
+        hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
+        for node in hashed_dict.values():
+            self.assertIn("hash", node)
+            self.assertIsInstance(node["hash"], str)
+            self.assertEqual(len(node["hash"]), 64)
 
     def test_get_and_set_entry(self):
 
