@@ -23,6 +23,7 @@ classifiers = [
 ]
 dependencies = [
     "networkx==3.6.1",
+    "pydantic==2.12.5",
 ]
 dynamic = [ "version",]
 authors = [
