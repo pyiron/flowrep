@@ -1,11 +1,10 @@
 [build-system]
 requires = [
     "numpy",
-    "setuptools>=68.0.0",
-    "versioneer[toml]==0.29",
-
+    "hatchling==1.25.0",
+    "hatch-vcs==0.5.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "flowrep"
@@ -40,18 +39,27 @@ Homepage = "https://pyiron.org/"
 Documentation = "https://flowrep.readthedocs.io"
 Repository = "https://github.com/pyiron/flowrep"
 
-[tool.versioneer]
-VCS = "git"
-style = "pep440-pre"
-versionfile_source = "flowrep/_version.py"
-parentdir_prefix = "flowrep"
-tag_prefix = "flowrep-"
+[tool.hatch.build]
+include = [
+    "flowrep"
+]
 
-[tool.setuptools.packages.find]
-include = [ "flowrep*",]
+[tool.hatch.build.hooks.vcs]
+version-file = "flowrep/_version.py"
 
-[tool.setuptools.dynamic.version]
-attr = "flowrep.__version__"
+[tool.hatch.build.targets.sdist]
+include = [
+    "flowrep"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "flowrep"
+]
+
+[tool.hatch.version]
+source = "vcs"
+path = "flowrep/_version.py"
 
 [tool.ruff]
 exclude = ["docs", "notebooks", "setup.py", "_version.py"]
