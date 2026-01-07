@@ -31,16 +31,18 @@ class AtomicNode(NodeModel):
             raise ValueError(msg)
         return v
 
-    @pydantic.model_validator(mode='after')
+    @pydantic.model_validator(mode="after")
     def check_outputs_when_not_unpacking(self):
-        if not (self.unpack_tuple_output and self.unpack_dataclass_output):
-            if len(self.outputs) != 1:
-                raise ValueError(
-                    f"outputs must have exactly one element when unpacking is disabled. "
-                    f"Got {len(self.outputs)} outputs with "
-                    f"unpack_tuple_output={self.unpack_tuple_output}, "
-                    f"unpack_dataclass_output={self.unpack_dataclass_output}"
-                )
+        if (
+            not (self.unpack_tuple_output and self.unpack_dataclass_output)
+            and len(self.outputs) != 1
+        ):
+            raise ValueError(
+                f"outputs must have exactly one element when unpacking is disabled. "
+                f"Got {len(self.outputs)} outputs with "
+                f"unpack_tuple_output={self.unpack_tuple_output}, "
+                f"unpack_dataclass_output={self.unpack_dataclass_output}"
+            )
         return self
 
 
@@ -60,9 +62,12 @@ class WorkflowNode(NodeModel):
     @classmethod
     def deserialize_edges(cls, v):
         if isinstance(v, list):
-            return {tuple(k) if isinstance(k, list) else k:
-                        tuple(val) if isinstance(val, list) else val
-                    for k, val in v}
+            return {
+                tuple(k) if isinstance(k, list) else k: (
+                    tuple(val) if isinstance(val, list) else val
+                )
+                for k, val in v
+            }
         return v
 
     @pydantic.field_validator("edges")
