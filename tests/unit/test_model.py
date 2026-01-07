@@ -367,7 +367,7 @@ class TestWorkflowNodeReservedNames(unittest.TestCase):
     """Tests for reserved node name validation."""
 
     def test_reserved_name_inputs(self):
-        for reserved in model.RESERVED_NAMES:
+        for reserved in model.WorkflowNode.reserved_node_names:
             with self.assertRaises(pydantic.ValidationError) as ctx:
                 model.WorkflowNode(
                     inputs=["a"],

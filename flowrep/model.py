@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 import networkx as nx
 import pydantic
@@ -62,6 +62,7 @@ class WorkflowNode(NodeModel):
         str | tuple[str, str],
         str | tuple[str, str],
     ]  # But dict[str, str] gets disallowed in validation
+    reserved_node_names: ClassVar[frozenset[str]] = frozenset({"inputs", "outputs"})
 
     @pydantic.model_serializer(mode="wrap", when_used="json")
     def serialize_model(self, serializer, info):
@@ -109,11 +110,11 @@ class WorkflowNode(NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_reserved_node_names(self):
-        conflicts = RESERVED_NAMES & set(self.nodes.keys())
+        conflicts = self.reserved_node_names & set(self.nodes.keys())
         if conflicts:
             raise ValueError(
                 f"Node labels cannot use reserved names: {conflicts}. "
-                f"Reserved names are: {RESERVED_NAMES}"
+                f"Reserved names are: {self.reserved_node_names}"
             )
         return self
 
