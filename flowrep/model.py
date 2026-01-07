@@ -38,6 +38,19 @@ class WorkflowNode(NodeModel):
         str | tuple[str, str],
     ]  # But dict[str, str] gets disallowed in validation
 
+    @pydantic.field_serializer("edges")
+    def serialize_edges(self, edges):
+        return [[k, v] for k, v in edges.items()]
+
+    @pydantic.field_validator("edges", mode="before")
+    @classmethod
+    def deserialize_edges(cls, v):
+        if isinstance(v, list):
+            return {tuple(k) if isinstance(k, list) else k:
+                        tuple(val) if isinstance(val, list) else val
+                    for k, val in v}
+        return v
+
     @pydantic.field_validator("edges")
     @classmethod
     def validate_edges(cls, v):
