@@ -63,13 +63,20 @@ class WorkflowNode(NodeModel):
         str | tuple[str, str],
     ]  # But dict[str, str] gets disallowed in validation
 
-    @pydantic.field_serializer("edges")
-    def serialize_edges(self, edges):
-        return [[k, v] for k, v in edges.items()]
+    @pydantic.model_serializer(mode="wrap", when_used="json")
+    def serialize_model(self, serializer, info):
+        """Convert edges dict to list of pairs for JSON serialization only."""
+        data = serializer(self)
+        if info.mode == "json":
+            # Convert dict to list for JSON (since JSON keys must be strings)
+            data["edges"] = [[k, v] for k, v in self.edges.items()]
+        # For Python mode, keep the original dict
+        return data
 
     @pydantic.field_validator("edges", mode="before")
     @classmethod
     def deserialize_edges(cls, v):
+        """Convert list of pairs back to dict when deserializing from JSON."""
         if isinstance(v, list):
             return {
                 tuple(k) if isinstance(k, list) else k: (
@@ -77,6 +84,7 @@ class WorkflowNode(NodeModel):
                 )
                 for k, val in v
             }
+        # If already a dict (e.g., from Python mode), pass through
         return v
 
     @pydantic.field_validator("edges")

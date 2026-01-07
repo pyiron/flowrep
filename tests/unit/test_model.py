@@ -524,9 +524,10 @@ class TestNestedWorkflow(unittest.TestCase):
 
 
 class TestSerialization(unittest.TestCase):
-    """Tests for JSON serialization roundtrip."""
+    """Tests for JSON and Python mode serialization roundtrip."""
 
-    def test_atomic_roundtrip(self):
+    def test_atomic_json_roundtrip(self):
+        """JSON mode roundtrip for AtomicNode."""
         original = model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["a"],
@@ -536,7 +537,19 @@ class TestSerialization(unittest.TestCase):
         restored = model.AtomicNode.model_validate(data)
         self.assertEqual(original, restored)
 
-    def test_workflow_roundtrip(self):
+    def test_atomic_python_roundtrip(self):
+        """Python mode roundtrip for AtomicNode."""
+        original = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=["a"],
+            outputs=["b"],
+        )
+        data = original.model_dump(mode="python")
+        restored = model.AtomicNode.model_validate(data)
+        self.assertEqual(original, restored)
+
+    def test_workflow_json_roundtrip(self):
+        """JSON mode roundtrip for WorkflowNode."""
         original = model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
@@ -554,6 +567,85 @@ class TestSerialization(unittest.TestCase):
         self.assertEqual(original.inputs, restored.inputs)
         self.assertEqual(original.outputs, restored.outputs)
         self.assertEqual(len(original.nodes), len(restored.nodes))
+        self.assertEqual(original.edges, restored.edges)
+
+    def test_workflow_python_roundtrip(self):
+        """Python mode roundtrip for WorkflowNode."""
+        original = model.WorkflowNode(
+            inputs=["x"],
+            outputs=["y"],
+            nodes={
+                "n": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=["in"],
+                    outputs=["out"],
+                )
+            },
+            edges={("n", "in"): "x", "y": ("n", "out")},
+        )
+        data = original.model_dump(mode="python")
+        restored = model.WorkflowNode.model_validate(data)
+        self.assertEqual(original.inputs, restored.inputs)
+        self.assertEqual(original.outputs, restored.outputs)
+        self.assertEqual(len(original.nodes), len(restored.nodes))
+        self.assertEqual(original.edges, restored.edges)
+
+    def test_workflow_python_mode_preserves_dict_structure(self):
+        """Python mode should preserve dict with tuple keys, not convert to list."""
+        original = model.WorkflowNode(
+            inputs=["x", "y"],
+            outputs=["z", "w"],
+            nodes={
+                "a": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=["i1", "i2"],
+                    outputs=["o1", "o2"],
+                )
+            },
+            edges={
+                ("a", "i1"): "x",
+                ("a", "i2"): "y",
+                "z": ("a", "o1"),
+                "w": ("a", "o2"),
+            },
+        )
+        data = original.model_dump(mode="python")
+
+        # Verify edges is a dict, not a list
+        self.assertIsInstance(data["edges"], dict)
+
+        # Verify tuple keys are preserved
+        self.assertIn(("a", "i1"), data["edges"])
+        self.assertIn(("a", "i2"), data["edges"])
+
+        # Verify values match
+        self.assertEqual(data["edges"][("a", "i1")], "x")
+        self.assertEqual(data["edges"]["z"], ("a", "o1"))
+
+    def test_workflow_json_mode_uses_list_structure(self):
+        """JSON mode should convert dict to list of pairs."""
+        original = model.WorkflowNode(
+            inputs=["x"],
+            outputs=["y"],
+            nodes={
+                "n": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=["in"],
+                    outputs=["out"],
+                )
+            },
+            edges={("n", "in"): "x", "y": ("n", "out")},
+        )
+        data = original.model_dump(mode="json")
+
+        # Verify edges is a list
+        self.assertIsInstance(data["edges"], list)
+        self.assertEqual(len(data["edges"]), 2)
+
+        # Each element should be a [key, value] pair
+        for item in data["edges"]:
+            self.assertIsInstance(item, list)
+            self.assertEqual(len(item), 2)
 
     def test_discriminated_union_roundtrip(self):
         """Ensure type discriminator works for polymorphic deserialization."""
