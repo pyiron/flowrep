@@ -15,7 +15,7 @@ class AtomicNode(NodeModel):
     def check_name_format(cls, v: str):
         if not v or len(v.split(".")) < 2 or not all(part for part in v.split(".")):
             msg = (
-                f"AtomicNode 'fully_qualified_name' must be a non-empty string ",
+                f"AtomicNode 'fully_qualified_name' must be a non-empty string "
                 f"in the format 'module.qualname' with at least one period. Got {v}"
             )
             raise ValueError(msg)
