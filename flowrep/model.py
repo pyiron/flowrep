@@ -4,6 +4,8 @@ import pydantic
 
 RecipeElementType = Literal["atomic", "workflow", "for", "while", "try", "if"]
 
+RESERVED_NAMES = {"inputs", "outputs"}  # No having child nodes with these names
+
 
 class NodeModel(pydantic.BaseModel):
     type: RecipeElementType
@@ -54,6 +56,16 @@ class WorkflowNode(NodeModel):
                 raise ValueError(f"Source tuple must have 2 elements, got {source}")
 
         return v
+
+    @pydantic.model_validator(mode="after")
+    def validate_reserved_node_names(self):
+        conflicts = RESERVED_NAMES & set(self.nodes.keys())
+        if conflicts:
+            raise ValueError(
+                f"Node labels cannot use reserved names: {conflicts}. "
+                f"Reserved names are: {RESERVED_NAMES}"
+            )
+        return self
 
     @pydantic.model_validator(mode="after")
     def validate_edge_references(self):
