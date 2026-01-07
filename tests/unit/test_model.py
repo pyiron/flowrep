@@ -57,6 +57,106 @@ class TestAtomicNode(unittest.TestCase):
                 )
 
 
+class TestAtomicNodeUnpacking(unittest.TestCase):
+    """Tests for unpack_tuple_output and unpack_dataclass_output validation."""
+
+    def test_default_unpacking_values(self):
+        """Default values should both be True."""
+        node = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=["x"],
+            outputs=["a", "b"],
+        )
+        self.assertTrue(node.unpack_tuple_output)
+        self.assertTrue(node.unpack_dataclass_output)
+
+    def test_both_unpacking_enabled_multiple_outputs(self):
+        """Multiple outputs allowed when both unpacking flags are True."""
+        node = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=["a", "b", "c"],
+            unpack_tuple_output=True,
+            unpack_dataclass_output=True,
+        )
+        self.assertEqual(len(node.outputs), 3)
+
+    def test_both_unpacking_enabled_zero_outputs(self):
+        """Zero outputs allowed when both unpacking flags are True."""
+        node = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=["x"],
+            outputs=[],
+            unpack_tuple_output=True,
+            unpack_dataclass_output=True,
+        )
+        self.assertEqual(len(node.outputs), 0)
+
+    def test_tuple_unpacking_disabled_requires_single_output(self):
+        """When tuple unpacking disabled, must have exactly one output."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.AtomicNode(
+                fully_qualified_name="mod.func",
+                inputs=[],
+                outputs=["a", "b"],
+                unpack_tuple_output=False,
+                unpack_dataclass_output=True,
+            )
+        self.assertIn("exactly one element", str(ctx.exception))
+        self.assertIn("unpack_tuple_output=False", str(ctx.exception))
+
+    def test_dataclass_unpacking_disabled_requires_single_output(self):
+        """When dataclass unpacking disabled, must have exactly one output."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.AtomicNode(
+                fully_qualified_name="mod.func",
+                inputs=[],
+                outputs=["a", "b"],
+                unpack_tuple_output=True,
+                unpack_dataclass_output=False,
+            )
+        self.assertIn("exactly one element", str(ctx.exception))
+        self.assertIn("unpack_dataclass_output=False", str(ctx.exception))
+
+    def test_both_unpacking_disabled_requires_single_output(self):
+        """When both unpacking disabled, must have exactly one output."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.AtomicNode(
+                fully_qualified_name="mod.func",
+                inputs=[],
+                outputs=["a", "b", "c"],
+                unpack_tuple_output=False,
+                unpack_dataclass_output=False,
+            )
+        self.assertIn("exactly one element", str(ctx.exception))
+        self.assertIn("unpack_tuple_output=False", str(ctx.exception))
+        self.assertIn("unpack_dataclass_output=False", str(ctx.exception))
+
+    def test_unpacking_disabled_zero_outputs_rejected(self):
+        """Zero outputs rejected when unpacking disabled."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.AtomicNode(
+                fully_qualified_name="mod.func",
+                inputs=[],
+                outputs=[],
+                unpack_tuple_output=False,
+            )
+        self.assertIn("exactly one element", str(ctx.exception))
+
+    def test_unpacking_disabled_single_output_valid(self):
+        """Single output valid when unpacking disabled."""
+        node = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=["x"],
+            outputs=["result"],
+            unpack_tuple_output=False,
+            unpack_dataclass_output=False,
+        )
+        self.assertEqual(node.outputs, ["result"])
+        self.assertFalse(node.unpack_tuple_output)
+        self.assertFalse(node.unpack_dataclass_output)
+
+
 class TestWorkflowNodeEdgeValidation(unittest.TestCase):
     """Tests for WorkflowNode edge validation."""
 

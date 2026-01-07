@@ -17,6 +17,8 @@ class NodeModel(pydantic.BaseModel):
 class AtomicNode(NodeModel):
     type: Literal["atomic"] = "atomic"
     fully_qualified_name: str
+    unpack_tuple_output: bool = True
+    unpack_dataclass_output: bool = True
 
     @pydantic.field_validator("fully_qualified_name")
     @classmethod
@@ -28,6 +30,18 @@ class AtomicNode(NodeModel):
             )
             raise ValueError(msg)
         return v
+
+    @pydantic.model_validator(mode='after')
+    def check_outputs_when_not_unpacking(self):
+        if not (self.unpack_tuple_output and self.unpack_dataclass_output):
+            if len(self.outputs) != 1:
+                raise ValueError(
+                    f"outputs must have exactly one element when unpacking is disabled. "
+                    f"Got {len(self.outputs)} outputs with "
+                    f"unpack_tuple_output={self.unpack_tuple_output}, "
+                    f"unpack_dataclass_output={self.unpack_dataclass_output}"
+                )
+        return self
 
 
 class WorkflowNode(NodeModel):
