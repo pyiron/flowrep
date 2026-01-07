@@ -58,103 +58,93 @@ class TestAtomicNode(unittest.TestCase):
 
 
 class TestAtomicNodeUnpacking(unittest.TestCase):
-    """Tests for unpack_tuple_output and unpack_dataclass_output validation."""
+    """Tests for unpack_mode validation."""
 
-    def test_default_unpacking_values(self):
-        """Default values should both be True."""
+    def test_default_unpack_mode(self):
+        """Default unpack_mode should be 'tuple'."""
         node = model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["x"],
             outputs=["a", "b"],
         )
-        self.assertTrue(node.unpack_tuple_output)
-        self.assertTrue(node.unpack_dataclass_output)
+        self.assertEqual(node.unpack_mode, "tuple")
 
-    def test_both_unpacking_enabled_multiple_outputs(self):
-        """Multiple outputs allowed when both unpacking flags are True."""
+    def test_tuple_mode_multiple_outputs(self):
+        """Multiple outputs allowed with unpack_mode='tuple'."""
         node = model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=[],
             outputs=["a", "b", "c"],
-            unpack_tuple_output=True,
-            unpack_dataclass_output=True,
+            unpack_mode="tuple",
         )
         self.assertEqual(len(node.outputs), 3)
+        self.assertEqual(node.unpack_mode, "tuple")
 
-    def test_both_unpacking_enabled_zero_outputs(self):
-        """Zero outputs allowed when both unpacking flags are True."""
+    def test_dataclass_mode_multiple_outputs(self):
+        """Multiple outputs allowed with unpack_mode='dataclass'."""
         node = model.AtomicNode(
             fully_qualified_name="mod.func",
-            inputs=["x"],
-            outputs=[],
-            unpack_tuple_output=True,
-            unpack_dataclass_output=True,
+            inputs=[],
+            outputs=["a", "b", "c"],
+            unpack_mode="dataclass",
         )
-        self.assertEqual(len(node.outputs), 0)
+        self.assertEqual(len(node.outputs), 3)
+        self.assertEqual(node.unpack_mode, "dataclass")
 
-    def test_tuple_unpacking_disabled_requires_single_output(self):
-        """When tuple unpacking disabled, must have exactly one output."""
+    def test_none_mode_multiple_outputs_rejected(self):
+        """Multiple outputs rejected when unpack_mode='none'."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             model.AtomicNode(
                 fully_qualified_name="mod.func",
                 inputs=[],
                 outputs=["a", "b"],
-                unpack_tuple_output=False,
-                unpack_dataclass_output=True,
+                unpack_mode="none",
             )
         self.assertIn("exactly one element", str(ctx.exception))
-        self.assertIn("unpack_tuple_output=False", str(ctx.exception))
+        self.assertIn("unpack_mode=none", str(ctx.exception))
 
-    def test_dataclass_unpacking_disabled_requires_single_output(self):
-        """When dataclass unpacking disabled, must have exactly one output."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.AtomicNode(
-                fully_qualified_name="mod.func",
-                inputs=[],
-                outputs=["a", "b"],
-                unpack_tuple_output=True,
-                unpack_dataclass_output=False,
-            )
-        self.assertIn("exactly one element", str(ctx.exception))
-        self.assertIn("unpack_dataclass_output=False", str(ctx.exception))
-
-    def test_both_unpacking_disabled_requires_single_output(self):
-        """When both unpacking disabled, must have exactly one output."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.AtomicNode(
-                fully_qualified_name="mod.func",
-                inputs=[],
-                outputs=["a", "b", "c"],
-                unpack_tuple_output=False,
-                unpack_dataclass_output=False,
-            )
-        self.assertIn("exactly one element", str(ctx.exception))
-        self.assertIn("unpack_tuple_output=False", str(ctx.exception))
-        self.assertIn("unpack_dataclass_output=False", str(ctx.exception))
-
-    def test_unpacking_disabled_zero_outputs_rejected(self):
-        """Zero outputs rejected when unpacking disabled."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.AtomicNode(
-                fully_qualified_name="mod.func",
-                inputs=[],
-                outputs=[],
-                unpack_tuple_output=False,
-            )
-        self.assertIn("exactly one element", str(ctx.exception))
-
-    def test_unpacking_disabled_single_output_valid(self):
-        """Single output valid when unpacking disabled."""
+    def test_none_mode_single_output_valid(self):
+        """Single output valid with unpack_mode='none'."""
         node = model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["x"],
             outputs=["result"],
-            unpack_tuple_output=False,
-            unpack_dataclass_output=False,
+            unpack_mode="none",
         )
         self.assertEqual(node.outputs, ["result"])
-        self.assertFalse(node.unpack_tuple_output)
-        self.assertFalse(node.unpack_dataclass_output)
+        self.assertEqual(node.unpack_mode, "none")
+
+    def test_none_mode_zero_outputs_valid(self):
+        """Zero outputs valid with unpack_mode='none'."""
+        node = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=[],
+            unpack_mode="none",
+        )
+        self.assertEqual(len(node.outputs), 0)
+        self.assertEqual(node.unpack_mode, "none")
+
+    def test_tuple_mode_zero_outputs_valid(self):
+        """Zero outputs valid with unpack_mode='tuple'."""
+        node = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=["x"],
+            outputs=[],
+            unpack_mode="tuple",
+        )
+        self.assertEqual(len(node.outputs), 0)
+
+    def test_all_unpack_modes_valid_literal(self):
+        """All three unpack modes should be valid."""
+        for mode in ["none", "tuple", "dataclass"]:
+            node = model.AtomicNode(
+                fully_qualified_name="mod.func",
+                inputs=[],
+                outputs=["out"],
+                unpack_mode=mode,
+            )
+            self.assertEqual(node.unpack_mode, mode)
 
 
 class TestWorkflowNodeEdgeValidation(unittest.TestCase):

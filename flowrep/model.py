@@ -7,6 +7,11 @@ RecipeElementType = Literal["atomic", "workflow", "for", "while", "try", "if"]
 
 RESERVED_NAMES = {"inputs", "outputs"}  # No having child nodes with these names
 
+UnpackMode = Literal[
+    "none",  # Return the output as a single value
+    "tuple",  # Split return into one port per tuple element
+    "dataclass",  # Split return into one port per dataclass field
+]
 
 class NodeModel(pydantic.BaseModel):
     type: RecipeElementType
@@ -17,8 +22,7 @@ class NodeModel(pydantic.BaseModel):
 class AtomicNode(NodeModel):
     type: Literal["atomic"] = "atomic"
     fully_qualified_name: str
-    unpack_tuple_output: bool = True
-    unpack_dataclass_output: bool = True
+    unpack_mode: UnpackMode = "tuple"
 
     @pydantic.field_validator("fully_qualified_name")
     @classmethod
@@ -33,15 +37,10 @@ class AtomicNode(NodeModel):
 
     @pydantic.model_validator(mode="after")
     def check_outputs_when_not_unpacking(self):
-        if (
-            not (self.unpack_tuple_output and self.unpack_dataclass_output)
-            and len(self.outputs) != 1
-        ):
+        if self.unpack_mode == "none" and len(self.outputs) > 1:
             raise ValueError(
                 f"outputs must have exactly one element when unpacking is disabled. "
-                f"Got {len(self.outputs)} outputs with "
-                f"unpack_tuple_output={self.unpack_tuple_output}, "
-                f"unpack_dataclass_output={self.unpack_dataclass_output}"
+                f"Got {len(self.outputs)} outputs with unpack_mode={self.unpack_mode}"
             )
         return self
 
