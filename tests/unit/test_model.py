@@ -10,7 +10,7 @@ from flowrep import model
 class TestAtomicNode(unittest.TestCase):
     """Tests for AtomicNode validation."""
 
-    def test_valid_fnc(self):
+    def test_valid_fqn(self):
         node = model.AtomicNode(
             fully_qualified_name="module.func",
             inputs=[],
@@ -19,7 +19,7 @@ class TestAtomicNode(unittest.TestCase):
         self.assertEqual(node.fully_qualified_name, "module.func")
         self.assertEqual(node.type, "atomic")
 
-    def test_valid_fnc_deep(self):
+    def test_valid_fqn_deep(self):
         node = model.AtomicNode(
             fully_qualified_name="a.b.c.d",
             inputs=[],
@@ -27,7 +27,7 @@ class TestAtomicNode(unittest.TestCase):
         )
         self.assertEqual(node.fully_qualified_name, "a.b.c.d")
 
-    def test_fnc_no_period(self):
+    def test_fqn_no_period(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             model.AtomicNode(
                 fully_qualified_name="noDot",
@@ -36,7 +36,7 @@ class TestAtomicNode(unittest.TestCase):
             )
         self.assertIn("at least one period", str(ctx.exception))
 
-    def test_fnc_empty_string(self):
+    def test_fqn_empty_string(self):
         with self.assertRaises(pydantic.ValidationError):
             model.AtomicNode(
                 fully_qualified_name="",
@@ -44,7 +44,7 @@ class TestAtomicNode(unittest.TestCase):
                 outputs=[],
             )
 
-    def test_fnc_empty_part(self):
+    def test_fqn_empty_part(self):
         """e.g., 'module.' or '.func' or 'a..b'"""
         for bad in ["module.", ".func", "a..b"]:
             with self.assertRaises(
@@ -499,7 +499,7 @@ class TestNestedWorkflow(unittest.TestCase):
         )
         self.assertIsInstance(outer.nodes["inner"], model.WorkflowNode)
 
-    def test_nested_invalid_fnc_bubbles_up(self):
+    def test_nested_invalid_fqn_bubbles_up(self):
         """Validation errors in nested nodes should propagate."""
         with self.assertRaises(pydantic.ValidationError):
             model.WorkflowNode(
