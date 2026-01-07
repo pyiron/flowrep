@@ -11,22 +11,38 @@ class TestAtomicNode(unittest.TestCase):
     """Tests for AtomicNode validation."""
 
     def test_valid_fnc(self):
-        node = model.AtomicNode(fully_qualified_name="module.func")
+        node = model.AtomicNode(
+            fully_qualified_name="module.func",
+            inputs=[],
+            outputs=[],
+        )
         self.assertEqual(node.fully_qualified_name, "module.func")
         self.assertEqual(node.type, "atomic")
 
     def test_valid_fnc_deep(self):
-        node = model.AtomicNode(fully_qualified_name="a.b.c.d")
+        node = model.AtomicNode(
+            fully_qualified_name="a.b.c.d",
+            inputs=[],
+            outputs=[],
+        )
         self.assertEqual(node.fully_qualified_name, "a.b.c.d")
 
     def test_fnc_no_period(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.AtomicNode(fully_qualified_name="noDot")
+            model.AtomicNode(
+                fully_qualified_name="noDot",
+                inputs=[],
+                outputs=[],
+            )
         self.assertIn("at least one period", str(ctx.exception))
 
     def test_fnc_empty_string(self):
         with self.assertRaises(pydantic.ValidationError):
-            model.AtomicNode(fully_qualified_name="")
+            model.AtomicNode(
+                fully_qualified_name="",
+                inputs=[],
+                outputs=[],
+            )
 
     def test_fnc_empty_part(self):
         """e.g., 'module.' or '.func' or 'a..b'"""
@@ -34,7 +50,11 @@ class TestAtomicNode(unittest.TestCase):
             with self.assertRaises(
                 pydantic.ValidationError, msg=f"Should reject {bad!r}"
             ):
-                model.AtomicNode(fully_qualified_name=bad)
+                model.AtomicNode(
+                    fully_qualified_name=bad,
+                    inputs=[],
+                    outputs=[],
+                )
 
 
 class TestWorkflowNodeEdgeValidation(unittest.TestCase):
@@ -45,7 +65,13 @@ class TestWorkflowNodeEdgeValidation(unittest.TestCase):
         return model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
-            nodes={"child": model.AtomicNode(fully_qualified_name="mod.func")},
+            nodes={
+                "child": model.AtomicNode(
+                    fully_qualified_name="mod.func",
+                    inputs=["in"],
+                    outputs=["out"],
+                )
+            },
             edges=edges,
         )
 
@@ -89,7 +115,13 @@ class TestWorkflowNodeReservedNames(unittest.TestCase):
                 model.WorkflowNode(
                     inputs=["a"],
                     outputs=["b"],
-                    nodes={reserved: model.AtomicNode(fully_qualified_name="m.f")},
+                    nodes={
+                        reserved: model.AtomicNode(
+                            fully_qualified_name="m.f",
+                            inputs=[],
+                            outputs=[],
+                        )
+                    },
                     edges={},
                 )
         self.assertIn("reserved names", str(ctx.exception))
@@ -105,8 +137,16 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "a": model.AtomicNode(fully_qualified_name="m.f"),
-                    "b": model.AtomicNode(fully_qualified_name="m.g"),
+                    "a": model.AtomicNode(
+                        fully_qualified_name="m.f",
+                        inputs=["in", "feedback"],
+                        outputs=["out"],
+                    ),
+                    "b": model.AtomicNode(
+                        fully_qualified_name="m.g",
+                        inputs=["in"],
+                        outputs=["out", "out2"],
+                    ),
                 },
                 edges={
                     ("a", "in"): "x",
@@ -123,7 +163,13 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
             model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
-                nodes={"a": model.AtomicNode(fully_qualified_name="m.f")},
+                nodes={
+                    "a": model.AtomicNode(
+                        fully_qualified_name="m.f",
+                        inputs=["in", "feedback"],
+                        outputs=["out", "out2"],
+                    )
+                },
                 edges={
                     ("a", "in"): "x",
                     ("a", "feedback"): ("a", "out"),  # self-loop
@@ -138,9 +184,21 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "a": model.AtomicNode(fully_qualified_name="m.f"),
-                "b": model.AtomicNode(fully_qualified_name="m.g"),
-                "c": model.AtomicNode(fully_qualified_name="m.h"),
+                "a": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=["in"],
+                    outputs=["out"],
+                ),
+                "b": model.AtomicNode(
+                    fully_qualified_name="m.g",
+                    inputs=["in"],
+                    outputs=["out"],
+                ),
+                "c": model.AtomicNode(
+                    fully_qualified_name="m.h",
+                    inputs=["in"],
+                    outputs=["out"],
+                ),
             },
             edges={
                 ("a", "in"): "x",
@@ -164,7 +222,13 @@ class TestNestedWorkflow(unittest.TestCase):
                 "inner": model.WorkflowNode(
                     inputs=["a"],
                     outputs=["b"],
-                    nodes={"leaf": model.AtomicNode(fully_qualified_name="m.f")},
+                    nodes={
+                        "leaf": model.AtomicNode(
+                            fully_qualified_name="m.f",
+                            inputs=["in"],
+                            outputs=["out"],
+                        )
+                    },
                     edges={
                         ("leaf", "in"): "a",
                         "b": ("leaf", "out"),
@@ -188,7 +252,13 @@ class TestNestedWorkflow(unittest.TestCase):
                     "inner": model.WorkflowNode(
                         inputs=["a"],
                         outputs=["b"],
-                        nodes={"bad": model.AtomicNode(fully_qualified_name="noDot")},
+                        nodes={
+                            "bad": model.AtomicNode(
+                                fully_qualified_name="noDot",
+                                inputs=[],
+                                outputs=[],
+                            )
+                        },
                         edges={},
                     ),
                 },
@@ -200,7 +270,11 @@ class TestSerialization(unittest.TestCase):
     """Tests for JSON serialization roundtrip."""
 
     def test_atomic_roundtrip(self):
-        original = model.AtomicNode(fully_qualified_name="mod.func")
+        original = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=["a"],
+            outputs=["b"],
+        )
         data = original.model_dump(mode="json")
         restored = model.AtomicNode.model_validate(data)
         self.assertEqual(original, restored)
@@ -209,7 +283,13 @@ class TestSerialization(unittest.TestCase):
         original = model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
-            nodes={"n": model.AtomicNode(fully_qualified_name="m.f")},
+            nodes={
+                "n": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=["in"],
+                    outputs=["out"],
+                )
+            },
             edges={("n", "in"): "x", "y": ("n", "out")},
         )
         data = original.model_dump(mode="json")
@@ -220,7 +300,12 @@ class TestSerialization(unittest.TestCase):
 
     def test_discriminated_union_roundtrip(self):
         """Ensure type discriminator works for polymorphic deserialization."""
-        data = {"type": "atomic", "fully_qualified_name": "a.b"}
+        data = {
+            "type": "atomic",
+            "fully_qualified_name": "a.b",
+            "inputs": ["x"],
+            "outputs": ["y"],
+        }
         node = pydantic.TypeAdapter(model.NodeType).validate_python(data)
         self.assertIsInstance(node, model.AtomicNode)
 
@@ -247,7 +332,13 @@ class TestEmptyWorkflow(unittest.TestCase):
         wf = model.WorkflowNode(
             inputs=[],
             outputs=[],
-            nodes={"n": model.AtomicNode(fully_qualified_name="m.f")},
+            nodes={
+                "n": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=[],
+                    outputs=[],
+                )
+            },
             edges={},
         )
         self.assertEqual(wf.inputs, [])

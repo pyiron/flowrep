@@ -10,6 +10,8 @@ RESERVED_NAMES = {"inputs", "outputs"}  # No having child nodes with these names
 
 class NodeModel(pydantic.BaseModel):
     type: RecipeElementType
+    inputs: list[str]
+    outputs: list[str]
 
 
 class AtomicNode(NodeModel):
@@ -30,8 +32,6 @@ class AtomicNode(NodeModel):
 
 class WorkflowNode(NodeModel):
     type: Literal["workflow"] = "workflow"
-    inputs: list[str]
-    outputs: list[str]
     nodes: dict[str, "NodeType"]
     edges: dict[
         str | tuple[str, str],
