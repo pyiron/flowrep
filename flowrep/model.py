@@ -27,7 +27,45 @@ class AtomicNode(NodeModel):
 
 class WorkflowNode(NodeModel):
     type: Literal["workflow"] = "workflow"
-    nodes: list["NodeType"]
+    inputs: list[str]
+    outputs: list[str]
+    nodes: dict[str, "NodeType"]
+    edges: dict[
+        str | tuple[str, str],
+        str | tuple[str, str],
+    ]  # But dict[str, str] gets disallowed in validation
+
+    @pydantic.field_validator("edges")
+    @classmethod
+    def validate_edges(cls, v):
+        for target, source in v.items():
+            target_is_str = isinstance(target, str)
+            source_is_str = isinstance(source, str)
+
+            if target_is_str and source_is_str:
+                raise ValueError(
+                    f"Invalid edge: both target and source cannot be plain strings. "
+                    f"Got target={target}, source={source}"
+                )
+
+            if isinstance(target, tuple) and len(target) != 2:
+                raise ValueError(f"Target tuple must have 2 elements, got {target}")
+            if isinstance(source, tuple) and len(source) != 2:
+                raise ValueError(f"Source tuple must have 2 elements, got {source}")
+
+        return v
+
+    @pydantic.model_validator(mode="after")
+    def validate_edge_references(self):
+        node_labels = set(self.nodes.keys())
+        for target, source in self.edges.items():
+            for reference in (target, source):
+                if isinstance(reference, tuple) and reference[0] not in node_labels:
+                        raise ValueError(
+                            f"Invalid edge reference: '{reference}' is not a child node"
+                        )
+        return self
+
 
 # Discriminated Union
 NodeType = Annotated[
