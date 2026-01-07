@@ -67,7 +67,7 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             inputs=["x"],
             outputs=["a", "b"],
         )
-        self.assertEqual(node.unpack_mode, "tuple")
+        self.assertEqual(node.unpack_mode, model.UnpackMode.TUPLE)
 
     def test_tuple_mode_multiple_outputs(self):
         """Multiple outputs allowed with unpack_mode='tuple'."""
@@ -75,10 +75,10 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             fully_qualified_name="mod.func",
             inputs=[],
             outputs=["a", "b", "c"],
-            unpack_mode="tuple",
+            unpack_mode=model.UnpackMode.TUPLE,
         )
         self.assertEqual(len(node.outputs), 3)
-        self.assertEqual(node.unpack_mode, "tuple")
+        self.assertEqual(node.unpack_mode, model.UnpackMode.TUPLE)
 
     def test_dataclass_mode_multiple_outputs(self):
         """Multiple outputs allowed with unpack_mode='dataclass'."""
@@ -86,10 +86,10 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             fully_qualified_name="mod.func",
             inputs=[],
             outputs=["a", "b", "c"],
-            unpack_mode="dataclass",
+            unpack_mode=model.UnpackMode.DATACLASS,
         )
         self.assertEqual(len(node.outputs), 3)
-        self.assertEqual(node.unpack_mode, "dataclass")
+        self.assertEqual(node.unpack_mode, model.UnpackMode.DATACLASS)
 
     def test_none_mode_multiple_outputs_rejected(self):
         """Multiple outputs rejected when unpack_mode='none'."""
@@ -98,10 +98,10 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
                 fully_qualified_name="mod.func",
                 inputs=[],
                 outputs=["a", "b"],
-                unpack_mode="none",
+                unpack_mode=model.UnpackMode.NONE,
             )
         self.assertIn("exactly one element", str(ctx.exception))
-        self.assertIn("unpack_mode=none", str(ctx.exception))
+        self.assertIn(f"unpack_mode={model.UnpackMode.NONE.value}", str(ctx.exception))
 
     def test_none_mode_single_output_valid(self):
         """Single output valid with unpack_mode='none'."""
@@ -109,10 +109,10 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             fully_qualified_name="mod.func",
             inputs=["x"],
             outputs=["result"],
-            unpack_mode="none",
+            unpack_mode=model.UnpackMode.NONE,
         )
         self.assertEqual(node.outputs, ["result"])
-        self.assertEqual(node.unpack_mode, "none")
+        self.assertEqual(node.unpack_mode, model.UnpackMode.NONE)
 
     def test_none_mode_zero_outputs_valid(self):
         """Zero outputs valid with unpack_mode='none'."""
@@ -120,10 +120,10 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             fully_qualified_name="mod.func",
             inputs=[],
             outputs=[],
-            unpack_mode="none",
+            unpack_mode=model.UnpackMode.NONE,
         )
         self.assertEqual(len(node.outputs), 0)
-        self.assertEqual(node.unpack_mode, "none")
+        self.assertEqual(node.unpack_mode, model.UnpackMode.NONE)
 
     def test_tuple_mode_zero_outputs_valid(self):
         """Zero outputs valid with unpack_mode='tuple'."""
@@ -131,7 +131,7 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             fully_qualified_name="mod.func",
             inputs=["x"],
             outputs=[],
-            unpack_mode="tuple",
+            unpack_mode=model.UnpackMode.TUPLE,
         )
         self.assertEqual(len(node.outputs), 0)
 
