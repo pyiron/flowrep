@@ -1,5 +1,6 @@
 from typing import Annotated, Literal
 
+import networkx as nx
 import pydantic
 
 RecipeElementType = Literal["atomic", "workflow", "for", "while", "try", "if"]
@@ -76,6 +77,30 @@ class WorkflowNode(NodeModel):
                         raise ValueError(
                             f"Invalid edge reference: '{reference}' is not a child node"
                         )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_acyclic(self):
+        """Ensure the workflow graph is acyclic (DAG)."""
+        g = nx.DiGraph()
+        g.add_nodes_from(self.nodes.keys())
+
+        for target, source in self.edges.items():
+            # Only add edge if both are child nodes (both tuples)
+            if isinstance(target, tuple) and isinstance(source, tuple):
+                source_node, _ = source
+                target_node, _ = target
+                g.add_edge(source_node, target_node)
+
+        try:
+            cycles = list(nx.find_cycle(g, orientation="original"))
+            raise ValueError(
+                f"Workflow graph contains cycle(s): {cycles}. "
+                f"Workflows must be acyclic (DAG)."
+            )
+        except nx.NetworkXNoCycle:
+            pass
+
         return self
 
 
