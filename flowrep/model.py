@@ -83,13 +83,52 @@ class WorkflowNode(NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_edge_references(self):
+        """Validate that edges reference existing nodes and valid ports."""
         node_labels = set(self.nodes.keys())
+        workflow_inputs = set(self.inputs)
+        workflow_outputs = set(self.outputs)
+
         for target, source in self.edges.items():
-            for reference in (target, source):
-                if isinstance(reference, tuple) and reference[0] not in node_labels:
+            # Validate source
+            if isinstance(source, tuple):
+                node_name, port_name = source
+                if node_name not in node_labels:
                     raise ValueError(
-                        f"Invalid edge reference: '{reference}' is not a child node"
+                        f"Invalid edge source: node '{node_name}' is not a child node"
                     )
+                if port_name not in self.nodes[node_name].outputs:
+                    raise ValueError(
+                        f"Invalid edge source: node '{node_name}' has no output port "
+                        f"'{port_name}'. "
+                        f"Available outputs: {self.nodes[node_name].outputs}"
+                    )
+            elif isinstance(source, str):
+                if source not in workflow_inputs:
+                    raise ValueError(
+                        f"Invalid edge source: '{source}' is not a workflow input. "
+                        f"Available inputs: {self.inputs}"
+                    )
+
+            # Validate target
+            if isinstance(target, tuple):
+                node_name, port_name = target
+                if node_name not in node_labels:
+                    raise ValueError(
+                        f"Invalid edge target: node '{node_name}' is not a child node"
+                    )
+                if port_name not in self.nodes[node_name].inputs:
+                    raise ValueError(
+                        f"Invalid edge target: node '{node_name}' has no input port "
+                        f"'{port_name}'. "
+                        f"Available inputs: {self.nodes[node_name].inputs}"
+                    )
+            elif isinstance(target, str):
+                if target not in workflow_outputs:
+                    raise ValueError(
+                        f"Invalid edge target: '{target}' is not a workflow output. "
+                        f"Available outputs: {self.outputs}"
+                    )
+
         return self
 
     @pydantic.model_validator(mode="after")

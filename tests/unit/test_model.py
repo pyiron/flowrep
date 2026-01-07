@@ -106,6 +106,173 @@ class TestWorkflowNodeEdgeValidation(unittest.TestCase):
         self.assertIn("not a child node", str(ctx.exception))
 
 
+class TestWorkflowNodePortValidation(unittest.TestCase):
+    """Tests for port name validation in edges."""
+
+    def test_invalid_input_port_name(self):
+        """Edge references non-existent input port on child node."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "child": model.AtomicNode(
+                        fully_qualified_name="mod.func",
+                        inputs=["in"],
+                        outputs=["out"],
+                    )
+                },
+                edges={
+                    ("child", "wrong_port"): "x",  # 'wrong_port' doesn't exist
+                },
+            )
+        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("wrong_port", str(ctx.exception))
+
+    def test_invalid_output_port_name(self):
+        """Edge references non-existent output port on child node."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "child": model.AtomicNode(
+                        fully_qualified_name="mod.func",
+                        inputs=["in"],
+                        outputs=["out"],
+                    )
+                },
+                edges={
+                    ("child", "in"): "x",
+                    "y": ("child", "wrong_port"),  # 'wrong_port' doesn't exist
+                },
+            )
+        self.assertIn("has no output port", str(ctx.exception))
+        self.assertIn("wrong_port", str(ctx.exception))
+
+    def test_invalid_workflow_input_name(self):
+        """Edge references non-existent workflow input."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "child": model.AtomicNode(
+                        fully_qualified_name="mod.func",
+                        inputs=["in"],
+                        outputs=["out"],
+                    )
+                },
+                edges={
+                    ("child", "in"): "nonexistent_input",  # doesn't exist
+                },
+            )
+        self.assertIn("not a workflow input", str(ctx.exception))
+        self.assertIn("nonexistent_input", str(ctx.exception))
+
+    def test_invalid_workflow_output_name(self):
+        """Edge references non-existent workflow output."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "child": model.AtomicNode(
+                        fully_qualified_name="mod.func",
+                        inputs=["in"],
+                        outputs=["out"],
+                    )
+                },
+                edges={
+                    ("child", "in"): "x",
+                    "nonexistent_output": ("child", "out"),  # doesn't exist
+                },
+            )
+        self.assertIn("not a workflow output", str(ctx.exception))
+        self.assertIn("nonexistent_output", str(ctx.exception))
+
+    def test_multiple_ports_valid(self):
+        """Valid edges with multiple input/output ports."""
+        wf = model.WorkflowNode(
+            inputs=["a", "b"],
+            outputs=["x", "y"],
+            nodes={
+                "node1": model.AtomicNode(
+                    fully_qualified_name="mod.func",
+                    inputs=["in1", "in2"],
+                    outputs=["out1", "out2"],
+                )
+            },
+            edges={
+                ("node1", "in1"): "a",
+                ("node1", "in2"): "b",
+                "x": ("node1", "out1"),
+                "y": ("node1", "out2"),
+            },
+        )
+        self.assertEqual(len(wf.edges), 4)
+
+    def test_nested_workflow_port_validation(self):
+        """Port validation works for nested workflows."""
+        inner = model.WorkflowNode(
+            inputs=["inner_in"],
+            outputs=["inner_out"],
+            nodes={
+                "leaf": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=["x"],
+                    outputs=["y"],
+                )
+            },
+            edges={
+                ("leaf", "x"): "inner_in",
+                "inner_out": ("leaf", "y"),
+            },
+        )
+
+        outer = model.WorkflowNode(
+            inputs=["outer_in"],
+            outputs=["outer_out"],
+            nodes={"inner": inner},
+            edges={
+                ("inner", "inner_in"): "outer_in",
+                "outer_out": ("inner", "inner_out"),
+            },
+        )
+        self.assertEqual(len(outer.nodes), 1)
+
+    def test_nested_workflow_invalid_port(self):
+        """Port validation catches errors in nested workflow edges."""
+        inner = model.WorkflowNode(
+            inputs=["inner_in"],
+            outputs=["inner_out"],
+            nodes={
+                "leaf": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=["x"],
+                    outputs=["y"],
+                )
+            },
+            edges={
+                ("leaf", "x"): "inner_in",
+                "inner_out": ("leaf", "y"),
+            },
+        )
+
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["outer_in"],
+                outputs=["outer_out"],
+                nodes={"inner": inner},
+                edges={
+                    ("inner", "wrong_port"): "outer_in",  # doesn't exist
+                    "outer_out": ("inner", "inner_out"),
+                },
+            )
+        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("wrong_port", str(ctx.exception))
+
+
 class TestWorkflowNodeReservedNames(unittest.TestCase):
     """Tests for reserved node name validation."""
 
