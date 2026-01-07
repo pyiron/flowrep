@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal, Union
 import pydantic
 
 RecipeElementType = Literal["atomic", "workflow", "for", "while", "try", "if"]
@@ -23,3 +23,15 @@ class AtomicNode(NodeModel):
 
 class WorkflowNode(NodeModel):
     type: Literal["workflow"] = "workflow"
+    nodes: list["NodeType"]
+
+# Discriminated Union
+NodeType = Annotated[
+    Union[
+        AtomicNode,
+        WorkflowNode,
+    ],
+    pydantic.Field(discriminator="type"),
+]
+
+WorkflowNode.model_rebuild()
