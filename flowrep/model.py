@@ -74,9 +74,9 @@ class WorkflowNode(NodeModel):
         for target, source in self.edges.items():
             for reference in (target, source):
                 if isinstance(reference, tuple) and reference[0] not in node_labels:
-                        raise ValueError(
-                            f"Invalid edge reference: '{reference}' is not a child node"
-                        )
+                    raise ValueError(
+                        f"Invalid edge reference: '{reference}' is not a child node"
+                    )
         return self
 
     @pydantic.model_validator(mode="after")
@@ -106,8 +106,7 @@ class WorkflowNode(NodeModel):
 
 # Discriminated Union
 NodeType = Annotated[
-    AtomicNode
-    | WorkflowNode,
+    AtomicNode | WorkflowNode,
     pydantic.Field(discriminator="type"),
 ]
 
