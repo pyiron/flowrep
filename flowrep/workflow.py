@@ -1115,7 +1115,7 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
         hash_dict_tmp["node"]["connected_inputs"] = []
         for inp in G.predecessors(node):
             data = G.nodes[inp]
-            inp_name = data.get("label", inp.split("-")[-1])
+            inp_name = inp.split("-")[-1]
             if "hash" in data:
                 hash_dict_tmp["inputs"][inp_name] = data["hash"]
                 hash_dict_tmp["node"]["connected_inputs"].append(inp_name)
