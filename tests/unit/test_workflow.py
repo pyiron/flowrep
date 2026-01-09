@@ -630,7 +630,7 @@ class TestWorkflow(unittest.TestCase):
             y = multiply(x, b)
             return x, y
 
-        workflow_dict = workflow_with_data.run()
+        workflow_dict = workflow_with_data.run(a=10, b=20)
         hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
         for node in hashed_dict.values():
             self.assertIn("hash", node)
@@ -645,6 +645,11 @@ class TestWorkflow(unittest.TestCase):
         hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
         for node in hashed_dict.values():
             self.assertNotIn("hash", node)
+        workflow_dict["inputs"] = {"a": {"value": 10}, "b": {"value": 20}}
+        self.assertDictEqual(
+            fwf.get_hashed_node_dict(workflow_dict),
+            fwf.get_hashed_node_dict(workflow_with_data.run(a=10, b=20)),
+        )
 
         @fwf.workflow
         def workflow_with_class(test: TestClass):

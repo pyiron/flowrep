@@ -1096,13 +1096,13 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
 
     for node in list(nx.topological_sort(G)):
         break_flag = False
-        if G.nodes[node]["step"] == "output":
-            for succ in G.successors(node):
-                if "hash" in G.nodes[node]:
-                    G.nodes[succ]["hash"] = G.nodes[node]["hash"]
-                else:
-                    break_flag = True
         if G.nodes[node]["step"] != "node":
+            for term in ["hash", "value"]:
+                if "hash" not in G.nodes[node]:
+                    for pre in G.predecessors(node):
+                        if term in G.nodes[pre]:
+                            G.nodes[node][term] = G.nodes[pre][term]
+                            continue
             continue
         hash_dict_tmp = {
             "inputs": {},
