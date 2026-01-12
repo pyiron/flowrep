@@ -61,6 +61,7 @@ class SourceHandle(pydantic.BaseModel):
 
 
 class TargetHandle(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(frozen=True)
     node: str | None # str points to child nodes, None points to parent outputs
     port: str
 
