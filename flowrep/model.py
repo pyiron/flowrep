@@ -55,6 +55,16 @@ class AtomicNode(NodeModel):
         return self
 
 
+class SourceHandle(pydantic.BaseModel):
+    node: str | None # str points to child nodes, None points to parent inputs
+    port: str  # Reserve None for functional edges
+
+
+class TargetHandle(pydantic.BaseModel):
+    node: str | None # str points to child nodes, None points to parent outputs
+    port: str
+
+
 class WorkflowNode(NodeModel):
     type: Literal["workflow"] = "workflow"
     nodes: dict[str, "NodeType"]
