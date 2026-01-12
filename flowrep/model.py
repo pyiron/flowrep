@@ -5,6 +5,7 @@ import networkx as nx
 import pydantic
 
 RecipeElementType = Literal["atomic", "workflow", "for", "while", "try", "if"]
+IOTypes = Literal["inputs", "outputs"]
 
 RESERVED_NAMES = {"inputs", "outputs"}  # No having child nodes with these names
 
@@ -54,49 +55,39 @@ class AtomicNode(NodeModel):
             )
         return self
 
-
-class SourceHandle(pydantic.BaseModel):
+class HandleModel(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(frozen=True)
     node: str | None
     port: str
+    delimiter: ClassVar[str] = "."
+    sibling_prefix: ClassVar[IOTypes]
+    parent_prefix: ClassVar[IOTypes]
 
     @pydantic.model_serializer
     def serialize(self) -> str:
         if self.node is None:
-            return f"inputs.{self.port}"
-        return f"{self.node}.outputs.{self.port}"
+            return self.delimiter.join([self.parent_prefix, self.port])
+        return self.delimiter.join([self.node, self.sibling_prefix, self.port])
 
     @pydantic.model_validator(mode="before")
     @classmethod
     def deserialize(cls, data):
         if isinstance(data, str):
             parts = data.split(".", 2)
-            if parts[0] == "inputs":
+            if parts[0] == cls.parent_prefix:
                 return {"node": None, "port": parts[1]}
             return {"node": parts[0], "port": parts[-1]}
         return data
 
 
-class TargetHandle(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(frozen=True)
-    node: str | None
-    port: str
+class SourceHandle(HandleModel):
+    sibling_prefix: ClassVar[IOTypes] = "outputs"
+    parent_prefix: ClassVar[IOTypes] = "inputs"
 
-    @pydantic.model_serializer
-    def serialize(self) -> str:
-        if self.node is None:
-            return f"outputs.{self.port}"
-        return f"{self.node}.inputs.{self.port}"
 
-    @pydantic.model_validator(mode="before")
-    @classmethod
-    def deserialize(cls, data):
-        if isinstance(data, str):
-            parts = data.split(".", 2)
-            if parts[0] == "outputs":
-                return {"node": None, "port": parts[1]}
-            return {"node": parts[0], "port": parts[-1]}
-        return data
+class TargetHandle(HandleModel):
+    sibling_prefix: ClassVar[IOTypes] = "inputs"
+    parent_prefix: ClassVar[IOTypes] = "outputs"
 
 
 class WorkflowNode(NodeModel):
