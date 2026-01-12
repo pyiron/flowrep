@@ -56,14 +56,47 @@ class AtomicNode(NodeModel):
 
 
 class SourceHandle(pydantic.BaseModel):
-    node: str | None # str points to child nodes, None points to parent inputs
-    port: str  # Reserve None for functional edges
+    model_config = pydantic.ConfigDict(frozen=True)
+    node: str | None
+    port: str
+
+    @pydantic.model_serializer
+    def serialize(self) -> str:
+        if self.node is None:
+            return f"inputs.{self.port}"
+        return f"{self.node}.outputs.{self.port}"
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def deserialize(cls, data):
+        if isinstance(data, str):
+            parts = data.split(".", 2)
+            if parts[0] == "inputs":
+                return {"node": None, "port": parts[1]}
+            return {"node": parts[0], "port": parts[-1]}
+        return data
 
 
 class TargetHandle(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(frozen=True)
-    node: str | None # str points to child nodes, None points to parent outputs
+    node: str | None
     port: str
+
+    @pydantic.model_serializer
+    def serialize(self) -> str:
+        if self.node is None:
+            return f"outputs.{self.port}"
+        return f"{self.node}.inputs.{self.port}"
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def deserialize(cls, data):
+        if isinstance(data, str):
+            parts = data.split(".", 2)
+            if parts[0] == "outputs":
+                return {"node": None, "port": parts[1]}
+            return {"node": parts[0], "port": parts[-1]}
+        return data
 
 
 class WorkflowNode(NodeModel):
@@ -71,30 +104,6 @@ class WorkflowNode(NodeModel):
     nodes: dict[str, "NodeType"]
     edges: dict[TargetHandle, SourceHandle]
     reserved_node_names: ClassVar[frozenset[str]] = frozenset({"inputs", "outputs"})
-
-    @pydantic.model_serializer(mode="wrap", when_used="json")
-    def serialize_model(self, serializer, info):
-        """Convert edges dict to list of pairs for JSON serialization only."""
-        data = serializer(self)
-        if info.mode == "json":
-            # Convert dict to list for JSON (since JSON keys must be strings)
-            data["edges"] = [[k, v] for k, v in self.edges.items()]
-        # For Python mode, keep the original dict
-        return data
-
-    @pydantic.field_validator("edges", mode="before")
-    @classmethod
-    def deserialize_edges(cls, v):
-        """Convert list of pairs back to dict when deserializing from JSON."""
-        if isinstance(v, list):
-            return {
-                tuple(k) if isinstance(k, list) else k: (
-                    tuple(val) if isinstance(val, list) else val
-                )
-                for k, val in v
-            }
-        # If already a dict (e.g., from Python mode), pass through
-        return v
 
     @pydantic.field_validator("edges")
     @classmethod

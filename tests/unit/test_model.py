@@ -665,16 +665,16 @@ class TestSerialization(unittest.TestCase):
         # Verify edges is a dict, not a list
         self.assertIsInstance(data["edges"], dict)
 
-        # Verify tuple keys are preserved
-        self.assertIn(("a", "i1"), data["edges"])
-        self.assertIn(("a", "i2"), data["edges"])
+        # Verify tuple keys are stringified
+        self.assertIn(("a.inputs.i1"), data["edges"])
+        self.assertIn(("inputs.x"), data["edges"].values())
 
         # Verify values match
-        self.assertEqual(data["edges"][("a", "i1")], "x")
-        self.assertEqual(data["edges"]["z"], ("a", "o1"))
+        self.assertEqual(data["edges"][("a.inputs.i1")], "inputs.x")
+        self.assertEqual(data["edges"]["outputs.z"], "a.outputs.o1")
 
     def test_workflow_json_mode_uses_list_structure(self):
-        """JSON mode should convert dict to list of pairs."""
+        """JSON mode should convert handles to simple strings."""
         original = model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
@@ -694,14 +694,13 @@ class TestSerialization(unittest.TestCase):
         )
         data = original.model_dump(mode="json")
 
-        # Verify edges is a list
-        self.assertIsInstance(data["edges"], list)
+        # Verify edges is a dict
+        self.assertIsInstance(data["edges"], dict)
         self.assertEqual(len(data["edges"]), 2)
-
         # Each element should be a [key, value] pair
-        for item in data["edges"]:
-            self.assertIsInstance(item, list)
-            self.assertEqual(len(item), 2)
+        for k, v in data["edges"].items():
+            self.assertIsInstance(k, str)
+            self.assertIsInstance(v, str)
 
     def test_discriminated_union_roundtrip(self):
         """Ensure type discriminator works for polymorphic deserialization."""
