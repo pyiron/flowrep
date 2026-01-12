@@ -7,6 +7,44 @@ import pydantic
 from flowrep import model
 
 
+class TestNodeModel(unittest.TestCase):
+    """Tests for input/output uniqueness validation on NodeModel base class."""
+
+    def test_duplicate_inputs_rejected(self):
+        """Any NodeModel subclass should reject duplicate inputs."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.AtomicNode(
+                fully_qualified_name="mod.func",
+                inputs=["x", "y", "x"],  # duplicate 'x'
+                outputs=["z"],
+            )
+        self.assertIn("unique", str(ctx.exception).lower())
+        self.assertIn("x", str(ctx.exception))
+
+    def test_duplicate_outputs_rejected(self):
+        """Any NodeModel subclass should reject duplicate outputs."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["a"],
+                outputs=["x", "y", "x"],  # duplicate 'x'
+                nodes={},
+                edges={},
+            )
+        self.assertIn("unique", str(ctx.exception).lower())
+        self.assertIn("x", str(ctx.exception))
+
+    def test_unique_inputs_outputs_preserved_order(self):
+        """Unique inputs/outputs should preserve declaration order."""
+        node = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=["c", "a", "b"],
+            outputs=["z", "x", "y"],
+        )
+        # Order must be preserved for function signature mapping
+        self.assertEqual(node.inputs, ["c", "a", "b"])
+        self.assertEqual(node.outputs, ["z", "x", "y"])
+
+
 class TestAtomicNode(unittest.TestCase):
     """Tests for AtomicNode validation."""
 

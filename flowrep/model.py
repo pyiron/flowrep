@@ -28,6 +28,17 @@ class NodeModel(pydantic.BaseModel):
     inputs: list[str]
     outputs: list[str]
 
+    @pydantic.field_validator("inputs", "outputs")
+    @classmethod
+    def check_unique(cls, v, info):
+        if len(v) != len(set(v)):
+            duplicates = [x for x in v if v.count(x) > 1]
+            raise ValueError(
+                f"'{info.field_name}' must contain unique values. "
+                f"Found duplicates: {set(duplicates)}"
+            )
+        return v
+
 
 class AtomicNode(NodeModel):
     type: Literal["atomic"] = "atomic"
