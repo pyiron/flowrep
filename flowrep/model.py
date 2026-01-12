@@ -55,6 +55,7 @@ class AtomicNode(NodeModel):
             )
         return self
 
+
 class HandleModel(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(frozen=True)
     node: str | None
