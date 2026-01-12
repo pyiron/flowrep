@@ -69,10 +69,7 @@ class TargetHandle(pydantic.BaseModel):
 class WorkflowNode(NodeModel):
     type: Literal["workflow"] = "workflow"
     nodes: dict[str, "NodeType"]
-    edges: dict[
-        str | tuple[str, str],
-        str | tuple[str, str],
-    ]  # But dict[str, str] gets disallowed in validation
+    edges: dict[TargetHandle, SourceHandle]
     reserved_node_names: ClassVar[frozenset[str]] = frozenset({"inputs", "outputs"})
 
     @pydantic.model_serializer(mode="wrap", when_used="json")
@@ -103,20 +100,11 @@ class WorkflowNode(NodeModel):
     @classmethod
     def validate_edges(cls, v):
         for target, source in v.items():
-            target_is_str = isinstance(target, str)
-            source_is_str = isinstance(source, str)
-
-            if target_is_str and source_is_str:
+            if target.node is None and source.node is None:
                 raise ValueError(
-                    f"Invalid edge: both target and source cannot be plain strings. "
-                    f"Got target={target}, source={source}"
+                    f"Invalid edge: No pass-through data -- if a workflow declares IO "
+                    f"it should use it. Got target={target}, source={source}"
                 )
-
-            if isinstance(target, tuple) and len(target) != 2:
-                raise ValueError(f"Target tuple must have 2 elements, got {target}")
-            if isinstance(source, tuple) and len(source) != 2:
-                raise ValueError(f"Source tuple must have 2 elements, got {source}")
-
         return v
 
     @pydantic.model_validator(mode="after")
@@ -138,43 +126,41 @@ class WorkflowNode(NodeModel):
 
         for target, source in self.edges.items():
             # Validate source
-            if isinstance(source, tuple):
-                node_name, port_name = source
-                if node_name not in node_labels:
+            if source.node is None:
+                if source.port not in workflow_inputs:
                     raise ValueError(
-                        f"Invalid edge source: node '{node_name}' is not a child node"
+                        f"Invalid edge source: '{source.port}' is not a workflow "
+                        f"input. Available inputs: {self.inputs}"
                     )
-                if port_name not in self.nodes[node_name].outputs:
+            else:
+                if source.node not in node_labels:
                     raise ValueError(
-                        f"Invalid edge source: node '{node_name}' has no output port "
-                        f"'{port_name}'. "
-                        f"Available outputs: {self.nodes[node_name].outputs}"
+                        f"Invalid edge source: node '{source.node}' is not a child node"
                     )
-            elif isinstance(source, str):
-                if source not in workflow_inputs:
+                if source.port not in self.nodes[source.node].outputs:
                     raise ValueError(
-                        f"Invalid edge source: '{source}' is not a workflow input. "
-                        f"Available inputs: {self.inputs}"
+                        f"Invalid edge source: node '{source.node}' has no output port "
+                        f"'{source.port}'. "
+                        f"Available outputs: {self.nodes[source.node].outputs}"
                     )
 
             # Validate target
-            if isinstance(target, tuple):
-                node_name, port_name = target
-                if node_name not in node_labels:
+            if target.node is None:
+                if target.port not in workflow_outputs:
                     raise ValueError(
-                        f"Invalid edge target: node '{node_name}' is not a child node"
+                        f"Invalid edge target: '{target.port}' is not a workflow "
+                        f"output. Available outputs: {self.outputs}"
                     )
-                if port_name not in self.nodes[node_name].inputs:
+            else:
+                if target.node not in node_labels:
                     raise ValueError(
-                        f"Invalid edge target: node '{node_name}' has no input port "
-                        f"'{port_name}'. "
-                        f"Available inputs: {self.nodes[node_name].inputs}"
+                        f"Invalid edge target: node '{target.node}' is not a child node"
                     )
-            elif isinstance(target, str):
-                if target not in workflow_outputs:
+                if target.port not in self.nodes[target.node].inputs:
                     raise ValueError(
-                        f"Invalid edge target: '{target}' is not a workflow output. "
-                        f"Available outputs: {self.outputs}"
+                        f"Invalid edge target: node '{target.node}' has no input port "
+                        f"'{target.port}'. "
+                        f"Available inputs: {self.nodes[target.node].inputs}"
                     )
 
         return self
@@ -186,11 +172,8 @@ class WorkflowNode(NodeModel):
         g.add_nodes_from(self.nodes.keys())
 
         for target, source in self.edges.items():
-            # Only add edge if both are child nodes (both tuples)
-            if isinstance(target, tuple) and isinstance(source, tuple):
-                source_node, _ = source
-                target_node, _ = target
-                g.add_edge(source_node, target_node)
+            if target.node is not None and source.node is not None:
+                g.add_edge(source.node, target.node)
 
         try:
             cycles = list(nx.find_cycle(g, orientation="original"))
