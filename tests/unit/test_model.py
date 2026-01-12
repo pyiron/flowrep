@@ -666,12 +666,12 @@ class TestSerialization(unittest.TestCase):
         self.assertIsInstance(data["edges"], dict)
 
         # Verify tuple keys are stringified
-        self.assertIn(("a.inputs.i1"), data["edges"])
-        self.assertIn(("inputs.x"), data["edges"].values())
+        self.assertIn("a.i1", data["edges"])
+        self.assertIn("x", data["edges"].values())
 
         # Verify values match
-        self.assertEqual(data["edges"][("a.inputs.i1")], "inputs.x")
-        self.assertEqual(data["edges"]["outputs.z"], "a.outputs.o1")
+        self.assertEqual(data["edges"]["a.i1"], "x")
+        self.assertEqual(data["edges"]["z"], "a.o1")
 
     def test_workflow_json_mode_uses_list_structure(self):
         """JSON mode should convert handles to simple strings."""

@@ -60,34 +60,28 @@ class HandleModel(pydantic.BaseModel):
     node: str | None
     port: str
     delimiter: ClassVar[str] = "."
-    sibling_prefix: ClassVar[IOTypes]
-    parent_prefix: ClassVar[IOTypes]
 
     @pydantic.model_serializer
     def serialize(self) -> str:
         if self.node is None:
-            return self.delimiter.join([self.parent_prefix, self.port])
-        return self.delimiter.join([self.node, self.sibling_prefix, self.port])
+            return self.port
+        return self.delimiter.join([self.node, self.port])
 
     @pydantic.model_validator(mode="before")
     @classmethod
     def deserialize(cls, data):
         if isinstance(data, str):
-            parts = data.split(".", 2)
-            if parts[0] == cls.parent_prefix:
-                return {"node": None, "port": parts[1]}
-            return {"node": parts[0], "port": parts[-1]}
+            parts = data.split(".", 1)
+            if len(parts) == 1:
+                return {"node": None, "port": parts[0]}
+            return {"node": parts[0], "port": parts[1]}
         return data
 
 
-class SourceHandle(HandleModel):
-    sibling_prefix: ClassVar[IOTypes] = "outputs"
-    parent_prefix: ClassVar[IOTypes] = "inputs"
+class SourceHandle(HandleModel): ...
 
 
-class TargetHandle(HandleModel):
-    sibling_prefix: ClassVar[IOTypes] = "inputs"
-    parent_prefix: ClassVar[IOTypes] = "outputs"
+class TargetHandle(HandleModel): ...
 
 
 class WorkflowNode(NodeModel):
