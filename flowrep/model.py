@@ -48,8 +48,8 @@ class UnpackMode(str, Enum):
 
 class NodeModel(pydantic.BaseModel):
     type: RecipeElementType
-    inputs: list[str] | tuple[str, ...]
-    outputs: list[str] | tuple[str, ...]
+    inputs: list[str]
+    outputs: list[str]
 
     @pydantic.field_validator("inputs", "outputs")
     @classmethod

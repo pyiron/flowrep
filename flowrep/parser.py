@@ -56,7 +56,9 @@ def parse_atomic(
     return model.AtomicNode(
         fully_qualified_name=fully_qualified_name,
         inputs=input_labels,
-        outputs=output_labels if len(output_labels) > 0 else scraped_output_labels,
+        outputs=(
+            list(output_labels) if len(output_labels) > 0 else scraped_output_labels
+        ),
         unpack_mode=unpack_mode,
     )
 
