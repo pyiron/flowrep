@@ -44,6 +44,48 @@ class TestNodeModel(unittest.TestCase):
         self.assertEqual(node.inputs, ["c", "a", "b"])
         self.assertEqual(node.outputs, ["z", "x", "y"])
 
+    def test_invalid_IO_labels(self):
+        test_cases = [
+            ("for", "Python keyword"),
+            ("while", "Python keyword"),
+            *[(reserved, "reserved name") for reserved in model.RESERVED_NAMES],
+            ("1invalid", "not an identifier"),
+            ("my-var", "not an identifier"),
+            ("my var", "not an identifier"),
+            ("", "not an identifier"),
+        ]
+
+        for io_type in ["inputs", "outputs"]:
+            for invalid_label, reason in test_cases:
+                with self.subTest(io_type=io_type, label=invalid_label, reason=reason):
+                    with self.assertRaises(pydantic.ValidationError) as ctx:
+                        kwargs = {
+                            "fully_qualified_name": "mod.func",
+                            "inputs": ["x"],
+                            "outputs": ["y"],
+                        }
+                        kwargs[io_type] = [invalid_label, "valid"]
+                        model.AtomicNode(**kwargs)
+
+                    exc_str = str(ctx.exception)
+                    self.assertIn(
+                        "valid Python identifier",
+                        exc_str,
+                        f"{io_type} with {invalid_label} ({reason}) should fail",
+                    )
+                    if invalid_label:  # empty string won't appear in error
+                        self.assertIn(invalid_label, exc_str)
+
+    def test_valid_IO_labels(self):
+        """Valid identifiers should pass."""
+        node = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=["x", "y_1", "_private", "camelCase"],
+            outputs=["result", "status_code"],
+        )
+        self.assertEqual(len(node.inputs), 4)
+        self.assertEqual(len(node.outputs), 2)
+
 
 class TestAtomicNode(unittest.TestCase):
     """Tests for AtomicNode validation."""

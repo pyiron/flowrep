@@ -1,3 +1,4 @@
+import keyword
 from enum import Enum
 from typing import Annotated, ClassVar, Literal
 
@@ -8,6 +9,28 @@ RecipeElementType = Literal["atomic", "workflow", "for", "while", "try", "if"]
 IOTypes = Literal["inputs", "outputs"]
 
 RESERVED_NAMES = {"inputs", "outputs"}  # No having child nodes with these names
+
+
+def _valid_label(label: str) -> bool:
+    return (
+        label.isidentifier()
+        and not keyword.iskeyword(label)
+        and label not in RESERVED_NAMES
+    )
+
+
+def _get_invalid_labels(labels: list[str] | set[str]) -> None | set[str]:
+    invalid = {label for label in labels if not _valid_label(label)}
+    return invalid if invalid else None
+
+
+def _validate_labels(labels: list[str] | set[str], info) -> None:
+    if invalid := _get_invalid_labels(labels):
+        raise ValueError(
+            f"All elements of '{info.field_name}' must be a valid Python "
+            f"identifier and not in the reserved labels {RESERVED_NAMES}. "
+            f"{invalid} are non-compliant."
+        )
 
 
 class UnpackMode(str, Enum):
@@ -37,6 +60,12 @@ class NodeModel(pydantic.BaseModel):
                 f"'{info.field_name}' must contain unique values. "
                 f"Found duplicates: {set(duplicates)}"
             )
+        return v
+
+    @pydantic.field_validator("inputs", "outputs")
+    @classmethod
+    def check_labels(cls, v, info):
+        _validate_labels(v, info)
         return v
 
 
