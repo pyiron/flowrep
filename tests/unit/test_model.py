@@ -238,7 +238,7 @@ class TestWorkflowNodeEdgeValidation(unittest.TestCase):
             nodes={
                 "child": model.AtomicNode(
                     fully_qualified_name="mod.func",
-                    inputs=["in"],
+                    inputs=["inp"],
                     outputs=["out"],
                 )
             },
@@ -253,7 +253,7 @@ class TestWorkflowNodeEdgeValidation(unittest.TestCase):
     def test_valid_edges(self):
         wf = self._make_workflow(
             {
-                ("child", "in"): (None, "x"),
+                ("child", "inp"): (None, "x"),
                 (None, "y"): ("child", "out"),
             }
         )
@@ -290,7 +290,7 @@ class TestWorkflowNodePortValidation(unittest.TestCase):
                 nodes={
                     "child": model.AtomicNode(
                         fully_qualified_name="mod.func",
-                        inputs=["in"],
+                        inputs=["inp"],
                         outputs=["out"],
                     )
                 },
@@ -313,12 +313,12 @@ class TestWorkflowNodePortValidation(unittest.TestCase):
                 nodes={
                     "child": model.AtomicNode(
                         fully_qualified_name="mod.func",
-                        inputs=["in"],
+                        inputs=["inp"],
                         outputs=["out"],
                     )
                 },
                 edges={
-                    model.TargetHandle(node="child", port="in"): model.SourceHandle(
+                    model.TargetHandle(node="child", port="inp"): model.SourceHandle(
                         node=None, port="x"
                     ),
                     model.TargetHandle(node=None, port="y"): model.SourceHandle(
@@ -339,12 +339,12 @@ class TestWorkflowNodePortValidation(unittest.TestCase):
                 nodes={
                     "child": model.AtomicNode(
                         fully_qualified_name="mod.func",
-                        inputs=["in"],
+                        inputs=["inp"],
                         outputs=["out"],
                     )
                 },
                 edges={
-                    model.TargetHandle(node="child", port="in"): model.SourceHandle(
+                    model.TargetHandle(node="child", port="inp"): model.SourceHandle(
                         node=None, port="nonexistent_input"
                     ),
                     # doesn't exist
@@ -362,12 +362,12 @@ class TestWorkflowNodePortValidation(unittest.TestCase):
                 nodes={
                     "child": model.AtomicNode(
                         fully_qualified_name="mod.func",
-                        inputs=["in"],
+                        inputs=["inp"],
                         outputs=["out"],
                     )
                 },
                 edges={
-                    model.TargetHandle(node="child", port="in"): model.SourceHandle(
+                    model.TargetHandle(node="child", port="inp"): model.SourceHandle(
                         node=None, port="x"
                     ),
                     model.TargetHandle(
@@ -521,20 +521,20 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 nodes={
                     "a": model.AtomicNode(
                         fully_qualified_name="m.f",
-                        inputs=["in", "feedback"],
+                        inputs=["inp", "feedback"],
                         outputs=["out"],
                     ),
                     "b": model.AtomicNode(
                         fully_qualified_name="m.g",
-                        inputs=["in"],
+                        inputs=["inp"],
                         outputs=["out", "out2"],
                     ),
                 },
                 edges={
-                    model.TargetHandle(node="a", port="in"): model.SourceHandle(
+                    model.TargetHandle(node="a", port="inp"): model.SourceHandle(
                         node=None, port="x"
                     ),
-                    model.TargetHandle(node="b", port="in"): model.SourceHandle(
+                    model.TargetHandle(node="b", port="inp"): model.SourceHandle(
                         node="a", port="out"
                     ),
                     model.TargetHandle(node="a", port="feedback"): model.SourceHandle(
@@ -556,12 +556,12 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 nodes={
                     "a": model.AtomicNode(
                         fully_qualified_name="m.f",
-                        inputs=["in", "feedback"],
+                        inputs=["inp", "feedback"],
                         outputs=["out", "out2"],
                     )
                 },
                 edges={
-                    model.TargetHandle(node="a", port="in"): model.SourceHandle(
+                    model.TargetHandle(node="a", port="inp"): model.SourceHandle(
                         node=None, port="x"
                     ),
                     model.TargetHandle(node="a", port="feedback"): model.SourceHandle(
@@ -582,28 +582,28 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
             nodes={
                 "a": model.AtomicNode(
                     fully_qualified_name="m.f",
-                    inputs=["in"],
+                    inputs=["inp"],
                     outputs=["out"],
                 ),
                 "b": model.AtomicNode(
                     fully_qualified_name="m.g",
-                    inputs=["in"],
+                    inputs=["inp"],
                     outputs=["out"],
                 ),
                 "c": model.AtomicNode(
                     fully_qualified_name="m.h",
-                    inputs=["in"],
+                    inputs=["inp"],
                     outputs=["out"],
                 ),
             },
             edges={
-                model.TargetHandle(node="a", port="in"): model.SourceHandle(
+                model.TargetHandle(node="a", port="inp"): model.SourceHandle(
                     node=None, port="x"
                 ),
-                model.TargetHandle(node="b", port="in"): model.SourceHandle(
+                model.TargetHandle(node="b", port="inp"): model.SourceHandle(
                     node="a", port="out"
                 ),
-                model.TargetHandle(node="c", port="in"): model.SourceHandle(
+                model.TargetHandle(node="c", port="inp"): model.SourceHandle(
                     node="b", port="out"
                 ),
                 model.TargetHandle(node=None, port="y"): model.SourceHandle(
@@ -629,12 +629,12 @@ class TestNestedWorkflow(unittest.TestCase):
                     nodes={
                         "leaf": model.AtomicNode(
                             fully_qualified_name="m.f",
-                            inputs=["in"],
+                            inputs=["inp"],
                             outputs=["out"],
                         )
                     },
                     edges={
-                        model.TargetHandle(node="leaf", port="in"): model.SourceHandle(
+                        model.TargetHandle(node="leaf", port="inp"): model.SourceHandle(
                             node=None, port="a"
                         ),
                         model.TargetHandle(node=None, port="b"): model.SourceHandle(
@@ -711,12 +711,12 @@ class TestSerialization(unittest.TestCase):
             nodes={
                 "n": model.AtomicNode(
                     fully_qualified_name="m.f",
-                    inputs=["in"],
+                    inputs=["inp"],
                     outputs=["out"],
                 )
             },
             edges={
-                model.TargetHandle(node="n", port="in"): model.SourceHandle(
+                model.TargetHandle(node="n", port="inp"): model.SourceHandle(
                     node=None, port="x"
                 ),
                 model.TargetHandle(node=None, port="y"): model.SourceHandle(
@@ -739,12 +739,12 @@ class TestSerialization(unittest.TestCase):
             nodes={
                 "n": model.AtomicNode(
                     fully_qualified_name="m.f",
-                    inputs=["in"],
+                    inputs=["inp"],
                     outputs=["out"],
                 )
             },
             edges={
-                model.TargetHandle(node="n", port="in"): model.SourceHandle(
+                model.TargetHandle(node="n", port="inp"): model.SourceHandle(
                     node=None, port="x"
                 ),
                 model.TargetHandle(node=None, port="y"): model.SourceHandle(
@@ -807,12 +807,12 @@ class TestSerialization(unittest.TestCase):
             nodes={
                 "n": model.AtomicNode(
                     fully_qualified_name="m.f",
-                    inputs=["in"],
+                    inputs=["inp"],
                     outputs=["out"],
                 )
             },
             edges={
-                model.TargetHandle(node="n", port="in"): model.SourceHandle(
+                model.TargetHandle(node="n", port="inp"): model.SourceHandle(
                     node=None, port="x"
                 ),
                 model.TargetHandle(node=None, port="y"): model.SourceHandle(
