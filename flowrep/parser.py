@@ -7,7 +7,7 @@ from types import FunctionType
 from flowrep import model, workflow
 
 
-def atomic(func=None, *, unpack_mode: model.UnpackMode = model.UnpackMode.TUPLE):
+def atomic(func=None, /, *output_labels, unpack_mode: model.UnpackMode = model.UnpackMode.TUPLE):
     """
     Decorator that attaches a flowrep.model.AtomicNode to the `recipe` attribute of a
     function.
@@ -16,23 +16,45 @@ def atomic(func=None, *, unpack_mode: model.UnpackMode = model.UnpackMode.TUPLE)
     """
 
     def decorator(f):
-        f.recipe = parse_atomic(f, unpack_mode=unpack_mode)
+        f.recipe = parse_atomic(f, *output_labels, unpack_mode=unpack_mode)
         return f
 
-    return decorator if func is None else decorator(func)
+    # If func is provided and is actually a function, apply decorator directly
+    if func is not None and callable(func):
+        return decorator(func)
+
+    # Otherwise, func and output_labels contain the arguments, return decorator
+    # Combine func into output_labels if it's not None
+    all_output_labels = (func,) + output_labels if func is not None else output_labels
+
+    def decorator_with_args(f):
+        f.recipe = parse_atomic(f, *all_output_labels, unpack_mode=unpack_mode)
+        return f
+
+    return decorator_with_args
 
 
 def parse_atomic(
     func: FunctionType,
+    *output_labels: str,
     unpack_mode: model.UnpackMode = model.UnpackMode.TUPLE,
 ) -> model.AtomicNode:
     fully_qualified_name = f"{func.__module__}.{func.__qualname__}"
+
     input_labels = _get_input_labels(func)
-    output_labels = _get_output_labels(func, unpack_mode)
+
+    scraped_output_labels = _get_output_labels(func, unpack_mode)
+    if len(output_labels) > 0 and len(output_labels) != len(scraped_output_labels):
+        raise ValueError(
+            f"Explicitly provided output labels must match with function analysis and "
+            f"unpacking mode. Expected {len(scraped_output_labels)} output labels with "
+            f"unpacking mode '{unpack_mode}', got but got {output_labels}."
+        )
+
     return model.AtomicNode(
         fully_qualified_name=fully_qualified_name,
         inputs=input_labels,
-        outputs=output_labels,
+        outputs=output_labels if len(output_labels) > 0 else scraped_output_labels,
         unpack_mode=unpack_mode,
     )
 

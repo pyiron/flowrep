@@ -61,6 +61,158 @@ class TestParseAtomic(unittest.TestCase):
         self.assertEqual(node.unpack_mode, model.UnpackMode.NONE)
 
 
+class TestAtomicWithOutputLabels(unittest.TestCase):
+    def test_atomic_with_explicit_output_labels(self):
+        @parser.atomic("a", "b")
+        def func(x, y):
+            return x, y
+
+        self.assertEqual(func.recipe.outputs, ["a", "b"])
+        self.assertEqual(func.recipe.inputs, ["x", "y"])
+
+    def test_atomic_with_output_labels_and_unpack_mode(self):
+        @parser.atomic("result", unpack_mode=model.UnpackMode.NONE)
+        def func(x):
+            return x, x + 1
+
+        self.assertEqual(func.recipe.outputs, ["result"])
+        self.assertEqual(func.recipe.unpack_mode, model.UnpackMode.NONE)
+
+    def test_atomic_no_args_infers_labels(self):
+        @parser.atomic
+        def func(x):
+            result = x * 2
+            return result
+
+        self.assertEqual(func.recipe.outputs, ["result"])
+
+    def test_atomic_empty_parens_infers_labels(self):
+        @parser.atomic()
+        def func(x):
+            a = x
+            b = x + 1
+            return a, b
+
+        self.assertEqual(func.recipe.outputs, ["a", "b"])
+
+    def test_atomic_only_unpack_mode_infers_labels(self):
+        @parser.atomic(unpack_mode=model.UnpackMode.TUPLE)
+        def func():
+            x = 1
+            y = 2
+            return x, y
+
+        self.assertEqual(func.recipe.outputs, ["x", "y"])
+
+    def test_atomic_wrong_number_of_labels_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+
+            @parser.atomic("only_one")
+            def func():
+                return 1, 2
+
+        self.assertIn("Expected 2 output labels", str(ctx.exception))
+
+    def test_atomic_with_three_labels(self):
+        @parser.atomic("first", "second", "third")
+        def func():
+            return 1, 2, 3
+
+        self.assertEqual(func.recipe.outputs, ["first", "second", "third"])
+
+
+class TestParseAtomicWithOutputLabels(unittest.TestCase):
+    def test_explicit_labels_override_inferred(self):
+        def func():
+            x = 1
+            y = 2
+            return x, y
+
+        node = parser.parse_atomic(func, "custom_x", "custom_y")
+        self.assertEqual(node.outputs, ["custom_x", "custom_y"])
+
+    def test_explicit_labels_with_unpack_none(self):
+        def func():
+            return 1, 2
+
+        node = parser.parse_atomic(func, "single", unpack_mode=model.UnpackMode.NONE)
+        self.assertEqual(node.outputs, ["single"])
+
+    def test_explicit_labels_mismatch_raises(self):
+        def func():
+            return 1, 2, 3
+
+        with self.assertRaises(ValueError) as ctx:
+            parser.parse_atomic(func, "only", "two")
+
+        self.assertIn("Expected 3 output labels", str(ctx.exception))
+
+    def test_no_explicit_labels_falls_back_to_inferred(self):
+        def func():
+            result = 42
+            return result
+
+        node = parser.parse_atomic(func)
+        self.assertEqual(node.outputs, ["result"])
+
+    def test_explicit_labels_with_dataclass(self):
+        @dataclasses.dataclass
+        class Result:
+            x: int
+            y: int
+
+        def func() -> Result:
+            return Result(1, 2)
+
+        # Should use dataclass fields, not explicit labels
+        node = parser.parse_atomic(func, unpack_mode=model.UnpackMode.DATACLASS)
+        self.assertEqual(node.outputs, ["x", "y"])
+
+    def test_explicit_labels_with_dataclass_wrong_count_raises(self):
+        @dataclasses.dataclass
+        class Result:
+            x: int
+            y: int
+
+        def func() -> Result:
+            return Result(1, 2)
+
+        with self.assertRaises(ValueError) as ctx:
+            parser.parse_atomic(
+                func, "only_one", unpack_mode=model.UnpackMode.DATACLASS
+            )
+
+        self.assertIn("Expected 2 output labels", str(ctx.exception))
+
+
+class TestAtomicEdgeCases(unittest.TestCase):
+    def test_atomic_preserves_function_with_labels(self):
+        @parser.atomic("out1", "out2")
+        def add(a, b):
+            return a + b, a - b
+
+        self.assertEqual(add(5, 3), (8, 2))
+        self.assertListEqual(add.recipe.outputs, ["out1", "out2"])
+
+    def test_atomic_single_label_tuple_return(self):
+        @parser.atomic("value")
+        def func():
+            x = 42
+            return (x,)
+
+        self.assertListEqual(func.recipe.outputs, ["value"])
+
+    def test_atomic_labels_with_multiple_returns(self):
+        @parser.atomic("out1", "out2")
+        def func(flag):
+            if flag:
+                return 1, 2
+            else:
+                return 3, 4
+
+        self.assertEqual(func.recipe.outputs, ["out1", "out2"])
+
+
 class TestGetInputLabels(unittest.TestCase):
     def test_simple_params(self):
         def func(a, b, c):
@@ -191,7 +343,7 @@ class TestParseTupleReturnLabels(unittest.TestCase):
         # exec'd functions don't have source available
         exec_globals = {}
         exec("def dynamic_func(x): return x, x + 1", exec_globals)
-        func = exec_globals['dynamic_func']
+        func = exec_globals["dynamic_func"]
 
         with self.assertRaises(ValueError) as ctx:
             parser._parse_tuple_return_labels(func)
@@ -202,6 +354,7 @@ class TestParseTupleReturnLabels(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             parser._parse_tuple_return_labels(len)
         self.assertIn("source code unavailable", str(ctx.exception))
+
 
 class TestExtractReturnLabels(unittest.TestCase):
     def test_no_return(self):
