@@ -53,18 +53,14 @@ class NodeModel(pydantic.BaseModel):
 
     @pydantic.field_validator("inputs", "outputs")
     @classmethod
-    def check_unique(cls, v, info):
+    def validate_io_labels(cls, v, info):
         if len(v) != len(set(v)):
             duplicates = [x for x in v if v.count(x) > 1]
             raise ValueError(
                 f"'{info.field_name}' must contain unique values. "
                 f"Found duplicates: {set(duplicates)}"
             )
-        return v
 
-    @pydantic.field_validator("inputs", "outputs")
-    @classmethod
-    def check_labels(cls, v, info):
         _validate_labels(v, info)
         return v
 
