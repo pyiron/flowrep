@@ -1,3 +1,3 @@
 from typing import Literal
 
-RecipeElementType = Literal["function", "workflow", "for", "while", "try", "if"]
+RecipeElementType = Literal["atomic", "workflow", "for", "while", "try", "if"]
