@@ -491,22 +491,35 @@ class TestWorkflowNodePortValidation(unittest.TestCase):
 class TestWorkflowNodeReservedNames(unittest.TestCase):
     """Tests for reserved node name validation."""
 
-    def test_reserved_name_inputs(self):
-        for reserved in model.WorkflowNode.reserved_node_names:
-            with self.assertRaises(pydantic.ValidationError) as ctx:
-                model.WorkflowNode(
-                    inputs=["a"],
-                    outputs=["b"],
-                    nodes={
-                        reserved: model.AtomicNode(
-                            fully_qualified_name="m.f",
-                            inputs=[],
-                            outputs=[],
-                        )
-                    },
-                    edges={},
-                )
-        self.assertIn("reserved names", str(ctx.exception))
+    def test_reserved_node_names(self):
+        """Node labels cannot use reserved names."""
+        test_cases = [
+            ("for", "Python keyword"),
+            ("while", "Python keyword"),
+            *[(reserved, "reserved name") for reserved in model.RESERVED_NAMES],
+            ("1invalid", "not an identifier"),
+            ("my-var", "not an identifier"),
+            ("my var", "not an identifier"),
+            ("", "not an identifier"),
+        ]
+
+        for invalid_label, reason in test_cases:
+            with self.subTest(label=invalid_label, reason=reason):
+                with self.assertRaises(pydantic.ValidationError) as ctx:
+                    model.WorkflowNode(
+                        inputs=["a"],
+                        outputs=["b"],
+                        nodes={
+                            invalid_label: model.AtomicNode(
+                                fully_qualified_name="m.f",
+                                inputs=[],
+                                outputs=[],
+                            )
+                        },
+                        edges={},
+                    )
+                exc_str = str(ctx.exception)
+                self.assertIn(invalid_label, exc_str)
 
 
 class TestWorkflowNodeAcyclic(unittest.TestCase):

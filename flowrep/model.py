@@ -127,6 +127,12 @@ class WorkflowNode(NodeModel):
     edges: dict[TargetHandle, SourceHandle]
     reserved_node_names: ClassVar[frozenset[str]] = frozenset({"inputs", "outputs"})
 
+    @pydantic.field_validator("nodes")
+    @classmethod
+    def validate_node_labels(cls, v, info):
+        _validate_labels(set(v.keys()), info)
+        return v
+
     @pydantic.field_validator("edges")
     @classmethod
     def validate_edges(cls, v):
@@ -137,16 +143,6 @@ class WorkflowNode(NodeModel):
                     f"it should use it. Got target={target}, source={source}"
                 )
         return v
-
-    @pydantic.model_validator(mode="after")
-    def validate_reserved_node_names(self):
-        conflicts = self.reserved_node_names & set(self.nodes.keys())
-        if conflicts:
-            raise ValueError(
-                f"Node labels cannot use reserved names: {conflicts}. "
-                f"Reserved names are: {self.reserved_node_names}"
-            )
-        return self
 
     @pydantic.model_validator(mode="after")
     def validate_edge_references(self):
