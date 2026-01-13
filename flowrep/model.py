@@ -125,7 +125,6 @@ class WorkflowNode(NodeModel):
     type: Literal["workflow"] = "workflow"
     nodes: dict[str, "NodeType"]
     edges: dict[TargetHandle, SourceHandle]
-    reserved_node_names: ClassVar[frozenset[str]] = frozenset({"inputs", "outputs"})
 
     @pydantic.field_validator("nodes")
     @classmethod
