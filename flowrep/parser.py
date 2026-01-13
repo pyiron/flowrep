@@ -7,7 +7,9 @@ from types import FunctionType
 from flowrep import model, workflow
 
 
-def atomic(func=None, /, *output_labels, unpack_mode: model.UnpackMode = model.UnpackMode.TUPLE):
+def atomic(
+    func=None, /, *output_labels, unpack_mode: model.UnpackMode = model.UnpackMode.TUPLE
+):
     """
     Decorator that attaches a flowrep.model.AtomicNode to the `recipe` attribute of a
     function.
@@ -102,8 +104,8 @@ def _get_output_labels(func: FunctionType, unpack_mode: model.UnpackMode) -> lis
 def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
     if func.__name__ == "<lambda>":
         raise ValueError(
-            f"Cannot parse return labels for lambda functions. "
-            f"Use a named function with @atomic decorator."
+            "Cannot parse return labels for lambda functions. "
+            "Use a named function with @atomic decorator."
         )
 
     try:

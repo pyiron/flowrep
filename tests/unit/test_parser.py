@@ -333,7 +333,7 @@ class TestParseTupleReturnLabels(unittest.TestCase):
         self.assertIn("same number of elements", str(ctx.exception))
 
     def test_lambda_raises_error(self):
-        func = lambda x: x * 2
+        func = lambda x: x * 2  # noqa: E731
 
         with self.assertRaises(ValueError) as ctx:
             parser._parse_tuple_return_labels(func)
