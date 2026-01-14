@@ -441,7 +441,7 @@ class TestParseDataclassReturnLabels(unittest.TestCase):
             parser._parse_dataclass_return_labels(func)
         self.assertIn("dataclass", str(ctx.exception))
 
-    def test_multiple_returns(self):
+    def test_multiple_return_statements(self):
         @dataclasses.dataclass
         class Result:
             x: int
@@ -472,7 +472,7 @@ class TestParseDataclassReturnLabels(unittest.TestCase):
             "their return statements.",
         )
 
-    def test_inconsistent_returns(self):
+    def test_inconsistent_returns_raises_error(self):
         @dataclasses.dataclass
         class Result:
             x: int
