@@ -321,6 +321,27 @@ class TestParseTupleReturnLabels(unittest.TestCase):
         labels = parser._parse_tuple_return_labels(func)
         self.assertEqual(labels, ["output_0", "output_1"])
 
+    def test_no_return(self):
+        def func():
+            pass
+
+        labels = parser._parse_tuple_return_labels(func)
+        self.assertEqual(labels, [])
+
+    def test_implicit_none_return(self):
+        def func():
+            return
+
+        labels = parser._parse_tuple_return_labels(func)
+        self.assertEqual(labels, [])
+
+    def test_explicit_none_return(self):
+        def func():
+            return None
+
+        labels = parser._parse_tuple_return_labels(func)
+        self.assertEqual(labels, ["output_0"])
+
     def test_multiple_returns_different_lengths_raises_error(self):
         def func(flag):
             if flag:
