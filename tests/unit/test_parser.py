@@ -472,6 +472,18 @@ class TestParseDataclassReturnLabels(unittest.TestCase):
             "their return statements.",
         )
 
+    def test_multiple_returns_raises_error(self):
+        @dataclasses.dataclass
+        class Result:
+            x: int
+
+        def func() -> tuple[Result, Result]:
+            return Result(0), Result(1)
+
+        with self.assertRaises(ValueError) as ctx:
+            parser._parse_dataclass_return_labels(func)
+        self.assertIn("exactly one value", str(ctx.exception).lower())
+
     def test_inconsistent_returns_raises_error(self):
         @dataclasses.dataclass
         class Result:
