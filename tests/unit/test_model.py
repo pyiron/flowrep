@@ -277,6 +277,10 @@ class TestWorkflowNodeEdgeValidation(unittest.TestCase):
             self._make_workflow({("nonexistent", "port"): (None, "x")})
         self.assertIn("not a child node", str(ctx.exception))
 
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            self._make_workflow({("child", "inp"): ("nonexistent", "port")})
+        self.assertIn("not a child node", str(ctx.exception))
+
 
 class TestWorkflowNodePortValidation(unittest.TestCase):
     """Tests for port name validation in edges."""
