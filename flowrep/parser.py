@@ -22,7 +22,7 @@ def atomic(
         return f
 
     # If func is provided and is actually a function, apply decorator directly
-    if func is not None and callable(func):
+    if callable(func):
         return decorator(func)
 
     # Otherwise, func and output_labels contain the arguments, return decorator
