@@ -32,13 +32,13 @@ def _valid_label(label: str) -> bool:
     )
 
 
-def _get_invalid_labels(labels: list[str] | set[str]) -> None | set[str]:
-    invalid = {label for label in labels if not _valid_label(label)}
-    return invalid if invalid else None
+def _get_invalid_labels(labels: list[str] | set[str]) -> set[str]:
+    return {label for label in labels if not _valid_label(label)}
 
 
 def _validate_labels(labels: list[str] | set[str], info) -> None:
-    if invalid := _get_invalid_labels(labels):
+    invalid = _get_invalid_labels(labels)
+    if len(invalid) != 0:
         raise ValueError(
             f"All elements of '{info.field_name}' must be a valid Python "
             f"identifier and not in the reserved labels {RESERVED_NAMES}. "
