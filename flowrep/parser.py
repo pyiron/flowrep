@@ -62,7 +62,7 @@ def atomic(
     """
 
     def decorator(f: FunctionType) -> FunctionType:
-        f.recipe = parse_atomic(f, *output_labels, unpack_mode=unpack_mode)
+        f.recipe = parse_atomic(f, *output_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
         return f
 
     # If func is provided and is actually a function, apply decorator directly
@@ -73,8 +73,8 @@ def atomic(
     # Combine func into output_labels if it's not None
     all_output_labels = (func,) + output_labels if func is not None else output_labels
 
-    def decorator_with_args(f):
-        f.recipe = parse_atomic(f, *all_output_labels, unpack_mode=unpack_mode)
+    def decorator_with_args(f: FunctionType) -> FunctionType:
+        f.recipe = parse_atomic(f, *all_output_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
         return f
 
     return decorator_with_args
