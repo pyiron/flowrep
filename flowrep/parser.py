@@ -67,7 +67,7 @@ def atomic(
 
     def decorator(f: FunctionType) -> FunctionType:
         _ensure_function(f, "@atomic")
-        f.recipe = parse_atomic(f, *output_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
+        f.flowrep_recipe = parse_atomic(f, *output_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
         return f
 
     # If func is provided and is actually a function, apply decorator directly
@@ -84,7 +84,7 @@ def atomic(
 
     def decorator_with_args(f: FunctionType) -> FunctionType:
         _ensure_function(f, "@atomic")
-        f.recipe = parse_atomic(f, *all_output_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
+        f.flowrep_recipe = parse_atomic(f, *all_output_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
         return f
 
     return decorator_with_args

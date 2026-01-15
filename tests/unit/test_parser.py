@@ -233,19 +233,21 @@ class TestAtomicDecorator(unittest.TestCase):
         def simple_func(x, y):
             return x + y
 
-        self.assertTrue(hasattr(simple_func, "recipe"))
-        self.assertIsInstance(simple_func.recipe, model.AtomicNode)
+        self.assertTrue(hasattr(simple_func, "flowrep_recipe"))
+        self.assertIsInstance(simple_func.flowrep_recipe, model.AtomicNode)
         self.assertEqual(simple_func(2, 3), 5)
-        self.assertEqual(simple_func.recipe, parser.parse_atomic(simple_func))
+        self.assertEqual(simple_func.flowrep_recipe, parser.parse_atomic(simple_func))
 
     def test_atomic_with_unpack_mode(self):
         @parser.atomic(unpack_mode=model.UnpackMode.NONE)
         def func_no_unpack(x):
             return x
 
-        self.assertEqual(func_no_unpack.recipe.unpack_mode, model.UnpackMode.NONE)
         self.assertEqual(
-            func_no_unpack.recipe,
+            func_no_unpack.flowrep_recipe.unpack_mode, model.UnpackMode.NONE
+        )
+        self.assertEqual(
+            func_no_unpack.flowrep_recipe,
             parser.parse_atomic(func_no_unpack, unpack_mode=model.UnpackMode.NONE),
         )
 
@@ -326,16 +328,16 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
         def func(x, y):
             return x, y
 
-        self.assertEqual(func.recipe.outputs, ["a", "b"])
-        self.assertEqual(func.recipe.inputs, ["x", "y"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["a", "b"])
+        self.assertEqual(func.flowrep_recipe.inputs, ["x", "y"])
 
     def test_atomic_with_output_labels_and_unpack_mode(self):
         @parser.atomic("result", unpack_mode=model.UnpackMode.NONE)
         def func(x):
             return x, x + 1
 
-        self.assertEqual(func.recipe.outputs, ["result"])
-        self.assertEqual(func.recipe.unpack_mode, model.UnpackMode.NONE)
+        self.assertEqual(func.flowrep_recipe.outputs, ["result"])
+        self.assertEqual(func.flowrep_recipe.unpack_mode, model.UnpackMode.NONE)
 
     def test_atomic_no_args_infers_labels(self):
         @parser.atomic
@@ -343,7 +345,7 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
             result = x * 2
             return result
 
-        self.assertEqual(func.recipe.outputs, ["result"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["result"])
 
     def test_atomic_empty_parens_infers_labels(self):
         @parser.atomic()
@@ -352,7 +354,7 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
             b = x + 1
             return a, b
 
-        self.assertEqual(func.recipe.outputs, ["a", "b"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["a", "b"])
 
     def test_atomic_only_unpack_mode_infers_labels(self):
         @parser.atomic(unpack_mode=model.UnpackMode.TUPLE)
@@ -361,7 +363,7 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
             y = 2
             return x, y
 
-        self.assertEqual(func.recipe.outputs, ["x", "y"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["x", "y"])
 
     def test_atomic_wrong_number_of_labels_raises(self):
         with self.assertRaises(ValueError) as ctx:
@@ -377,7 +379,7 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
         def func():
             return 1, 2, 3
 
-        self.assertEqual(func.recipe.outputs, ["first", "second", "third"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["first", "second", "third"])
 
 
 class TestParseAtomicWithOutputLabels(unittest.TestCase):
@@ -451,7 +453,7 @@ class TestAtomicEdgeCases(unittest.TestCase):
             return a + b, a - b
 
         self.assertEqual(add(5, 3), (8, 2))
-        self.assertListEqual(add.recipe.outputs, ["out1", "out2"])
+        self.assertListEqual(add.flowrep_recipe.outputs, ["out1", "out2"])
 
     def test_atomic_single_label_tuple_return(self):
         @parser.atomic("value")
@@ -459,7 +461,7 @@ class TestAtomicEdgeCases(unittest.TestCase):
             x = 42
             return (x,)
 
-        self.assertListEqual(func.recipe.outputs, ["value"])
+        self.assertListEqual(func.flowrep_recipe.outputs, ["value"])
 
     def test_atomic_labels_with_multiple_returns(self):
         @parser.atomic("out1", "out2")
@@ -469,7 +471,7 @@ class TestAtomicEdgeCases(unittest.TestCase):
             else:
                 return 3, 4
 
-        self.assertEqual(func.recipe.outputs, ["out1", "out2"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["out1", "out2"])
 
 
 class TestGetInputLabels(unittest.TestCase):
@@ -1011,14 +1013,14 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         def func(x) -> Annotated[float, {"label": "doubled"}]:
             return x * 2
 
-        self.assertEqual(func.recipe.outputs, ["doubled"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["doubled"])
 
     def test_atomic_uses_annotated_labels_model(self):
         @parser.atomic
         def func(x) -> Annotated[float, OutputMeta(label="doubled")]:
             return x * 2
 
-        self.assertEqual(func.recipe.outputs, ["doubled"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["doubled"])
 
     def test_atomic_tuple_annotated(self):
         with self.subTest("dictionary annotation"):
@@ -1032,7 +1034,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
             ]:
                 return x + 1, x - 1
 
-            self.assertEqual(func.recipe.outputs, ["sum", "diff"])
+            self.assertEqual(func.flowrep_recipe.outputs, ["sum", "diff"])
 
         with self.subTest("model annotation"):
 
@@ -1043,7 +1045,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
             ]:
                 return x + 1, x - 1
 
-            self.assertEqual(func.recipe.outputs, ["sum", "diff"])
+            self.assertEqual(func.flowrep_recipe.outputs, ["sum", "diff"])
 
     def test_explicit_labels_override_annotation(self):
         @parser.atomic("override1", "override2")
@@ -1055,21 +1057,21 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         ]:
             return x, x
 
-        self.assertEqual(func.recipe.outputs, ["override1", "override2"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["override1", "override2"])
 
     def test_unpack_none_uses_single_annotation(self):
         @parser.atomic(unpack_mode=model.UnpackMode.NONE)
         def func(x) -> Annotated[float, {"label": "single_result"}]:
             return x
 
-        self.assertEqual(func.recipe.outputs, ["single_result"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["single_result"])
 
     def test_unpack_none_uses_tuple_level_annotation(self):
         @parser.atomic(unpack_mode=model.UnpackMode.NONE)
         def func(x) -> Annotated[tuple[float, str], {"label": "combined"}]:
             return x, "y"
 
-        self.assertEqual(func.recipe.outputs, ["combined"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["combined"])
 
     def test_unpack_none_ignores_element_annotations(self):
         @parser.atomic(unpack_mode=model.UnpackMode.NONE)
@@ -1081,7 +1083,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         ]:
             return x, "y"
 
-        self.assertEqual(func.recipe.outputs, ["output_0"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["output_0"])
 
     def test_unpack_none_tuple_with_both_annotations(self):
         @parser.atomic(unpack_mode=model.UnpackMode.NONE)
@@ -1096,7 +1098,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         ]:
             return x, "y"
 
-        self.assertEqual(func.recipe.outputs, ["the_pair"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["the_pair"])
 
     def test_unpack_tuple_with_both_annotations(self):
         @parser.atomic(unpack_mode=model.UnpackMode.TUPLE)
@@ -1111,14 +1113,14 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         ]:
             return x, "y"
 
-        self.assertEqual(func.recipe.outputs, ["element_a", "element_b"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["element_a", "element_b"])
 
     def test_unpack_none_no_annotation_falls_back(self):
         @parser.atomic(unpack_mode=model.UnpackMode.NONE)
         def func(x):
             return x
 
-        self.assertEqual(func.recipe.outputs, ["output_0"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["output_0"])
 
     def test_annotation_with_extra_keys_for_other_packages(self):
         """Simulates semantikon-style annotations with extra metadata."""
@@ -1136,7 +1138,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         ]:
             return x * 2
 
-        self.assertEqual(func.recipe.outputs, ["distance"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["distance"])
 
     def test_tuple_annotation_with_extra_keys(self):
         @parser.atomic
@@ -1148,7 +1150,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         ]:
             return x, "somewhere"
 
-        self.assertEqual(func.recipe.outputs, ["dist", "city"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["dist", "city"])
 
 
 class TestAnnotationWithDataclass(unittest.TestCase):
