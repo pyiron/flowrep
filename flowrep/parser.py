@@ -17,7 +17,7 @@ def atomic(
     Can be used as with or without kwargs -- @atomic or @atomic(unpack_mode=...)
     """
 
-    def decorator(f):
+    def decorator(f: FunctionType) -> FunctionType:
         f.recipe = parse_atomic(f, *output_labels, unpack_mode=unpack_mode)
         return f
 
