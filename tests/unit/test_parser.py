@@ -6,6 +6,54 @@ import unittest
 from typing import Annotated
 
 from flowrep import model, parser
+from flowrep.parser import OutputMeta
+
+
+class TestOutputMeta(unittest.TestCase):
+    def test_from_annotation_with_model_instance(self):
+        meta = OutputMeta(label="test")
+        result = OutputMeta.from_annotation(meta)
+        self.assertEqual(result, meta)
+
+    def test_from_annotation_with_dict(self):
+        result = OutputMeta.from_annotation({"label": "test"})
+        self.assertIsNotNone(result)
+        self.assertEqual(result.label, "test")
+
+    def test_from_annotation_ignores_extra_keys(self):
+        result = OutputMeta.from_annotation(
+            {
+                "label": "test",
+                "units": "meters",
+                "uri": "http://example.org/distance",
+                "arbitrary": "garbage",
+            }
+        )
+        self.assertIsNotNone(result)
+        self.assertEqual(result.label, "test")
+
+    def test_from_annotation_with_no_label(self):
+        result = OutputMeta.from_annotation({"units": "meters"})
+        self.assertIsNotNone(result)
+        self.assertIsNone(result.label)
+
+    def test_from_annotation_with_empty_dict(self):
+        result = OutputMeta.from_annotation({})
+        self.assertIsNotNone(result)
+        self.assertIsNone(result.label)
+
+    def test_from_annotation_with_non_dict_non_model(self):
+        self.assertIsNone(OutputMeta.from_annotation("string"))
+        self.assertIsNone(OutputMeta.from_annotation(42))
+        self.assertIsNone(OutputMeta.from_annotation(["list"]))
+
+    def test_model_direct_construction(self):
+        meta = OutputMeta(label="result")
+        self.assertEqual(meta.label, "result")
+
+    def test_model_default_label_is_none(self):
+        meta = OutputMeta()
+        self.assertIsNone(meta.label)
 
 
 class TestAtomicDecorator(unittest.TestCase):
@@ -362,7 +410,6 @@ class TestParseTupleReturnLabels(unittest.TestCase):
         self.assertIn("lambda", str(ctx.exception))
 
     def test_dynamically_defined_function_raises_error(self):
-        # exec'd functions don't have source available
         exec_globals = {}
         exec("def dynamic_func(x): return x, x + 1", exec_globals)
         func = exec_globals["dynamic_func"]
@@ -372,7 +419,6 @@ class TestParseTupleReturnLabels(unittest.TestCase):
         self.assertIn("source code unavailable", str(ctx.exception))
 
     def test_builtin_function_raises_error(self):
-        # Built-in functions have no source
         with self.assertRaises(ValueError) as ctx:
             parser._parse_tuple_return_labels(len)
         self.assertIn("source code unavailable", str(ctx.exception))
@@ -524,40 +570,88 @@ class TestGetFunctionDefinition(unittest.TestCase):
 class TestExtractLabelFromAnnotated(unittest.TestCase):
     def test_extracts_label_from_dict_metadata(self):
         hint = Annotated[float, {"label": "distance"}]
-        label = parser._extract_label_from_annotated(hint, 0)
+        label = parser._extract_label_from_annotated(hint)
+        self.assertEqual(label, "distance")
+
+    def test_extracts_label_from_output_meta(self):
+        hint = Annotated[float, OutputMeta(label="distance")]
+        label = parser._extract_label_from_annotated(hint)
         self.assertEqual(label, "distance")
 
     def test_returns_none_for_plain_type(self):
-        label = parser._extract_label_from_annotated(float, 0)
+        label = parser._extract_label_from_annotated(float)
         self.assertIsNone(label)
 
     def test_returns_none_for_annotated_without_label(self):
         hint = Annotated[float, "some other metadata"]
-        label = parser._extract_label_from_annotated(hint, 0)
+        label = parser._extract_label_from_annotated(hint)
         self.assertIsNone(label)
 
     def test_finds_label_among_multiple_metadata(self):
-        hint = Annotated[
-            float, "units: meters", {"label": "distance"}, {"other": "data"}
-        ]
-        label = parser._extract_label_from_annotated(hint, 0)
+        with self.subTest("first metadata"):
+            hint = Annotated[
+                float, "units: meters", {"label": "distance"}, {"other": "data"}
+            ]
+            label = parser._extract_label_from_annotated(hint)
+            self.assertEqual(label, "distance")
+        with self.subTest("appears later"):
+            hint = Annotated[
+                float, "units: meters", {"other": "data"}, {"label": "distance"}
+            ]
+            label = parser._extract_label_from_annotated(hint)
+            self.assertEqual(label, "distance")
+
+    def test_finds_output_meta_among_multiple_metadata(self):
+        hint = Annotated[float, "units: meters", OutputMeta(label="distance"), 42]
+        label = parser._extract_label_from_annotated(hint)
         self.assertEqual(label, "distance")
 
-    def test_uses_first_label_if_multiple(self):
-        hint = Annotated[float, {"label": "first"}, {"label": "second"}]
-        label = parser._extract_label_from_annotated(hint, 0)
-        self.assertEqual(label, "first")
+    def test_uses_first_label_if_multiple_dicts(self):
+        with self.subTest("as dictionary"):
+            hint = Annotated[float, {"label": "first"}, {"label": "second"}]
+            label = parser._extract_label_from_annotated(hint)
+            self.assertEqual(label, "first")
+        with self.subTest("as model"):
+            hint = Annotated[
+                float, OutputMeta(label="first"), OutputMeta(label="second")
+            ]
+            label = parser._extract_label_from_annotated(hint)
+            self.assertEqual(label, "first")
+
+    def test_dict_with_extra_keys_works(self):
+        hint = Annotated[
+            float, {"label": "distance", "units": "m", "uri": "http://..."}
+        ]
+        label = parser._extract_label_from_annotated(hint)
+        self.assertEqual(label, "distance")
+
+    def test_output_meta_none_label_returns_none(self):
+        hint = Annotated[float, OutputMeta()]
+        label = parser._extract_label_from_annotated(hint)
+        self.assertIsNone(label)
+
+    def test_dict_without_label_key_returns_none(self):
+        hint = Annotated[float, {"units": "meters", "uri": "http://..."}]
+        label = parser._extract_label_from_annotated(hint)
+        self.assertIsNone(label)
 
 
 class TestGetAnnotatedOutputLabels(unittest.TestCase):
-    def test_single_annotated_return(self):
+    def test_single_annotated_return_dict(self):
         def func(x) -> Annotated[float, {"label": "result"}]:
             return x * 2
 
         labels = parser._get_annotated_output_labels(func)
         self.assertEqual(labels, ["result"])
 
-    def test_tuple_all_annotated(self):
+    def test_single_annotated_return_model(self):
+        def func(x) -> Annotated[float, OutputMeta(label="result")]:
+            return x * 2
+
+        labels = parser._get_annotated_output_labels(func)
+        self.assertEqual(labels, ["result"])
+
+    def test_tuple_all_annotated_dict(self):
         def func(
             x,
         ) -> tuple[
@@ -568,6 +662,28 @@ class TestGetAnnotatedOutputLabels(unittest.TestCase):
 
         labels = parser._get_annotated_output_labels(func)
         self.assertEqual(labels, ["distance", "city"])
+
+    def test_tuple_all_annotated_model(self):
+        def func(x) -> tuple[
+            Annotated[float, OutputMeta(label="distance")],
+            Annotated[str, OutputMeta(label="city")],
+        ]:
+            return x, "somewhere"
+
+        labels = parser._get_annotated_output_labels(func)
+        self.assertEqual(labels, ["distance", "city"])
+
+    def test_tuple_mixed_dict_and_model(self):
+        def func(
+            x,
+        ) -> tuple[
+            Annotated[float, {"label": "from_dict"}],
+            Annotated[str, OutputMeta(label="from_model")],
+        ]:
+            return x, "somewhere"
+
+        labels = parser._get_annotated_output_labels(func)
+        self.assertEqual(labels, ["from_dict", "from_model"])
 
     def test_tuple_partial_annotation(self):
         def func(
@@ -620,7 +736,7 @@ class TestParseTupleReturnLabelsWithAnnotations(unittest.TestCase):
 
     def test_annotation_overrides_default(self):
         def func() -> Annotated[int, {"label": "custom"}]:
-            return 42  # Would normally be output_0
+            return 42
 
         labels = parser._parse_tuple_return_labels(func)
         self.assertEqual(labels, ["custom"])
@@ -663,7 +779,7 @@ class TestParseTupleReturnLabelsWithAnnotations(unittest.TestCase):
                 Annotated[int, {"label": "c"}],
             ]
         ):
-            return 1, 2  # Only 2 values, but 3 annotated
+            return 1, 2
 
         with self.assertRaises(ValueError) as ctx:
             parser._parse_tuple_return_labels(func)
@@ -680,24 +796,42 @@ class TestParseTupleReturnLabelsWithAnnotations(unittest.TestCase):
 
 
 class TestAtomicWithAnnotations(unittest.TestCase):
-    def test_atomic_uses_annotated_labels(self):
+    def test_atomic_uses_annotated_labels_dict(self):
         @parser.atomic
         def func(x) -> Annotated[float, {"label": "doubled"}]:
             return x * 2
 
         self.assertEqual(func.recipe.outputs, ["doubled"])
 
-    def test_atomic_tuple_annotated(self):
+    def test_atomic_uses_annotated_labels_model(self):
         @parser.atomic
-        def func(
-            x,
-        ) -> tuple[
-            Annotated[float, {"label": "sum"}],
-            Annotated[float, {"label": "diff"}],
-        ]:
-            return x + 1, x - 1
+        def func(x) -> Annotated[float, OutputMeta(label="doubled")]:
+            return x * 2
 
-        self.assertEqual(func.recipe.outputs, ["sum", "diff"])
+        self.assertEqual(func.recipe.outputs, ["doubled"])
+
+    def test_atomic_tuple_annotated(self):
+        with self.subTest("dictionary annotation"):
+            @parser.atomic
+            def func(
+                x,
+            ) -> tuple[
+                Annotated[float, {"label": "sum"}],
+                Annotated[float, {"label": "diff"}],
+            ]:
+                return x + 1, x - 1
+
+            self.assertEqual(func.recipe.outputs, ["sum", "diff"])
+
+        with self.subTest("model annotation"):
+            @parser.atomic
+            def func(x) -> tuple[
+                Annotated[float, OutputMeta(label="sum")],
+                Annotated[float, OutputMeta(label="diff")],
+            ]:
+                return x + 1, x - 1
+
+            self.assertEqual(func.recipe.outputs, ["sum", "diff"])
 
     def test_explicit_labels_override_annotation(self):
         @parser.atomic("override1", "override2")
@@ -726,8 +860,6 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         self.assertEqual(func.recipe.outputs, ["combined"])
 
     def test_unpack_none_ignores_element_annotations(self):
-        """When NONE mode, we look at the tuple annotation, not element annotations."""
-
         @parser.atomic(unpack_mode=model.UnpackMode.NONE)
         def func(
             x,
@@ -737,12 +869,9 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         ]:
             return x, "y"
 
-        # No annotation on the tuple itself, so falls back to default
         self.assertEqual(func.recipe.outputs, ["output_0"])
 
     def test_unpack_none_tuple_with_both_annotations(self):
-        """User can annotate both tuple and elements; NONE uses tuple annotation."""
-
         @parser.atomic(unpack_mode=model.UnpackMode.NONE)
         def func(
             x,
@@ -758,8 +887,6 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         self.assertEqual(func.recipe.outputs, ["the_pair"])
 
     def test_unpack_tuple_with_both_annotations(self):
-        """In TUPLE mode, element annotations are used, outer is ignored."""
-
         @parser.atomic(unpack_mode=model.UnpackMode.TUPLE)
         def func(
             x,
@@ -781,6 +908,36 @@ class TestAtomicWithAnnotations(unittest.TestCase):
 
         self.assertEqual(func.recipe.outputs, ["output_0"])
 
+    def test_annotation_with_extra_keys_for_other_packages(self):
+        """Simulates semantikon-style annotations with extra metadata."""
+
+        @parser.atomic
+        def func(
+            x,
+        ) -> Annotated[
+            float,
+            {
+                "label": "distance",
+                "units": "meters",
+                "uri": "http://example.org/distance",
+            },
+        ]:
+            return x * 2
+
+        self.assertEqual(func.recipe.outputs, ["distance"])
+
+    def test_tuple_annotation_with_extra_keys(self):
+        @parser.atomic
+        def func(
+            x,
+        ) -> tuple[
+            Annotated[float, {"label": "dist", "units": "m"}],
+            Annotated[str, {"label": "city", "uri": "http://..."}],
+        ]:
+            return x, "somewhere"
+
+        self.assertEqual(func.recipe.outputs, ["dist", "city"])
+
 
 class TestAnnotationWithDataclass(unittest.TestCase):
     def test_dataclass_mode_ignores_annotated_wrapper(self):
@@ -789,8 +946,19 @@ class TestAnnotationWithDataclass(unittest.TestCase):
             x: int
             y: int
 
-        # Even with Annotated wrapper, dataclass fields should be used
         def func() -> Annotated[Result, {"label": "ignored"}]:
+            return Result(1, 2)
+
+        node = parser.parse_atomic(func, unpack_mode=model.UnpackMode.DATACLASS)
+        self.assertEqual(node.outputs, ["x", "y"])
+
+    def test_dataclass_mode_ignores_output_meta_wrapper(self):
+        @dataclasses.dataclass
+        class Result:
+            x: int
+            y: int
+
+        def func() -> Annotated[Result, OutputMeta(label="ignored")]:
             return Result(1, 2)
 
         node = parser.parse_atomic(func, unpack_mode=model.UnpackMode.DATACLASS)

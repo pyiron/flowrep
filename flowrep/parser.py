@@ -3,9 +3,52 @@ import dataclasses
 import inspect
 import textwrap
 from types import FunctionType
-from typing import Annotated, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
+
+from pydantic import BaseModel
 
 from flowrep import model, workflow
+
+
+class OutputMeta(BaseModel, extra="ignore"):
+    """
+    Metadata for output port annotations.
+
+    Can be used directly in Annotated hints or as a dict (which will be coerced).
+    Extra keys are ignored, allowing interoperability with other packages.
+    Downstream packages can explicitly `extra="forbid"` to lock things down again.
+
+    Examples:
+        # Using the model directly
+        def f(x) -> Annotated[float, OutputMeta(label="result")]:
+            ...
+
+        # Using a plain dict (coerced automatically)
+        def f(x) -> Annotated[float, {"label": "result"}]:
+            ...
+
+        # Extra keys are ignored (useful for other packages)
+        def f(x) -> Annotated[float, {"label": "result", "units": "m", "iri": "..."}]:
+            ...
+    """
+
+    label: str | None = None
+
+    @classmethod
+    def from_annotation(cls, meta: Any) -> Self | None:
+        """
+        Attempt to coerce annotation metadata into OutputMeta.
+
+        Returns None if the metadata cannot be interpreted as OutputMeta.
+        """
+        if isinstance(meta, cls):
+            return meta
+        if isinstance(meta, dict):
+            try:
+                return cls.model_validate(meta)
+            except Exception:
+                return None
+        return None
 
 
 def atomic(
@@ -121,22 +164,24 @@ def _parse_return_label_without_unpacking(func: FunctionType) -> list[str]:
         return [default_output_label(0)]
 
     # Extract label from the outermost Annotated wrapper
-    label = _extract_label_from_annotated(return_hint, 0)
+    label = _extract_label_from_annotated(return_hint)
     return [label] if label is not None else [default_output_label(0)]
 
 
-def _extract_label_from_annotated(hint, index: int) -> str | None:
+def _extract_label_from_annotated(hint) -> str | None:
     """
     Extract label from an Annotated type hint.
 
-    Returns None if no label metadata found (not the same as default_output_label).
+    Accepts either OutputMeta instances or dicts with a "label" key.
+    Returns None if no label metadata found.
     """
     if get_origin(hint) is Annotated:
         args = get_args(hint)
         # args[0] is the actual type, args[1:] are metadata
         for meta in args[1:]:
-            if isinstance(meta, dict) and "label" in meta:
-                return meta["label"]
+            parsed = OutputMeta.from_annotation(meta)
+            if parsed is not None and parsed.label is not None:
+                return parsed.label
     return None
 
 
@@ -178,14 +223,14 @@ def _get_annotated_output_labels(func: FunctionType) -> list[str] | None:
         # Handle tuple[T, ...] (homogeneous variable-length) - can't extract labels
         if len(args) == 2 and args[1] is ...:
             return None
-        labels = [_extract_label_from_annotated(arg, i) for i, arg in enumerate(args)]
+        labels = [_extract_label_from_annotated(arg) for arg in args]
         # Return None if no labels found at all
         if all(label is None for label in labels):
             return None
         return labels
 
     # Single return value - use original hint (may have Annotated wrapper)
-    label = _extract_label_from_annotated(return_hint, 0)
+    label = _extract_label_from_annotated(return_hint)
     if label is not None:
         return [label]
     return None
