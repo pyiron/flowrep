@@ -1,5 +1,5 @@
 import keyword
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated, ClassVar, Literal
 
 import networkx as nx
@@ -33,7 +33,7 @@ def _validate_labels(labels: list[str] | set[str], info) -> None:
         )
 
 
-class UnpackMode(str, Enum):
+class UnpackMode(StrEnum):
     """How to handle return values from atomic nodes.
 
     - NONE: Return the output as a single value
