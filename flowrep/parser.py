@@ -185,7 +185,7 @@ def _extract_label_from_annotated(hint) -> str | None:
     return None
 
 
-def _get_annotated_output_labels(func: FunctionType) -> list[str] | None:
+def _get_annotated_output_labels(func: FunctionType) -> list[str | None] | None:
     """
     Extract output labels from return type annotation using Annotated.
 
