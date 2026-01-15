@@ -56,6 +56,136 @@ class TestOutputMeta(unittest.TestCase):
         self.assertIsNone(meta.label)
 
 
+class TestOutputMetaFromAnnotationExceptions(unittest.TestCase):
+    """Tests for exception handling in OutputMeta.from_annotation."""
+
+    def test_dict_with_wrong_label_type_returns_none(self):
+        """Pydantic validation fails if label is not str."""
+        result = OutputMeta.from_annotation({"label": 123})
+        self.assertIsNone(result)
+
+    def test_dict_with_label_as_list_returns_none(self):
+        result = OutputMeta.from_annotation({"label": ["not", "a", "string"]})
+        self.assertIsNone(result)
+
+    def test_dict_with_label_as_dict_returns_none(self):
+        result = OutputMeta.from_annotation({"label": {"nested": "dict"}})
+        self.assertIsNone(result)
+
+
+class TestParseReturnLabelWithoutUnpackingExceptions(unittest.TestCase):
+    """Tests for exception handling in _parse_return_label_without_unpacking."""
+
+    def test_unresolvable_forward_reference_returns_default(self):
+        """get_type_hints fails on unresolvable forward refs."""
+        # Use exec to create a function with an unresolvable forward reference
+        exec_globals = {}
+        exec(
+            "from typing import Annotated\n"
+            "def func() -> 'NonExistentType':\n"
+            "    return 42\n",
+            exec_globals,
+        )
+        func = exec_globals["func"]
+
+        labels = parser._parse_return_label_without_unpacking(func)
+        self.assertEqual(labels, ["output_0"])
+
+    def test_annotation_referencing_undefined_name_returns_default(self):
+        """Annotation with undefined name in Annotated."""
+        exec_globals = {"Annotated": Annotated}
+        exec(
+            "def func() -> Annotated['UndefinedClass', {'label': 'x'}]:\n"
+            "    return 42\n",
+            exec_globals,
+        )
+        func = exec_globals["func"]
+
+        labels = parser._parse_return_label_without_unpacking(func)
+        self.assertEqual(labels, ["output_0"])
+
+    def test_no_return_annotation_returns_default(self):
+        def func():
+            return 42
+
+        labels = parser._parse_return_label_without_unpacking(func)
+        self.assertEqual(labels, ["output_0"])
+
+    def test_annotated_without_label_returns_default(self):
+        def func() -> Annotated[float, "just a string, no label"]:
+            return 42.0
+
+        labels = parser._parse_return_label_without_unpacking(func)
+        self.assertEqual(labels, ["output_0"])
+
+
+class TestGetAnnotatedOutputLabelsExceptions(unittest.TestCase):
+    """Tests for exception handling in _get_annotated_output_labels."""
+
+    def test_unresolvable_forward_reference_returns_none(self):
+        exec_globals = {}
+        exec(
+            "from typing import Annotated\n"
+            "def func() -> 'NonExistentType':\n"
+            "    return 42\n",
+            exec_globals,
+        )
+        func = exec_globals["func"]
+
+        labels = parser._get_annotated_output_labels(func)
+        self.assertIsNone(labels)
+
+    def test_tuple_with_unresolvable_element_returns_none(self):
+        exec_globals = {"Annotated": Annotated, "tuple": tuple}
+        exec(
+            "def func() -> tuple['UndefinedA', 'UndefinedB']:\n" "    return 1, 2\n",
+            exec_globals,
+        )
+        func = exec_globals["func"]
+
+        labels = parser._get_annotated_output_labels(func)
+        self.assertIsNone(labels)
+
+    def test_complex_invalid_annotation_returns_none(self):
+        """Deeply nested invalid annotation."""
+        exec_globals = {"Annotated": Annotated, "tuple": tuple}
+        exec(
+            "def func() -> Annotated[tuple['Missing', int], {'label': 'x'}]:\n"
+            "    return 1, 2\n",
+            exec_globals,
+        )
+        func = exec_globals["func"]
+
+        labels = parser._get_annotated_output_labels(func)
+        self.assertIsNone(labels)
+
+    def test_annotated_with_invalid_label_type_returns_none(self):
+        """Label exists but has wrong type - should not extract it."""
+
+        def func() -> Annotated[float, {"label": 999}]:
+            return 42.0
+
+        labels = parser._get_annotated_output_labels(func)
+        # from_annotation returns None for invalid label type,
+        # so no valid label is found
+        self.assertIsNone(labels)
+
+    def test_tuple_with_some_invalid_labels_partial_result(self):
+        """Mix of valid and invalid label types."""
+
+        def func() -> (
+            tuple[
+                Annotated[int, {"label": "valid"}],
+                Annotated[int, {"label": 123}],  # invalid type
+            ]
+        ):
+            return 1, 2
+
+        labels = parser._get_annotated_output_labels(func)
+        # First is valid, second fails validation -> None
+        self.assertEqual(labels, ["valid", None])
+
+
 class TestAtomicDecorator(unittest.TestCase):
     def test_atomic_without_args(self):
         @parser.atomic
