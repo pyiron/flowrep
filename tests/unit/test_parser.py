@@ -186,6 +186,47 @@ class TestGetAnnotatedOutputLabelsExceptions(unittest.TestCase):
         self.assertEqual(labels, ["valid", None])
 
 
+class TestEnsureFunction(unittest.TestCase):
+    def test_rejects_class(self):
+        class MyClass:
+            pass
+
+        with self.assertRaises(TypeError) as ctx:
+            parser._ensure_function(MyClass, "@atomic")
+        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+        self.assertIn("type", str(ctx.exception))
+
+    def test_rejects_callable_instance(self):
+        class Callable:
+            def __call__(self):
+                pass
+
+        with self.assertRaises(TypeError) as ctx:
+            parser._ensure_function(Callable(), "@atomic")
+        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+        self.assertIn("Callable", str(ctx.exception))
+
+    def test_accepts_lambda(self):
+        # Lambdas are FunctionType, so this should pass _ensure_function
+        # (they fail later in parse_atomic due to source unavailability)
+        f = lambda: None  # noqa: E731
+        parser._ensure_function(f, "@atomic")
+
+    def test_rejects_builtin(self):
+        with self.assertRaises(TypeError) as ctx:
+            parser._ensure_function(len, "@atomic")
+        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+        self.assertIn("builtin_function_or_method", str(ctx.exception))
+
+    def test_custom_decorator_name(self):
+        class Foo:
+            pass
+
+        with self.assertRaises(TypeError) as ctx:
+            parser._ensure_function(Foo(), "@custom")
+        self.assertIn("@custom can only decorate functions", str(ctx.exception))
+
+
 class TestAtomicDecorator(unittest.TestCase):
     def test_atomic_without_args(self):
         @parser.atomic
@@ -238,6 +279,45 @@ class TestParseAtomic(unittest.TestCase):
             msg="Return tuple should be condensed to a single output port",
         )
         self.assertEqual(node.unpack_mode, model.UnpackMode.NONE)
+
+
+class TestAtomicTypeValidation(unittest.TestCase):
+    def test_rejects_class_bare_decorator(self):
+        with self.assertRaises(TypeError) as ctx:
+
+            @parser.atomic
+            class MyClass:
+                pass
+
+        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+
+    def test_rejects_class_with_args(self):
+        with self.assertRaises(TypeError) as ctx:
+
+            @parser.atomic("output")
+            class MyClass:
+                pass
+
+        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+
+    def test_rejects_callable_instance_bare(self):
+        class MyCallable:
+            def __call__(self):
+                pass
+
+        with self.assertRaises(TypeError) as ctx:
+            parser.atomic(MyCallable())
+        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+
+    def test_rejects_callable_instance_with_args(self):
+        class Callable:
+            def __call__(self):
+                pass
+
+        decorator = parser.atomic("output")
+        with self.assertRaises(TypeError) as ctx:
+            decorator(Callable())
+        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
 
 
 class TestAtomicWithOutputLabels(unittest.TestCase):

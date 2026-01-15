@@ -66,22 +66,35 @@ def atomic(
     """
 
     def decorator(f: FunctionType) -> FunctionType:
+        _ensure_function(f, "@atomic")
         f.recipe = parse_atomic(f, *output_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
         return f
 
     # If func is provided and is actually a function, apply decorator directly
-    if callable(func):
+    if isinstance(func, FunctionType):
         return decorator(func)
+    elif func is not None and not isinstance(func, str):
+        raise TypeError(
+            f"@atomic can only decorate functions, got {type(func).__name__}"
+        )
 
     # Otherwise, func and output_labels contain the arguments, return decorator
     # Combine func into output_labels if it's not None
     all_output_labels = (func,) + output_labels if func is not None else output_labels
 
     def decorator_with_args(f: FunctionType) -> FunctionType:
+        _ensure_function(f, "@atomic")
         f.recipe = parse_atomic(f, *all_output_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
         return f
 
     return decorator_with_args
+
+
+def _ensure_function(f: Any, decorator_name: str) -> None:
+    if not isinstance(f, FunctionType):
+        raise TypeError(
+            f"{decorator_name} can only decorate functions, got {type(f).__name__}"
+        )
 
 
 def parse_atomic(
