@@ -2,6 +2,7 @@ import ast
 import dataclasses
 import inspect
 import textwrap
+from collections.abc import Callable
 from types import FunctionType
 from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
 
@@ -52,8 +53,11 @@ class OutputMeta(BaseModel, extra="ignore"):
 
 
 def atomic(
-    func=None, /, *output_labels, unpack_mode: model.UnpackMode = model.UnpackMode.TUPLE
-):
+    func: FunctionType | str | None = None,
+    /,
+    *output_labels: str,
+    unpack_mode: model.UnpackMode = model.UnpackMode.TUPLE,
+) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
     Decorator that attaches a flowrep.model.AtomicNode to the `recipe` attribute of a
     function.
@@ -130,7 +134,7 @@ def _get_input_labels(func: FunctionType) -> list[str]:
     return list(sig.parameters.keys())
 
 
-def default_output_label(i: int):
+def default_output_label(i: int) -> str:
     return f"output_{i}"
 
 
@@ -168,7 +172,7 @@ def _parse_return_label_without_unpacking(func: FunctionType) -> list[str]:
     return [label] if label is not None else [default_output_label(0)]
 
 
-def _extract_label_from_annotated(hint) -> str | None:
+def _extract_label_from_annotated(hint: Any) -> str | None:
     """
     Extract label from an Annotated type hint.
 
