@@ -5,8 +5,20 @@ from typing import Annotated, ClassVar, Literal
 import networkx as nx
 import pydantic
 
-RecipeElementType = Literal["atomic", "workflow", "for", "while", "try", "if"]
-IOTypes = Literal["inputs", "outputs"]
+
+class RecipeElementType(StrEnum):
+    ATOMIC = "atomic"
+    WORKFLOW = "workflow"
+    FOR = "for"
+    WHILE = "while"
+    TRY = "try"
+    IF = "if"
+
+
+class IOTypes(StrEnum):
+    INPUTS = "inputs"
+    OUTPUTS = "outputs"
+
 
 RESERVED_NAMES = {"inputs", "outputs"}  # No having child nodes with these names
 
@@ -66,7 +78,7 @@ class NodeModel(pydantic.BaseModel):
 
 
 class AtomicNode(NodeModel):
-    type: Literal["atomic"] = "atomic"
+    type: Literal[RecipeElementType.ATOMIC] = RecipeElementType.ATOMIC
     fully_qualified_name: str
     unpack_mode: UnpackMode = UnpackMode.TUPLE
 
@@ -122,7 +134,7 @@ class TargetHandle(HandleModel): ...
 
 
 class WorkflowNode(NodeModel):
-    type: Literal["workflow"] = "workflow"
+    type: Literal[RecipeElementType.WORKFLOW] = RecipeElementType.WORKFLOW
     nodes: dict[str, "NodeType"]
     edges: dict[TargetHandle, SourceHandle]
 

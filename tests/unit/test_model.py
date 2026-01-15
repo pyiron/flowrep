@@ -97,7 +97,7 @@ class TestAtomicNode(unittest.TestCase):
             outputs=[],
         )
         self.assertEqual(node.fully_qualified_name, "module.func")
-        self.assertEqual(node.type, "atomic")
+        self.assertEqual(node.type, model.RecipeElementType.ATOMIC)
 
     def test_valid_fqn_deep(self):
         node = model.AtomicNode(
@@ -850,7 +850,7 @@ class TestSerialization(unittest.TestCase):
     def test_discriminated_union_roundtrip(self):
         """Ensure type discriminator works for polymorphic deserialization."""
         data = {
-            "type": "atomic",
+            "type": model.RecipeElementType.ATOMIC,
             "fully_qualified_name": "a.b",
             "inputs": ["x"],
             "outputs": ["y"],
@@ -859,7 +859,7 @@ class TestSerialization(unittest.TestCase):
         self.assertIsInstance(node, model.AtomicNode)
 
         data = {
-            "type": "workflow",
+            "type": model.RecipeElementType.WORKFLOW,
             "inputs": [],
             "outputs": [],
             "nodes": {},
