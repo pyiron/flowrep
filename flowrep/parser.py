@@ -3,6 +3,7 @@ import dataclasses
 import inspect
 import textwrap
 from types import FunctionType
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 from flowrep import model, workflow
 
@@ -92,7 +93,7 @@ def default_output_label(i: int):
 
 def _get_output_labels(func: FunctionType, unpack_mode: model.UnpackMode) -> list[str]:
     if unpack_mode == model.UnpackMode.NONE:
-        return ["output_0"]
+        return _parse_return_label_without_unpacking(func)
     elif unpack_mode == model.UnpackMode.TUPLE:
         return _parse_tuple_return_labels(func)
     elif unpack_mode == model.UnpackMode.DATACLASS:
@@ -101,6 +102,93 @@ def _get_output_labels(func: FunctionType, unpack_mode: model.UnpackMode) -> lis
         f"Invalid unpack mode: {unpack_mode}. Possible values are "
         f"{', '.join(model.UnpackMode.__members__.values())}"
     )
+
+
+def _parse_return_label_without_unpacking(func: FunctionType) -> list[str]:
+    """
+    Get output label for UnpackMode.NONE.
+
+    Looks for annotation on the return type itself (not tuple elements).
+    For `-> Annotated[T, {"label": "x"}]` or `-> Annotated[tuple[...], {"label": "x"}]`
+    """
+    try:
+        hints = get_type_hints(func, include_extras=True)
+    except Exception:
+        return [default_output_label(0)]
+
+    return_hint = hints.get("return")
+    if return_hint is None:
+        return [default_output_label(0)]
+
+    # Extract label from the outermost Annotated wrapper
+    label = _extract_label_from_annotated(return_hint, 0)
+    return [label] if label is not None else [default_output_label(0)]
+
+
+def _extract_label_from_annotated(hint, index: int) -> str | None:
+    """
+    Extract label from an Annotated type hint.
+
+    Returns None if no label metadata found (not the same as default_output_label).
+    """
+    if get_origin(hint) is Annotated:
+        args = get_args(hint)
+        # args[0] is the actual type, args[1:] are metadata
+        for meta in args[1:]:
+            if isinstance(meta, dict) and "label" in meta:
+                return meta["label"]
+    return None
+
+
+def _get_annotated_output_labels(func: FunctionType) -> list[str] | None:
+    """
+    Extract output labels from return type annotation using Annotated.
+
+    For TUPLE unpacking - looks at tuple element annotations.
+    Unwraps outer Annotated wrapper if present to get to tuple elements.
+
+    Supports:
+        - Single: `-> Annotated[T, {"label": "name"}]`
+        - Tuple:  `-> tuple[Annotated[T1, {"label": "a"}], Annotated[T2, {"label": "b"}]]`
+        - Wrapped: `-> Annotated[tuple[Annotated[...], ...], {"label": "ignored"}]`
+
+    Returns None if no annotation or no label metadata found.
+    Returns list with None elements for positions without labels.
+    """
+    try:
+        hints = get_type_hints(func, include_extras=True)
+    except Exception:
+        return None
+
+    return_hint = hints.get("return")
+    if return_hint is None:
+        return None
+
+    # Unwrap outer Annotated to get to the actual type (for TUPLE mode,
+    # we care about element annotations, not the tuple-level annotation)
+    inner_type = return_hint
+    if get_origin(return_hint) is Annotated:
+        inner_type = get_args(return_hint)[0]
+
+    origin = get_origin(inner_type)
+
+    # Handle tuple returns - look at element annotations
+    if origin is tuple:
+        args = get_args(inner_type)
+        # Handle tuple[T, ...] (homogeneous variable-length) - can't extract labels
+        if len(args) == 2 and args[1] is ...:
+            return None
+        labels = [_extract_label_from_annotated(arg, i) for i, arg in enumerate(args)]
+        # Return None if no labels found at all
+        if all(label is None for label in labels):
+            return None
+        return labels
+
+    # Single return value - use original hint (may have Annotated wrapper)
+    label = _extract_label_from_annotated(return_hint, 0)
+    if label is not None:
+        return [label]
+    return None
 
 
 def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
@@ -127,7 +215,9 @@ def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
             f"All return statements must have the same number of elements, got "
             f"{return_labels}"
         )
-    return list(
+
+    # Get AST-scraped labels
+    scraped = list(
         (
             label
             if all(other_branch[i] == label for other_branch in return_labels)
@@ -135,6 +225,22 @@ def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
         )
         for i, label in enumerate(return_labels[0])
     )
+
+    # Override with annotation-based labels where available
+    annotated = _get_annotated_output_labels(func)
+    if annotated is not None:
+        if len(annotated) != len(scraped):
+            raise ValueError(
+                f"Annotated return type has {len(annotated)} elements but function "
+                f"returns {len(scraped)} values"
+            )
+        # Merge: annotation takes precedence, fall back to scraped
+        return [
+            ann if ann is not None else scr
+            for ann, scr in zip(annotated, scraped, strict=True)
+        ]
+
+    return scraped
 
 
 def _extract_return_labels(func_node: ast.FunctionDef) -> list[tuple[str, ...]]:
@@ -169,14 +275,16 @@ def _parse_dataclass_return_labels(func: FunctionType) -> list[str]:
         )
 
     sig = inspect.signature(func)
-    return_annotation = sig.return_annotation
+    ann = sig.return_annotation
 
-    if return_annotation is inspect.Parameter.empty or not dataclasses.is_dataclass(
-        return_annotation
-    ):
-        raise ValueError(
-            f"Dataclass unpack mode requires a return type annotation that is a "
-            f"dataclass, but got {return_annotation}"
-        )
+    # unwrap Annotated
+    origin = get_origin(ann)
+    return_annotation = get_args(ann)[0] if origin is Annotated else ann
 
-    return [field.name for field in dataclasses.fields(return_annotation)]
+    if dataclasses.is_dataclass(return_annotation):
+        return [f.name for f in dataclasses.fields(return_annotation)]
+
+    raise ValueError(
+        f"Dataclass unpack mode requires a return type annotation that is a "
+        f"(perhaps Annotated) dataclass, but got {ann}"
+    )
