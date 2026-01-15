@@ -64,30 +64,25 @@ def atomic(
 
     Can be used as with or without kwargs -- @atomic or @atomic(unpack_mode=...)
     """
-
-    def decorator(f: FunctionType) -> FunctionType:
-        _ensure_function(f, "@atomic")
-        f.flowrep_recipe = parse_atomic(f, *output_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
-        return f
-
-    # If func is provided and is actually a function, apply decorator directly
     if isinstance(func, FunctionType):
-        return decorator(func)
+        # Direct decoration: @atomic
+        parsed_labels = ()
+        target_func = func
     elif func is not None and not isinstance(func, str):
         raise TypeError(
             f"@atomic can only decorate functions, got {type(func).__name__}"
         )
+    else:
+        # Called with args: @atomic(...) or @atomic("label", ...)
+        parsed_labels = (func,) + output_labels if func is not None else output_labels
+        target_func = None
 
-    # Otherwise, func and output_labels contain the arguments, return decorator
-    # Combine func into output_labels if it's not None
-    all_output_labels = (func,) + output_labels if func is not None else output_labels
-
-    def decorator_with_args(f: FunctionType) -> FunctionType:
+    def decorator(f: FunctionType) -> FunctionType:
         _ensure_function(f, "@atomic")
-        f.flowrep_recipe = parse_atomic(f, *all_output_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
+        f.flowrep_recipe = parse_atomic(f, *parsed_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
         return f
 
-    return decorator_with_args
+    return decorator(target_func) if target_func else decorator
 
 
 def _ensure_function(f: Any, decorator_name: str) -> None:
