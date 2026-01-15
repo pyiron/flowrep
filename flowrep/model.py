@@ -4,6 +4,7 @@ from typing import Annotated, ClassVar, Literal
 
 import networkx as nx
 import pydantic
+import pydantic_core
 
 
 class RecipeElementType(StrEnum):
@@ -63,6 +64,18 @@ class NodeModel(pydantic.BaseModel):
     inputs: list[str]
     outputs: list[str]
 
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs):
+        super().__pydantic_init_subclass__(**kwargs)
+        if cls.__name__ != NodeModel.__name__:  # I.e. for subclasses
+            type_field = cls.model_fields["type"]
+            if type_field.default is pydantic_core.PydanticUndefined:
+                raise TypeError(
+                    f"{cls.__name__} must provide a default value for 'type'"
+                )
+            if not type_field.frozen:
+                raise TypeError(f"{cls.__name__} must mark 'type' as frozen")
+
     @pydantic.field_validator("inputs", "outputs")
     @classmethod
     def validate_io_labels(cls, v, info):
@@ -79,8 +92,7 @@ class NodeModel(pydantic.BaseModel):
 
 class AtomicNode(NodeModel):
     type: Literal[RecipeElementType.ATOMIC] = pydantic.Field(
-        default=RecipeElementType.ATOMIC,
-        frozen=True
+        default=RecipeElementType.ATOMIC, frozen=True
     )
     fully_qualified_name: str
     unpack_mode: UnpackMode = UnpackMode.TUPLE
@@ -138,8 +150,7 @@ class TargetHandle(HandleModel): ...
 
 class WorkflowNode(NodeModel):
     type: Literal[RecipeElementType.WORKFLOW] = pydantic.Field(
-        default=RecipeElementType.WORKFLOW,
-        frozen=True
+        default=RecipeElementType.WORKFLOW, frozen=True
     )
     nodes: dict[str, "NodeType"]
     edges: dict[TargetHandle, SourceHandle]
