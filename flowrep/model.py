@@ -1,12 +1,25 @@
 import keyword
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated, ClassVar, Literal
 
 import networkx as nx
 import pydantic
+import pydantic_core
 
-RecipeElementType = Literal["atomic", "workflow", "for", "while", "try", "if"]
-IOTypes = Literal["inputs", "outputs"]
+
+class RecipeElementType(StrEnum):
+    ATOMIC = "atomic"
+    WORKFLOW = "workflow"
+    FOR = "for"
+    WHILE = "while"
+    TRY = "try"
+    IF = "if"
+
+
+class IOTypes(StrEnum):
+    INPUTS = "inputs"
+    OUTPUTS = "outputs"
+
 
 RESERVED_NAMES = {"inputs", "outputs"}  # No having child nodes with these names
 
@@ -19,13 +32,13 @@ def _valid_label(label: str) -> bool:
     )
 
 
-def _get_invalid_labels(labels: list[str] | set[str]) -> None | set[str]:
-    invalid = {label for label in labels if not _valid_label(label)}
-    return invalid if invalid else None
+def _get_invalid_labels(labels: list[str] | set[str]) -> set[str]:
+    return {label for label in labels if not _valid_label(label)}
 
 
 def _validate_labels(labels: list[str] | set[str], info) -> None:
-    if invalid := _get_invalid_labels(labels):
+    invalid = _get_invalid_labels(labels)
+    if len(invalid) != 0:
         raise ValueError(
             f"All elements of '{info.field_name}' must be a valid Python "
             f"identifier and not in the reserved labels {RESERVED_NAMES}. "
@@ -33,7 +46,7 @@ def _validate_labels(labels: list[str] | set[str], info) -> None:
         )
 
 
-class UnpackMode(str, Enum):
+class UnpackMode(StrEnum):
     """How to handle return values from atomic nodes.
 
     - NONE: Return the output as a single value
@@ -51,6 +64,18 @@ class NodeModel(pydantic.BaseModel):
     inputs: list[str]
     outputs: list[str]
 
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs):
+        super().__pydantic_init_subclass__(**kwargs)
+        if cls.__name__ != NodeModel.__name__:  # I.e. for subclasses
+            type_field = cls.model_fields["type"]
+            if type_field.default is pydantic_core.PydanticUndefined:
+                raise TypeError(
+                    f"{cls.__name__} must provide a default value for 'type'"
+                )
+            if not type_field.frozen:
+                raise TypeError(f"{cls.__name__} must mark 'type' as frozen")
+
     @pydantic.field_validator("inputs", "outputs")
     @classmethod
     def validate_io_labels(cls, v, info):
@@ -66,7 +91,9 @@ class NodeModel(pydantic.BaseModel):
 
 
 class AtomicNode(NodeModel):
-    type: Literal["atomic"] = "atomic"
+    type: Literal[RecipeElementType.ATOMIC] = pydantic.Field(
+        default=RecipeElementType.ATOMIC, frozen=True
+    )
     fully_qualified_name: str
     unpack_mode: UnpackMode = UnpackMode.TUPLE
 
@@ -122,7 +149,9 @@ class TargetHandle(HandleModel): ...
 
 
 class WorkflowNode(NodeModel):
-    type: Literal["workflow"] = "workflow"
+    type: Literal[RecipeElementType.WORKFLOW] = pydantic.Field(
+        default=RecipeElementType.WORKFLOW, frozen=True
+    )
     nodes: dict[str, "NodeType"]
     edges: dict[TargetHandle, SourceHandle]
 

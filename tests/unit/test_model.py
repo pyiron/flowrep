@@ -1,6 +1,7 @@
 """Unit tests for flowrep.model"""
 
 import unittest
+from typing import Literal
 
 import pydantic
 
@@ -87,6 +88,76 @@ class TestNodeModel(unittest.TestCase):
         self.assertEqual(len(node.outputs), 2)
 
 
+class TestNodeTypeImmutability(unittest.TestCase):
+    """Tests that the 'type' field is immutable on NodeModel subclasses."""
+
+    def test_type_field_cannot_be_overridden_at_construction(self):
+        """AtomicNode should reject type override during instantiation."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.AtomicNode(
+                type=model.RecipeElementType.WORKFLOW,  # Wrong type
+                fully_qualified_name="mod.func",
+                inputs=["x"],
+                outputs=["y"],
+            )
+        exc_str = str(ctx.exception)
+        self.assertIn("Input should be", exc_str)
+        self.assertIn(model.RecipeElementType.ATOMIC.value, exc_str)
+
+    def test_type_field_cannot_be_mutated_after_construction(self):
+        """AtomicNode should reject mutation of type field."""
+        node = model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=["x"],
+            outputs=["y"],
+        )
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            node.type = model.RecipeElementType.WORKFLOW
+        exc_str = str(ctx.exception)
+        self.assertIn("frozen", exc_str.lower())
+
+    def test_subclass_must_provide_type_default(self):
+        """NodeModel subclasses must provide a default value for 'type'."""
+        with self.assertRaises(TypeError) as ctx:
+
+            class BadNode(model.NodeModel):
+                type: Literal[model.RecipeElementType.ATOMIC]  # No default
+                inputs: list[str]
+                outputs: list[str]
+
+        exc_str = str(ctx.exception)
+        self.assertIn("BadNode", exc_str)
+        self.assertIn("default value for 'type'", exc_str)
+
+    def test_subclass_must_freeze_type_field(self):
+        """NodeModel subclasses must mark 'type' as frozen."""
+        with self.assertRaises(TypeError) as ctx:
+
+            class BadNode(model.NodeModel):
+                type: Literal[model.RecipeElementType.ATOMIC] = (
+                    model.RecipeElementType.ATOMIC
+                )  # Not frozen
+                inputs: list[str]
+                outputs: list[str]
+
+        exc_str = str(ctx.exception)
+        self.assertIn("BadNode", exc_str)
+        self.assertIn("frozen", exc_str)
+
+    def test_subclass_must_redefine_type_field(self):
+        """NodeModel subclasses must redefine 'type' field, not inherit base definition."""
+        with self.assertRaises(TypeError) as ctx:
+
+            class BadNode(model.NodeModel):
+                # Doesn't mention 'type' at all
+                inputs: list[str]
+                outputs: list[str]
+
+        exc_str = str(ctx.exception)
+        self.assertIn("BadNode", exc_str)
+        self.assertIn("default value for 'type'", exc_str)
+
+
 class TestAtomicNode(unittest.TestCase):
     """Tests for AtomicNode validation."""
 
@@ -97,7 +168,7 @@ class TestAtomicNode(unittest.TestCase):
             outputs=[],
         )
         self.assertEqual(node.fully_qualified_name, "module.func")
-        self.assertEqual(node.type, "atomic")
+        self.assertEqual(node.type, model.RecipeElementType.ATOMIC)
 
     def test_valid_fqn_deep(self):
         node = model.AtomicNode(
@@ -850,7 +921,7 @@ class TestSerialization(unittest.TestCase):
     def test_discriminated_union_roundtrip(self):
         """Ensure type discriminator works for polymorphic deserialization."""
         data = {
-            "type": "atomic",
+            "type": model.RecipeElementType.ATOMIC,
             "fully_qualified_name": "a.b",
             "inputs": ["x"],
             "outputs": ["y"],
@@ -859,7 +930,7 @@ class TestSerialization(unittest.TestCase):
         self.assertIsInstance(node, model.AtomicNode)
 
         data = {
-            "type": "workflow",
+            "type": model.RecipeElementType.WORKFLOW,
             "inputs": [],
             "outputs": [],
             "nodes": {},
