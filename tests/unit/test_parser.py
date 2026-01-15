@@ -812,6 +812,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
 
     def test_atomic_tuple_annotated(self):
         with self.subTest("dictionary annotation"):
+
             @parser.atomic
             def func(
                 x,
@@ -824,6 +825,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
             self.assertEqual(func.recipe.outputs, ["sum", "diff"])
 
         with self.subTest("model annotation"):
+
             @parser.atomic
             def func(x) -> tuple[
                 Annotated[float, OutputMeta(label="sum")],
