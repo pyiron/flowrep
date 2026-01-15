@@ -78,7 +78,10 @@ class NodeModel(pydantic.BaseModel):
 
 
 class AtomicNode(NodeModel):
-    type: Literal[RecipeElementType.ATOMIC] = RecipeElementType.ATOMIC
+    type: Literal[RecipeElementType.ATOMIC] = pydantic.Field(
+        default=RecipeElementType.ATOMIC,
+        frozen=True
+    )
     fully_qualified_name: str
     unpack_mode: UnpackMode = UnpackMode.TUPLE
 
@@ -134,7 +137,10 @@ class TargetHandle(HandleModel): ...
 
 
 class WorkflowNode(NodeModel):
-    type: Literal[RecipeElementType.WORKFLOW] = RecipeElementType.WORKFLOW
+    type: Literal[RecipeElementType.WORKFLOW] = pydantic.Field(
+        default=RecipeElementType.WORKFLOW,
+        frozen=True
+    )
     nodes: dict[str, "NodeType"]
     edges: dict[TargetHandle, SourceHandle]
 
