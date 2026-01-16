@@ -38,7 +38,7 @@ def _get_invalid_labels(labels: list[str] | set[str]) -> set[str]:
 
 def _validate_labels(labels: list[str] | set[str], info) -> None:
     invalid = _get_invalid_labels(labels)
-    if len(invalid) != 0:
+    if invalid:
         raise ValueError(
             f"All elements of '{info.field_name}' must be a valid Python "
             f"identifier and not in the reserved labels {RESERVED_NAMES}. "
