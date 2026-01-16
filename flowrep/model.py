@@ -287,7 +287,7 @@ class IfNode(NodeModel):
         return v
 
     @pydantic.model_validator(mode="after")
-    def validate_cases_length(self):
+    def validate_cases_length_matches_conditions(self):
         if len(self.cases) != len(self.conditions):
             raise ValueError(
                 f"cases must have same length as conditions. "
@@ -297,7 +297,7 @@ class IfNode(NodeModel):
 
     @pydantic.field_validator("input_edges")
     @classmethod
-    def validate_input_edges_sources(cls, v):
+    def validate_input_edges_sources_are_parent_node(cls, v):
         invalid = {source.node for source in v.values() if source.node is not None}
         if invalid:
             raise ValueError(
@@ -307,7 +307,7 @@ class IfNode(NodeModel):
         return v
 
     @pydantic.model_validator(mode="after")
-    def validate_input_edges_targets(self):
+    def validate_input_edges_targets_are_extant_child_nodes(self):
         n_conditions = len(self.conditions)
         valid_targets = {self.condition_name(i) for i in range(n_conditions)}
 
@@ -325,7 +325,7 @@ class IfNode(NodeModel):
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_input_edges_ports(self):
+    def validate_input_edges_ports_exist(self):
         """Validate that input_edges target ports exist on their condition nodes."""
         for target in self.input_edges:
             # Extract condition index from name like "condition_0"
@@ -340,7 +340,7 @@ class IfNode(NodeModel):
 
     @pydantic.field_validator("output_edges_matrix")
     @classmethod
-    def validate_output_edges_targets(cls, v):
+    def validate_output_edges_targets_are_parent_node(cls, v):
         invalid = {target.node for target in v if target.node is not None}
         if invalid:
             raise ValueError(
@@ -351,7 +351,7 @@ class IfNode(NodeModel):
         return v
 
     @pydantic.model_validator(mode="after")
-    def validate_output_edges_matrix_matches_outputs(self):
+    def validate_output_edges_matrix_keys_match_outputs(self):
         edge_ports = {target.port for target in self.output_edges_matrix}
         output_ports = set(self.outputs)
         if edge_ports != output_ports:
