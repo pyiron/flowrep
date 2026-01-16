@@ -271,12 +271,7 @@ class TryNode(NodeModel):
 
 # Discriminated Union
 NodeType = Annotated[
-    AtomicNode
-    | WorkflowNode
-    | ForNode
-    | WhileNode
-    | IfNode
-    | TryNode,
+    AtomicNode | WorkflowNode | ForNode | WhileNode | IfNode | TryNode,
     pydantic.Field(discriminator="type"),
 ]
 
