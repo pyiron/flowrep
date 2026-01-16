@@ -261,6 +261,148 @@ class IfNode(NodeModel):
     type: Literal[RecipeElementType.IF] = pydantic.Field(
         default=RecipeElementType.IF, frozen=True
     )
+    conditions: list[NodeModel]
+    cases: list[NodeModel]
+    else_case: NodeModel
+    input_edges: dict[TargetHandle, SourceHandle]
+    output_edges_matrix: dict[TargetHandle, list[SourceHandle]]
+
+    @staticmethod
+    def condition_name(n: int):
+        return f"condition_{n}"
+
+    @staticmethod
+    def case_name(n: int):
+        return f"case_{n}"
+
+    @staticmethod
+    def else_name():
+        return "else"
+
+    @pydantic.field_validator("conditions")
+    @classmethod
+    def validate_conditions_not_empty(cls, v):
+        if len(v) < 1:
+            raise ValueError("conditions must have at least one element")
+        return v
+
+    @pydantic.model_validator(mode="after")
+    def validate_cases_length(self):
+        if len(self.cases) != len(self.conditions):
+            raise ValueError(
+                f"cases must have same length as conditions. "
+                f"Got {len(self.cases)} cases and {len(self.conditions)} conditions"
+            )
+        return self
+
+    @pydantic.field_validator("input_edges")
+    @classmethod
+    def validate_input_edges_sources(cls, v):
+        invalid = {source.node for source in v.values() if source.node is not None}
+        if invalid:
+            raise ValueError(
+                f"input_edges sources must have node=None -- i.e. map data from parent "
+                f"input to child nodes. Got source nodes: {invalid}"
+            )
+        return v
+
+    @pydantic.model_validator(mode="after")
+    def validate_input_edges_targets(self):
+        n_conditions = len(self.conditions)
+        valid_targets = {self.condition_name(i) for i in range(n_conditions)}
+
+        invalid = {
+            target.node
+            for target in self.input_edges.keys()
+            if target.node not in valid_targets
+        }
+        if invalid:
+            raise ValueError(
+                f"input_edges targets must be a body node based on for-node naming "
+                f"schemes -- i.e. map data from parent input to child nodes. "
+                f"Got invalid target nodes: {invalid}"
+            )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_input_edges_ports(self):
+        """Validate that input_edges target ports exist on their condition nodes."""
+        for target in self.input_edges.keys():
+            # Extract condition index from name like "condition_0"
+            idx = int(target.node.split("_")[1])
+            condition_node = self.conditions[idx]
+            if target.port not in condition_node.inputs:
+                raise ValueError(
+                    f"Invalid input_edge target: {target.node} has no input port "
+                    f"'{target.port}'. Available inputs: {condition_node.inputs}"
+                )
+        return self
+
+    @pydantic.field_validator("output_edges_matrix")
+    @classmethod
+    def validate_output_edges_targets(cls, v):
+        invalid = {target.node for target in v if target.node is not None}
+        if invalid:
+            raise ValueError(
+                f"output_edges_matrix targets must have node=None -- i.e. map data "
+                f"from child nodes to parent output. Got invalid target nodes: "
+                f"{invalid}"
+            )
+        return v
+
+    @pydantic.model_validator(mode="after")
+    def validate_output_edges_matrix_matches_outputs(self):
+        edge_ports = {target.port for target in self.output_edges_matrix.keys()}
+        output_ports = set(self.outputs)
+        if edge_ports != output_ports:
+            missing = output_ports - edge_ports
+            extra = edge_ports - output_ports
+            raise ValueError(
+                f"output_edges_matrix keys must match outputs. "
+                f"Missing: {missing or 'none'}, Extra: {extra or 'none'}"
+            )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_output_edges_matrix_is_complete(self):
+        """
+        Targets must match outputs, and each target must have one source per child
+        node.
+        """
+        n_conditions = len(self.conditions)
+        expected_nodes = {self.case_name(i) for i in range(n_conditions)} | {
+            self.else_name()
+        }
+
+        invalid = {}
+        for target, sources in self.output_edges_matrix.items():
+            source_nodes = {s.node for s in sources}
+            if source_nodes != expected_nodes:
+                invalid[target.port] = source_nodes
+        if invalid:
+            raise ValueError(
+                f"output_edges_matrix expect to have exactly one source from each "
+                f"case, {expected_nodes}, but got invalid sources: "
+                f"{';'.join(f'{k}: {v}' for k, v in invalid.items())}"
+            )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_output_edges_matrix_source_ports_exist(self):
+        """Validate that output_edges_matrix source ports exist on their nodes."""
+        for sources in self.output_edges_matrix.values():
+            for source in sources:
+                if source.node == self.else_name():
+                    node = self.else_case
+                else:
+                    idx = int(source.node.split("_")[1])
+                    node = self.cases[idx]
+                if source.port not in node.outputs:
+                    raise ValueError(
+                        f"Invalid output_edge source: {source.node} has no output port "
+                        f"'{source.port}'. Available outputs: {node.outputs}"
+                    )
+        return self
 
 
 class TryNode(NodeModel):
