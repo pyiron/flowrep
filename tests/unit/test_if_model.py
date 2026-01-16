@@ -319,44 +319,45 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
         exc_str = str(ctx.exception)
         self.assertIn("condition_5", exc_str)
 
-    def test_input_edges_cannot_target_cases(self):
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
-                inputs=["inp"],
-                outputs=["out"],
-                conditions=[self._make_condition()],
-                cases=[self._make_case()],
-                else_case=self._make_case(),
-                input_edges={
-                    model.TargetHandle(
-                        node=model.IfNode.case_name(0), port="x"
-                    ): model.SourceHandle(  # case, not condition
-                        node=None, port="inp"
-                    )
-                },
-                output_edges_matrix=self._make_output_edges(1),
-            )
-        exc_str = str(ctx.exception)
-        self.assertIn("case_0", exc_str)
+    def test_input_edges_can_target_cases(self):
+        """input_edges targets can include case nodes."""
+        node = model.IfNode(
+            inputs=["inp"],
+            outputs=["out"],
+            conditions=[self._make_condition()],
+            cases=[self._make_case()],  # has input "x"
+            else_case=self._make_case(),
+            input_edges={
+                model.TargetHandle(
+                    node=model.IfNode.condition_name(0), port="x"
+                ): model.SourceHandle(node=None, port="inp"),
+                model.TargetHandle(
+                    node=model.IfNode.case_name(0), port="x"
+                ): model.SourceHandle(node=None, port="inp"),
+            },
+            output_edges_matrix=self._make_output_edges(1),
+        )
+        self.assertEqual(len(node.input_edges), 2)
 
-    def test_input_edges_cannot_target_else(self):
-        """input_edges targets cannot be the else node."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
-                inputs=["inp"],
-                outputs=["out"],
-                conditions=[self._make_condition()],
-                cases=[self._make_case()],
-                else_case=self._make_case(),
-                input_edges={
-                    model.TargetHandle(
-                        node=model.IfNode.else_name(), port="x"
-                    ): model.SourceHandle(node=None, port="inp")
-                },
-                output_edges_matrix=self._make_output_edges(1),
-            )
-        exc_str = str(ctx.exception)
-        self.assertIn("else", exc_str)
+    def test_input_edges_can_target_else(self):
+        """input_edges targets can include the else node."""
+        node = model.IfNode(
+            inputs=["inp"],
+            outputs=["out"],
+            conditions=[self._make_condition()],
+            cases=[self._make_case()],
+            else_case=self._make_case(),  # has input "x"
+            input_edges={
+                model.TargetHandle(
+                    node=model.IfNode.condition_name(0), port="x"
+                ): model.SourceHandle(node=None, port="inp"),
+                model.TargetHandle(
+                    node=model.IfNode.else_name(), port="x"
+                ): model.SourceHandle(node=None, port="inp"),
+            },
+            output_edges_matrix=self._make_output_edges(1),
+        )
+        self.assertEqual(len(node.input_edges), 2)
 
 
 class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
