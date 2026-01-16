@@ -309,7 +309,11 @@ class IfNode(NodeModel):
     @pydantic.model_validator(mode="after")
     def validate_input_edges_targets_are_extant_child_nodes(self):
         n_conditions = len(self.conditions)
-        valid_targets = {self.condition_name(i) for i in range(n_conditions)}
+        valid_targets = (
+            {self.condition_name(i) for i in range(n_conditions)}
+            | {self.case_name(i) for i in range(n_conditions)}
+            | {self.else_name()}
+        )
 
         invalid = {
             target.node
@@ -326,17 +330,30 @@ class IfNode(NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_input_edges_ports_exist(self):
-        """Validate that input_edges target ports exist on their condition nodes."""
+        """Validate that input_edges target ports exist on their target nodes."""
         for target in self.input_edges:
-            # Extract condition index from name like "condition_0"
-            idx = int(target.node.split("_")[1])
-            condition_node = self.conditions[idx]
-            if target.port not in condition_node.inputs:
+            node = self._get_child_node_by_name(target.node)
+            if target.port not in node.inputs:
                 raise ValueError(
                     f"Invalid input_edge target: {target.node} has no input port "
-                    f"'{target.port}'. Available inputs: {condition_node.inputs}"
+                    f"'{target.port}'. Available inputs: {node.inputs}"
                 )
         return self
+
+    def _get_child_node_by_name(self, name: str) -> "NodeModel":
+        """Resolve a child node name (condition_N, case_N, or else) to its node."""
+        if name == self.else_name():
+            return self.else_case
+
+        prefix, idx_str = name.rsplit("_", 1)
+        idx = int(idx_str)
+
+        if prefix == "condition":
+            return self.conditions[idx]
+        elif prefix == "case":
+            return self.cases[idx]
+        else:
+            raise ValueError(f"Unknown child node name: {name}")
 
     @pydantic.field_validator("output_edges_matrix")
     @classmethod
