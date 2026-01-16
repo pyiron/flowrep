@@ -313,7 +313,7 @@ class IfNode(NodeModel):
 
         invalid = {
             target.node
-            for target in self.input_edges.keys()
+            for target in self.input_edges
             if target.node not in valid_targets
         }
         if invalid:
@@ -327,7 +327,7 @@ class IfNode(NodeModel):
     @pydantic.model_validator(mode="after")
     def validate_input_edges_ports(self):
         """Validate that input_edges target ports exist on their condition nodes."""
-        for target in self.input_edges.keys():
+        for target in self.input_edges:
             # Extract condition index from name like "condition_0"
             idx = int(target.node.split("_")[1])
             condition_node = self.conditions[idx]
@@ -352,7 +352,7 @@ class IfNode(NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_output_edges_matrix_matches_outputs(self):
-        edge_ports = {target.port for target in self.output_edges_matrix.keys()}
+        edge_ports = {target.port for target in self.output_edges_matrix}
         output_ports = set(self.outputs)
         if edge_ports != output_ports:
             missing = output_ports - edge_ports
