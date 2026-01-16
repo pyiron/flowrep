@@ -12,8 +12,8 @@ class RecipeElementType(StrEnum):
     WORKFLOW = "workflow"
     FOR = "for"
     WHILE = "while"
-    TRY = "try"
     IF = "if"
+    TRY = "try"
 
 
 class IOTypes(StrEnum):
@@ -245,9 +245,38 @@ class WorkflowNode(NodeModel):
         return self
 
 
+class ForNode(NodeModel):
+    type: Literal[RecipeElementType.FOR] = pydantic.Field(
+        default=RecipeElementType.FOR, frozen=True
+    )
+
+
+class WhileNode(NodeModel):
+    type: Literal[RecipeElementType.WHILE] = pydantic.Field(
+        default=RecipeElementType.WHILE, frozen=True
+    )
+
+
+class IfNode(NodeModel):
+    type: Literal[RecipeElementType.IF] = pydantic.Field(
+        default=RecipeElementType.IF, frozen=True
+    )
+
+
+class TryNode(NodeModel):
+    type: Literal[RecipeElementType.TRY] = pydantic.Field(
+        default=RecipeElementType.TRY, frozen=True
+    )
+
+
 # Discriminated Union
 NodeType = Annotated[
-    AtomicNode | WorkflowNode,
+    AtomicNode
+    | WorkflowNode
+    | ForNode
+    | WhileNode
+    | IfNode
+    | TryNode,
     pydantic.Field(discriminator="type"),
 ]
 
