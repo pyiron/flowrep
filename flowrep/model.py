@@ -257,12 +257,31 @@ class WhileNode(NodeModel):
     )
 
 
+class CaseModel(pydantic.BaseModel):
+    condition: NodeModel
+    body: NodeModel
+    condition_output: str | None = None
+
+    @pydantic.model_validator(mode="after")
+    def validate_condition_is_accessible(self):
+        if self.condition_output is None:
+            if len(self.condition.outputs) != 1:
+                raise ValueError(
+                    f"condition must have exactly one output if condition_output is not "
+                    f"provided. Got condition outputs: {self.condition.outputs}"
+                )
+        elif self.condition_output not in self.condition.outputs:
+            raise ValueError(
+                f"condition_output '{self.condition_output}' is not found among "
+                f"available outputs: {self.condition.outputs}"
+            )
+        return self
+
 class IfNode(NodeModel):
     type: Literal[RecipeElementType.IF] = pydantic.Field(
         default=RecipeElementType.IF, frozen=True
     )
-    conditions: list[NodeModel]
-    cases: list[NodeModel]
+    cases: list[CaseModel]
     else_case: NodeModel
     input_edges: dict[TargetHandle, SourceHandle]
     output_edges_matrix: dict[TargetHandle, list[SourceHandle]]
@@ -272,28 +291,19 @@ class IfNode(NodeModel):
         return f"condition_{n}"
 
     @staticmethod
-    def case_name(n: int):
-        return f"case_{n}"
+    def body_name(n: int):
+        return f"body_{n}"
 
     @staticmethod
     def else_name():
         return "else"
 
-    @pydantic.field_validator("conditions")
+    @pydantic.field_validator("cases")
     @classmethod
-    def validate_conditions_not_empty(cls, v):
+    def validate_cases_not_empty(cls, v):
         if len(v) < 1:
-            raise ValueError("conditions must have at least one element")
+            raise ValueError("If nodes must have at least one explicit case")
         return v
-
-    @pydantic.model_validator(mode="after")
-    def validate_cases_length_matches_conditions(self):
-        if len(self.cases) != len(self.conditions):
-            raise ValueError(
-                f"cases must have same length as conditions. "
-                f"Got {len(self.cases)} cases and {len(self.conditions)} conditions"
-            )
-        return self
 
     @pydantic.field_validator("input_edges")
     @classmethod
@@ -308,10 +318,10 @@ class IfNode(NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_input_edges_targets_are_extant_child_nodes(self):
-        n_conditions = len(self.conditions)
+        n_cases = len(self.cases)
         valid_targets = (
-            {self.condition_name(i) for i in range(n_conditions)}
-            | {self.case_name(i) for i in range(n_conditions)}
+            {self.condition_name(i) for i in range(n_cases)}
+            | {self.body_name(i) for i in range(n_cases)}
             | {self.else_name()}
         )
 
@@ -349,9 +359,9 @@ class IfNode(NodeModel):
         idx = int(idx_str)
 
         if prefix == "condition":
-            return self.conditions[idx]
-        elif prefix == "case":
-            return self.cases[idx]
+            return self.cases[idx].condition
+        elif prefix == "body":
+            return self.cases[idx].body
         else:
             raise ValueError(f"Unknown child node name: {name}")
 
@@ -386,8 +396,8 @@ class IfNode(NodeModel):
         Targets must match outputs, and each target must have one source per child
         node.
         """
-        n_conditions = len(self.conditions)
-        expected_nodes = {self.case_name(i) for i in range(n_conditions)} | {
+        n_cases = len(self.cases)
+        expected_nodes = {self.body_name(i) for i in range(n_cases)} | {
             self.else_name()
         }
 
@@ -413,7 +423,7 @@ class IfNode(NodeModel):
                     node = self.else_case
                 else:
                     idx = int(source.node.split("_")[1])
-                    node = self.cases[idx]
+                    node = self.cases[idx].body
                 if source.port not in node.outputs:
                     raise ValueError(
                         f"Invalid output_edge source: {source.node} has no output port "
