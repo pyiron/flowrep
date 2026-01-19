@@ -299,6 +299,15 @@ class IfNode(NodeModel):
     def else_name():
         return "else"
 
+    @property
+    def prospective_nodes(self) -> dict[str, NodeModel]:
+        nodes = {}
+        for n, case in enumerate(self.cases):
+            nodes[self.condition_name(n)] = case.condition
+            nodes[self.body_name(n)] = case.body
+        nodes[self.else_name()] = self.else_case
+        return nodes
+
     @pydantic.field_validator("cases")
     @classmethod
     def validate_cases_not_empty(cls, v):
@@ -308,17 +317,10 @@ class IfNode(NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_input_edges_targets_are_extant_child_nodes(self):
-        n_cases = len(self.cases)
-        valid_targets = (
-            {self.condition_name(i) for i in range(n_cases)}
-            | {self.body_name(i) for i in range(n_cases)}
-            | {self.else_name()}
-        )
-
         invalid = {
             target.node
             for target in self.input_edges
-            if target.node not in valid_targets
+            if target.node not in self.prospective_nodes
         }
         if invalid:
             raise ValueError(
@@ -332,28 +334,13 @@ class IfNode(NodeModel):
     def validate_input_edges_ports_exist(self):
         """Validate that input_edges target ports exist on their target nodes."""
         for target in self.input_edges:
-            node = self._get_child_node_by_name(target.node)
+            node = self.prospective_nodes[target.node]
             if target.port not in node.inputs:
                 raise ValueError(
                     f"Invalid input_edge target: {target.node} has no input port "
                     f"'{target.port}'. Available inputs: {node.inputs}"
                 )
         return self
-
-    def _get_child_node_by_name(self, name: str) -> "NodeModel":
-        """Resolve a child node name (condition_N, case_N, or else) to its node."""
-        if name == self.else_name():
-            return self.else_case
-
-        prefix, idx_str = name.rsplit("_", 1)
-        idx = int(idx_str)
-
-        if prefix == "condition":
-            return self.cases[idx].condition
-        elif prefix == "body":
-            return self.cases[idx].body
-        else:
-            raise ValueError(f"Unknown child node name: {name}")
 
     @pydantic.model_validator(mode="after")
     def validate_output_edges_matrix_keys_match_outputs(self):
@@ -375,13 +362,13 @@ class IfNode(NodeModel):
         node.
         """
         n_cases = len(self.cases)
-        expected_nodes = {self.body_name(i) for i in range(n_cases)} | {
+        expected_nodes = [self.body_name(i) for i in range(n_cases)] + [
             self.else_name()
-        }
+        ]
 
         invalid = {}
         for target, sources in self.output_edges_matrix.items():
-            source_nodes = {s.node for s in sources}
+            source_nodes = [s.node for s in sources]
             if source_nodes != expected_nodes:
                 invalid[target.port] = source_nodes
         if invalid:
@@ -395,13 +382,10 @@ class IfNode(NodeModel):
     @pydantic.model_validator(mode="after")
     def validate_output_edges_matrix_source_ports_exist(self):
         """Validate that output_edges_matrix source ports exist on their nodes."""
+        nodes = self.prospective_nodes
         for sources in self.output_edges_matrix.values():
             for source in sources:
-                if source.node == self.else_name():
-                    node = self.else_case
-                else:
-                    idx = int(source.node.split("_")[1])
-                    node = self.cases[idx].body
+                node = nodes[source.node]
                 if source.port not in node.outputs:
                     raise ValueError(
                         f"Invalid output_edge source: {source.node} has no output port "
