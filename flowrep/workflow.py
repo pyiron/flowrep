@@ -1074,7 +1074,7 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
     for key, node in workflow_dict["nodes"].items():
         assert node["type"] in ["Function", "Workflow"]
         if node["type"] == "Workflow":
-            G = nx.union(G, get_workflow_graph(node))
+            G = nx.union(get_workflow_graph(node), G)
             nodes_to_delete.append(key)
         else:
             G.add_node(key, step="node", function=node["function"])
@@ -1093,7 +1093,7 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
             G.nodes[node]["step"] = "input"
         elif node.split(".")[-2] == "outputs":
             G.nodes[node]["step"] = "output"
-    mapping = {n: workflow_dict["label"] + "-" + n.replace(".", "-") for n in G.nodes()}
+    mapping = {n: workflow_dict["label"] + "." + n for n in G.nodes()}
     return nx.relabel_nodes(G, mapping, copy=True)
 
 
@@ -1114,7 +1114,7 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
         hash_dict_tmp = {
             "inputs": {},
             "outputs": [
-                G.nodes[out].get("label", out.split("-")[-1])
+                G.nodes[out].get("label", out.split(".")[-1])
                 for out in G.successors(node)
             ],
             "node": tools.get_function_metadata(G.nodes[node]["function"]),
@@ -1122,7 +1122,7 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
         hash_dict_tmp["node"]["connected_inputs"] = []
         for inp in G.predecessors(node):
             data = G.nodes[inp]
-            inp_name = inp.split("-")[-1]
+            inp_name = inp.split(".")[-1]
             if "hash" in data:
                 hash_dict_tmp["inputs"][inp_name] = data["hash"]
                 hash_dict_tmp["node"]["connected_inputs"].append(inp_name)
@@ -1140,7 +1140,7 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
         ).hexdigest()
         for out in G.successors(node):
             G.nodes[out]["hash"] = (
-                h + "@" + G.nodes[out].get("label", out.split("-")[-1])
+                h + "@" + G.nodes[out].get("label", out.split(".")[-1])
             )
         hash_dict_tmp["hash"] = h
         hash_dict[node] = hash_dict_tmp

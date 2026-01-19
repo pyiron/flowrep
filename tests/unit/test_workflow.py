@@ -637,8 +637,8 @@ class TestWorkflow(unittest.TestCase):
             self.assertIsInstance(node["hash"], str)
             self.assertEqual(len(node["hash"]), 64)
         self.assertTrue(
-            hashed_dict["workflow_with_data-multiply_0"]["inputs"]["x"].endswith(
-                hashed_dict["workflow_with_data-add_0"]["hash"] + "@output"
+            hashed_dict["workflow_with_data.multiply_0"]["inputs"]["x"].endswith(
+                hashed_dict["workflow_with_data.add_0"]["hash"] + "@output"
             )
         )
         workflow_dict = workflow_with_data.serialize_workflow()
@@ -652,7 +652,7 @@ class TestWorkflow(unittest.TestCase):
         )
         workflow_dict = example_workflow.run(a=10, b=20)
         hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
-        self.assertIn("example_workflow-example_macro_0-operation_0", hashed_dict)
+        self.assertIn("example_workflow.example_macro_0.operation_0", hashed_dict)
 
         @fwf.workflow
         def workflow_with_class(test: TestClass):
