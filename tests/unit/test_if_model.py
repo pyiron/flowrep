@@ -474,7 +474,7 @@ class TestIfNodeNameConventions(unittest.TestCase):
 
 
 class TestIfNodeSerialization(unittest.TestCase):
-    def _make_valid_if_node(self):
+    def _make_valid_if_node(self, n_cases=1):
         condition = model.AtomicNode(
             fully_qualified_name="mod.check",
             inputs=["x"],
@@ -485,23 +485,27 @@ class TestIfNodeSerialization(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
         )
-        case = model.CaseModel(condition=condition, body=body)
+        cases = [model.CaseModel(condition=condition, body=body) for _ in range(n_cases)]
+
+        input_edges = {
+            model.TargetHandle(
+                node=model.IfNode.condition_name(i), port="x"
+            ): model.InputSource(port="inp")
+            for i in range(n_cases)
+        }
+
+        sources = [
+                      model.SourceHandle(node=model.IfNode.body_name(i), port="y")
+                      for i in range(n_cases)
+                  ] + [model.SourceHandle(node=model.IfNode.else_name(), port="y")]
+
         return model.IfNode(
             inputs=["inp"],
             outputs=["out"],
-            cases=[case],
+            cases=cases,
             else_case=body,
-            input_edges={
-                model.TargetHandle(
-                    node=model.IfNode.condition_name(0), port="x"
-                ): model.InputSource(port="inp")
-            },
-            output_edges_matrix={
-                model.OutputTarget(port="out"): [
-                    model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
-                    model.SourceHandle(node=model.IfNode.else_name(), port="y"),
-                ]
-            },
+            input_edges=input_edges,
+            output_edges_matrix={model.OutputTarget(port="out"): sources},
         )
 
     def test_json_roundtrip(self):
@@ -522,6 +526,88 @@ class TestIfNodeSerialization(unittest.TestCase):
         self.assertEqual(original.inputs, restored.inputs)
         self.assertEqual(original.outputs, restored.outputs)
         self.assertEqual(len(original.cases), len(restored.cases))
+
+    def test_json_roundtrip_multiple_cases(self):
+        original = self._make_valid_if_node(n_cases=3)
+        data = original.model_dump(mode="json")
+        restored = model.IfNode.model_validate(data)
+
+        self.assertEqual(len(restored.cases), 3)
+        self.assertEqual(len(restored.input_edges), 3)
+        self.assertEqual(len(restored.output_edges_matrix[model.OutputTarget(port="out")]), 4)
+
+    def test_python_roundtrip_multiple_cases(self):
+        original = self._make_valid_if_node(n_cases=3)
+        data = original.model_dump(mode="python")
+        restored = model.IfNode.model_validate(data)
+
+        self.assertEqual(len(restored.cases), 3)
+
+    def test_json_roundtrip_with_condition_output(self):
+        condition = model.AtomicNode(
+            fully_qualified_name="mod.check",
+            inputs=["x"],
+            outputs=["a", "b"],
+        )
+        body = model.AtomicNode(
+            fully_qualified_name="mod.handle",
+            inputs=["x"],
+            outputs=["y"],
+        )
+        case = model.CaseModel(condition=condition, body=body, condition_output="a")
+        original = model.IfNode(
+            inputs=["inp"],
+            outputs=["out"],
+            cases=[case],
+            else_case=body,
+            input_edges={
+                model.TargetHandle(node=model.IfNode.condition_name(0), port="x"): model.InputSource(port="inp")
+            },
+            output_edges_matrix={
+                model.OutputTarget(port="out"): [
+                    model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
+                    model.SourceHandle(node=model.IfNode.else_name(), port="y"),
+                ]
+            },
+        )
+
+        data = original.model_dump(mode="json")
+        restored = model.IfNode.model_validate(data)
+
+        self.assertEqual(restored.cases[0].condition_output, "a")
+
+    def test_python_roundtrip_with_condition_output(self):
+        condition = model.AtomicNode(
+            fully_qualified_name="mod.check",
+            inputs=["x"],
+            outputs=["a", "b"],
+        )
+        body = model.AtomicNode(
+            fully_qualified_name="mod.handle",
+            inputs=["x"],
+            outputs=["y"],
+        )
+        case = model.CaseModel(condition=condition, body=body, condition_output="b")
+        original = model.IfNode(
+            inputs=["inp"],
+            outputs=["out"],
+            cases=[case],
+            else_case=body,
+            input_edges={
+                model.TargetHandle(node=model.IfNode.condition_name(0), port="x"): model.InputSource(port="inp")
+            },
+            output_edges_matrix={
+                model.OutputTarget(port="out"): [
+                    model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
+                    model.SourceHandle(node=model.IfNode.else_name(), port="y"),
+                ]
+            },
+        )
+
+        data = original.model_dump(mode="python")
+        restored = model.IfNode.model_validate(data)
+
+        self.assertEqual(restored.cases[0].condition_output, "b")
 
     def test_discriminated_union_roundtrip(self):
         original = self._make_valid_if_node()
