@@ -64,6 +64,7 @@ def atomic(
 
     Can be used as with or without kwargs -- @atomic or @atomic(unpack_mode=...)
     """
+    parsed_labels: tuple[str, ...]
     if isinstance(func, FunctionType):
         # Direct decoration: @atomic
         parsed_labels = ()
