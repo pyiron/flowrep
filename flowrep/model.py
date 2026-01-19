@@ -142,10 +142,20 @@ class HandleModel(pydantic.BaseModel):
         return data
 
 
-class SourceHandle(HandleModel): ...
+class SourceHandle(HandleModel):
+    node: str
 
 
-class TargetHandle(HandleModel): ...
+class TargetHandle(HandleModel):
+    node: str
+
+
+class InputSource(HandleModel):
+    node: None = pydantic.Field(default=None, frozen=True)
+
+
+class OutputTarget(HandleModel):
+    node: None = pydantic.Field(default=None, frozen=True)
 
 
 class WorkflowNode(NodeModel):
@@ -153,23 +163,14 @@ class WorkflowNode(NodeModel):
         default=RecipeElementType.WORKFLOW, frozen=True
     )
     nodes: dict[str, "NodeType"]
+    input_edges: dict[TargetHandle, InputSource]
     edges: dict[TargetHandle, SourceHandle]
+    output_edges: dict[OutputTarget, SourceHandle]
 
     @pydantic.field_validator("nodes")
     @classmethod
     def validate_node_labels(cls, v, info):
         _validate_labels(set(v.keys()), info)
-        return v
-
-    @pydantic.field_validator("edges")
-    @classmethod
-    def validate_edges(cls, v):
-        for target, source in v.items():
-            if target.node is None and source.node is None:
-                raise ValueError(
-                    f"Invalid edge: No pass-through data -- if a workflow declares IO "
-                    f"it should use it. Got target={target}, source={source}"
-                )
         return v
 
     @pydantic.model_validator(mode="after")
@@ -179,7 +180,9 @@ class WorkflowNode(NodeModel):
         workflow_inputs = set(self.inputs)
         workflow_outputs = set(self.outputs)
 
-        for target, source in self.edges.items():
+        for target, source in (
+            self.input_edges.items() | self.edges.items() | self.output_edges.items()
+        ):
             # Validate source
             if source.node is None:
                 if source.port not in workflow_inputs:
