@@ -295,7 +295,7 @@ class IfNode(NodeModel):
     @property
     def prospective_nodes(self) -> dict[str, NodeModel]:
         nodes = {}
-        for n, case in enumerate(self.cases):
+        for case in self.cases:
             nodes[case.condition.label] = case.condition.node
             nodes[case.body.label] = case.body.node
         nodes[self.else_case.label] = self.else_case.node
@@ -354,7 +354,9 @@ class IfNode(NodeModel):
         Targets must match outputs, and each target must have one source per child
         node.
         """
-        expected_nodes = [case.body.label for case in self.cases] + [self.else_case.label]
+        expected_nodes = [case.body.label for case in self.cases] + [
+            self.else_case.label
+        ]
 
         invalid = {}
         for target, sources in self.output_edges_matrix.items():

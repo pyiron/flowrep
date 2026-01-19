@@ -23,43 +23,48 @@ def _make_body(inputs=None, outputs=None) -> model.AtomicNode:
 
 def _make_case(n: int, inputs=None, outputs=None) -> model.ConditionalCase:
     return model.ConditionalCase(
-        condition=model.LabeledNode(label=f"condition_{n}", node=_make_condition(inputs=inputs)),
+        condition=model.LabeledNode(
+            label=f"condition_{n}", node=_make_condition(inputs=inputs)
+        ),
         body=model.LabeledNode(label=f"body_{n}", node=_make_body(outputs=outputs)),
     )
+
 
 def _make_else(inputs=None, outputs=None) -> model.LabeledNode:
     return model.LabeledNode(
         label="else_body", node=_make_body(inputs=inputs, outputs=outputs)
     )
 
+
 def _make_input_edges(cases):
     return {
-        model.TargetHandle(
-            node=case.body.label, port="x"
-        ): model.InputSource(port="inp")
+        model.TargetHandle(node=case.body.label, port="x"): model.InputSource(
+            port="inp"
+        )
         for case in cases
     }
 
+
 def _make_output_edges(cases, else_case):
-    sources = [
-        model.SourceHandle(node=case.body.label, port="y")
-        for case in cases
-    ] + [model.SourceHandle(node=else_case.label, port="y")]
+    sources = [model.SourceHandle(node=case.body.label, port="y") for case in cases] + [
+        model.SourceHandle(node=else_case.label, port="y")
+    ]
     return {model.OutputTarget(port="out"): sources}
 
 
 def _make_valid_if_node(n_cases=1):
-        cases = [_make_case(n) for n in range(n_cases)]
-        else_case = _make_else()
+    cases = [_make_case(n) for n in range(n_cases)]
+    else_case = _make_else()
 
-        return model.IfNode(
-            inputs=["inp"],
-            outputs=["out"],
-            cases=cases,
-            else_case=else_case,
-            input_edges=_make_input_edges(cases),
-            output_edges_matrix=_make_output_edges(cases, else_case)
-        )
+    return model.IfNode(
+        inputs=["inp"],
+        outputs=["out"],
+        cases=cases,
+        else_case=else_case,
+        input_edges=_make_input_edges(cases),
+        output_edges_matrix=_make_output_edges(cases, else_case),
+    )
+
 
 class TestIfNodeBasicConstruction(unittest.TestCase):
     def test_valid_single_case(self):
@@ -121,10 +126,14 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             },
         )
 
-        cases = [model.ConditionalCase(
-            condition=model.LabeledNode(label="workflow_condition", node=workflow_condition),
-            body=model.LabeledNode(label="body", node=_make_body()),
-        )]
+        cases = [
+            model.ConditionalCase(
+                condition=model.LabeledNode(
+                    label="workflow_condition", node=workflow_condition
+                ),
+                body=model.LabeledNode(label="body", node=_make_body()),
+            )
+        ]
         else_case = _make_else()
 
         node = model.IfNode(
@@ -210,9 +219,9 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
             cases=cases,  # body has input "x"
             else_case=else_case,
             input_edges={
-                model.TargetHandle(
-                    node=else_case.label, port="x"
-                ): model.InputSource(port="inp"),
+                model.TargetHandle(node=else_case.label, port="x"): model.InputSource(
+                    port="inp"
+                ),
             },
             output_edges_matrix=_make_output_edges(cases, else_case),
         )
@@ -232,9 +241,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 input_edges=_make_input_edges(cases),
                 output_edges_matrix={
                     model.OutputTarget(port="out"): [
-                        model.SourceHandle(
-                            node=cases[0].body.label, port="y"
-                        ),
+                        model.SourceHandle(node=cases[0].body.label, port="y"),
                         # Missing cases[1].body.label entry
                         model.SourceHandle(node=else_case.label, port="y"),
                     ]
@@ -255,12 +262,8 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 input_edges=_make_input_edges(cases),
                 output_edges_matrix={
                     model.OutputTarget(port="out"): [
-                        model.SourceHandle(
-                            node=cases[0].body.label, port="y"
-                        ),
-                        model.SourceHandle(
-                            node=cases[1].body.label, port="y"
-                        ),
+                        model.SourceHandle(node=cases[0].body.label, port="y"),
+                        model.SourceHandle(node=cases[1].body.label, port="y"),
                         # Missing else
                     ]
                 },
@@ -330,7 +333,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                     model.OutputTarget(port="extra"): [  # Not in outputs
                         model.SourceHandle(node=cases[0].body.label, port="y"),
                         model.SourceHandle(node=else_case.label, port="y"),
-                    ]
+                    ],
                 },
             )
         exc_str = str(ctx.exception)
@@ -365,7 +368,9 @@ class TestIfNodeSerialization(unittest.TestCase):
                 restored = model.IfNode.model_validate(data)
                 self.assertEqual(len(restored.cases), 3)
                 self.assertEqual(len(restored.input_edges), 3)
-                self.assertEqual(len(restored.output_edges_matrix[model.OutputTarget(port="out")]), 4)
+                self.assertEqual(
+                    len(restored.output_edges_matrix[model.OutputTarget(port="out")]), 4
+                )
 
     def test_roundtrip_with_condition_output(self):
         condition = model.AtomicNode(
@@ -378,11 +383,13 @@ class TestIfNodeSerialization(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
         )
-        cases = [model.ConditionalCase(
-            condition=model.LabeledNode(label="condition", node=condition),
-            body=model.LabeledNode(label="body", node=body),
-            condition_output="a"
-        )]
+        cases = [
+            model.ConditionalCase(
+                condition=model.LabeledNode(label="condition", node=condition),
+                body=model.LabeledNode(label="body", node=body),
+                condition_output="a",
+            )
+        ]
         else_case = _make_else()
         original = model.IfNode(
             inputs=["inp"],
@@ -491,9 +498,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
                 output_edges_matrix={
                     model.OutputTarget(port="out"): [
                         model.SourceHandle(node=cases[0].body.label, port="y"),
-                        model.SourceHandle(
-                            node=else_case.label, port="nonexistent"
-                        ),
+                        model.SourceHandle(node=else_case.label, port="nonexistent"),
                     ]
                 },
             )
@@ -508,10 +513,12 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
             inputs=["x"],
             outputs=["out1", "out2"],
         )
-        cases = [model.ConditionalCase(
-            condition=model.LabeledNode(label="condition", node=_make_condition()),
-            body=model.LabeledNode(label="body", node=body_node)
-        )]
+        cases = [
+            model.ConditionalCase(
+                condition=model.LabeledNode(label="condition", node=_make_condition()),
+                body=model.LabeledNode(label="body", node=body_node),
+            )
+        ]
         node = model.IfNode(
             inputs=["inp"],
             outputs=["a", "b"],
