@@ -257,23 +257,28 @@ class WhileNode(NodeModel):
     )
 
 
-class CaseModel(pydantic.BaseModel):
-    condition: NodeModel
-    body: NodeModel
+class LabeledNode(pydantic.BaseModel):
+    label: str
+    node: NodeModel
+
+
+class ConditionalCase(pydantic.BaseModel):
+    condition: LabeledNode
+    body: LabeledNode
     condition_output: str | None = None
 
     @pydantic.model_validator(mode="after")
     def validate_condition_is_accessible(self):
         if self.condition_output is None:
-            if len(self.condition.outputs) != 1:
+            if len(self.condition.node.outputs) != 1:
                 raise ValueError(
                     f"condition must have exactly one output if condition_output is not "
-                    f"provided. Got condition outputs: {self.condition.outputs}"
+                    f"provided. Got condition outputs: {self.condition.node.outputs}"
                 )
-        elif self.condition_output not in self.condition.outputs:
+        elif self.condition_output not in self.condition.node.outputs:
             raise ValueError(
                 f"condition_output '{self.condition_output}' is not found among "
-                f"available outputs: {self.condition.outputs}"
+                f"available outputs: {self.condition.node.outputs}"
             )
         return self
 
@@ -282,30 +287,18 @@ class IfNode(NodeModel):
     type: Literal[RecipeElementType.IF] = pydantic.Field(
         default=RecipeElementType.IF, frozen=True
     )
-    cases: list[CaseModel]
-    else_case: NodeModel
+    cases: list[ConditionalCase]
+    else_case: LabeledNode
     input_edges: dict[TargetHandle, InputSource]
     output_edges_matrix: dict[OutputTarget, list[SourceHandle]]
-
-    @staticmethod
-    def condition_name(n: int):
-        return f"condition_{n}"
-
-    @staticmethod
-    def body_name(n: int):
-        return f"body_{n}"
-
-    @staticmethod
-    def else_name():
-        return "else"
 
     @property
     def prospective_nodes(self) -> dict[str, NodeModel]:
         nodes = {}
         for n, case in enumerate(self.cases):
-            nodes[self.condition_name(n)] = case.condition
-            nodes[self.body_name(n)] = case.body
-        nodes[self.else_name()] = self.else_case
+            nodes[case.condition.label] = case.condition.node
+            nodes[case.body.label] = case.body.node
+        nodes[self.else_case.label] = self.else_case.node
         return nodes
 
     @pydantic.field_validator("cases")
@@ -361,10 +354,7 @@ class IfNode(NodeModel):
         Targets must match outputs, and each target must have one source per child
         node.
         """
-        n_cases = len(self.cases)
-        expected_nodes = [self.body_name(i) for i in range(n_cases)] + [
-            self.else_name()
-        ]
+        expected_nodes = [case.body.label for case in self.cases] + [self.else_case.label]
 
         invalid = {}
         for target, sources in self.output_edges_matrix.items():
