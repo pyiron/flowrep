@@ -284,8 +284,8 @@ class IfNode(NodeModel):
     )
     cases: list[CaseModel]
     else_case: NodeModel
-    input_edges: dict[TargetHandle, SourceHandle]
-    output_edges_matrix: dict[TargetHandle, list[SourceHandle]]
+    input_edges: dict[TargetHandle, InputSource]
+    output_edges_matrix: dict[OutputTarget, list[SourceHandle]]
 
     @staticmethod
     def condition_name(n: int):
@@ -304,17 +304,6 @@ class IfNode(NodeModel):
     def validate_cases_not_empty(cls, v):
         if len(v) < 1:
             raise ValueError("If nodes must have at least one explicit case")
-        return v
-
-    @pydantic.field_validator("input_edges")
-    @classmethod
-    def validate_input_edges_sources_are_parent_node(cls, v):
-        invalid = {source.node for source in v.values() if source.node is not None}
-        if invalid:
-            raise ValueError(
-                f"input_edges sources must have node=None -- i.e. map data from parent "
-                f"input to child nodes. Got source nodes: {invalid}"
-            )
         return v
 
     @pydantic.model_validator(mode="after")
@@ -365,18 +354,6 @@ class IfNode(NodeModel):
             return self.cases[idx].body
         else:
             raise ValueError(f"Unknown child node name: {name}")
-
-    @pydantic.field_validator("output_edges_matrix")
-    @classmethod
-    def validate_output_edges_targets_are_parent_node(cls, v):
-        invalid = {target.node for target in v if target.node is not None}
-        if invalid:
-            raise ValueError(
-                f"output_edges_matrix targets must have node=None -- i.e. map data "
-                f"from child nodes to parent output. Got invalid target nodes: "
-                f"{invalid}"
-            )
-        return v
 
     @pydantic.model_validator(mode="after")
     def validate_output_edges_matrix_keys_match_outputs(self):

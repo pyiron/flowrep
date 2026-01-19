@@ -33,7 +33,7 @@ class TestIfNodeBasicConstruction(unittest.TestCase):
         input_edges = {
             model.TargetHandle(
                 node=model.IfNode.condition_name(i), port="x"
-            ): model.SourceHandle(node=None, port="inp")
+            ): model.InputSource(port="inp")
             for i in range(n_cases)
         }
 
@@ -42,7 +42,7 @@ class TestIfNodeBasicConstruction(unittest.TestCase):
             for i in range(n_cases)
         ] + [model.SourceHandle(node=model.IfNode.else_name(), port="y")]
 
-        output_edges = {model.TargetHandle(node=None, port="out"): expected_sources}
+        output_edges = {model.OutputTarget(port="out"): expected_sources}
 
         return model.IfNode(
             inputs=["inp"],
@@ -102,7 +102,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
                 else_case=self._make_body(),
                 input_edges={},
                 output_edges_matrix={
-                    model.TargetHandle(node=None, port="out"): [
+                    model.OutputTarget(port="out"): [
                         model.SourceHandle(node=model.IfNode.else_name(), port="y")
                     ]
                 },
@@ -120,11 +120,12 @@ class TestIfNodeCasesValidation(unittest.TestCase):
                     outputs=["b"],
                 )
             },
-            edges={
-                model.TargetHandle(node="inner", port="a"): model.SourceHandle(
-                    node=None, port="x"
-                ),
-                model.TargetHandle(node=None, port="result"): model.SourceHandle(
+            input_edges={
+                model.TargetHandle(node="inner", port="a"): model.InputSource(port="x"),
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="result"): model.SourceHandle(
                     node="inner", port="b"
                 ),
             },
@@ -143,10 +144,10 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             input_edges={
                 model.TargetHandle(
                     node=model.IfNode.condition_name(0), port="x"
-                ): model.SourceHandle(node=None, port="inp")
+                ): model.InputSource(port="inp")
             },
             output_edges_matrix={
-                model.TargetHandle(node=None, port="out"): [
+                model.OutputTarget(port="out"): [
                     model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                     model.SourceHandle(node=model.IfNode.else_name(), port="y"),
                 ]
@@ -181,27 +182,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
             model.SourceHandle(node=model.IfNode.body_name(i), port="y")
             for i in range(n_cases)
         ] + [model.SourceHandle(node=model.IfNode.else_name(), port="y")]
-        return {model.TargetHandle(node=None, port="out"): sources}
-
-    def test_input_edges_source_with_node_rejected(self):
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
-                inputs=["inp"],
-                outputs=["out"],
-                cases=[self._make_case()],
-                else_case=self._make_body(),
-                input_edges={
-                    model.TargetHandle(
-                        node=model.IfNode.condition_name(0), port="x"
-                    ): model.SourceHandle(
-                        node="some_node", port="y"
-                    )  # Should be None
-                },
-                output_edges_matrix=self._make_output_edges(1),
-            )
-        exc_str = str(ctx.exception)
-        self.assertIn("node=None", exc_str)
-        self.assertIn("some_node", exc_str)
+        return {model.OutputTarget(port="out"): sources}
 
     def test_input_edges_valid_source_none(self):
         node = model.IfNode(
@@ -212,7 +193,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
             input_edges={
                 model.TargetHandle(
                     node=model.IfNode.condition_name(0), port="x"
-                ): model.SourceHandle(node=None, port="inp")
+                ): model.InputSource(port="inp")
             },
             output_edges_matrix=self._make_output_edges(1),
         )
@@ -228,7 +209,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
                 input_edges={
                     model.TargetHandle(
                         node="invalid_name", port="x"
-                    ): model.SourceHandle(node=None, port="inp")
+                    ): model.InputSource(port="inp")
                 },
                 output_edges_matrix=self._make_output_edges(1),
             )
@@ -245,12 +226,10 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
                 input_edges={
                     model.TargetHandle(
                         node=model.IfNode.condition_name(0), port="x"
-                    ): model.SourceHandle(node=None, port="inp"),
+                    ): model.InputSource(port="inp"),
                     model.TargetHandle(
-                        node=model.IfNode.condition_name(5), port="x"
-                    ): model.SourceHandle(  # Out of range
-                        node=None, port="inp"
-                    ),
+                        node=model.IfNode.condition_name(5), port="x"  # Out of range
+                    ): model.InputSource(port="inp"),
                 },
                 output_edges_matrix=self._make_output_edges(1),
             )
@@ -267,10 +246,10 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
             input_edges={
                 model.TargetHandle(
                     node=model.IfNode.condition_name(0), port="x"
-                ): model.SourceHandle(node=None, port="inp"),
+                ): model.InputSource(port="inp"),
                 model.TargetHandle(
                     node=model.IfNode.body_name(0), port="x"
-                ): model.SourceHandle(node=None, port="inp"),
+                ): model.InputSource(port="inp"),
             },
             output_edges_matrix=self._make_output_edges(1),
         )
@@ -286,10 +265,10 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
             input_edges={
                 model.TargetHandle(
                     node=model.IfNode.condition_name(0), port="x"
-                ): model.SourceHandle(node=None, port="inp"),
+                ): model.InputSource(port="inp"),
                 model.TargetHandle(
                     node=model.IfNode.else_name(), port="x"
-                ): model.SourceHandle(node=None, port="inp"),
+                ): model.InputSource(port="inp"),
             },
             output_edges_matrix=self._make_output_edges(1),
         )
@@ -321,31 +300,9 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         return {
             model.TargetHandle(
                 node=model.IfNode.condition_name(i), port="x"
-            ): model.SourceHandle(node=None, port="inp")
+            ): model.InputSource(port="inp")
             for i in range(n_cases)
         }
-
-    def test_output_edges_matrix_target_with_node_rejected(self):
-        """output_edges targets must have node=None."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
-                inputs=["inp"],
-                outputs=["out"],
-                cases=[self._make_case()],
-                else_case=self._make_body(),
-                input_edges=self._make_input_edges(1),
-                output_edges_matrix={
-                    model.TargetHandle(
-                        node="some_node", port="out"
-                    ): [  # Should be None
-                        model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
-                        model.SourceHandle(node=model.IfNode.else_name(), port="y"),
-                    ]
-                },
-            )
-        exc_str = str(ctx.exception)
-        self.assertIn("node=None", exc_str)
-        self.assertIn("some_node", exc_str)
 
     def test_output_edges_matrix_valid_target_none(self):
         node = model.IfNode(
@@ -355,7 +312,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
             else_case=self._make_body(),
             input_edges=self._make_input_edges(1),
             output_edges_matrix={
-                model.TargetHandle(node=None, port="out"): [
+                model.OutputTarget(port="out"): [
                     model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                     model.SourceHandle(node=model.IfNode.else_name(), port="y"),
                 ]
@@ -372,7 +329,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 else_case=self._make_body(),
                 input_edges=self._make_input_edges(2),
                 output_edges_matrix={
-                    model.TargetHandle(node=None, port="out"): [
+                    model.OutputTarget(port="out"): [
                         model.SourceHandle(
                             node=model.IfNode.body_name(0), port="y"
                         ),  # Missing body_1
@@ -392,7 +349,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 else_case=self._make_body(),
                 input_edges=self._make_input_edges(1),
                 output_edges_matrix={
-                    model.TargetHandle(node=None, port="out"): [
+                    model.OutputTarget(port="out"): [
                         model.SourceHandle(
                             node=model.IfNode.body_name(0), port="y"
                         ),  # Missing else
@@ -411,7 +368,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 else_case=self._make_body(),
                 input_edges=self._make_input_edges(1),
                 output_edges_matrix={
-                    model.TargetHandle(node=None, port="out"): [
+                    model.OutputTarget(port="out"): [
                         model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                         model.SourceHandle(node=model.IfNode.else_name(), port="y"),
                         model.SourceHandle(node="extra_node", port="z"),  # Extra source
@@ -430,7 +387,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 else_case=self._make_body(),
                 input_edges=self._make_input_edges(1),
                 output_edges_matrix={
-                    model.TargetHandle(node=None, port="out"): [  # Only one edge
+                    model.OutputTarget(port="out"): [  # Only one edge
                         model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                         model.SourceHandle(node=model.IfNode.else_name(), port="y"),
                     ]
@@ -450,11 +407,11 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 else_case=self._make_body(),
                 input_edges=self._make_input_edges(1),
                 output_edges_matrix={
-                    model.TargetHandle(node=None, port="out"): [
+                    model.OutputTarget(port="out"): [
                         model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                         model.SourceHandle(node=model.IfNode.else_name(), port="y"),
                     ],
-                    model.TargetHandle(node=None, port="extra"): [  # Not in outputs
+                    model.OutputTarget(port="extra"): [  # Not in outputs
                         model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                         model.SourceHandle(node=model.IfNode.else_name(), port="y"),
                     ],
@@ -485,11 +442,11 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
             else_case=body_node,
             input_edges=self._make_input_edges(1),
             output_edges_matrix={
-                model.TargetHandle(node=None, port="out1"): [
+                model.OutputTarget(port="out1"): [
                     model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                     model.SourceHandle(node=model.IfNode.else_name(), port="y"),
                 ],
-                model.TargetHandle(node=None, port="out2"): [
+                model.OutputTarget(port="out2"): [
                     model.SourceHandle(node=model.IfNode.body_name(0), port="z"),
                     model.SourceHandle(node=model.IfNode.else_name(), port="z"),
                 ],
@@ -537,10 +494,10 @@ class TestIfNodeSerialization(unittest.TestCase):
             input_edges={
                 model.TargetHandle(
                     node=model.IfNode.condition_name(0), port="x"
-                ): model.SourceHandle(node=None, port="inp")
+                ): model.InputSource(port="inp")
             },
             output_edges_matrix={
-                model.TargetHandle(node=None, port="out"): [
+                model.OutputTarget(port="out"): [
                     model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                     model.SourceHandle(node=model.IfNode.else_name(), port="y"),
                 ]
@@ -595,10 +552,10 @@ class TestIfNodeInWorkflow(unittest.TestCase):
             input_edges={
                 model.TargetHandle(
                     node=model.IfNode.condition_name(0), port="x"
-                ): model.SourceHandle(node=None, port="inp")
+                ): model.InputSource(port="inp")
             },
             output_edges_matrix={
-                model.TargetHandle(node=None, port="out"): [
+                model.OutputTarget(port="out"): [
                     model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                     model.SourceHandle(node=model.IfNode.else_name(), port="y"),
                 ]
@@ -609,18 +566,20 @@ class TestIfNodeInWorkflow(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={"if_block": if_node},
-            edges={
-                model.TargetHandle(node="if_block", port="inp"): model.SourceHandle(
-                    node=None, port="x"
+            input_edges={
+                model.TargetHandle(node="if_block", port="inp"): model.InputSource(
+                    port="x"
                 ),
-                model.TargetHandle(node=None, port="y"): model.SourceHandle(
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="y"): model.SourceHandle(
                     node="if_block", port="out"
                 ),
             },
         )
 
         self.assertIsInstance(workflow.nodes["if_block"], model.IfNode)
-        self.assertEqual(len(workflow.edges), 2)
 
 
 class TestIfNodeInputEdgesPortValidation(unittest.TestCase):
@@ -649,7 +608,7 @@ class TestIfNodeInputEdgesPortValidation(unittest.TestCase):
             model.SourceHandle(node=model.IfNode.body_name(i), port="y")
             for i in range(n_cases)
         ] + [model.SourceHandle(node=model.IfNode.else_name(), port="y")]
-        return {model.TargetHandle(node=None, port="out"): sources}
+        return {model.OutputTarget(port="out"): sources}
 
     def test_input_edges_invalid_target_port(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -661,7 +620,7 @@ class TestIfNodeInputEdgesPortValidation(unittest.TestCase):
                 input_edges={
                     model.TargetHandle(
                         node=model.IfNode.condition_name(0), port="nonexistent"
-                    ): model.SourceHandle(node=None, port="inp")
+                    ): model.InputSource(port="inp")
                 },
                 output_edges_matrix=self._make_output_edges(1),
             )
@@ -684,13 +643,13 @@ class TestIfNodeInputEdgesPortValidation(unittest.TestCase):
             input_edges={
                 model.TargetHandle(
                     node=model.IfNode.condition_name(0), port="a"
-                ): model.SourceHandle(node=None, port="inp1"),
+                ): model.InputSource(port="inp1"),
                 model.TargetHandle(
                     node=model.IfNode.condition_name(0), port="b"
-                ): model.SourceHandle(node=None, port="inp2"),
+                ): model.InputSource(port="inp2"),
             },
             output_edges_matrix={
-                model.TargetHandle(node=None, port="out"): [
+                model.OutputTarget(port="out"): [
                     model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                     model.SourceHandle(node=model.IfNode.else_name(), port="y"),
                 ]
@@ -724,7 +683,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
         return {
             model.TargetHandle(
                 node=model.IfNode.condition_name(i), port="x"
-            ): model.SourceHandle(node=None, port="inp")
+            ): model.InputSource(port="inp")
             for i in range(n_cases)
         }
 
@@ -738,7 +697,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
                 else_case=self._make_body(),
                 input_edges=self._make_input_edges(1),
                 output_edges_matrix={
-                    model.TargetHandle(node=None, port="out"): [
+                    model.OutputTarget(port="out"): [
                         model.SourceHandle(
                             node=model.IfNode.body_name(0), port="nonexistent"
                         ),
@@ -760,7 +719,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
                 else_case=self._make_body(),  # has output "y"
                 input_edges=self._make_input_edges(1),
                 output_edges_matrix={
-                    model.TargetHandle(node=None, port="out"): [
+                    model.OutputTarget(port="out"): [
                         model.SourceHandle(node=model.IfNode.body_name(0), port="y"),
                         model.SourceHandle(
                             node=model.IfNode.else_name(), port="nonexistent"
@@ -787,11 +746,11 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
             else_case=body_node,
             input_edges=self._make_input_edges(1),
             output_edges_matrix={
-                model.TargetHandle(node=None, port="a"): [
+                model.OutputTarget(port="a"): [
                     model.SourceHandle(node=model.IfNode.body_name(0), port="out1"),
                     model.SourceHandle(node=model.IfNode.else_name(), port="out1"),
                 ],
-                model.TargetHandle(node=None, port="b"): [
+                model.OutputTarget(port="b"): [
                     model.SourceHandle(node=model.IfNode.body_name(0), port="out2"),
                     model.SourceHandle(node=model.IfNode.else_name(), port="out2"),
                 ],
