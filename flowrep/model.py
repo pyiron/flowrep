@@ -277,6 +277,7 @@ class CaseModel(pydantic.BaseModel):
             )
         return self
 
+
 class IfNode(NodeModel):
     type: Literal[RecipeElementType.IF] = pydantic.Field(
         default=RecipeElementType.IF, frozen=True
