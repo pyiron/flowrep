@@ -650,6 +650,9 @@ class TestWorkflow(unittest.TestCase):
             fwf.get_hashed_node_dict(workflow_dict),
             fwf.get_hashed_node_dict(workflow_with_data.run(a=10, b=20)),
         )
+        workflow_dict = example_workflow.run(a=10, b=20)
+        hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
+        self.assertIn("example_workflow-example_macro_0-operation_0", hashed_dict)
 
         @fwf.workflow
         def workflow_with_class(test: TestClass):
