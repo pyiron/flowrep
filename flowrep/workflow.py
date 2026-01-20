@@ -118,14 +118,14 @@ class FunctionDictFlowAnalyzer:
 
     def _handle_if(self, node, control_flow: str | None = None):
         assert node["test"]["_type"] == "Call"
-        control_flow = self._convert_control_flow(control_flow, tag="If")
+        control_flow = self._convert_control_flow(control_flow, tag="if")
         self._parse_function_call(node["test"], control_flow=f"{control_flow}-test")
         for n in node["body"]:
             self._visit_node(n, control_flow=f"{control_flow}-body")
         for n in node.get("orelse", []):
             cf_else = "/".join(
                 control_flow.split("/")[:-1]
-                + [control_flow.split("/")[-1].replace("If", "Else") + "-body"]
+                + [control_flow.split("/")[-1].replace("if", "else") + "-body"]
             )
             self._visit_node(n, control_flow=cf_else)
             self._reconnect_parallel(cf_else, f"{control_flow}-body")
@@ -172,14 +172,14 @@ class FunctionDictFlowAnalyzer:
 
     def _handle_while(self, node, control_flow: str | None = None):
         assert node["test"]["_type"] == "Call"
-        control_flow = self._convert_control_flow(control_flow, tag="While")
+        control_flow = self._convert_control_flow(control_flow, tag="while")
         self._parse_function_call(node["test"], control_flow=f"{control_flow}-test")
         for n in node["body"]:
             self._visit_node(n, control_flow=f"{control_flow}-body")
 
     def _handle_for(self, node, control_flow: str | None = None):
         assert node["iter"]["_type"] == "Call"
-        control_flow = self._convert_control_flow(control_flow, tag="For")
+        control_flow = self._convert_control_flow(control_flow, tag="for")
 
         unique_func_name = self._parse_function_call(
             node["iter"], control_flow=f"{control_flow}-iter"
@@ -477,7 +477,7 @@ def _get_subgraphs(graph: nx.DiGraph, cf_graph: nx.DiGraph) -> dict[str, nx.DiGr
     subgraphs = _split_graphs_into_subgraphs(graph)
     for key in list(topological_sort(cf_graph))[::-1]:
         subgraph = subgraphs[key]
-        node_name = "injected_" + key.replace("/", "_")
+        node_name = key
         io_ = _detect_io_variables_from_control_flow(graph, subgraph)
         for parent_graph_name in cf_graph.predecessors(key):
             parent_graph = subgraphs[parent_graph_name]
@@ -663,7 +663,7 @@ def _get_edges(
             edges.append([f"{edge[0]}.outputs.{tag}", edge[1]])
             nodes_to_remove.append(edge[1])
     new_graph = _remove_and_reconnect_nodes(nx.DiGraph(edges), nodes_to_remove)
-    return list(new_graph.edges)
+    return [tuple(e.split("/")[-1] for e in edge) for edge in new_graph.edges]
 
 
 def get_node_dict(
@@ -746,23 +746,25 @@ def _nest_nodes(
     injected_nodes: dict[str, Any] = {}
     for cf_key in list(topological_sort(cf_graph))[::-1]:
         subgraph = nx.relabel_nodes(subgraphs[cf_key], test_dict)
-        new_key = "injected_" + cf_key.replace("/", "_") if len(cf_key) > 0 else cf_key
+        new_key = cf_key if len(cf_key) > 0 else cf_key
         current_nodes = {}
         output_mapping = {}
         for key in _extract_functions_from_graph(subgraphs[cf_key]):
+            dict_key = key.split("/")[-1]
             if key in test_dict:
                 current_nodes[test_dict[key]] = nodes[key]
             elif key in nodes:
-                current_nodes[key] = nodes[key]
-                if "outputs" in current_nodes[key]:
+                current_nodes[dict_key] = nodes[key]
+                if "outputs" in current_nodes[dict_key]:
                     output_mapping[key] = list(current_nodes[key]["outputs"].keys())
-                    current_nodes[key].pop("outputs")
+                    current_nodes[dict_key].pop("outputs")
             else:
-                current_nodes[key] = injected_nodes.pop(key)
+                current_nodes[dict_key] = injected_nodes.pop(key)
         injected_nodes[new_key] = {
             "nodes": current_nodes,
             "edges": _get_edges(graph=subgraph, output_mapping=output_mapping),
-            "label": new_key,
+            "label": new_key.split("/")[-1],
+            "type": cf_key.split("/")[-1].split("_")[0] if cf_key != "" else "Workflow",
         }
         for tag in ["test", "iter"]:
             if tag in injected_nodes[new_key]["nodes"]:
