@@ -504,7 +504,8 @@ class TestWorkflow(unittest.TestCase):
         self.assertIn("while_0_while_0", data["nodes"]["while_0"]["nodes"])
         self.assertIn("while_0_for_0", data["nodes"]["while_0"]["nodes"])
         self.assertEqual(
-            data["nodes"]["while_0"]["nodes"]["while_0_for_0"]["type"], "for",
+            data["nodes"]["while_0"]["nodes"]["while_0_for_0"]["type"],
+            "for",
         )
 
     def test_for_loop(self):
