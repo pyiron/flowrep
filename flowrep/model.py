@@ -133,6 +133,7 @@ class HandleModel(pydantic.BaseModel):
     - subgraph child A output -> subgraph child B input
     - subgraph child output -> parent output
     """
+
     model_config = pydantic.ConfigDict(frozen=True)
     node: str | None
     port: str
@@ -165,11 +166,13 @@ class TargetHandle(HandleModel):
 
 class InputSource(HandleModel):
     """For negotiating the flow of data from a parent scope into a subgraph"""
+
     node: None = pydantic.Field(default=None, frozen=True)
 
 
 class OutputTarget(HandleModel):
     """For negotiating the flow of data from inside a subgraph up to the parent scope"""
+
     node: None = pydantic.Field(default=None, frozen=True)
 
 
