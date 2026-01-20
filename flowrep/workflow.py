@@ -1073,9 +1073,12 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
         G.add_node(f"outputs.{out}", step="output", **data)
 
     nodes_to_delete = []
+    if "test" in workflow_dict:
+        G.add_node("test", step="node", function=workflow_dict["test"]["function"])
+    if "iter" in workflow_dict:
+        G.add_node("iter", step="node", function=workflow_dict["iter"]["function"])
     for key, node in workflow_dict["nodes"].items():
-        assert node["type"] in ["Function", "Workflow"]
-        if node["type"] == "Workflow":
+        if node["type"] != "Function":
             G = nx.union(get_workflow_graph(node), G)
             nodes_to_delete.append(key)
         else:
