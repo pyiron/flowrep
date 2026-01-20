@@ -763,6 +763,7 @@ def _nest_nodes(
             "nodes": current_nodes,
             "edges": _get_edges(graph=subgraph, output_mapping=output_mapping),
             "label": new_key,
+            "type": cf_key.split("/")[-1].split("_")[0] if cf_key != "" else "Workflow",
         }
         for tag in ["test", "iter"]:
             if tag in injected_nodes[new_key]["nodes"]:
