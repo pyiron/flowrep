@@ -507,7 +507,12 @@ class TestWorkflow(unittest.TestCase):
         self.assertIn(
             "injected_While_0_For_0", data["nodes"]["injected_While_0"]["nodes"]
         )
-        self.assertEqual(data["nodes"]["injected_While_0"]["nodes"]["injected_While_0_For_0"]["type"], "For")
+        self.assertEqual(
+            data["nodes"]["injected_While_0"]["nodes"]["injected_While_0_For_0"][
+                "type"
+            ],
+            "For",
+        )
 
     def test_for_loop(self):
         data = fwf.get_workflow_dict(workflow_with_for)
