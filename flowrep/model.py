@@ -120,6 +120,19 @@ class AtomicNode(NodeModel):
 
 
 class HandleModel(pydantic.BaseModel):
+    """
+    A pair of source (i.e. sending) and target (i.e. receiving) handle models represent
+    a graph edge.
+
+    To negotiate the flow of data into and out of subgraphs, we allow the `node` field
+    to take on `None` values, representing that the port comes from the local scope of
+    the parent node owning the sub-graph. Whether the port reference is to parent
+    input or output is always implicit from its position as source or target.
+    Data flows:
+    - parent input -> subgraph child input
+    - subgraph child A output -> subgraph child B input
+    - subgraph child output -> parent output
+    """
     model_config = pydantic.ConfigDict(frozen=True)
     node: str | None
     port: str
@@ -151,10 +164,12 @@ class TargetHandle(HandleModel):
 
 
 class InputSource(HandleModel):
+    """For negotiating the flow of data from a parent scope into a subgraph"""
     node: None = pydantic.Field(default=None, frozen=True)
 
 
 class OutputTarget(HandleModel):
+    """For negotiating the flow of data from inside a subgraph up to the parent scope"""
     node: None = pydantic.Field(default=None, frozen=True)
 
 
