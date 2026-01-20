@@ -440,9 +440,9 @@ class TestWorkflow(unittest.TestCase):
 
     def test_workflow_with_while(self):
         wf = fwf.workflow(workflow_with_while).serialize_workflow()
-        self.assertIn("injected_While_0", wf["nodes"])
+        self.assertIn("while_0", wf["nodes"])
         self.assertEqual(
-            sorted(wf["nodes"]["injected_While_0"]["edges"]),
+            sorted(wf["nodes"]["while_0"]["edges"]),
             sorted(
                 [
                     ("inputs.x", "test.inputs.a"),
@@ -456,8 +456,8 @@ class TestWorkflow(unittest.TestCase):
                 ]
             ),
         )
-        self.assertIn("add_1", wf["nodes"]["injected_While_0"]["nodes"])
-        self.assertIn("multiply_0", wf["nodes"]["injected_While_0"]["nodes"])
+        self.assertIn("add_1", wf["nodes"]["while_0"]["nodes"])
+        self.assertIn("multiply_0", wf["nodes"]["while_0"]["nodes"])
 
     def test_reused_args(self):
         data = fwf.get_workflow_dict(reused_args)
@@ -499,33 +499,29 @@ class TestWorkflow(unittest.TestCase):
 
     def test_multiple_nested_workflow(self):
         data = fwf.get_workflow_dict(multiple_nested_workflow)
-        self.assertIn("injected_While_0", data["nodes"])
-        self.assertIn(
-            "injected_While_0_While_0", data["nodes"]["injected_While_0"]["nodes"]
-        )
-        self.assertIn(
-            "injected_While_0_For_0", data["nodes"]["injected_While_0"]["nodes"]
-        )
+        self.assertIn("while_0", data["nodes"])
+        self.assertIn("while_0_while_0", data["nodes"]["while_0"]["nodes"])
+        self.assertIn("while_0_for_0", data["nodes"]["while_0"]["nodes"])
 
     def test_for_loop(self):
         data = fwf.get_workflow_dict(workflow_with_for)
-        self.assertIn("injected_For_0", data["nodes"])
-        self.assertIn("iter", data["nodes"]["injected_For_0"])
+        self.assertIn("for_0", data["nodes"])
+        self.assertIn("iter", data["nodes"]["for_0"])
         self.assertEqual(
             sorted(data["edges"]),
             sorted(
                 [
-                    ("inputs.a", "injected_For_0.inputs.a"),
-                    ("inputs.b", "injected_For_0.inputs.b"),
+                    ("inputs.a", "for_0.inputs.a"),
+                    ("inputs.b", "for_0.inputs.b"),
                     ("inputs.a", "add_0.inputs.x"),
                     ("inputs.b", "add_0.inputs.y"),
-                    ("add_0.outputs.output", "injected_For_0.inputs.x"),
-                    ("injected_For_0.outputs.z", "outputs.z"),
+                    ("add_0.outputs.output", "for_0.inputs.x"),
+                    ("for_0.outputs.z", "outputs.z"),
                 ]
             ),
         )
         self.assertEqual(
-            sorted(data["nodes"]["injected_For_0"]["edges"]),
+            sorted(data["nodes"]["for_0"]["edges"]),
             sorted(
                 [
                     ("inputs.x", "iter.inputs.a"),
@@ -542,21 +538,21 @@ class TestWorkflow(unittest.TestCase):
 
     def test_if_statement(self):
         data = fwf.get_workflow_dict(workflow_with_if)
-        self.assertIn("injected_If_0", data["nodes"])
+        self.assertIn("if_0", data["nodes"])
         self.assertEqual(
             sorted(data["edges"]),
             sorted(
                 [
-                    ("inputs.b", "injected_If_0.inputs.b"),
+                    ("inputs.b", "if_0.inputs.b"),
                     ("inputs.a", "add_0.inputs.x"),
                     ("inputs.b", "add_0.inputs.y"),
-                    ("add_0.outputs.output", "injected_If_0.inputs.x"),
-                    ("injected_If_0.outputs.x", "outputs.x"),
+                    ("add_0.outputs.output", "if_0.inputs.x"),
+                    ("if_0.outputs.x", "outputs.x"),
                 ]
             ),
         )
         self.assertEqual(
-            sorted(data["nodes"]["injected_If_0"]["edges"]),
+            sorted(data["nodes"]["if_0"]["edges"]),
             sorted(
                 [
                     ("inputs.x", "multiply_0.inputs.x"),
@@ -570,24 +566,24 @@ class TestWorkflow(unittest.TestCase):
 
     def test_if_else_statement(self):
         data = fwf.get_workflow_dict(workflow_with_if_else)
-        self.assertIn("injected_If_0", data["nodes"])
+        self.assertIn("if_0", data["nodes"])
         self.assertEqual(
             sorted(data["edges"]),
             sorted(
                 [
-                    ("inputs.b", "injected_If_0.inputs.b"),
-                    ("inputs.a", "injected_Else_0.inputs.a"),
+                    ("inputs.b", "if_0.inputs.b"),
+                    ("inputs.a", "else_0.inputs.a"),
                     ("inputs.a", "add_0.inputs.x"),
                     ("inputs.b", "add_0.inputs.y"),
-                    ("add_0.outputs.output", "injected_If_0.inputs.x"),
-                    ("add_0.outputs.output", "injected_Else_0.inputs.x"),
-                    ("injected_If_0.outputs.x", "outputs.x"),
-                    ("injected_Else_0.outputs.x", "outputs.x"),
+                    ("add_0.outputs.output", "if_0.inputs.x"),
+                    ("add_0.outputs.output", "else_0.inputs.x"),
+                    ("if_0.outputs.x", "outputs.x"),
+                    ("else_0.outputs.x", "outputs.x"),
                 ]
             ),
         )
         self.assertEqual(
-            sorted(data["nodes"]["injected_If_0"]["edges"]),
+            sorted(data["nodes"]["if_0"]["edges"]),
             sorted(
                 [
                     ("inputs.x", "multiply_0.inputs.x"),
@@ -599,7 +595,7 @@ class TestWorkflow(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            sorted(data["nodes"]["injected_Else_0"]["edges"]),
+            sorted(data["nodes"]["else_0"]["edges"]),
             sorted(
                 [
                     ("inputs.x", "multiply_1.inputs.x"),
