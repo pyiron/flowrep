@@ -458,6 +458,7 @@ class TestWorkflow(unittest.TestCase):
         )
         self.assertIn("add_1", wf["nodes"]["injected_While_0"]["nodes"])
         self.assertIn("multiply_0", wf["nodes"]["injected_While_0"]["nodes"])
+        self.assertEqual(wf["nodes"]["injected_While_0"]["type"], "While")
 
     def test_reused_args(self):
         data = fwf.get_workflow_dict(reused_args)
@@ -505,6 +506,12 @@ class TestWorkflow(unittest.TestCase):
         )
         self.assertIn(
             "injected_While_0_For_0", data["nodes"]["injected_While_0"]["nodes"]
+        )
+        self.assertEqual(
+            data["nodes"]["injected_While_0"]["nodes"]["injected_While_0_For_0"][
+                "type"
+            ],
+            "For",
         )
 
     def test_for_loop(self):
