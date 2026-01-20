@@ -663,7 +663,7 @@ def _get_edges(
             edges.append([f"{edge[0]}.outputs.{tag}", edge[1]])
             nodes_to_remove.append(edge[1])
     new_graph = _remove_and_reconnect_nodes(nx.DiGraph(edges), nodes_to_remove)
-    return list(new_graph.edges)
+    return [tuple(e.split("/")[-1] for e in edge) for edge in new_graph.edges]
 
 
 def get_node_dict(
@@ -750,19 +750,20 @@ def _nest_nodes(
         current_nodes = {}
         output_mapping = {}
         for key in _extract_functions_from_graph(subgraphs[cf_key]):
+            dict_key = key.split("/")[-1]
             if key in test_dict:
                 current_nodes[test_dict[key]] = nodes[key]
             elif key in nodes:
-                current_nodes[key] = nodes[key]
-                if "outputs" in current_nodes[key]:
+                current_nodes[dict_key] = nodes[key]
+                if "outputs" in current_nodes[dict_key]:
                     output_mapping[key] = list(current_nodes[key]["outputs"].keys())
-                    current_nodes[key].pop("outputs")
+                    current_nodes[dict_key].pop("outputs")
             else:
-                current_nodes[key] = injected_nodes.pop(key)
+                current_nodes[dict_key] = injected_nodes.pop(key)
         injected_nodes[new_key] = {
             "nodes": current_nodes,
             "edges": _get_edges(graph=subgraph, output_mapping=output_mapping),
-            "label": new_key,
+            "label": new_key.split("/")[-1],
             "type": cf_key.split("/")[-1].split("_")[0] if cf_key != "" else "Workflow",
         }
         for tag in ["test", "iter"]:
