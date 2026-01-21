@@ -403,39 +403,31 @@ class IfNode(NodeModel):
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_output_edges_matrix_is_complete(self):
-        """
-        Targets must match outputs, and each target must have one source per child
-        node.
-        """
-        expected_nodes = [case.body.label for case in self.cases] + (
-            [self.else_case.label] if self.else_case else []
-        )
-
-        invalid = {}
+    def validate_output_edges_matrix_sources(self):
+        expected_nodes = list(self.prospective_nodes)
         for target, sources in self.output_edges_matrix.items():
             source_nodes = [s.node for s in sources]
-            if source_nodes != expected_nodes:
-                invalid[target.port] = source_nodes
-        if invalid:
-            raise ValueError(
-                f"output_edges_matrix expect to have exactly one source from each "
-                f"case, {expected_nodes}, but got invalid sources: "
-                f"{';'.join(f'{k}: {v}' for k, v in invalid.items())}"
-            )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_output_edges_matrix_source_ports_exist(self):
-        """Validate that output_edges_matrix source ports exist on their nodes."""
-        nodes = self.prospective_nodes
-        for sources in self.output_edges_matrix.values():
+            invalid_nodes = set(source_nodes) - set(expected_nodes)
+            if len(source_nodes) == 0:
+                raise ValueError(
+                    f"output_edges_matrix['{target.port}'] must have at least one source"
+                )
+            if invalid_nodes:
+                raise ValueError(
+                    f"output_edges_matrix['{target.port}'] sources must be from "
+                    f"{expected_nodes}, got invalid sources: {invalid_nodes}"
+                )
+            if not _has_unique_elements(source_nodes):
+                raise ValueError(
+                    f"output_edges_matrix['{target.port}'] must have at most one "
+                    f"source from each other node. Got duplicates in: {source_nodes}"
+                )
             for source in sources:
-                node = nodes[source.node]
+                node = self.prospective_nodes[source.node]
                 if source.port not in node.outputs:
                     raise ValueError(
-                        f"Invalid output_edge source: {source.node} has no output port "
-                        f"'{source.port}'. Available outputs: {node.outputs}"
+                        f"Invalid output_edges_matrix source: {source.node} has no "
+                        f"output port '{source.port}'. Available outputs: {node.outputs}"
                     )
         return self
 
