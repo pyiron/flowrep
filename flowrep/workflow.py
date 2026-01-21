@@ -1079,7 +1079,9 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
         G.add_node("iter", step="node", function=workflow_dict["iter"]["function"])
     for key, node in workflow_dict["nodes"].items():
         if node["type"] != "Function":
-            G = nx.union(get_workflow_graph(node), G)
+            child_G = get_workflow_graph(node)
+            mapping = {n: key + "." + n for n in child_G.nodes()}
+            G = nx.union(nx.relabel_nodes(child_G, mapping), G)
             nodes_to_delete.append(key)
         else:
             G.add_node(key, step="node", function=node["function"])
@@ -1098,8 +1100,7 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
             G.nodes[node]["step"] = "input"
         elif node.split(".")[-2] == "outputs":
             G.nodes[node]["step"] = "output"
-    mapping = {n: workflow_dict["label"] + "." + n for n in G.nodes()}
-    return nx.relabel_nodes(G, mapping, copy=True)
+    return G
 
 
 def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
