@@ -257,11 +257,59 @@ def _has_unique_elements(values: list[Any]) -> bool:
 class ForNode(NodeModel):
     """
     Loop over a body node and collect outputs as a list.
+    This is a dynamic node, which must actualize the body of its subgraph at runtime.
 
     Loops can be done with a combination of nested iteration and zipping values.
     The `transfer_edges` field allows you to optionally indicate which looping values
     should be returned listed alongside the lists of body node outputs, so that outputs
     can be linked directly to the input that generated them.
+
+    Intended recipe realization:
+    1. Assess the number of body executions necessary by examining the lengths of
+        nested and zipped ports, and the length of data on the corresponding inputs.
+        a) The data in all inputs being passed to zipped ports should be
+            length-validated
+        b) The count scales multiplicatively with the data in each input passed to
+            nested ports, and finally multiplied once more by the zipped length (or
+            directly the zipped length if no nested ports are present).
+    2. Create the appropriate number of body node instances in the subgraph
+    3. Broadcast input edges not involved in nested or zipped ports to each child
+    4. Decompose input for input edges used for zipped or nested ports and scatter
+        edges to each child accordingly
+        a) The manner of this decomposition is an implementation detail for which the
+            WfMS is responsible
+    5. Collect output of child nodes into list fields and connect these to the output
+        according to the output edges.
+        a) The manner of this collection is an implementation detail for which the
+            WfMS is responsible
+    6. Collect the looped inputs used for each child as indicated in the transfer edges
+        and connect these to output according to the transfer edges
+        a) The manner of this collection is an implementation detail for which the
+            WfMS is responsible
+
+    Attributes:
+        type: The node type -- always "while".
+        inputs: The available input port names.
+        outputs: The available output port names.
+        input_edges: Edges from workflow inputs to inputs of body node instances.
+        output_edges: Edges from final condition/body outputs to workflow outputs.
+            Keys are workflow output ports, values are sources on condition/body.
+        nested_ports: The body node ports over which to do nested iteration. Input
+            edges will map parent input elements to each child node accordingly.
+        zipped_ports: The body node ports over which to do zipped iteration. Input
+            edges will map parent input elements to each child node accordingly.
+        transfer_edges: Any inputs that are used to forward data to the nested or
+            zipped ports which you wish to have as outputs. This is to (optionally)
+            provide a direct map between each output element and the input used to
+            produce it (output _not_ looped on is static and presumed to be available
+            from another source; it does not need to be synchronized with the output).
+
+    Note:
+        In this way, all output -- whether it is collected output of child executions
+        of the specified body node, or whether it is forwarded input data specified by
+        transfer edges, should have the same length. Thus, in the event that transfer
+        edges are specified, they should empower the node output to precisely provide
+        which input was used to produce each output element.
     """
 
     type: Literal[RecipeElementType.FOR] = pydantic.Field(
