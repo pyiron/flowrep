@@ -325,6 +325,9 @@ class WhileNode(NodeModel):
                 node instance, taking precedence over input edges
 
     Attributes:
+        type: The node type -- always "while".
+        inputs: The available input port names.
+        outputs: The available output port names.
         case: The condition-body pair to be looped over by repeated instantiation.
             The condition node must produce a boolean output (specified by
             condition_output or inferred if the condition has exactly one output).
