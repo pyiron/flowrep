@@ -315,6 +315,7 @@ class IfNode(NodeModel):
         In this way, the if-node is guaranteed to have a concrete set of outputs which
         are fulfilled, regardless of which case runs internally.
     """
+
     type: Literal[RecipeElementType.IF] = pydantic.Field(
         default=RecipeElementType.IF, frozen=True
     )
