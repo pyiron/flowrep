@@ -288,7 +288,7 @@ class ForNode(NodeModel):
             WfMS is responsible
 
     Attributes:
-        type: The node type -- always "while".
+        type: The node type -- always "for".
         inputs: The available input port names.
         outputs: The available output port names.
         input_edges: Edges from workflow inputs to inputs of body node instances.
