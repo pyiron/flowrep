@@ -303,6 +303,9 @@ class IfNode(NodeModel):
         type: The node type -- always "if".
         inputs: The available input port names.
         outputs: The available output port names.
+        cases: The condition-body pairs to be walked over searching for a positive
+            condition evaluation.
+        else_case: The body node to execute if no positive case condition can be found.
         input_edges: Edges from workflow inputs to inputs of body node instances.
         output_edges_matrix: For each output, sources from each possible body node to
             fill that output. Note that exactly one of these possible edges will be
