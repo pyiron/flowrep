@@ -284,6 +284,34 @@ class ConditionalCase(pydantic.BaseModel):
 
 
 class IfNode(NodeModel):
+    """
+    Walk through one or more cases, executing and returning the body result for the
+    first case with a positive condition evaluation.
+    This is a dynamic node, which must actualize the body of its subgraph at runtime.
+
+    Intended recipe realization:
+    1. Instantiate the first case's condition node
+    2. Connect input to this node according to input edges
+    3. Execute and evaluate the condition node
+    4. If it evaluates negatively, repeat steps (1-3) as long as new cases are available
+    5. If it evaluates positively (or for the else case), instantiate, connect, and
+        execute the body node as for the condition node(s)
+    6. Use the matrix of output edges to connect the output of the actualized case
+        body/else case to the node outputs.
+
+    Attributes:
+        type: The node type -- always "if".
+        inputs: The available input port names.
+        outputs: The available output port names.
+        input_edges: Edges from workflow inputs to inputs of body node instances.
+        output_edges_matrix: For each output, sources from each possible body node to
+            fill that output. Note that exactly one of these possible edges will be
+            actualized at runtime based on which body/else case node actually runs.
+
+    Note:
+        In this way, the if-node is guaranteed to have a concrete set of outputs which
+        are fulfilled, regardless of which case runs internally.
+    """
     type: Literal[RecipeElementType.IF] = pydantic.Field(
         default=RecipeElementType.IF, frozen=True
     )
