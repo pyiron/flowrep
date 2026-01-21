@@ -1,6 +1,6 @@
 import keyword
 from enum import StrEnum
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 import networkx as nx
 import pydantic
@@ -262,6 +262,10 @@ class LabeledNode(pydantic.BaseModel):
     node: NodeModel
 
 
+def _has_unique_elements(values: list[Any]) -> bool:
+    return len(values) == len(set(values))
+
+
 class ConditionalCase(pydantic.BaseModel):
     condition: LabeledNode
     body: LabeledNode
@@ -344,6 +348,19 @@ class IfNode(NodeModel):
         if len(v) < 1:
             raise ValueError("If nodes must have at least one explicit case")
         return v
+
+    @pydantic.model_validator(mode="after")
+    def validate_unique_labels(self):
+        labels = (
+            [case.condition.label for case in self.cases]
+            + [case.body.label for case in self.cases]
+            + ([self.else_case.label] if self.else_case else [])
+        )
+        if not _has_unique_elements(labels):
+            raise ValueError(
+                f"All prospective node labels must be unique. Got: {labels}"
+            )
+        return self
 
     @pydantic.model_validator(mode="after")
     def validate_input_edges_targets_are_extant_child_nodes(self):

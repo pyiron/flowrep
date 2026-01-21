@@ -109,6 +109,33 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             )
         self.assertIn("at least one", str(ctx.exception))
 
+    def test_duplicate_labels_across_cases_rejected(self):
+        """Labels must be unique across all conditions, bodies, and else_case."""
+        case0 = model.ConditionalCase(
+            condition=model.LabeledNode(label="cond_0", node=_make_condition()),
+            body=model.LabeledNode(label="shared_label", node=_make_body()),
+        )
+        case1 = model.ConditionalCase(
+            condition=model.LabeledNode(label="cond_1", node=_make_condition()),
+            body=model.LabeledNode(
+                label="shared_label", node=_make_body()
+            ),  # Duplicate
+        )
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.IfNode(
+                inputs=["inp"],
+                outputs=["out"],
+                cases=[case0, case1],
+                input_edges={},
+                output_edges_matrix={
+                    model.OutputTarget(port="out"): [
+                        model.SourceHandle(node="shared_label", port="y"),
+                        model.SourceHandle(node="shared_label", port="y"),
+                    ]
+                },
+            )
+        self.assertIn("unique", str(ctx.exception).lower())
+
     def test_cases_accepts_various_node_types(self):
         workflow_condition = model.WorkflowNode(
             inputs=["x"],
@@ -269,7 +296,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         self.assertIn("invalid sources", exc_str)
 
     def test_output_edges_matrix_extra_source_rejected(self):
-        cases = [_make_case(0) for n in range(2)]
+        cases = [_make_case(n) for n in range(2)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
             model.IfNode(
                 inputs=["inp"],
@@ -287,7 +314,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         self.assertIn("invalid sources", exc_str)
 
     def test_output_edges_matrix_keys_must_match_outputs(self):
-        cases = [_make_case(0) for n in range(2)]
+        cases = [_make_case(n) for n in range(2)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
             model.IfNode(
                 inputs=["inp"],
@@ -307,7 +334,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
 
     def test_output_edges_matrix_extra_key_rejected(self):
         """output_edges cannot have keys not in outputs."""
-        cases = [_make_case(0) for n in range(2)]
+        cases = [_make_case(n) for n in range(2)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
             model.IfNode(
                 inputs=["inp"],
