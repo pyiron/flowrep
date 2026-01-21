@@ -255,12 +255,6 @@ class LabeledNode(pydantic.BaseModel):
     label: str
     node: "NodeType"
 
-
-class ConditionalCase(pydantic.BaseModel):
-    condition: LabeledNode
-    body: LabeledNode
-    condition_output: str | None = None
-
     @pydantic.field_validator("label")
     @classmethod
     def validate_label(cls, v):
@@ -270,6 +264,12 @@ class ConditionalCase(pydantic.BaseModel):
                 f"reserved labels {RESERVED_NAMES}. Got '{v}'"
             )
         return v
+
+
+class ConditionalCase(pydantic.BaseModel):
+    condition: LabeledNode
+    body: LabeledNode
+    condition_output: str | None = None
 
     @pydantic.model_validator(mode="after")
     def validate_condition_is_accessible(self):
