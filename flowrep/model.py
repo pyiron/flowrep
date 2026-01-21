@@ -347,15 +347,6 @@ class WhileNode(NodeModel):
     body_body_edges: dict[TargetHandle, SourceHandle]
     body_condition_edges: dict[TargetHandle, SourceHandle]
 
-    @pydantic.field_validator("nested_ports", "zipped_ports")
-    @classmethod
-    def validate_single_appearance(cls, v, info):
-        if not _has_unique_elements(v):
-            raise ValueError(
-                f"'{info.field_name}' must contain unique values, but got {v}."
-            )
-        return v
-
     @pydantic.model_validator(mode="after")
     def validate_input_edges(self):
         """
