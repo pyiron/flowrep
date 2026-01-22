@@ -3,19 +3,19 @@ import unittest
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import model, try_model, union, workflow_model
+from flowrep.models.nodes import atomic_model, model, try_model, union, workflow_model
 
 
-def _make_try_body(inputs=None, outputs=None) -> model.AtomicNode:
-    return model.AtomicNode(
+def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
+    return atomic_model.AtomicNode(
         fully_qualified_name="mod.try_func",
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
 
 
-def _make_except_body(inputs=None, outputs=None) -> model.AtomicNode:
-    return model.AtomicNode(
+def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
+    return atomic_model.AtomicNode(
         fully_qualified_name="mod.handle_error",
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
@@ -153,7 +153,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "inner": model.AtomicNode(
+                "inner": atomic_model.AtomicNode(
                     fully_qualified_name="mod.f",
                     inputs=["a"],
                     outputs=["b"],
@@ -471,7 +471,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
 
     def test_output_edges_matrix_valid_multiple_outputs(self):
         """output_edges_matrix works with multiple outputs."""
-        body_node = model.AtomicNode(
+        body_node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["x"],
             outputs=["out1", "out2"],
@@ -511,7 +511,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
         """TryNode with no outputs requires empty output_edges_matrix."""
         try_node = model.LabeledNode(
             label="try_body",
-            node=model.AtomicNode(
+            node=atomic_model.AtomicNode(
                 fully_qualified_name="mod.func",
                 inputs=["x"],
                 outputs=[],
@@ -521,7 +521,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
             exceptions=["builtins.ValueError"],
             body=model.LabeledNode(
                 label="handler",
-                node=model.AtomicNode(
+                node=atomic_model.AtomicNode(
                     fully_qualified_name="mod.handler",
                     inputs=["x"],
                     outputs=[],

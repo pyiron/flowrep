@@ -2,8 +2,8 @@ from typing import Annotated
 
 import pydantic
 
-from flowrep.models import model
 from flowrep.models.nodes import (
+    atomic_model,
     for_model,
     if_model,
     try_model,
@@ -13,7 +13,7 @@ from flowrep.models.nodes import (
 
 # Discriminated Union
 NodeType = Annotated[
-    model.AtomicNode
+    atomic_model.AtomicNode
     | for_model.ForNode
     | if_model.IfNode
     | try_model.TryNode

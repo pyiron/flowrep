@@ -9,7 +9,7 @@ from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
 from pydantic import BaseModel
 
 from flowrep import workflow
-from flowrep.models import model
+from flowrep.models.nodes import atomic_model
 
 
 class OutputMeta(BaseModel, extra="ignore"):
@@ -57,7 +57,7 @@ def atomic(
     func: FunctionType | str | None = None,
     /,
     *output_labels: str,
-    unpack_mode: model.UnpackMode = model.UnpackMode.TUPLE,
+    unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
     Decorator that attaches a flowrep.model.AtomicNode to the `recipe` attribute of a
@@ -97,8 +97,8 @@ def _ensure_function(f: Any, decorator_name: str) -> None:
 def parse_atomic(
     func: FunctionType,
     *output_labels: str,
-    unpack_mode: model.UnpackMode = model.UnpackMode.TUPLE,
-) -> model.AtomicNode:
+    unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
+) -> atomic_model.AtomicNode:
     fully_qualified_name = f"{func.__module__}.{func.__qualname__}"
 
     input_labels = _get_input_labels(func)
@@ -111,7 +111,7 @@ def parse_atomic(
             f"unpacking mode '{unpack_mode}', got but got {output_labels}."
         )
 
-    return model.AtomicNode(
+    return atomic_model.AtomicNode(
         fully_qualified_name=fully_qualified_name,
         inputs=input_labels,
         outputs=(
@@ -148,16 +148,18 @@ def default_output_label(i: int) -> str:
     return f"output_{i}"
 
 
-def _get_output_labels(func: FunctionType, unpack_mode: model.UnpackMode) -> list[str]:
-    if unpack_mode == model.UnpackMode.NONE:
+def _get_output_labels(
+    func: FunctionType, unpack_mode: atomic_model.UnpackMode
+) -> list[str]:
+    if unpack_mode == atomic_model.UnpackMode.NONE:
         return _parse_return_label_without_unpacking(func)
-    elif unpack_mode == model.UnpackMode.TUPLE:
+    elif unpack_mode == atomic_model.UnpackMode.TUPLE:
         return _parse_tuple_return_labels(func)
-    elif unpack_mode == model.UnpackMode.DATACLASS:
+    elif unpack_mode == atomic_model.UnpackMode.DATACLASS:
         return _parse_dataclass_return_labels(func)
     raise TypeError(
         f"Invalid unpack mode: {unpack_mode}. Possible values are "
-        f"{', '.join(model.UnpackMode.__members__.values())}"
+        f"{', '.join(atomic_model.UnpackMode.__members__.values())}"
     )
 
 

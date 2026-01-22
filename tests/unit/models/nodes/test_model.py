@@ -6,7 +6,7 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import model, union, workflow_model
+from flowrep.models.nodes import atomic_model, model, union, workflow_model
 
 
 class TestNodeModel(unittest.TestCase):
@@ -15,7 +15,7 @@ class TestNodeModel(unittest.TestCase):
     def test_duplicate_inputs_rejected(self):
         """Any NodeModel subclass should reject duplicate inputs."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.AtomicNode(
+            atomic_model.AtomicNode(
                 fully_qualified_name="mod.func",
                 inputs=["x", "y", "x"],  # duplicate 'x'
                 outputs=["z"],
@@ -39,7 +39,7 @@ class TestNodeModel(unittest.TestCase):
 
     def test_unique_inputs_outputs_preserved_order(self):
         """Unique inputs/outputs should preserve declaration order."""
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["c", "a", "b"],
             outputs=["z", "x", "y"],
@@ -69,7 +69,7 @@ class TestNodeModel(unittest.TestCase):
                             "outputs": ["y"],
                         }
                         kwargs[io_type] = [invalid_label, "valid"]
-                        model.AtomicNode(**kwargs)
+                        atomic_model.AtomicNode(**kwargs)
 
                     exc_str = str(ctx.exception)
                     self.assertIn(
@@ -82,7 +82,7 @@ class TestNodeModel(unittest.TestCase):
 
     def test_valid_IO_labels(self):
         """Valid identifiers should pass."""
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["x", "y_1", "_private", "camelCase"],
             outputs=["result", "status_code"],
@@ -97,7 +97,7 @@ class TestNodeTypeImmutability(unittest.TestCase):
     def test_type_field_cannot_be_overridden_at_construction(self):
         """AtomicNode should reject type override during instantiation."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.AtomicNode(
+            atomic_model.AtomicNode(
                 type=model.RecipeElementType.WORKFLOW,  # Wrong type
                 fully_qualified_name="mod.func",
                 inputs=["x"],
@@ -109,7 +109,7 @@ class TestNodeTypeImmutability(unittest.TestCase):
 
     def test_type_field_cannot_be_mutated_after_construction(self):
         """AtomicNode should reject mutation of type field."""
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["x"],
             outputs=["y"],
@@ -165,7 +165,7 @@ class TestAtomicNode(unittest.TestCase):
     """Tests for AtomicNode validation."""
 
     def test_valid_fqn(self):
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="module.func",
             inputs=[],
             outputs=[],
@@ -174,7 +174,7 @@ class TestAtomicNode(unittest.TestCase):
         self.assertEqual(node.type, model.RecipeElementType.ATOMIC)
 
     def test_valid_fqn_deep(self):
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="a.b.c.d",
             inputs=[],
             outputs=[],
@@ -183,7 +183,7 @@ class TestAtomicNode(unittest.TestCase):
 
     def test_fqn_no_period(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.AtomicNode(
+            atomic_model.AtomicNode(
                 fully_qualified_name="noDot",
                 inputs=[],
                 outputs=[],
@@ -192,7 +192,7 @@ class TestAtomicNode(unittest.TestCase):
 
     def test_fqn_empty_string(self):
         with self.assertRaises(pydantic.ValidationError):
-            model.AtomicNode(
+            atomic_model.AtomicNode(
                 fully_qualified_name="",
                 inputs=[],
                 outputs=[],
@@ -204,7 +204,7 @@ class TestAtomicNode(unittest.TestCase):
             with self.assertRaises(
                 pydantic.ValidationError, msg=f"Should reject {bad!r}"
             ):
-                model.AtomicNode(
+                atomic_model.AtomicNode(
                     fully_qualified_name=bad,
                     inputs=[],
                     outputs=[],
@@ -216,83 +216,85 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
 
     def test_default_unpack_mode(self):
         """Default unpack_mode should be 'tuple'."""
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["x"],
             outputs=["a", "b"],
         )
-        self.assertEqual(node.unpack_mode, model.UnpackMode.TUPLE)
+        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.TUPLE)
 
     def test_tuple_mode_multiple_outputs(self):
         """Multiple outputs allowed with unpack_mode='tuple'."""
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=[],
             outputs=["a", "b", "c"],
-            unpack_mode=model.UnpackMode.TUPLE,
+            unpack_mode=atomic_model.UnpackMode.TUPLE,
         )
         self.assertEqual(len(node.outputs), 3)
-        self.assertEqual(node.unpack_mode, model.UnpackMode.TUPLE)
+        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.TUPLE)
 
     def test_dataclass_mode_multiple_outputs(self):
         """Multiple outputs allowed with unpack_mode='dataclass'."""
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=[],
             outputs=["a", "b", "c"],
-            unpack_mode=model.UnpackMode.DATACLASS,
+            unpack_mode=atomic_model.UnpackMode.DATACLASS,
         )
         self.assertEqual(len(node.outputs), 3)
-        self.assertEqual(node.unpack_mode, model.UnpackMode.DATACLASS)
+        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.DATACLASS)
 
     def test_none_mode_multiple_outputs_rejected(self):
         """Multiple outputs rejected when unpack_mode='none'."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.AtomicNode(
+            atomic_model.AtomicNode(
                 fully_qualified_name="mod.func",
                 inputs=[],
                 outputs=["a", "b"],
-                unpack_mode=model.UnpackMode.NONE,
+                unpack_mode=atomic_model.UnpackMode.NONE,
             )
         self.assertIn("exactly one element", str(ctx.exception))
-        self.assertIn(f"unpack_mode={model.UnpackMode.NONE.value}", str(ctx.exception))
+        self.assertIn(
+            f"unpack_mode={atomic_model.UnpackMode.NONE.value}", str(ctx.exception)
+        )
 
     def test_none_mode_single_output_valid(self):
         """Single output valid with unpack_mode='none'."""
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["x"],
             outputs=["result"],
-            unpack_mode=model.UnpackMode.NONE,
+            unpack_mode=atomic_model.UnpackMode.NONE,
         )
         self.assertEqual(node.outputs, ["result"])
-        self.assertEqual(node.unpack_mode, model.UnpackMode.NONE)
+        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.NONE)
 
     def test_none_mode_zero_outputs_valid(self):
         """Zero outputs valid with unpack_mode='none'."""
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=[],
             outputs=[],
-            unpack_mode=model.UnpackMode.NONE,
+            unpack_mode=atomic_model.UnpackMode.NONE,
         )
         self.assertEqual(len(node.outputs), 0)
-        self.assertEqual(node.unpack_mode, model.UnpackMode.NONE)
+        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.NONE)
 
     def test_tuple_mode_zero_outputs_valid(self):
         """Zero outputs valid with unpack_mode='tuple'."""
-        node = model.AtomicNode(
+        node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["x"],
             outputs=[],
-            unpack_mode=model.UnpackMode.TUPLE,
+            unpack_mode=atomic_model.UnpackMode.TUPLE,
         )
         self.assertEqual(len(node.outputs), 0)
 
     def test_all_unpack_modes_valid_literal(self):
         """All three unpack modes should be valid."""
         for mode in ["none", "tuple", "dataclass"]:
-            node = model.AtomicNode(
+            node = atomic_model.AtomicNode(
                 fully_qualified_name="mod.func",
                 inputs=[],
                 outputs=["out"],
@@ -310,7 +312,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "child": model.AtomicNode(
+                "child": atomic_model.AtomicNode(
                     fully_qualified_name="mod.func",
                     inputs=["inp"],
                     outputs=["out"],
@@ -337,7 +339,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "child": model.AtomicNode(
+                    "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
                         inputs=["inp"],
                         outputs=["out"],
@@ -360,7 +362,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "child": model.AtomicNode(
+                    "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
                         inputs=["inp"],
                         outputs=["out"],
@@ -383,7 +385,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "child": model.AtomicNode(
+                    "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
                         inputs=["inp"],
                         outputs=["out"],
@@ -410,7 +412,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "child": model.AtomicNode(
+                "child": atomic_model.AtomicNode(
                     fully_qualified_name="mod.func",
                     inputs=["inp"],
                     outputs=["out"],
@@ -437,7 +439,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "child": model.AtomicNode(
+                    "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
                         inputs=["inp"],
                         outputs=["out"],
@@ -460,7 +462,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "child": model.AtomicNode(
+                    "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
                         inputs=["inp"],
                         outputs=["out"],
@@ -483,7 +485,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "child": model.AtomicNode(
+                    "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
                         inputs=["inp"],
                         outputs=["out"],
@@ -511,12 +513,12 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "a": model.AtomicNode(
+                "a": atomic_model.AtomicNode(
                     fully_qualified_name="mod.f",
                     inputs=["inp"],
                     outputs=["out"],
                 ),
-                "b": model.AtomicNode(
+                "b": atomic_model.AtomicNode(
                     fully_qualified_name="mod.g",
                     inputs=["inp"],
                     outputs=["out"],
@@ -543,7 +545,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "child": model.AtomicNode(
+                    "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
                         inputs=["inp"],
                         outputs=["out"],
@@ -566,7 +568,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "child": model.AtomicNode(
+                    "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
                         inputs=["inp"],
                         outputs=["out"],
@@ -589,12 +591,12 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "a": model.AtomicNode(
+                    "a": atomic_model.AtomicNode(
                         fully_qualified_name="mod.f",
                         inputs=["inp"],
                         outputs=["out"],
                     ),
-                    "b": model.AtomicNode(
+                    "b": atomic_model.AtomicNode(
                         fully_qualified_name="mod.g",
                         inputs=["inp"],
                         outputs=["out"],
@@ -617,12 +619,12 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "a": model.AtomicNode(
+                    "a": atomic_model.AtomicNode(
                         fully_qualified_name="mod.f",
                         inputs=["inp"],
                         outputs=["out"],
                     ),
-                    "b": model.AtomicNode(
+                    "b": atomic_model.AtomicNode(
                         fully_qualified_name="mod.g",
                         inputs=["inp"],
                         outputs=["out"],
@@ -648,7 +650,7 @@ class TestWorkflowNodeMultiplePorts(unittest.TestCase):
             inputs=["a", "b"],
             outputs=["x", "y"],
             nodes={
-                "node1": model.AtomicNode(
+                "node1": atomic_model.AtomicNode(
                     fully_qualified_name="mod.func",
                     inputs=["in1", "in2"],
                     outputs=["out1", "out2"],
@@ -698,7 +700,7 @@ class TestWorkflowNodeReservedNames(unittest.TestCase):
                         inputs=["a"],
                         outputs=["b"],
                         nodes={
-                            invalid_label: model.AtomicNode(
+                            invalid_label: atomic_model.AtomicNode(
                                 fully_qualified_name="m.f",
                                 inputs=[],
                                 outputs=[],
@@ -722,12 +724,12 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "a": model.AtomicNode(
+                    "a": atomic_model.AtomicNode(
                         fully_qualified_name="m.f",
                         inputs=["inp", "feedback"],
                         outputs=["out"],
                     ),
-                    "b": model.AtomicNode(
+                    "b": atomic_model.AtomicNode(
                         fully_qualified_name="m.g",
                         inputs=["inp"],
                         outputs=["out", "out2"],
@@ -761,7 +763,7 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "a": model.AtomicNode(
+                    "a": atomic_model.AtomicNode(
                         fully_qualified_name="m.f",
                         inputs=["inp", "feedback"],
                         outputs=["out", "out2"],
@@ -791,17 +793,17 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "a": model.AtomicNode(
+                "a": atomic_model.AtomicNode(
                     fully_qualified_name="m.f",
                     inputs=["inp"],
                     outputs=["out"],
                 ),
-                "b": model.AtomicNode(
+                "b": atomic_model.AtomicNode(
                     fully_qualified_name="m.g",
                     inputs=["inp"],
                     outputs=["out"],
                 ),
-                "c": model.AtomicNode(
+                "c": atomic_model.AtomicNode(
                     fully_qualified_name="m.h",
                     inputs=["inp"],
                     outputs=["out"],
@@ -834,7 +836,7 @@ class TestNestedWorkflow(unittest.TestCase):
             inputs=["a"],
             outputs=["b"],
             nodes={
-                "leaf": model.AtomicNode(
+                "leaf": atomic_model.AtomicNode(
                     fully_qualified_name="m.f",
                     inputs=["inp"],
                     outputs=["out"],
@@ -880,7 +882,7 @@ class TestNestedWorkflow(unittest.TestCase):
                         inputs=["a"],
                         outputs=["b"],
                         nodes={
-                            "bad": model.AtomicNode(
+                            "bad": atomic_model.AtomicNode(
                                 fully_qualified_name="noDot",
                                 inputs=[],
                                 outputs=[],
@@ -902,7 +904,7 @@ class TestNestedWorkflow(unittest.TestCase):
             inputs=["inner_in"],
             outputs=["inner_out"],
             nodes={
-                "leaf": model.AtomicNode(
+                "leaf": atomic_model.AtomicNode(
                     fully_qualified_name="m.f",
                     inputs=["x"],
                     outputs=["y"],
@@ -945,7 +947,7 @@ class TestNestedWorkflow(unittest.TestCase):
             inputs=["inner_in"],
             outputs=["inner_out"],
             nodes={
-                "leaf": model.AtomicNode(
+                "leaf": atomic_model.AtomicNode(
                     fully_qualified_name="m.f",
                     inputs=["x"],
                     outputs=["y"],
@@ -989,23 +991,23 @@ class TestSerialization(unittest.TestCase):
     """Tests for JSON and Python mode serialization roundtrip."""
 
     def test_atomic_json_roundtrip(self):
-        original = model.AtomicNode(
+        original = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["a"],
             outputs=["b"],
         )
         data = original.model_dump(mode="json")
-        restored = model.AtomicNode.model_validate(data)
+        restored = atomic_model.AtomicNode.model_validate(data)
         self.assertEqual(original, restored)
 
     def test_atomic_python_roundtrip(self):
-        original = model.AtomicNode(
+        original = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["a"],
             outputs=["b"],
         )
         data = original.model_dump(mode="python")
-        restored = model.AtomicNode.model_validate(data)
+        restored = atomic_model.AtomicNode.model_validate(data)
         self.assertEqual(original, restored)
 
     def test_workflow_json_roundtrip(self):
@@ -1013,7 +1015,7 @@ class TestSerialization(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "n": model.AtomicNode(
+                "n": atomic_model.AtomicNode(
                     fully_qualified_name="m.f",
                     inputs=["inp"],
                     outputs=["out"],
@@ -1042,7 +1044,7 @@ class TestSerialization(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "n": model.AtomicNode(
+                "n": atomic_model.AtomicNode(
                     fully_qualified_name="m.f",
                     inputs=["inp"],
                     outputs=["out"],
@@ -1071,12 +1073,12 @@ class TestSerialization(unittest.TestCase):
             inputs=["x", "y"],
             outputs=["z", "w"],
             nodes={
-                "a": model.AtomicNode(
+                "a": atomic_model.AtomicNode(
                     fully_qualified_name="m.f",
                     inputs=["i1", "i2"],
                     outputs=["o1", "o2"],
                 ),
-                "b": model.AtomicNode(
+                "b": atomic_model.AtomicNode(
                     fully_qualified_name="m.g",
                     inputs=["inp"],
                     outputs=["out"],
@@ -1122,7 +1124,7 @@ class TestSerialization(unittest.TestCase):
             "outputs": ["y"],
         }
         node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, model.AtomicNode)
+        self.assertIsInstance(node, atomic_model.AtomicNode)
 
         data = {
             "type": model.RecipeElementType.WORKFLOW,
@@ -1159,7 +1161,7 @@ class TestEmptyWorkflow(unittest.TestCase):
             inputs=[],
             outputs=[],
             nodes={
-                "n": model.AtomicNode(
+                "n": atomic_model.AtomicNode(
                     fully_qualified_name="m.f",
                     inputs=[],
                     outputs=[],

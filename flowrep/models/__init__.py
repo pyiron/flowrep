@@ -3,6 +3,7 @@ from typing import cast
 import pydantic
 
 from flowrep.models.nodes import (
+    atomic_model,
     for_model,
     if_model,
     model,
@@ -13,7 +14,7 @@ from flowrep.models.nodes import (
 from flowrep.models.nodes.union import NodeType
 
 for cls in [
-    model.AtomicNode,
+    atomic_model.AtomicNode,
     for_model.ForNode,
     if_model.IfNode,
     model.LabeledNode,

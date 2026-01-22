@@ -3,19 +3,19 @@ import unittest
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import if_model, model, union, workflow_model
+from flowrep.models.nodes import atomic_model, if_model, model, union, workflow_model
 
 
-def _make_condition(inputs=None, outputs=None) -> model.AtomicNode:
-    return model.AtomicNode(
+def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
+    return atomic_model.AtomicNode(
         fully_qualified_name="mod.check",
         inputs=inputs or ["x"],
         outputs=outputs or ["result"],
     )
 
 
-def _make_body(inputs=None, outputs=None) -> model.AtomicNode:
-    return model.AtomicNode(
+def _make_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
+    return atomic_model.AtomicNode(
         fully_qualified_name="mod.handle",
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
@@ -142,7 +142,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             inputs=["x"],
             outputs=["result"],
             nodes={
-                "inner": model.AtomicNode(
+                "inner": atomic_model.AtomicNode(
                     fully_qualified_name="mod.f",
                     inputs=["a"],
                     outputs=["b"],
@@ -474,12 +474,12 @@ class TestIfNodeSerialization(unittest.TestCase):
                 )
 
     def test_roundtrip_with_condition_output(self):
-        condition = model.AtomicNode(
+        condition = atomic_model.AtomicNode(
             fully_qualified_name="mod.check",
             inputs=["x"],
             outputs=["a", "b"],
         )
-        body = model.AtomicNode(
+        body = atomic_model.AtomicNode(
             fully_qualified_name="mod.handle",
             inputs=["x"],
             outputs=["y"],
@@ -632,7 +632,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
 
     def test_output_edges_matrix_valid_source_ports(self):
         """output_edges with valid source ports should pass."""
-        body_node = model.AtomicNode(
+        body_node = atomic_model.AtomicNode(
             fully_qualified_name="mod.handle",
             inputs=["x"],
             outputs=["out1", "out2"],
@@ -661,7 +661,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
 
     def test_output_edges_matrix_valid_source_ports_with_else(self):
         """output_edges with valid source ports and else_case should pass."""
-        body_node = model.AtomicNode(
+        body_node = atomic_model.AtomicNode(
             fully_qualified_name="mod.handle",
             inputs=["x"],
             outputs=["out1", "out2"],

@@ -5,23 +5,23 @@ import textwrap
 import unittest
 from typing import Annotated
 
-from flowrep.models import model, parser
-from flowrep.models.parser import OutputMeta
+from flowrep.models import parser
+from flowrep.models.nodes import atomic_model
 
 
 class TestOutputMeta(unittest.TestCase):
     def test_from_annotation_with_model_instance(self):
-        meta = OutputMeta(label="test")
-        result = OutputMeta.from_annotation(meta)
+        meta = parser.OutputMeta(label="test")
+        result = parser.OutputMeta.from_annotation(meta)
         self.assertEqual(result, meta)
 
     def test_from_annotation_with_dict(self):
-        result = OutputMeta.from_annotation({"label": "test"})
+        result = parser.OutputMeta.from_annotation({"label": "test"})
         self.assertIsNotNone(result)
         self.assertEqual(result.label, "test")
 
     def test_from_annotation_ignores_extra_keys(self):
-        result = OutputMeta.from_annotation(
+        result = parser.OutputMeta.from_annotation(
             {
                 "label": "test",
                 "units": "meters",
@@ -33,43 +33,43 @@ class TestOutputMeta(unittest.TestCase):
         self.assertEqual(result.label, "test")
 
     def test_from_annotation_with_no_label(self):
-        result = OutputMeta.from_annotation({"units": "meters"})
+        result = parser.OutputMeta.from_annotation({"units": "meters"})
         self.assertIsNotNone(result)
         self.assertIsNone(result.label)
 
     def test_from_annotation_with_empty_dict(self):
-        result = OutputMeta.from_annotation({})
+        result = parser.OutputMeta.from_annotation({})
         self.assertIsNotNone(result)
         self.assertIsNone(result.label)
 
     def test_from_annotation_with_non_dict_non_model(self):
-        self.assertIsNone(OutputMeta.from_annotation("string"))
-        self.assertIsNone(OutputMeta.from_annotation(42))
-        self.assertIsNone(OutputMeta.from_annotation(["list"]))
+        self.assertIsNone(parser.OutputMeta.from_annotation("string"))
+        self.assertIsNone(parser.OutputMeta.from_annotation(42))
+        self.assertIsNone(parser.OutputMeta.from_annotation(["list"]))
 
     def test_model_direct_construction(self):
-        meta = OutputMeta(label="result")
+        meta = parser.OutputMeta(label="result")
         self.assertEqual(meta.label, "result")
 
     def test_model_default_label_is_none(self):
-        meta = OutputMeta()
+        meta = parser.OutputMeta()
         self.assertIsNone(meta.label)
 
 
 class TestOutputMetaFromAnnotationExceptions(unittest.TestCase):
-    """Tests for exception handling in OutputMeta.from_annotation."""
+    """Tests for exception handling in parser.OutputMeta.from_annotation."""
 
     def test_dict_with_wrong_label_type_returns_none(self):
         """Pydantic validation fails if label is not str."""
-        result = OutputMeta.from_annotation({"label": 123})
+        result = parser.OutputMeta.from_annotation({"label": 123})
         self.assertIsNone(result)
 
     def test_dict_with_label_as_list_returns_none(self):
-        result = OutputMeta.from_annotation({"label": ["not", "a", "string"]})
+        result = parser.OutputMeta.from_annotation({"label": ["not", "a", "string"]})
         self.assertIsNone(result)
 
     def test_dict_with_label_as_dict_returns_none(self):
-        result = OutputMeta.from_annotation({"label": {"nested": "dict"}})
+        result = parser.OutputMeta.from_annotation({"label": {"nested": "dict"}})
         self.assertIsNone(result)
 
 
@@ -234,21 +234,23 @@ class TestAtomicDecorator(unittest.TestCase):
             return x + y
 
         self.assertTrue(hasattr(simple_func, "flowrep_recipe"))
-        self.assertIsInstance(simple_func.flowrep_recipe, model.AtomicNode)
+        self.assertIsInstance(simple_func.flowrep_recipe, atomic_model.AtomicNode)
         self.assertEqual(simple_func(2, 3), 5)
         self.assertEqual(simple_func.flowrep_recipe, parser.parse_atomic(simple_func))
 
     def test_atomic_with_unpack_mode(self):
-        @parser.atomic(unpack_mode=model.UnpackMode.NONE)
+        @parser.atomic(unpack_mode=atomic_model.UnpackMode.NONE)
         def func_no_unpack(x):
             return x
 
         self.assertEqual(
-            func_no_unpack.flowrep_recipe.unpack_mode, model.UnpackMode.NONE
+            func_no_unpack.flowrep_recipe.unpack_mode, atomic_model.UnpackMode.NONE
         )
         self.assertEqual(
             func_no_unpack.flowrep_recipe,
-            parser.parse_atomic(func_no_unpack, unpack_mode=model.UnpackMode.NONE),
+            parser.parse_atomic(
+                func_no_unpack, unpack_mode=atomic_model.UnpackMode.NONE
+            ),
         )
 
     def test_atomic_preserves_function_behavior(self):
@@ -274,13 +276,15 @@ class TestParseAtomic(unittest.TestCase):
         def single_output(x):
             return x * 2, x + 1
 
-        node = parser.parse_atomic(single_output, unpack_mode=model.UnpackMode.NONE)
+        node = parser.parse_atomic(
+            single_output, unpack_mode=atomic_model.UnpackMode.NONE
+        )
         self.assertEqual(
             node.outputs,
             ["output_0"],
             msg="Return tuple should be condensed to a single output port",
         )
-        self.assertEqual(node.unpack_mode, model.UnpackMode.NONE)
+        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.NONE)
 
 
 class TestAtomicTypeValidation(unittest.TestCase):
@@ -332,12 +336,12 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
         self.assertEqual(func.flowrep_recipe.inputs, ["x", "y"])
 
     def test_atomic_with_output_labels_and_unpack_mode(self):
-        @parser.atomic("result", unpack_mode=model.UnpackMode.NONE)
+        @parser.atomic("result", unpack_mode=atomic_model.UnpackMode.NONE)
         def func(x):
             return x, x + 1
 
         self.assertEqual(func.flowrep_recipe.outputs, ["result"])
-        self.assertEqual(func.flowrep_recipe.unpack_mode, model.UnpackMode.NONE)
+        self.assertEqual(func.flowrep_recipe.unpack_mode, atomic_model.UnpackMode.NONE)
 
     def test_atomic_no_args_infers_labels(self):
         @parser.atomic
@@ -357,7 +361,7 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
         self.assertEqual(func.flowrep_recipe.outputs, ["a", "b"])
 
     def test_atomic_only_unpack_mode_infers_labels(self):
-        @parser.atomic(unpack_mode=model.UnpackMode.TUPLE)
+        @parser.atomic(unpack_mode=atomic_model.UnpackMode.TUPLE)
         def func():
             x = 1
             y = 2
@@ -396,7 +400,9 @@ class TestParseAtomicWithOutputLabels(unittest.TestCase):
         def func():
             return 1, 2
 
-        node = parser.parse_atomic(func, "single", unpack_mode=model.UnpackMode.NONE)
+        node = parser.parse_atomic(
+            func, "single", unpack_mode=atomic_model.UnpackMode.NONE
+        )
         self.assertEqual(node.outputs, ["single"])
 
     def test_explicit_labels_mismatch_raises(self):
@@ -426,7 +432,7 @@ class TestParseAtomicWithOutputLabels(unittest.TestCase):
             return Result(1, 2)
 
         # Should use dataclass fields, not explicit labels
-        node = parser.parse_atomic(func, unpack_mode=model.UnpackMode.DATACLASS)
+        node = parser.parse_atomic(func, unpack_mode=atomic_model.UnpackMode.DATACLASS)
         self.assertEqual(node.outputs, ["x", "y"])
 
     def test_explicit_labels_with_dataclass_wrong_count_raises(self):
@@ -440,7 +446,7 @@ class TestParseAtomicWithOutputLabels(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             parser.parse_atomic(
-                func, "only_one", unpack_mode=model.UnpackMode.DATACLASS
+                func, "only_one", unpack_mode=atomic_model.UnpackMode.DATACLASS
             )
 
         self.assertIn("Expected 2 output labels", str(ctx.exception))
@@ -517,7 +523,7 @@ class TestGetOutputLabels(unittest.TestCase):
         def func():
             return 42
 
-        labels = parser._get_output_labels(func, model.UnpackMode.NONE)
+        labels = parser._get_output_labels(func, atomic_model.UnpackMode.NONE)
         self.assertEqual(labels, ["output_0"])
 
     def test_invalid_unpack_mode(self):
@@ -786,7 +792,7 @@ class TestExtractLabelFromAnnotated(unittest.TestCase):
         self.assertEqual(label, "distance")
 
     def test_extracts_label_from_output_meta(self):
-        hint = Annotated[float, OutputMeta(label="distance")]
+        hint = Annotated[float, parser.OutputMeta(label="distance")]
         label = parser._extract_label_from_annotated(hint)
         self.assertEqual(label, "distance")
 
@@ -814,7 +820,9 @@ class TestExtractLabelFromAnnotated(unittest.TestCase):
             self.assertEqual(label, "distance")
 
     def test_finds_output_meta_among_multiple_metadata(self):
-        hint = Annotated[float, "units: meters", OutputMeta(label="distance"), 42]
+        hint = Annotated[
+            float, "units: meters", parser.OutputMeta(label="distance"), 42
+        ]
         label = parser._extract_label_from_annotated(hint)
         self.assertEqual(label, "distance")
 
@@ -825,7 +833,9 @@ class TestExtractLabelFromAnnotated(unittest.TestCase):
             self.assertEqual(label, "first")
         with self.subTest("as model"):
             hint = Annotated[
-                float, OutputMeta(label="first"), OutputMeta(label="second")
+                float,
+                parser.OutputMeta(label="first"),
+                parser.OutputMeta(label="second"),
             ]
             label = parser._extract_label_from_annotated(hint)
             self.assertEqual(label, "first")
@@ -838,7 +848,7 @@ class TestExtractLabelFromAnnotated(unittest.TestCase):
         self.assertEqual(label, "distance")
 
     def test_output_meta_none_label_returns_none(self):
-        hint = Annotated[float, OutputMeta()]
+        hint = Annotated[float, parser.OutputMeta()]
         label = parser._extract_label_from_annotated(hint)
         self.assertIsNone(label)
 
@@ -857,7 +867,7 @@ class TestGetAnnotatedOutputLabels(unittest.TestCase):
         self.assertEqual(labels, ["result"])
 
     def test_single_annotated_return_model(self):
-        def func(x) -> Annotated[float, OutputMeta(label="result")]:
+        def func(x) -> Annotated[float, parser.OutputMeta(label="result")]:
             return x * 2
 
         labels = parser._get_annotated_output_labels(func)
@@ -877,8 +887,8 @@ class TestGetAnnotatedOutputLabels(unittest.TestCase):
 
     def test_tuple_all_annotated_model(self):
         def func(x) -> tuple[
-            Annotated[float, OutputMeta(label="distance")],
-            Annotated[str, OutputMeta(label="city")],
+            Annotated[float, parser.OutputMeta(label="distance")],
+            Annotated[str, parser.OutputMeta(label="city")],
         ]:
             return x, "somewhere"
 
@@ -890,7 +900,7 @@ class TestGetAnnotatedOutputLabels(unittest.TestCase):
             x,
         ) -> tuple[
             Annotated[float, {"label": "from_dict"}],
-            Annotated[str, OutputMeta(label="from_model")],
+            Annotated[str, parser.OutputMeta(label="from_model")],
         ]:
             return x, "somewhere"
 
@@ -1017,7 +1027,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
 
     def test_atomic_uses_annotated_labels_model(self):
         @parser.atomic
-        def func(x) -> Annotated[float, OutputMeta(label="doubled")]:
+        def func(x) -> Annotated[float, parser.OutputMeta(label="doubled")]:
             return x * 2
 
         self.assertEqual(func.flowrep_recipe.outputs, ["doubled"])
@@ -1040,8 +1050,8 @@ class TestAtomicWithAnnotations(unittest.TestCase):
 
             @parser.atomic
             def func(x) -> tuple[
-                Annotated[float, OutputMeta(label="sum")],
-                Annotated[float, OutputMeta(label="diff")],
+                Annotated[float, parser.OutputMeta(label="sum")],
+                Annotated[float, parser.OutputMeta(label="diff")],
             ]:
                 return x + 1, x - 1
 
@@ -1060,21 +1070,21 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         self.assertEqual(func.flowrep_recipe.outputs, ["override1", "override2"])
 
     def test_unpack_none_uses_single_annotation(self):
-        @parser.atomic(unpack_mode=model.UnpackMode.NONE)
+        @parser.atomic(unpack_mode=atomic_model.UnpackMode.NONE)
         def func(x) -> Annotated[float, {"label": "single_result"}]:
             return x
 
         self.assertEqual(func.flowrep_recipe.outputs, ["single_result"])
 
     def test_unpack_none_uses_tuple_level_annotation(self):
-        @parser.atomic(unpack_mode=model.UnpackMode.NONE)
+        @parser.atomic(unpack_mode=atomic_model.UnpackMode.NONE)
         def func(x) -> Annotated[tuple[float, str], {"label": "combined"}]:
             return x, "y"
 
         self.assertEqual(func.flowrep_recipe.outputs, ["combined"])
 
     def test_unpack_none_ignores_element_annotations(self):
-        @parser.atomic(unpack_mode=model.UnpackMode.NONE)
+        @parser.atomic(unpack_mode=atomic_model.UnpackMode.NONE)
         def func(
             x,
         ) -> tuple[
@@ -1086,7 +1096,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         self.assertEqual(func.flowrep_recipe.outputs, ["output_0"])
 
     def test_unpack_none_tuple_with_both_annotations(self):
-        @parser.atomic(unpack_mode=model.UnpackMode.NONE)
+        @parser.atomic(unpack_mode=atomic_model.UnpackMode.NONE)
         def func(
             x,
         ) -> Annotated[
@@ -1101,7 +1111,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         self.assertEqual(func.flowrep_recipe.outputs, ["the_pair"])
 
     def test_unpack_tuple_with_both_annotations(self):
-        @parser.atomic(unpack_mode=model.UnpackMode.TUPLE)
+        @parser.atomic(unpack_mode=atomic_model.UnpackMode.TUPLE)
         def func(
             x,
         ) -> Annotated[
@@ -1116,7 +1126,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         self.assertEqual(func.flowrep_recipe.outputs, ["element_a", "element_b"])
 
     def test_unpack_none_no_annotation_falls_back(self):
-        @parser.atomic(unpack_mode=model.UnpackMode.NONE)
+        @parser.atomic(unpack_mode=atomic_model.UnpackMode.NONE)
         def func(x):
             return x
 
@@ -1163,7 +1173,7 @@ class TestAnnotationWithDataclass(unittest.TestCase):
         def func() -> Annotated[Result, {"label": "ignored"}]:
             return Result(1, 2)
 
-        node = parser.parse_atomic(func, unpack_mode=model.UnpackMode.DATACLASS)
+        node = parser.parse_atomic(func, unpack_mode=atomic_model.UnpackMode.DATACLASS)
         self.assertEqual(node.outputs, ["x", "y"])
 
     def test_dataclass_mode_ignores_output_meta_wrapper(self):
@@ -1172,10 +1182,10 @@ class TestAnnotationWithDataclass(unittest.TestCase):
             x: int
             y: int
 
-        def func() -> Annotated[Result, OutputMeta(label="ignored")]:
+        def func() -> Annotated[Result, parser.OutputMeta(label="ignored")]:
             return Result(1, 2)
 
-        node = parser.parse_atomic(func, unpack_mode=model.UnpackMode.DATACLASS)
+        node = parser.parse_atomic(func, unpack_mode=atomic_model.UnpackMode.DATACLASS)
         self.assertEqual(node.outputs, ["x", "y"])
 
 

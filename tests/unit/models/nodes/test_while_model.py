@@ -4,11 +4,11 @@ import unittest
 
 import pydantic
 
-from flowrep.models.nodes import model, union, while_model, workflow_model
+from flowrep.models.nodes import atomic_model, model, union, while_model, workflow_model
 
 
-def make_atomic(inputs: list[str], outputs: list[str]) -> model.AtomicNode:
-    return model.AtomicNode(
+def make_atomic(inputs: list[str], outputs: list[str]) -> atomic_model.AtomicNode:
+    return atomic_model.AtomicNode(
         fully_qualified_name="mod.func",
         inputs=inputs,
         outputs=outputs,

@@ -2,15 +2,15 @@ import unittest
 
 import pydantic
 
-from flowrep.models.nodes import model, workflow_model
+from flowrep.models.nodes import atomic_model, model, workflow_model
 
 
 def _make_atomic(
     fully_qualified_name: str = "mod.func",
     inputs: list[str] | None = None,
     outputs: list[str] | None = None,
-) -> model.AtomicNode:
-    return model.AtomicNode(
+) -> atomic_model.AtomicNode:
+    return atomic_model.AtomicNode(
         fully_qualified_name=fully_qualified_name,
         inputs=inputs or [],
         outputs=outputs or [],
@@ -22,7 +22,7 @@ class TestConditionalCaseValidation(unittest.TestCase):
     def _make_condition(outputs=None):
         return model.LabeledNode(
             label="condition",
-            node=model.AtomicNode(
+            node=atomic_model.AtomicNode(
                 fully_qualified_name="mod.check",
                 inputs=["x"],
                 outputs=outputs or ["result"],
@@ -33,7 +33,7 @@ class TestConditionalCaseValidation(unittest.TestCase):
     def _make_body():
         return model.LabeledNode(
             label="body",
-            node=model.AtomicNode(
+            node=atomic_model.AtomicNode(
                 fully_qualified_name="mod.handle",
                 inputs=["x"],
                 outputs=["y"],
@@ -79,8 +79,8 @@ class TestConditionalCaseValidation(unittest.TestCase):
 
 class TestExceptionCaseValidation(unittest.TestCase):
     @staticmethod
-    def _make_except_body(inputs=None, outputs=None) -> model.AtomicNode:
-        return model.AtomicNode(
+    def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
+        return atomic_model.AtomicNode(
             fully_qualified_name="mod.handle_error",
             inputs=inputs or ["x"],
             outputs=outputs or ["y"],
@@ -123,7 +123,7 @@ class TestExceptionCaseSerialization(unittest.TestCase):
             exceptions=["builtins.ValueError", "builtins.TypeError"],
             body=model.LabeledNode(
                 label="handler",
-                node=model.AtomicNode(
+                node=atomic_model.AtomicNode(
                     fully_qualified_name="mod.handle_error",
                     inputs=["x"],
                     outputs=["y"],
@@ -146,7 +146,7 @@ class TestLabeledNode(unittest.TestCase):
             node=_make_atomic(inputs=["x"], outputs=["y"]),
         )
         self.assertEqual(ln.label, "my_node")
-        self.assertIsInstance(ln.node, model.AtomicNode)
+        self.assertIsInstance(ln.node, atomic_model.AtomicNode)
 
     def test_labeled_node_with_workflow(self):
         """LabeledNode can contain a WorkflowNode."""
