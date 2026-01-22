@@ -750,7 +750,7 @@ class IfNode(NodeModel):
     else_case: LabeledNode | None = None
 
     @property
-    def prospective_nodes(self) -> dict[str, NodeModel]:
+    def prospective_nodes(self) -> dict[str, "NodeType"]:
         nodes = {}
         for case in self.cases:
             nodes[case.condition.label] = case.condition.node
@@ -915,7 +915,7 @@ class TryNode(NodeModel):
     output_edges_matrix: dict[OutputTarget, list[SourceHandle]]
 
     @property
-    def prospective_nodes(self) -> dict[str, NodeModel]:
+    def prospective_nodes(self) -> dict[str, "NodeType"]:
         nodes = {self.try_node.label: self.try_node.node}
         for case in self.exception_cases:
             nodes[case.body.label] = case.body.node
