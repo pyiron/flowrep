@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import edges_model
+from flowrep.models import edge_models
 from flowrep.models.nodes import (
     atomic_model,
     base_models,
@@ -27,12 +27,12 @@ class TestForNodeBasic(unittest.TestCase):
                 ),
             ),
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="body", port="item"
-                ): edges_model.InputSource(port="items"),
+                ): edge_models.InputSource(port="items"),
             },
             output_edges={
-                edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                     node="body", port="result"
                 ),
             },
@@ -55,15 +55,15 @@ class TestForNodeBasic(unittest.TestCase):
                 ),
             ),
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="body", port="x"
-                ): edges_model.InputSource(port="xs"),
-                edges_model.TargetHandle(
+                ): edge_models.InputSource(port="xs"),
+                edge_models.TargetHandle(
                     node="body", port="y"
-                ): edges_model.InputSource(port="ys"),
+                ): edge_models.InputSource(port="ys"),
             },
             output_edges={
-                edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                     node="body", port="result"
                 ),
             },
@@ -85,18 +85,18 @@ class TestForNodeBasic(unittest.TestCase):
                 ),
             ),
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="body", port="a"
-                ): edges_model.InputSource(port="outer"),
-                edges_model.TargetHandle(
+                ): edge_models.InputSource(port="outer"),
+                edge_models.TargetHandle(
                     node="body", port="b"
-                ): edges_model.InputSource(port="inner1"),
-                edges_model.TargetHandle(
+                ): edge_models.InputSource(port="inner1"),
+                edge_models.TargetHandle(
                     node="body", port="c"
-                ): edges_model.InputSource(port="inner2"),
+                ): edge_models.InputSource(port="inner2"),
             },
             output_edges={
-                edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                     node="body", port="out"
                 ),
             },
@@ -122,12 +122,12 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="inp"
-                    ): edges_model.InputSource(port="x"),
+                    ): edge_models.InputSource(port="x"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="y"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
                         node="body", port="out"
                     ),
                 },
@@ -150,12 +150,12 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
@@ -177,12 +177,12 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="x"
-                    ): edges_model.InputSource(port="xs"),
+                    ): edge_models.InputSource(port="xs"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
@@ -204,12 +204,12 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
@@ -233,12 +233,12 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
@@ -262,12 +262,12 @@ class TestForNodeInputEdges(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="wrong_node", port="item"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
@@ -289,12 +289,12 @@ class TestForNodeInputEdges(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="wrong_port"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
@@ -316,12 +316,12 @@ class TestForNodeInputEdges(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="nonexistent"),
+                    ): edge_models.InputSource(port="nonexistent"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
@@ -345,12 +345,12 @@ class TestForNodeOutputEdges(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="wrong_node", port="result"
                     ),
                 },
@@ -372,12 +372,12 @@ class TestForNodeOutputEdges(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="wrong_port"
                     ),
                 },
@@ -399,14 +399,14 @@ class TestForNodeOutputEdges(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(
+                    edge_models.OutputTarget(
                         port="nonexistent"
-                    ): edges_model.SourceHandle(node="body", port="result"),
+                    ): edge_models.SourceHandle(node="body", port="result"),
                 },
                 nested_ports=["item"],
             )
@@ -428,20 +428,20 @@ class TestForNodeTransferEdges(unittest.TestCase):
                 ),
             ),
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="body", port="item"
-                ): edges_model.InputSource(port="items"),
+                ): edge_models.InputSource(port="items"),
             },
             output_edges={
-                edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                     node="body", port="result"
                 ),
             },
             nested_ports=["item"],
             transfer_edges={
-                edges_model.OutputTarget(
+                edge_models.OutputTarget(
                     port="original_items"
-                ): edges_model.InputSource(port="items"),
+                ): edge_models.InputSource(port="items"),
             },
         )
         self.assertEqual(len(for_node.transfer_edges), 1)
@@ -461,18 +461,18 @@ class TestForNodeTransferEdges(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
                 nested_ports=["item"],
                 transfer_edges={
-                    edges_model.OutputTarget(port="forwarded"): edges_model.InputSource(
+                    edge_models.OutputTarget(port="forwarded"): edge_models.InputSource(
                         port="nonexistent"
                     ),
                 },
@@ -495,20 +495,20 @@ class TestForNodeTransferEdges(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
                 nested_ports=["item"],
                 transfer_edges={
-                    edges_model.OutputTarget(
+                    edge_models.OutputTarget(
                         port="nonexistent"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
             )
         self.assertIn("nonexistent", str(ctx.exception))
@@ -529,21 +529,21 @@ class TestForNodeTransferEdges(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="items"),
-                    edges_model.TargetHandle(
+                    ): edge_models.InputSource(port="items"),
+                    edge_models.TargetHandle(
                         node="body", port="static"
-                    ): edges_model.InputSource(port="static_value"),
+                    ): edge_models.InputSource(port="static_value"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
                 nested_ports=["item"],
                 transfer_edges={
-                    edges_model.OutputTarget(port="forwarded"): edges_model.InputSource(
+                    edge_models.OutputTarget(port="forwarded"): edge_models.InputSource(
                         port="static_value"
                     ),
                 },
@@ -565,18 +565,18 @@ class TestForNodeTransferEdges(unittest.TestCase):
                     ),
                 ),
                 input_edges={
-                    edges_model.TargetHandle(
+                    edge_models.TargetHandle(
                         node="body", port="item"
-                    ): edges_model.InputSource(port="items"),
+                    ): edge_models.InputSource(port="items"),
                 },
                 output_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
                 },
                 nested_ports=["item"],
                 transfer_edges={
-                    edges_model.OutputTarget(port="results"): edges_model.InputSource(
+                    edge_models.OutputTarget(port="results"): edge_models.InputSource(
                         port="items"
                     ),
                 },
@@ -599,23 +599,23 @@ class TestForNodeSerialization(unittest.TestCase):
                 ),
             ),
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="body", port="item"
-                ): edges_model.InputSource(port="items"),
-                edges_model.TargetHandle(
+                ): edge_models.InputSource(port="items"),
+                edge_models.TargetHandle(
                     node="body", port="mult"
-                ): edges_model.InputSource(port="multiplier"),
+                ): edge_models.InputSource(port="multiplier"),
             },
             output_edges={
-                edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                     node="body", port="result"
                 ),
             },
             nested_ports=["item"],
             transfer_edges={
-                edges_model.OutputTarget(
+                edge_models.OutputTarget(
                     port="original_items"
-                ): edges_model.InputSource(port="items"),
+                ): edge_models.InputSource(port="items"),
             },
         )
         for mode in ["python", "json"]:
@@ -670,13 +670,13 @@ class TestForNodeComposition(unittest.TestCase):
                 )
             },
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="leaf", port="inp"
-                ): edges_model.InputSource(port="x"),
+                ): edge_models.InputSource(port="x"),
             },
             edges={},
             output_edges={
-                edges_model.OutputTarget(port="y"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
                     node="leaf", port="out"
                 ),
             },
@@ -690,12 +690,12 @@ class TestForNodeComposition(unittest.TestCase):
                 node=inner_workflow,
             ),
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="body", port="x"
-                ): edges_model.InputSource(port="items"),
+                ): edge_models.InputSource(port="items"),
             },
             output_edges={
-                edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                     node="body", port="y"
                 ),
             },
@@ -716,12 +716,12 @@ class TestForNodeComposition(unittest.TestCase):
                 ),
             ),
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="body", port="item"
-                ): edges_model.InputSource(port="items"),
+                ): edge_models.InputSource(port="items"),
             },
             output_edges={
-                edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                     node="body", port="result"
                 ),
             },
@@ -733,13 +733,13 @@ class TestForNodeComposition(unittest.TestCase):
             outputs=["processed"],
             nodes={"loop": for_node},
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="loop", port="items"
-                ): edges_model.InputSource(port="data"),
+                ): edge_models.InputSource(port="data"),
             },
             edges={},
             output_edges={
-                edges_model.OutputTarget(port="processed"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="processed"): edge_models.SourceHandle(
                     node="loop", port="results"
                 ),
             },
@@ -762,12 +762,12 @@ class TestForNodeComposition(unittest.TestCase):
                 ),
             ),
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="body", port="item"
-                ): edges_model.InputSource(port="items"),
+                ): edge_models.InputSource(port="items"),
             },
             output_edges={
-                edges_model.OutputTarget(port="results"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                     node="body", port="result"
                 ),
             },
@@ -791,20 +791,20 @@ class TestForNodeComposition(unittest.TestCase):
                 ),
             },
             input_edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="preprocess", port="data"
-                ): edges_model.InputSource(port="raw_data"),
+                ): edge_models.InputSource(port="raw_data"),
             },
             edges={
-                edges_model.TargetHandle(
+                edge_models.TargetHandle(
                     node="loop", port="items"
-                ): edges_model.SourceHandle(node="preprocess", port="items"),
-                edges_model.TargetHandle(
+                ): edge_models.SourceHandle(node="preprocess", port="items"),
+                edge_models.TargetHandle(
                     node="postprocess", port="results"
-                ): edges_model.SourceHandle(node="loop", port="results"),
+                ): edge_models.SourceHandle(node="loop", port="results"),
             },
             output_edges={
-                edges_model.OutputTarget(port="final"): edges_model.SourceHandle(
+                edge_models.OutputTarget(port="final"): edge_models.SourceHandle(
                     node="postprocess", port="output"
                 ),
             },

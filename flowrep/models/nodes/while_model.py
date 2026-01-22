@@ -4,7 +4,7 @@ from typing import Literal
 
 import pydantic
 
-from flowrep.models import edges_model
+from flowrep.models import edge_models
 from flowrep.models.nodes import base_models, helper_models
 
 
@@ -53,10 +53,10 @@ class WhileNode(base_models.NodeModel):
         default=base_models.RecipeElementType.WHILE, frozen=True
     )
     case: helper_models.ConditionalCase
-    input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
-    output_edges: dict[edges_model.OutputTarget, edges_model.SourceHandle]
-    body_body_edges: dict[edges_model.TargetHandle, edges_model.SourceHandle]
-    body_condition_edges: dict[edges_model.TargetHandle, edges_model.SourceHandle]
+    input_edges: dict[edge_models.TargetHandle, edge_models.InputSource]
+    output_edges: dict[edge_models.OutputTarget, edge_models.SourceHandle]
+    body_body_edges: dict[edge_models.TargetHandle, edge_models.SourceHandle]
+    body_condition_edges: dict[edge_models.TargetHandle, edge_models.SourceHandle]
 
     @pydantic.model_validator(mode="after")
     def validate_input_edges(self):

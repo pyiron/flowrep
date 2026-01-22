@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Literal
 
 import pydantic
 
-from flowrep.models import edges_model
+from flowrep.models import edge_models
 from flowrep.models.nodes import base_models, helper_models
 
 if TYPE_CHECKING:
@@ -57,8 +57,8 @@ class TryNode(base_models.NodeModel):
     )
     try_node: helper_models.LabeledNode
     exception_cases: list[helper_models.ExceptionCase]
-    input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
-    output_edges_matrix: dict[edges_model.OutputTarget, list[edges_model.SourceHandle]]
+    input_edges: dict[edge_models.TargetHandle, edge_models.InputSource]
+    output_edges_matrix: dict[edge_models.OutputTarget, list[edge_models.SourceHandle]]
 
     @property
     def prospective_nodes(self) -> dict[str, "NodeType"]:  # noqa: F821, UP037

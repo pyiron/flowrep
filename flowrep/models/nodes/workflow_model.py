@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 import networkx as nx
 import pydantic
 
-from flowrep.models import edges_model
+from flowrep.models import edge_models
 from flowrep.models.nodes import base_models
 
 if TYPE_CHECKING:
@@ -23,9 +23,9 @@ class WorkflowNode(base_models.NodeModel):
         default=base_models.RecipeElementType.WORKFLOW, frozen=True
     )
     nodes: dict[str, "NodeType"]  # noqa: F821, UP037
-    input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
-    edges: dict[edges_model.TargetHandle, edges_model.SourceHandle]
-    output_edges: dict[edges_model.OutputTarget, edges_model.SourceHandle]
+    input_edges: dict[edge_models.TargetHandle, edge_models.InputSource]
+    edges: dict[edge_models.TargetHandle, edge_models.SourceHandle]
+    output_edges: dict[edge_models.OutputTarget, edge_models.SourceHandle]
 
     @pydantic.field_validator("nodes")
     @classmethod
