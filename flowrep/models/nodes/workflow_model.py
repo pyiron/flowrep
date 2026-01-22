@@ -5,8 +5,7 @@ from typing import TYPE_CHECKING, Literal
 import networkx as nx
 import pydantic
 
-from flowrep.models import edge_models
-from flowrep.models.nodes import base_models
+from flowrep.models import base_models, edge_models
 
 if TYPE_CHECKING:
     from flowrep.models.nodes.union import NodeType  # Satisfies mypy
