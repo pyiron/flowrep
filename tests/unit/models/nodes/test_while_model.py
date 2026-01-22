@@ -4,7 +4,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models.nodes import model, union
+from flowrep.models.nodes import model, union, while_model
 
 
 def make_atomic(inputs: list[str], outputs: list[str]) -> model.AtomicNode:
@@ -28,7 +28,7 @@ def make_valid_while_node(
     output_edges: dict | None = None,
     body_body_edges: dict | None = None,
     body_condition_edges: dict | None = None,
-) -> model.WhileNode:
+) -> while_model.WhileNode:
     inputs = inputs if inputs is not None else ["x"]
     outputs = outputs if outputs is not None else ["y"]
     condition_inputs = condition_inputs if condition_inputs is not None else ["val"]
@@ -38,7 +38,7 @@ def make_valid_while_node(
     body_inputs = body_inputs if body_inputs is not None else ["inp"]
     body_outputs = body_outputs if body_outputs is not None else ["out"]
 
-    return model.WhileNode(
+    return while_model.WhileNode(
         inputs=inputs,
         outputs=outputs,
         case=model.ConditionalCase(
@@ -78,7 +78,7 @@ class TestWhileNodeBasic(unittest.TestCase):
 
     def test_valid_fully_wired(self):
         """WhileNode with all edge types populated."""
-        wn = model.WhileNode(
+        wn = while_model.WhileNode(
             inputs=["n", "acc"],
             outputs=["result"],
             case=model.ConditionalCase(
@@ -456,7 +456,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = model.WhileNode.model_validate(data)
+                restored = while_model.WhileNode.model_validate(data)
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
                 self.assertEqual(
@@ -466,7 +466,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
 
     def test_fully_wired_roundtrip(self):
         """Fully wired WhileNode roundtrip."""
-        original = model.WhileNode(
+        original = while_model.WhileNode(
             inputs=["n", "acc"],
             outputs=["result", "count"],
             case=model.ConditionalCase(
@@ -487,7 +487,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = model.WhileNode.model_validate(data)
+                restored = while_model.WhileNode.model_validate(data)
 
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
@@ -500,7 +500,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
 
     def test_edge_serialization_format(self):
         """Edges serialize to dot-notation strings."""
-        wn = model.WhileNode(
+        wn = while_model.WhileNode(
             inputs=["x"],
             outputs=["y"],
             case=model.ConditionalCase(
@@ -568,7 +568,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
             "body_condition_edges": {},
         }
         node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, model.WhileNode)
+        self.assertIsInstance(node, while_model.WhileNode)
 
     def test_nested_workflow_in_body(self):
         """WhileNode can contain WorkflowNode in body."""
@@ -580,7 +580,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
             edges={},
             output_edges={"b": "leaf.y"},
         )
-        wn = model.WhileNode(
+        wn = while_model.WhileNode(
             inputs=["start"],
             outputs=["end"],
             case=model.ConditionalCase(
@@ -596,7 +596,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
             body_condition_edges={},
         )
         data = wn.model_dump(mode="json")
-        restored = model.WhileNode.model_validate(data)
+        restored = while_model.WhileNode.model_validate(data)
         self.assertIsInstance(restored.case.body.node, model.WorkflowNode)
 
 
@@ -608,7 +608,7 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
         More subject to change than anything else -- if this fails it's probably because
         it got outlawed
         """
-        wn = model.WhileNode(
+        wn = while_model.WhileNode(
             inputs=[],
             outputs=[],
             case=model.ConditionalCase(
@@ -654,7 +654,7 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
         behavior at runtime. Here, we only specify the loop flow.
         """
 
-        wn = model.WhileNode(
+        wn = while_model.WhileNode(
             inputs=["x"],
             outputs=["y"],
             case=model.ConditionalCase(
