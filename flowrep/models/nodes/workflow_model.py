@@ -22,9 +22,9 @@ class WorkflowNode(base_models.NodeModel):
         default=base_models.RecipeElementType.WORKFLOW, frozen=True
     )
     nodes: dict[base_models.Label, "NodeType"]  # noqa: F821, UP037
-    input_edges: dict[edge_models.TargetHandle, edge_models.InputSource]
-    edges: dict[edge_models.TargetHandle, edge_models.SourceHandle]
-    output_edges: dict[edge_models.OutputTarget, edge_models.SourceHandle]
+    input_edges: edge_models.InputEdges
+    edges: edge_models.Edges
+    output_edges: edge_models.OutputEdges
 
     @pydantic.model_validator(mode="after")
     def validate_edge_references(self):

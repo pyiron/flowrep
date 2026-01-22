@@ -57,7 +57,7 @@ class TryNode(base_models.NodeModel):
     )
     try_node: helper_models.LabeledNode
     exception_cases: list[helper_models.ExceptionCase]
-    input_edges: dict[edge_models.TargetHandle, edge_models.InputSource]
+    input_edges: edge_models.InputEdges
     output_edges_matrix: dict[edge_models.OutputTarget, list[edge_models.SourceHandle]]
 
     @property

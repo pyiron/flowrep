@@ -48,3 +48,8 @@ class InputSource(HandleModel):
 class OutputTarget(HandleModel):
     node: None = pydantic.Field(default=None, frozen=True)
     port: base_models.Label
+
+
+Edges = dict[OutputTarget, SourceHandle]  # Communicate between siblings
+InputEdges = dict[TargetHandle, InputSource]  # Pass data into a subgraph
+OutputEdges = dict[OutputTarget, SourceHandle]  # Extract data from a subgraph
