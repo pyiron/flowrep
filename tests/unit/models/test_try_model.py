@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import model, union
+from flowrep.models import edges, model, union
 
 
 def _make_try_body(inputs=None, outputs=None) -> model.AtomicNode:
@@ -36,21 +36,21 @@ def _make_exception_case(
 
 
 def _make_input_edges(try_node, exception_cases):
-    edges = {
-        model.TargetHandle(node=try_node.label, port="x"): model.InputSource(port="inp")
+    edges_dict = {
+        edges.TargetHandle(node=try_node.label, port="x"): edges.InputSource(port="inp")
     }
     for case in exception_cases:
-        edges[model.TargetHandle(node=case.body.label, port="x")] = model.InputSource(
-            port="inp"
+        edges_dict[edges.TargetHandle(node=case.body.label, port="x")] = (
+            edges.InputSource(port="inp")
         )
-    return edges
+    return edges_dict
 
 
 def _make_output_edges_matrix(try_node, exception_cases):
-    sources = [model.SourceHandle(node=try_node.label, port="y")]
+    sources = [edges.SourceHandle(node=try_node.label, port="y")]
     for case in exception_cases:
-        sources.append(model.SourceHandle(node=case.body.label, port="y"))
-    return {model.OutputTarget(port="out"): sources}
+        sources.append(edges.SourceHandle(node=case.body.label, port="y"))
+    return {edges.OutputTarget(port="out"): sources}
 
 
 def _make_valid_try_node(n_exception_cases=1):
@@ -91,7 +91,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=[],
                 input_edges={},
-                output_edges_matrix={model.OutputTarget(port="out"): []},
+                output_edges_matrix={edges.OutputTarget(port="out"): []},
             )
         self.assertIn("at least one", str(ctx.exception))
 
@@ -112,8 +112,8 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
                 exception_cases=[exception_case],
                 input_edges={},
                 output_edges_matrix={
-                    model.OutputTarget(port="out"): [
-                        model.SourceHandle(node="shared_label", port="y"),
+                    edges.OutputTarget(port="out"): [
+                        edges.SourceHandle(node="shared_label", port="y"),
                     ]
                 },
             )
@@ -138,9 +138,9 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
                 exception_cases=[case0, case1],
                 input_edges={},
                 output_edges_matrix={
-                    model.OutputTarget(port="out"): [
-                        model.SourceHandle(node="try_body", port="y"),
-                        model.SourceHandle(node="handler", port="y"),
+                    edges.OutputTarget(port="out"): [
+                        edges.SourceHandle(node="try_body", port="y"),
+                        edges.SourceHandle(node="handler", port="y"),
                     ]
                 },
             )
@@ -159,11 +159,11 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
                 )
             },
             input_edges={
-                model.TargetHandle(node="inner", port="a"): model.InputSource(port="x"),
+                edges.TargetHandle(node="inner", port="a"): edges.InputSource(port="x"),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="y"): model.SourceHandle(
+                edges.OutputTarget(port="y"): edges.SourceHandle(
                     node="inner", port="b"
                 ),
             },
@@ -198,7 +198,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=exception_cases,
                 input_edges={
-                    model.TargetHandle(node="nonexistent", port="x"): model.InputSource(
+                    edges.TargetHandle(node="nonexistent", port="x"): edges.InputSource(
                         port="inp"
                     )
                 },
@@ -219,7 +219,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
             try_node=try_node,
             exception_cases=exception_cases,
             input_edges={
-                model.TargetHandle(node="try_body", port="x"): model.InputSource(
+                edges.TargetHandle(node="try_body", port="x"): edges.InputSource(
                     port="inp"
                 ),
             },
@@ -237,10 +237,10 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
             try_node=try_node,
             exception_cases=exception_cases,
             input_edges={
-                model.TargetHandle(node="except_0", port="x"): model.InputSource(
+                edges.TargetHandle(node="except_0", port="x"): edges.InputSource(
                     port="inp"
                 ),
-                model.TargetHandle(node="except_1", port="x"): model.InputSource(
+                edges.TargetHandle(node="except_1", port="x"): edges.InputSource(
                     port="inp"
                 ),
             },
@@ -259,9 +259,9 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=exception_cases,
                 input_edges={
-                    model.TargetHandle(
+                    edges.TargetHandle(
                         node="try_body", port="nonexistent"
-                    ): model.InputSource(port="inp")
+                    ): edges.InputSource(port="inp")
                 },
                 output_edges_matrix=_make_output_edges_matrix(
                     try_node, exception_cases
@@ -282,7 +282,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=exception_cases,
                 input_edges={
-                    model.TargetHandle(node="try_body", port="x"): model.InputSource(
+                    edges.TargetHandle(node="try_body", port="x"): edges.InputSource(
                         port="nonexistent"
                     )
                 },
@@ -308,8 +308,8 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
                 output_edges_matrix={
-                    model.OutputTarget(port="out"): [
-                        model.SourceHandle(node="nonexistent", port="y"),
+                    edges.OutputTarget(port="out"): [
+                        edges.SourceHandle(node="nonexistent", port="y"),
                     ]
                 },
             )
@@ -329,9 +329,9 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
                 output_edges_matrix={
-                    model.OutputTarget(port="out"): [
-                        model.SourceHandle(node="try_body", port="y"),
-                        model.SourceHandle(node="try_body", port="y"),  # Duplicate
+                    edges.OutputTarget(port="out"): [
+                        edges.SourceHandle(node="try_body", port="y"),
+                        edges.SourceHandle(node="try_body", port="y"),  # Duplicate
                     ]
                 },
             )
@@ -351,8 +351,8 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
                 output_edges_matrix={
-                    model.OutputTarget(port="out"): [
-                        model.SourceHandle(node="try_body", port="y"),
+                    edges.OutputTarget(port="out"): [
+                        edges.SourceHandle(node="try_body", port="y"),
                     ]
                     # Missing "other"
                 },
@@ -373,11 +373,11 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
                 output_edges_matrix={
-                    model.OutputTarget(port="out"): [
-                        model.SourceHandle(node="try_body", port="y"),
+                    edges.OutputTarget(port="out"): [
+                        edges.SourceHandle(node="try_body", port="y"),
                     ],
-                    model.OutputTarget(port="extra"): [
-                        model.SourceHandle(node="try_body", port="y"),
+                    edges.OutputTarget(port="extra"): [
+                        edges.SourceHandle(node="try_body", port="y"),
                     ],
                 },
             )
@@ -396,7 +396,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
-                output_edges_matrix={model.OutputTarget(port="out"): []},
+                output_edges_matrix={edges.OutputTarget(port="out"): []},
             )
         exc_str = str(ctx.exception)
         self.assertIn("at least one", exc_str)
@@ -412,15 +412,15 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
             exception_cases=exception_cases,
             input_edges=_make_input_edges(try_node, exception_cases),
             output_edges_matrix={
-                model.OutputTarget(port="out"): [
+                edges.OutputTarget(port="out"): [
                     # Only try_body and except_0, skipping except_1 and except_2
-                    model.SourceHandle(node="try_body", port="y"),
-                    model.SourceHandle(node="except_0", port="y"),
+                    edges.SourceHandle(node="try_body", port="y"),
+                    edges.SourceHandle(node="except_0", port="y"),
                 ]
             },
         )
         self.assertEqual(
-            len(node.output_edges_matrix[model.OutputTarget(port="out")]), 2
+            len(node.output_edges_matrix[edges.OutputTarget(port="out")]), 2
         )
 
     def test_output_edges_matrix_all_sources_allowed(self):
@@ -434,15 +434,15 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
             exception_cases=exception_cases,
             input_edges=_make_input_edges(try_node, exception_cases),
             output_edges_matrix={
-                model.OutputTarget(port="out"): [
-                    model.SourceHandle(node="try_body", port="y"),
-                    model.SourceHandle(node="except_0", port="y"),
-                    model.SourceHandle(node="except_1", port="y"),
+                edges.OutputTarget(port="out"): [
+                    edges.SourceHandle(node="try_body", port="y"),
+                    edges.SourceHandle(node="except_0", port="y"),
+                    edges.SourceHandle(node="except_1", port="y"),
                 ]
             },
         )
         self.assertEqual(
-            len(node.output_edges_matrix[model.OutputTarget(port="out")]), 3
+            len(node.output_edges_matrix[edges.OutputTarget(port="out")]), 3
         )
 
     def test_output_edges_matrix_invalid_source_port(self):
@@ -457,8 +457,8 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
                 output_edges_matrix={
-                    model.OutputTarget(port="out"): [
-                        model.SourceHandle(node="try_body", port="nonexistent"),
+                    edges.OutputTarget(port="out"): [
+                        edges.SourceHandle(node="try_body", port="nonexistent"),
                     ]
                 },
             )
@@ -484,21 +484,21 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
             try_node=try_node,
             exception_cases=[exception_case],
             input_edges={
-                model.TargetHandle(node="try_body", port="x"): model.InputSource(
+                edges.TargetHandle(node="try_body", port="x"): edges.InputSource(
                     port="inp"
                 ),
-                model.TargetHandle(node="except_body", port="x"): model.InputSource(
+                edges.TargetHandle(node="except_body", port="x"): edges.InputSource(
                     port="inp"
                 ),
             },
             output_edges_matrix={
-                model.OutputTarget(port="a"): [
-                    model.SourceHandle(node="try_body", port="out1"),
-                    model.SourceHandle(node="except_body", port="out1"),
+                edges.OutputTarget(port="a"): [
+                    edges.SourceHandle(node="try_body", port="out1"),
+                    edges.SourceHandle(node="except_body", port="out1"),
                 ],
-                model.OutputTarget(port="b"): [
-                    model.SourceHandle(node="try_body", port="out2"),
-                    model.SourceHandle(node="except_body", port="out2"),
+                edges.OutputTarget(port="b"): [
+                    edges.SourceHandle(node="try_body", port="out2"),
+                    edges.SourceHandle(node="except_body", port="out2"),
                 ],
             },
         )
@@ -531,7 +531,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
             try_node=try_node,
             exception_cases=[exception_case],
             input_edges={
-                model.TargetHandle(node="try_body", port="x"): model.InputSource(
+                edges.TargetHandle(node="try_body", port="x"): edges.InputSource(
                     port="inp"
                 ),
             },
@@ -620,13 +620,13 @@ class TestTryNodeInWorkflow(unittest.TestCase):
             outputs=["y"],
             nodes={"try_block": try_node},
             input_edges={
-                model.TargetHandle(node="try_block", port="inp"): model.InputSource(
+                edges.TargetHandle(node="try_block", port="inp"): edges.InputSource(
                     port="x"
                 ),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="y"): model.SourceHandle(
+                edges.OutputTarget(port="y"): edges.SourceHandle(
                     node="try_block", port="out"
                 ),
             },
@@ -642,13 +642,13 @@ class TestTryNodeInWorkflow(unittest.TestCase):
             outputs=["y"],
             nodes={"try_block": try_node},
             input_edges={
-                model.TargetHandle(node="try_block", port="inp"): model.InputSource(
+                edges.TargetHandle(node="try_block", port="inp"): edges.InputSource(
                     port="x"
                 ),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="y"): model.SourceHandle(
+                edges.OutputTarget(port="y"): edges.SourceHandle(
                     node="try_block", port="out"
                 ),
             },
@@ -665,13 +665,13 @@ class TestTryNodeInWorkflow(unittest.TestCase):
             outputs=["y"],
             nodes={"try_block": try_node},
             input_edges={
-                model.TargetHandle(node="try_block", port="inp"): model.InputSource(
+                edges.TargetHandle(node="try_block", port="inp"): edges.InputSource(
                     port="x"
                 ),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="y"): model.SourceHandle(
+                edges.OutputTarget(port="y"): edges.SourceHandle(
                     node="try_block", port="out"
                 ),
             },

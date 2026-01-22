@@ -5,7 +5,7 @@ from typing import Literal
 
 import pydantic
 
-from flowrep.models import model, union
+from flowrep.models import edges, model, union
 
 
 class TestNodeModel(unittest.TestCase):
@@ -300,51 +300,6 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             self.assertEqual(node.unpack_mode, mode)
 
 
-class TestHandleModels(unittest.TestCase):
-    """Tests for HandleModel subclasses and their type constraints."""
-
-    def test_source_handle_requires_node(self):
-        """SourceHandle must have a non-None node."""
-        h = model.SourceHandle(node="child", port="out")
-        self.assertEqual(h.node, "child")
-        self.assertEqual(h.port, "out")
-
-    def test_target_handle_requires_node(self):
-        """TargetHandle must have a non-None node."""
-        h = model.TargetHandle(node="child", port="inp")
-        self.assertEqual(h.node, "child")
-        self.assertEqual(h.port, "inp")
-
-    def test_input_source_has_none_node(self):
-        """InputSource always has node=None."""
-        h = model.InputSource(port="x")
-        self.assertIsNone(h.node)
-        self.assertEqual(h.port, "x")
-
-    def test_output_target_has_none_node(self):
-        """OutputTarget always has node=None."""
-        h = model.OutputTarget(port="y")
-        self.assertIsNone(h.node)
-        self.assertEqual(h.port, "y")
-
-    def test_handle_serialization(self):
-        """Handles serialize to dot-notation strings."""
-        self.assertEqual(
-            model.SourceHandle(node="n", port="p").model_dump(mode="json"), "n.p"
-        )
-        self.assertEqual(model.InputSource(port="x").model_dump(mode="json"), "x")
-
-    def test_handle_deserialization(self):
-        """Handles deserialize from dot-notation strings."""
-        h = model.SourceHandle.model_validate("child.output")
-        self.assertEqual(h.node, "child")
-        self.assertEqual(h.port, "output")
-
-        h = model.InputSource.model_validate("workflow_input")
-        self.assertIsNone(h.node)
-        self.assertEqual(h.port, "workflow_input")
-
-
 class TestWorkflowNodeInputEdges(unittest.TestCase):
     """Tests for input_edges validation (workflow inputs -> child inputs)."""
 
@@ -361,13 +316,13 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 )
             },
             input_edges={
-                model.TargetHandle(node="child", port="inp"): model.InputSource(
+                edges.TargetHandle(node="child", port="inp"): edges.InputSource(
                     port="x"
                 ),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="y"): model.SourceHandle(
+                edges.OutputTarget(port="y"): edges.SourceHandle(
                     node="child", port="out"
                 ),
             },
@@ -388,7 +343,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                     )
                 },
                 input_edges={
-                    model.TargetHandle(node="child", port="inp"): model.InputSource(
+                    edges.TargetHandle(node="child", port="inp"): edges.InputSource(
                         port="nonexistent"
                     ),
                 },
@@ -411,9 +366,9 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                     )
                 },
                 input_edges={
-                    model.TargetHandle(
+                    edges.TargetHandle(
                         node="nonexistent", port="inp"
-                    ): model.InputSource(port="x"),
+                    ): edges.InputSource(port="x"),
                 },
                 edges={},
                 output_edges={},
@@ -434,7 +389,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                     )
                 },
                 input_edges={
-                    model.TargetHandle(node="child", port="wrong"): model.InputSource(
+                    edges.TargetHandle(node="child", port="wrong"): edges.InputSource(
                         port="x"
                     ),
                 },
@@ -461,13 +416,13 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                 )
             },
             input_edges={
-                model.TargetHandle(node="child", port="inp"): model.InputSource(
+                edges.TargetHandle(node="child", port="inp"): edges.InputSource(
                     port="x"
                 ),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="y"): model.SourceHandle(
+                edges.OutputTarget(port="y"): edges.SourceHandle(
                     node="child", port="out"
                 ),
             },
@@ -490,7 +445,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                 input_edges={},
                 edges={},
                 output_edges={
-                    model.OutputTarget(port="nonexistent"): model.SourceHandle(
+                    edges.OutputTarget(port="nonexistent"): edges.SourceHandle(
                         node="child", port="out"
                     ),
                 },
@@ -513,7 +468,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                 input_edges={},
                 edges={},
                 output_edges={
-                    model.OutputTarget(port="y"): model.SourceHandle(
+                    edges.OutputTarget(port="y"): edges.SourceHandle(
                         node="nonexistent", port="out"
                     ),
                 },
@@ -536,7 +491,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                 input_edges={},
                 edges={},
                 output_edges={
-                    model.OutputTarget(port="y"): model.SourceHandle(
+                    edges.OutputTarget(port="y"): edges.SourceHandle(
                         node="child", port="wrong_port"
                     ),
                     # 'wrong_port' doesn't exist
@@ -567,15 +522,15 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 ),
             },
             input_edges={
-                model.TargetHandle(node="a", port="inp"): model.InputSource(port="x"),
+                edges.TargetHandle(node="a", port="inp"): edges.InputSource(port="x"),
             },
             edges={
-                model.TargetHandle(node="b", port="inp"): model.SourceHandle(
+                edges.TargetHandle(node="b", port="inp"): edges.SourceHandle(
                     node="a", port="out"
                 ),
             },
             output_edges={
-                model.OutputTarget(port="y"): model.SourceHandle(node="b", port="out"),
+                edges.OutputTarget(port="y"): edges.SourceHandle(node="b", port="out"),
             },
         )
         self.assertEqual(len(wf.edges), 1)
@@ -595,7 +550,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 input_edges={},
                 edges={
-                    model.TargetHandle(node="child", port="inp"): model.SourceHandle(
+                    edges.TargetHandle(node="child", port="inp"): edges.SourceHandle(
                         node="nonexistent", port="out"
                     ),
                 },
@@ -618,9 +573,9 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 input_edges={},
                 edges={
-                    model.TargetHandle(
+                    edges.TargetHandle(
                         node="nonexistent", port="inp"
-                    ): model.SourceHandle(node="child", port="out"),
+                    ): edges.SourceHandle(node="child", port="out"),
                 },
                 output_edges={},
             )
@@ -646,7 +601,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 input_edges={},
                 edges={
-                    model.TargetHandle(node="b", port="inp"): model.SourceHandle(
+                    edges.TargetHandle(node="b", port="inp"): edges.SourceHandle(
                         node="a", port="wrong"
                     ),
                 },
@@ -674,7 +629,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 input_edges={},
                 edges={
-                    model.TargetHandle(node="b", port="wrong"): model.SourceHandle(
+                    edges.TargetHandle(node="b", port="wrong"): edges.SourceHandle(
                         node="a", port="out"
                     ),
                 },
@@ -699,19 +654,19 @@ class TestWorkflowNodeMultiplePorts(unittest.TestCase):
                 )
             },
             input_edges={
-                model.TargetHandle(node="node1", port="in1"): model.InputSource(
+                edges.TargetHandle(node="node1", port="in1"): edges.InputSource(
                     port="a"
                 ),
-                model.TargetHandle(node="node1", port="in2"): model.InputSource(
+                edges.TargetHandle(node="node1", port="in2"): edges.InputSource(
                     port="b"
                 ),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="x"): model.SourceHandle(
+                edges.OutputTarget(port="x"): edges.SourceHandle(
                     node="node1", port="out1"
                 ),
-                model.OutputTarget(port="y"): model.SourceHandle(
+                edges.OutputTarget(port="y"): edges.SourceHandle(
                     node="node1", port="out2"
                 ),
             },
@@ -778,20 +733,20 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                     ),
                 },
                 input_edges={
-                    model.TargetHandle(node="a", port="inp"): model.InputSource(
+                    edges.TargetHandle(node="a", port="inp"): edges.InputSource(
                         port="x"
                     ),
                 },
                 edges={
-                    model.TargetHandle(node="b", port="inp"): model.SourceHandle(
+                    edges.TargetHandle(node="b", port="inp"): edges.SourceHandle(
                         node="a", port="out"
                     ),
-                    model.TargetHandle(node="a", port="feedback"): model.SourceHandle(
+                    edges.TargetHandle(node="a", port="feedback"): edges.SourceHandle(
                         node="b", port="out"
                     ),
                 },
                 output_edges={
-                    model.OutputTarget(port="y"): model.SourceHandle(
+                    edges.OutputTarget(port="y"): edges.SourceHandle(
                         node="b", port="out2"
                     ),
                 },
@@ -812,17 +767,17 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                     )
                 },
                 input_edges={
-                    model.TargetHandle(node="a", port="inp"): model.InputSource(
+                    edges.TargetHandle(node="a", port="inp"): edges.InputSource(
                         port="x"
                     ),
                 },
                 edges={
-                    model.TargetHandle(node="a", port="feedback"): model.SourceHandle(
+                    edges.TargetHandle(node="a", port="feedback"): edges.SourceHandle(
                         node="a", port="out"
                     ),
                 },
                 output_edges={
-                    model.OutputTarget(port="y"): model.SourceHandle(
+                    edges.OutputTarget(port="y"): edges.SourceHandle(
                         node="a", port="out2"
                     ),
                 },
@@ -852,18 +807,18 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 ),
             },
             input_edges={
-                model.TargetHandle(node="a", port="inp"): model.InputSource(port="x"),
+                edges.TargetHandle(node="a", port="inp"): edges.InputSource(port="x"),
             },
             edges={
-                model.TargetHandle(node="b", port="inp"): model.SourceHandle(
+                edges.TargetHandle(node="b", port="inp"): edges.SourceHandle(
                     node="a", port="out"
                 ),
-                model.TargetHandle(node="c", port="inp"): model.SourceHandle(
+                edges.TargetHandle(node="c", port="inp"): edges.SourceHandle(
                     node="b", port="out"
                 ),
             },
             output_edges={
-                model.OutputTarget(port="y"): model.SourceHandle(node="c", port="out"),
+                edges.OutputTarget(port="y"): edges.SourceHandle(node="c", port="out"),
             },
         )
         self.assertEqual(len(wf.nodes), 3)
@@ -885,13 +840,13 @@ class TestNestedWorkflow(unittest.TestCase):
                 )
             },
             input_edges={
-                model.TargetHandle(node="leaf", port="inp"): model.InputSource(
+                edges.TargetHandle(node="leaf", port="inp"): edges.InputSource(
                     port="a"
                 ),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="b"): model.SourceHandle(
+                edges.OutputTarget(port="b"): edges.SourceHandle(
                     node="leaf", port="out"
                 ),
             },
@@ -902,11 +857,11 @@ class TestNestedWorkflow(unittest.TestCase):
             outputs=["z"],
             nodes={"inner": inner},
             input_edges={
-                model.TargetHandle(node="inner", port="a"): model.InputSource(port="x"),
+                edges.TargetHandle(node="inner", port="a"): edges.InputSource(port="x"),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="z"): model.SourceHandle(
+                edges.OutputTarget(port="z"): edges.SourceHandle(
                     node="inner", port="b"
                 ),
             },
@@ -953,13 +908,13 @@ class TestNestedWorkflow(unittest.TestCase):
                 )
             },
             input_edges={
-                model.TargetHandle(node="leaf", port="x"): model.InputSource(
+                edges.TargetHandle(node="leaf", port="x"): edges.InputSource(
                     port="inner_in"
                 ),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="inner_out"): model.SourceHandle(
+                edges.OutputTarget(port="inner_out"): edges.SourceHandle(
                     node="leaf", port="y"
                 ),
             },
@@ -970,13 +925,13 @@ class TestNestedWorkflow(unittest.TestCase):
             outputs=["outer_out"],
             nodes={"inner": inner},
             input_edges={
-                model.TargetHandle(node="inner", port="inner_in"): model.InputSource(
+                edges.TargetHandle(node="inner", port="inner_in"): edges.InputSource(
                     port="outer_in"
                 ),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="outer_out"): model.SourceHandle(
+                edges.OutputTarget(port="outer_out"): edges.SourceHandle(
                     node="inner", port="inner_out"
                 ),
             },
@@ -996,13 +951,13 @@ class TestNestedWorkflow(unittest.TestCase):
                 )
             },
             input_edges={
-                model.TargetHandle(node="leaf", port="x"): model.InputSource(
+                edges.TargetHandle(node="leaf", port="x"): edges.InputSource(
                     port="inner_in"
                 ),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="inner_out"): model.SourceHandle(
+                edges.OutputTarget(port="inner_out"): edges.SourceHandle(
                     node="leaf", port="y"
                 ),
             },
@@ -1014,13 +969,13 @@ class TestNestedWorkflow(unittest.TestCase):
                 outputs=["outer_out"],
                 nodes={"inner": inner},
                 input_edges={
-                    model.TargetHandle(
+                    edges.TargetHandle(
                         node="inner", port="wrong_port"
-                    ): model.InputSource(port="outer_in"),
+                    ): edges.InputSource(port="outer_in"),
                 },
                 edges={},
                 output_edges={
-                    model.OutputTarget(port="outer_out"): model.SourceHandle(
+                    edges.OutputTarget(port="outer_out"): edges.SourceHandle(
                         node="inner", port="inner_out"
                     ),
                 },
@@ -1064,11 +1019,11 @@ class TestSerialization(unittest.TestCase):
                 )
             },
             input_edges={
-                model.TargetHandle(node="n", port="inp"): model.InputSource(port="x"),
+                edges.TargetHandle(node="n", port="inp"): edges.InputSource(port="x"),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="y"): model.SourceHandle(node="n", port="out"),
+                edges.OutputTarget(port="y"): edges.SourceHandle(node="n", port="out"),
             },
         )
         data = original.model_dump(mode="json")
@@ -1093,11 +1048,11 @@ class TestSerialization(unittest.TestCase):
                 )
             },
             input_edges={
-                model.TargetHandle(node="n", port="inp"): model.InputSource(port="x"),
+                edges.TargetHandle(node="n", port="inp"): edges.InputSource(port="x"),
             },
             edges={},
             output_edges={
-                model.OutputTarget(port="y"): model.SourceHandle(node="n", port="out"),
+                edges.OutputTarget(port="y"): edges.SourceHandle(node="n", port="out"),
             },
         )
         data = original.model_dump(mode="python")
@@ -1127,17 +1082,17 @@ class TestSerialization(unittest.TestCase):
                 ),
             },
             input_edges={
-                model.TargetHandle(node="a", port="i1"): model.InputSource(port="x"),
-                model.TargetHandle(node="a", port="i2"): model.InputSource(port="y"),
+                edges.TargetHandle(node="a", port="i1"): edges.InputSource(port="x"),
+                edges.TargetHandle(node="a", port="i2"): edges.InputSource(port="y"),
             },
             edges={
-                model.TargetHandle(node="b", port="inp"): model.SourceHandle(
+                edges.TargetHandle(node="b", port="inp"): edges.SourceHandle(
                     node="a", port="o1"
                 ),
             },
             output_edges={
-                model.OutputTarget(port="z"): model.SourceHandle(node="a", port="o2"),
-                model.OutputTarget(port="w"): model.SourceHandle(node="b", port="out"),
+                edges.OutputTarget(port="z"): edges.SourceHandle(node="a", port="o2"),
+                edges.OutputTarget(port="w"): edges.SourceHandle(node="b", port="out"),
             },
         )
         data = original.model_dump(mode="json")
