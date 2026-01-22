@@ -82,7 +82,7 @@ def _make_valid_if_node(n_cases=1, with_else=True):
         cases=cases,
         else_case=else_case,
         input_edges=_make_input_edges(cases, else_case),
-        output_edges_matrix=_make_output_edges(cases, else_case),
+        output_edge_possibilities=_make_output_edges(cases, else_case),
     )
 
 
@@ -120,7 +120,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
                 outputs=["out"],
                 cases=[],
                 input_edges={},
-                output_edges_matrix={edge_models.OutputTarget(port="out"): []},
+                output_edge_possibilities={edge_models.OutputTarget(port="out"): []},
             )
         self.assertIn("at least one", str(ctx.exception))
 
@@ -142,7 +142,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
                 outputs=["out"],
                 cases=[case0, case1],
                 input_edges={},
-                output_edges_matrix={
+                output_edge_possibilities={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node="shared_label", port="y"),
                         edge_models.SourceHandle(node="shared_label", port="y"),
@@ -189,7 +189,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             outputs=["out"],
             cases=cases,
             input_edges=_make_input_edges(cases),
-            output_edges_matrix=_make_output_edges(cases),
+            output_edge_possibilities=_make_output_edges(cases),
         )
         self.assertIsInstance(node.cases[0].condition.node, workflow_model.WorkflowNode)
 
@@ -207,7 +207,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
                         node="invalid_name", port="x"
                     ): edge_models.InputSource(port="inp")
                 },
-                output_edges_matrix=_make_output_edges(cases),
+                output_edge_possibilities=_make_output_edges(cases),
             )
         exc_str = str(ctx.exception)
         self.assertIn("invalid_name", exc_str)
@@ -227,7 +227,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
                     node=cases[1].condition.label, port="x"
                 ): edge_models.InputSource(port="inp"),
             },
-            output_edges_matrix=_make_output_edges(cases),
+            output_edge_possibilities=_make_output_edges(cases),
         )
         self.assertEqual(len(node.input_edges), 2)
 
@@ -246,7 +246,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
                     node=cases[1].body.label, port="x"
                 ): edge_models.InputSource(port="inp"),
             },
-            output_edges_matrix=_make_output_edges(cases),
+            output_edge_possibilities=_make_output_edges(cases),
         )
         self.assertEqual(len(node.input_edges), 2)
 
@@ -264,13 +264,13 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
                     node=else_case.label, port="x"
                 ): edge_models.InputSource(port="inp"),
             },
-            output_edges_matrix=_make_output_edges(cases, else_case),
+            output_edge_possibilities=_make_output_edges(cases, else_case),
         )
         self.assertEqual(len(node.input_edges), 1)
 
 
-class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
-    def test_output_edges_matrix_invalid_source_node(self):
+class TestIfNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
+    def test_output_edge_possibilities_invalid_source_node(self):
         """Sources must reference valid prospective nodes."""
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -279,7 +279,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 outputs=["out"],
                 cases=cases,
                 input_edges=_make_input_edges(cases),
-                output_edges_matrix={
+                output_edge_possibilities={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node="nonexistent", port="y"),
                     ]
@@ -289,7 +289,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         self.assertIn("invalid sources", exc_str)
         self.assertIn("nonexistent", exc_str)
 
-    def test_output_edges_matrix_duplicate_source_node_rejected(self):
+    def test_output_edge_possibilities_duplicate_source_node_rejected(self):
         """Each prospective node can appear at most once per output."""
         cases = [_make_case(0, outputs=["x", "y"])]
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -298,7 +298,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 outputs=["out"],
                 cases=cases,
                 input_edges=_make_input_edges(cases),
-                output_edges_matrix={
+                output_edge_possibilities={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node=cases[0].body.label, port="x"),
                         edge_models.SourceHandle(node=cases[0].body.label, port="y"),
@@ -309,7 +309,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         self.assertIn("unique elements", exc_str)
         self.assertIn("duplicates", exc_str.lower())
 
-    def test_output_edges_matrix_keys_must_match_outputs(self):
+    def test_output_edge_possibilities_keys_must_match_outputs(self):
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
             if_model.IfNode(
@@ -317,7 +317,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 outputs=["out", "other"],
                 cases=cases,
                 input_edges=_make_input_edges(cases),
-                output_edges_matrix={
+                output_edge_possibilities={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node=cases[0].body.label, port="y"),
                     ]
@@ -328,7 +328,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         self.assertIn("must match outputs", exc_str)
         self.assertIn("other", exc_str)
 
-    def test_output_edges_matrix_extra_key_rejected(self):
+    def test_output_edge_possibilities_extra_key_rejected(self):
         """output_edges cannot have keys not in outputs."""
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -337,7 +337,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 outputs=["out"],
                 cases=cases,
                 input_edges=_make_input_edges(cases),
-                output_edges_matrix={
+                output_edge_possibilities={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node=cases[0].body.label, port="y"),
                     ],
@@ -350,7 +350,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         self.assertIn("must match outputs", exc_str)
         self.assertIn("extra", exc_str)
 
-    def test_output_edges_matrix_empty_sources_rejected(self):
+    def test_output_edge_possibilities_empty_sources_rejected(self):
         """An output must have at least one source."""
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -359,12 +359,12 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 outputs=["out"],
                 cases=cases,
                 input_edges=_make_input_edges(cases),
-                output_edges_matrix={edge_models.OutputTarget(port="out"): []},
+                output_edge_possibilities={edge_models.OutputTarget(port="out"): []},
             )
         exc_str = str(ctx.exception)
         self.assertIn("at least one", exc_str)
 
-    def test_output_edges_matrix_partial_sources_allowed(self):
+    def test_output_edge_possibilities_partial_sources_allowed(self):
         """An output can have sources from only some prospective nodes."""
         cases = [_make_case(n) for n in range(3)]
         else_case = _make_else()
@@ -374,7 +374,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
             cases=cases,
             else_case=else_case,
             input_edges=_make_input_edges(cases, else_case),
-            output_edges_matrix={
+            output_edge_possibilities={
                 edge_models.OutputTarget(port="out"): [
                     # Only body_0 and else_body, skipping body_1 and body_2
                     edge_models.SourceHandle(node=cases[0].body.label, port="y"),
@@ -383,10 +383,10 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
             },
         )
         self.assertEqual(
-            len(node.output_edges_matrix[edge_models.OutputTarget(port="out")]), 2
+            len(node.output_edge_possibilities[edge_models.OutputTarget(port="out")]), 2
         )
 
-    def test_output_edges_matrix_all_sources_allowed(self):
+    def test_output_edge_possibilities_all_sources_allowed(self):
         """An output can have sources from all prospective nodes."""
         cases = [_make_case(n) for n in range(2)]
         else_case = _make_else()
@@ -396,7 +396,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
             cases=cases,
             else_case=else_case,
             input_edges=_make_input_edges(cases, else_case),
-            output_edges_matrix={
+            output_edge_possibilities={
                 edge_models.OutputTarget(port="out"): [
                     edge_models.SourceHandle(node=cases[0].body.label, port="y"),
                     edge_models.SourceHandle(node=cases[1].body.label, port="y"),
@@ -405,10 +405,10 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
             },
         )
         self.assertEqual(
-            len(node.output_edges_matrix[edge_models.OutputTarget(port="out")]), 3
+            len(node.output_edge_possibilities[edge_models.OutputTarget(port="out")]), 3
         )
 
-    def test_output_edges_matrix_can_source_from_conditions(self):
+    def test_output_edge_possibilities_can_source_from_conditions(self):
         """
         Sources can come from condition nodes, not just bodies.
 
@@ -421,7 +421,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
             outputs=["out"],
             cases=cases,
             input_edges=_make_input_edges(cases),
-            output_edges_matrix={
+            output_edge_possibilities={
                 edge_models.OutputTarget(port="out"): [
                     edge_models.SourceHandle(
                         node=cases[0].condition.label, port="result"
@@ -430,7 +430,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
             },
         )
         self.assertEqual(
-            len(node.output_edges_matrix[edge_models.OutputTarget(port="out")]), 1
+            len(node.output_edge_possibilities[edge_models.OutputTarget(port="out")]), 1
         )
 
 
@@ -474,7 +474,7 @@ class TestIfNodeProspectiveNodes(unittest.TestCase):
                 cases=cases,
                 else_case=else_case,
                 input_edges={},
-                output_edges_matrix={},
+                output_edge_possibilities={},
             )
         ctx_str = str(ctx.exception)
         self.assertIn("must have unique elements", ctx_str)
@@ -512,7 +512,7 @@ class TestIfNodeSerialization(unittest.TestCase):
                 self.assertEqual(len(restored.input_edges), 4)  # 3 bodies + 1 else
                 self.assertEqual(
                     len(
-                        restored.output_edges_matrix[
+                        restored.output_edge_possibilities[
                             edge_models.OutputTarget(port="out")
                         ]
                     ),
@@ -542,7 +542,7 @@ class TestIfNodeSerialization(unittest.TestCase):
             outputs=["out"],
             cases=cases,
             input_edges=_make_input_edges(cases),
-            output_edges_matrix=_make_output_edges(cases),
+            output_edge_possibilities=_make_output_edges(cases),
         )
 
         for mode in ["json", "python"]:
@@ -625,15 +625,15 @@ class TestIfNodeInputEdgesPortValidation(unittest.TestCase):
                         node=cases[0].body.label, port="nonexistent"
                     ): edge_models.InputSource(port="inp")
                 },
-                output_edges_matrix=_make_output_edges(cases),
+                output_edge_possibilities=_make_output_edges(cases),
             )
         exc_str = str(ctx.exception)
         self.assertIn("has no input port", exc_str)
         self.assertIn("nonexistent", exc_str)
 
 
-class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
-    def test_output_edges_matrix_invalid_body_source_port(self):
+class TestIfNodeOutputEdgePossibilitiesPortValidation(unittest.TestCase):
+    def test_output_edge_possibilities_invalid_body_source_port(self):
         """output_edges source port must exist on the body node."""
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -642,7 +642,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
                 outputs=["out"],
                 cases=cases,  # body has output "y"
                 input_edges=_make_input_edges(cases),
-                output_edges_matrix={
+                output_edge_possibilities={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(
                             node=cases[0].body.label, port="nonexistent"
@@ -654,7 +654,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
         self.assertIn("has no output port", exc_str)
         self.assertIn("nonexistent", exc_str)
 
-    def test_output_edges_matrix_invalid_else_source_port(self):
+    def test_output_edge_possibilities_invalid_else_source_port(self):
         """output_edges source port must exist on the else node."""
         cases = [_make_case(0)]
         else_case = _make_else()
@@ -665,7 +665,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
                 cases=cases,  # body has output "y"
                 else_case=else_case,
                 input_edges=_make_input_edges(cases, else_case),
-                output_edges_matrix={
+                output_edge_possibilities={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node=cases[0].body.label, port="y"),
                         edge_models.SourceHandle(
@@ -678,7 +678,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
         self.assertIn("has no output port", exc_str)
         self.assertIn("nonexistent", exc_str)
 
-    def test_output_edges_matrix_valid_source_ports(self):
+    def test_output_edge_possibilities_valid_source_ports(self):
         """output_edges with valid source ports should pass."""
         body_node = atomic_model.AtomicNode(
             fully_qualified_name="mod.handle",
@@ -698,7 +698,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
             outputs=["a", "b"],
             cases=cases,
             input_edges=_make_input_edges(cases),
-            output_edges_matrix={
+            output_edge_possibilities={
                 edge_models.OutputTarget(port="a"): [
                     edge_models.SourceHandle(node="body", port="out1"),
                 ],
@@ -707,9 +707,9 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
                 ],
             },
         )
-        self.assertEqual(len(node.output_edges_matrix), 2)
+        self.assertEqual(len(node.output_edge_possibilities), 2)
 
-    def test_output_edges_matrix_valid_source_ports_with_else(self):
+    def test_output_edge_possibilities_valid_source_ports_with_else(self):
         """output_edges with valid source ports and else_case should pass."""
         body_node = atomic_model.AtomicNode(
             fully_qualified_name="mod.handle",
@@ -730,7 +730,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
             cases=cases,
             else_case=helper_models.LabeledNode(label="else_case", node=body_node),
             input_edges=_make_input_edges(cases),
-            output_edges_matrix={
+            output_edge_possibilities={
                 edge_models.OutputTarget(port="a"): [
                     edge_models.SourceHandle(node="body", port="out1"),
                     edge_models.SourceHandle(node="else_case", port="out1"),
@@ -741,7 +741,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
                 ],
             },
         )
-        self.assertEqual(len(node.output_edges_matrix), 2)
+        self.assertEqual(len(node.output_edge_possibilities), 2)
 
 
 if __name__ == "__main__":

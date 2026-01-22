@@ -41,7 +41,7 @@ class IfNode(base_models.NodeModel):
         cases: The condition-body pairs to be walked over searching for a positive
             condition evaluation.
         input_edges: Edges from workflow inputs to inputs of body node instances.
-        output_edges_matrix: For each output, sources from each possible body node to
+        output_edge_possibilities: For each output, sources from each possible body node to
             fill that output. Note that exactly one of these possible edges will be
             actualized at runtime based on which body/else case node actually runs.
         else_case: Optional body node to execute if no positive case condition can be
@@ -59,7 +59,7 @@ class IfNode(base_models.NodeModel):
     )
     cases: list[helper_models.ConditionalCase]
     input_edges: edge_models.InputEdges
-    output_edges_matrix: dict[
+    output_edge_possibilities: dict[
         edge_models.OutputTarget, base_models.UniqueList[edge_models.SourceHandle]
     ]
     else_case: helper_models.LabeledNode | None = None
@@ -122,31 +122,31 @@ class IfNode(base_models.NodeModel):
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_output_edges_matrix_keys_match_outputs(self):
-        edge_ports = {target.port for target in self.output_edges_matrix}
+    def validate_output_edge_possibilities_keys_match_outputs(self):
+        edge_ports = {target.port for target in self.output_edge_possibilities}
         output_ports = set(self.outputs)
         if edge_ports != output_ports:
             missing = output_ports - edge_ports
             extra = edge_ports - output_ports
             raise ValueError(
-                f"output_edges_matrix keys must match outputs. "
+                f"output_edge_possibilities keys must match outputs. "
                 f"Missing: {missing or 'none'}, Extra: {extra or 'none'}"
             )
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_output_edges_matrix_sources(self):
+    def validate_output_edge_possibilities_sources(self):
         expected_nodes = list(self.prospective_nodes)
-        for target, sources in self.output_edges_matrix.items():
+        for target, sources in self.output_edge_possibilities.items():
             source_nodes = [s.node for s in sources]
             invalid_nodes = set(source_nodes) - set(expected_nodes)
             if len(source_nodes) == 0:
                 raise ValueError(
-                    f"output_edges_matrix['{target.port}'] must have at least one source"
+                    f"output_edge_possibilities['{target.port}'] must have at least one source"
                 )
             if invalid_nodes:
                 raise ValueError(
-                    f"output_edges_matrix['{target.port}'] sources must be from "
+                    f"output_edge_possibilities['{target.port}'] sources must be from "
                     f"{expected_nodes}, got invalid sources: {invalid_nodes}"
                 )
             base_models.validate_unique(source_nodes)
@@ -154,7 +154,7 @@ class IfNode(base_models.NodeModel):
                 node = self.prospective_nodes[source.node]
                 if source.port not in node.outputs:
                     raise ValueError(
-                        f"Invalid output_edges_matrix source: {source.node} has no "
+                        f"Invalid output_edge_possibilities source: {source.node} has no "
                         f"output port '{source.port}'. Available outputs: {node.outputs}"
                     )
         return self
