@@ -72,12 +72,8 @@ class ForNode(base_models.NodeModel):
     body_node: helper_models.LabeledNode
     input_edges: edge_models.InputEdges
     output_edges: edge_models.OutputEdges
-    nested_ports: base_models.UniqueList[base_models.Label] = pydantic.Field(
-        default_factory=list
-    )
-    zipped_ports: base_models.UniqueList[base_models.Label] = pydantic.Field(
-        default_factory=list
-    )
+    nested_ports: base_models.Labels = pydantic.Field(default_factory=list)
+    zipped_ports: base_models.Labels = pydantic.Field(default_factory=list)
     transfer_edges: dict[edge_models.OutputTarget, edge_models.InputSource] = (
         pydantic.Field(default_factory=dict)
     )
