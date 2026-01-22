@@ -8,7 +8,7 @@ import networkx as nx
 import pydantic
 import pydantic_core
 
-from flowrep.models.edges import InputSource, OutputTarget, SourceHandle, TargetHandle
+from flowrep.models import edges as edges_model
 
 if TYPE_CHECKING:
     from flowrep.models.nodes.union import NodeType  # Satisfies mypy
@@ -141,9 +141,9 @@ class WorkflowNode(NodeModel):
         default=RecipeElementType.WORKFLOW, frozen=True
     )
     nodes: dict[str, "NodeType"]  # noqa: F821, UP037
-    input_edges: dict[TargetHandle, InputSource]
-    edges: dict[TargetHandle, SourceHandle]
-    output_edges: dict[OutputTarget, SourceHandle]
+    input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
+    edges: dict[edges_model.TargetHandle, edges_model.SourceHandle]
+    output_edges: dict[edges_model.OutputTarget, edges_model.SourceHandle]
 
     @pydantic.field_validator("nodes")
     @classmethod
@@ -300,12 +300,12 @@ class ForNode(NodeModel):
         default=RecipeElementType.FOR, frozen=True
     )
     body_node: LabeledNode
-    input_edges: dict[TargetHandle, InputSource]
-    output_edges: dict[OutputTarget, SourceHandle]
+    input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
+    output_edges: dict[edges_model.OutputTarget, edges_model.SourceHandle]
     nested_ports: list[str] = pydantic.Field(default_factory=list)
     zipped_ports: list[str] = pydantic.Field(default_factory=list)
-    transfer_edges: dict[OutputTarget, InputSource] = pydantic.Field(
-        default_factory=dict
+    transfer_edges: dict[edges_model.OutputTarget, edges_model.InputSource] = (
+        pydantic.Field(default_factory=dict)
     )
 
     @pydantic.field_validator("nested_ports", "zipped_ports")
@@ -551,10 +551,10 @@ class WhileNode(NodeModel):
         default=RecipeElementType.WHILE, frozen=True
     )
     case: ConditionalCase
-    input_edges: dict[TargetHandle, InputSource]
-    output_edges: dict[OutputTarget, SourceHandle]
-    body_body_edges: dict[TargetHandle, SourceHandle]
-    body_condition_edges: dict[TargetHandle, SourceHandle]
+    input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
+    output_edges: dict[edges_model.OutputTarget, edges_model.SourceHandle]
+    body_body_edges: dict[edges_model.TargetHandle, edges_model.SourceHandle]
+    body_condition_edges: dict[edges_model.TargetHandle, edges_model.SourceHandle]
 
     @pydantic.model_validator(mode="after")
     def validate_input_edges(self):
@@ -719,8 +719,8 @@ class IfNode(NodeModel):
         default=RecipeElementType.IF, frozen=True
     )
     cases: list[ConditionalCase]
-    input_edges: dict[TargetHandle, InputSource]
-    output_edges_matrix: dict[OutputTarget, list[SourceHandle]]
+    input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
+    output_edges_matrix: dict[edges_model.OutputTarget, list[edges_model.SourceHandle]]
     else_case: LabeledNode | None = None
 
     @property
@@ -885,8 +885,8 @@ class TryNode(NodeModel):
     )
     try_node: LabeledNode
     exception_cases: list[ExceptionCase]
-    input_edges: dict[TargetHandle, InputSource]
-    output_edges_matrix: dict[OutputTarget, list[SourceHandle]]
+    input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
+    output_edges_matrix: dict[edges_model.OutputTarget, list[edges_model.SourceHandle]]
 
     @property
     def prospective_nodes(self) -> dict[str, "NodeType"]:  # noqa: F821, UP037
