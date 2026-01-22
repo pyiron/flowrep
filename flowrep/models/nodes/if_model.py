@@ -58,7 +58,7 @@ class IfNode(base_models.NodeModel):
         default=base_models.RecipeElementType.IF, frozen=True
     )
     cases: list[helper_models.ConditionalCase]
-    input_edges: dict[edge_models.TargetHandle, edge_models.InputSource]
+    input_edges: edge_models.InputEdges
     output_edges_matrix: dict[
         edge_models.OutputTarget, base_models.UniqueList[edge_models.SourceHandle]
     ]

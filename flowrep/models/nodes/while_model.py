@@ -53,10 +53,10 @@ class WhileNode(base_models.NodeModel):
         default=base_models.RecipeElementType.WHILE, frozen=True
     )
     case: helper_models.ConditionalCase
-    input_edges: dict[edge_models.TargetHandle, edge_models.InputSource]
-    output_edges: dict[edge_models.OutputTarget, edge_models.SourceHandle]
-    body_body_edges: dict[edge_models.TargetHandle, edge_models.SourceHandle]
-    body_condition_edges: dict[edge_models.TargetHandle, edge_models.SourceHandle]
+    input_edges: edge_models.InputEdges
+    output_edges: edge_models.OutputEdges
+    body_body_edges: edge_models.Edges
+    body_condition_edges: edge_models.Edges
 
     @pydantic.model_validator(mode="after")
     def validate_input_edges(self):

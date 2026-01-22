@@ -63,11 +63,13 @@ UniqueList = Annotated[list[T], pydantic.AfterValidator(validate_unique)]
 # But also the "one of each element" property of a list
 # This is useful, e.g., for guaranteeing that outputs are all uniquely named
 
+Labels = UniqueList[Label]
+
 
 class NodeModel(pydantic.BaseModel):
     type: RecipeElementType
-    inputs: UniqueList[Label]
-    outputs: UniqueList[Label]
+    inputs: Labels
+    outputs: Labels
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
