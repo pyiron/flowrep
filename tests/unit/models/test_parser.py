@@ -5,9 +5,8 @@ import textwrap
 import unittest
 from typing import Annotated
 
-from flowrep import parser
-from flowrep.models import model
-from flowrep.parser import OutputMeta
+from flowrep.models import model, parser
+from flowrep.models.parser import OutputMeta
 
 
 class TestOutputMeta(unittest.TestCase):
