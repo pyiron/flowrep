@@ -17,24 +17,14 @@ if TYPE_CHECKING:
 
 
 class LabeledNode(pydantic.BaseModel):
-    label: str
+    label: base_models.Label
     node: "NodeType"  # noqa: F821, UP037
-
-    @pydantic.field_validator("label")
-    @classmethod
-    def validate_label(cls, v):
-        if not base_models._valid_label(v):
-            raise ValueError(
-                f"Label must be a valid Python identifier and not in "
-                f"reserved labels {base_models.RESERVED_NAMES}. Got '{v}'"
-            )
-        return v
 
 
 class ConditionalCase(pydantic.BaseModel):
     condition: LabeledNode
     body: LabeledNode
-    condition_output: str | None = None
+    condition_output: base_models.Label | None = None
 
     @pydantic.model_validator(mode="after")
     def validate_condition_is_accessible(self):

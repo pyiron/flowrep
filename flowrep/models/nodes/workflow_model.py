@@ -21,7 +21,7 @@ class WorkflowNode(base_models.NodeModel):
     type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
         default=base_models.RecipeElementType.WORKFLOW, frozen=True
     )
-    nodes: dict[str, "NodeType"]  # noqa: F821, UP037
+    nodes: dict[base_models.Label, "NodeType"]  # noqa: F821, UP037
     input_edges: dict[edge_models.TargetHandle, edge_models.InputSource]
     edges: dict[edge_models.TargetHandle, edge_models.SourceHandle]
     output_edges: dict[edge_models.OutputTarget, edge_models.SourceHandle]
