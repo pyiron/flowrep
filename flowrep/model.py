@@ -24,6 +24,10 @@ class IOTypes(StrEnum):
 RESERVED_NAMES = {"inputs", "outputs"}  # No having child nodes with these names
 
 
+def _has_unique_elements(values: list[Any]) -> bool:
+    return len(values) == len(set(values))
+
+
 def _valid_label(label: str) -> bool:
     return (
         label.isidentifier()
@@ -247,11 +251,17 @@ class WorkflowNode(NodeModel):
 
 class LabeledNode(pydantic.BaseModel):
     label: str
-    node: NodeModel
+    node: "NodeType"
 
-
-def _has_unique_elements(values: list[Any]) -> bool:
-    return len(values) == len(set(values))
+    @pydantic.field_validator("label")
+    @classmethod
+    def validate_label(cls, v):
+        if not _valid_label(v):
+            raise ValueError(
+                f"Label must be a valid Python identifier and not in "
+                f"reserved labels {RESERVED_NAMES}. Got '{v}'"
+            )
+        return v
 
 
 class ForNode(NodeModel):
@@ -492,21 +502,6 @@ class ForNode(NodeModel):
         return self
 
 
-class LabeledNode(pydantic.BaseModel):
-    label: str
-    node: "NodeType"
-
-    @pydantic.field_validator("label")
-    @classmethod
-    def validate_label(cls, v):
-        if not _valid_label(v):
-            raise ValueError(
-                f"Label must be a valid Python identifier and not in "
-                f"reserved labels {RESERVED_NAMES}. Got '{v}'"
-            )
-        return v
-
-
 class ConditionalCase(pydantic.BaseModel):
     condition: LabeledNode
     body: LabeledNode
@@ -535,10 +530,6 @@ class ConditionalCase(pydantic.BaseModel):
                 f"both are '{self.condition.label}'"
             )
         return self
-
-
-def _has_unique_elements(values: list[Any]) -> bool:
-    return len(values) == len(set(values))
 
 
 class WhileNode(NodeModel):
@@ -714,36 +705,6 @@ class WhileNode(NodeModel):
         return self
 
 
-class LabeledNode(pydantic.BaseModel):
-    label: str
-    node: NodeModel
-
-
-def _has_unique_elements(values: list[Any]) -> bool:
-    return len(values) == len(set(values))
-
-
-class ConditionalCase(pydantic.BaseModel):
-    condition: LabeledNode
-    body: LabeledNode
-    condition_output: str | None = None
-
-    @pydantic.model_validator(mode="after")
-    def validate_condition_is_accessible(self):
-        if self.condition_output is None:
-            if len(self.condition.node.outputs) != 1:
-                raise ValueError(
-                    f"condition must have exactly one output if condition_output is not "
-                    f"provided. Got condition outputs: {self.condition.node.outputs}"
-                )
-        elif self.condition_output not in self.condition.node.outputs:
-            raise ValueError(
-                f"condition_output '{self.condition_output}' is not found among "
-                f"available outputs: {self.condition.node.outputs}"
-            )
-        return self
-
-
 class IfNode(NodeModel):
     """
     Walk through one or more cases, executing and returning the body result for the
@@ -789,7 +750,7 @@ class IfNode(NodeModel):
     else_case: LabeledNode | None = None
 
     @property
-    def prospective_nodes(self) -> dict[str, NodeModel]:
+    def prospective_nodes(self) -> dict[str, "NodeType"]:
         nodes = {}
         for case in self.cases:
             nodes[case.condition.label] = case.condition.node
@@ -954,7 +915,7 @@ class TryNode(NodeModel):
     output_edges_matrix: dict[OutputTarget, list[SourceHandle]]
 
     @property
-    def prospective_nodes(self) -> dict[str, NodeModel]:
+    def prospective_nodes(self) -> dict[str, "NodeType"]:
         nodes = {self.try_node.label: self.try_node.node}
         for case in self.exception_cases:
             nodes[case.body.label] = case.body.node
