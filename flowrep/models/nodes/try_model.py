@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Literal
 
 import pydantic
 
-from flowrep.models import edges as edges_model
+from flowrep.models import edges_model
 from flowrep.models.nodes import helper_models, model
 
 if TYPE_CHECKING:
