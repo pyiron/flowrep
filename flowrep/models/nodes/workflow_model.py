@@ -29,7 +29,7 @@ class WorkflowNode(base_models.NodeModel):
     @pydantic.field_validator("nodes")
     @classmethod
     def validate_node_labels(cls, v, info):
-        base_models._validate_labels(set(v.keys()), info)
+        cls.validate_io_labels(list(v.keys()), info)
         return v
 
     @pydantic.model_validator(mode="after")
