@@ -50,6 +50,6 @@ class OutputTarget(HandleModel):
     port: base_models.Label
 
 
-Edges = dict[OutputTarget, SourceHandle]  # Communicate between siblings
+Edges = dict[TargetHandle, SourceHandle]  # Communicate between siblings
 InputEdges = dict[TargetHandle, InputSource]  # Pass data into a subgraph
 OutputEdges = dict[OutputTarget, SourceHandle]  # Extract data from a subgraph
