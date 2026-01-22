@@ -8,7 +8,7 @@ import pydantic
 import pydantic_core
 
 if TYPE_CHECKING:
-    from flowrep.models.nodes.union import NodeType  # Satisfies mypy
+    pass
 
     # Still not enough to satisfy ruff, which doesn't understand the string forward
     # reference, even with the TYPE_CHECKING import
@@ -88,70 +88,4 @@ class NodeModel(pydantic.BaseModel):
             )
 
         _validate_labels(v, info)
-        return v
-
-
-class LabeledNode(pydantic.BaseModel):
-    label: str
-    node: "NodeType"  # noqa: F821, UP037
-
-    @pydantic.field_validator("label")
-    @classmethod
-    def validate_label(cls, v):
-        if not _valid_label(v):
-            raise ValueError(
-                f"Label must be a valid Python identifier and not in "
-                f"reserved labels {RESERVED_NAMES}. Got '{v}'"
-            )
-        return v
-
-
-class ConditionalCase(pydantic.BaseModel):
-    condition: LabeledNode
-    body: LabeledNode
-    condition_output: str | None = None
-
-    @pydantic.model_validator(mode="after")
-    def validate_condition_is_accessible(self):
-        if self.condition_output is None:
-            if len(self.condition.node.outputs) != 1:
-                raise ValueError(
-                    f"condition must have exactly one output if condition_output is not "
-                    f"provided. Got condition outputs: {self.condition.node.outputs}"
-                )
-        elif self.condition_output not in self.condition.node.outputs:
-            raise ValueError(
-                f"condition_output '{self.condition_output}' is not found among "
-                f"available outputs: {self.condition.node.outputs}"
-            )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_distinct_labels(self):
-        if self.condition.label == self.body.label:
-            raise ValueError(
-                f"Condition and body must have distinct labels, "
-                f"both are '{self.condition.label}'"
-            )
-        return self
-
-
-class ExceptionCase(pydantic.BaseModel):
-    """
-    An exception/node pair.
-
-    Attributes:
-        exceptions: The fully qualified names (i.e. module+qualname) of the exception
-            types.
-        body: The node to couple to these exceptions.
-    """
-
-    exceptions: list[str]
-    body: LabeledNode
-
-    @pydantic.field_validator("exceptions")
-    @classmethod
-    def validate_exceptions_not_empty(cls, v):
-        if len(v) < 1:
-            raise ValueError("ExceptionCase must catch at least one exception type")
         return v

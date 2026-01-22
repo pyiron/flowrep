@@ -4,7 +4,14 @@ import unittest
 
 import pydantic
 
-from flowrep.models.nodes import atomic_model, model, union, while_model, workflow_model
+from flowrep.models.nodes import (
+    atomic_model,
+    helper_models,
+    model,
+    union,
+    while_model,
+    workflow_model,
+)
 
 
 def make_atomic(inputs: list[str], outputs: list[str]) -> atomic_model.AtomicNode:
@@ -41,12 +48,12 @@ def make_valid_while_node(
     return while_model.WhileNode(
         inputs=inputs,
         outputs=outputs,
-        case=model.ConditionalCase(
-            condition=model.LabeledNode(
+        case=helper_models.ConditionalCase(
+            condition=helper_models.LabeledNode(
                 label=condition_label,
                 node=make_atomic(condition_inputs, condition_outputs),
             ),
-            body=model.LabeledNode(
+            body=helper_models.LabeledNode(
                 label=body_label,
                 node=make_atomic(body_inputs, body_outputs),
             ),
@@ -81,12 +88,12 @@ class TestWhileNodeBasic(unittest.TestCase):
         wn = while_model.WhileNode(
             inputs=["n", "acc"],
             outputs=["result"],
-            case=model.ConditionalCase(
-                condition=model.LabeledNode(
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
                     label="check",
                     node=make_atomic(["val"], ["is_positive"]),
                 ),
-                body=model.LabeledNode(
+                body=helper_models.LabeledNode(
                     label="decrement",
                     node=make_atomic(["current", "total"], ["next_val", "next_total"]),
                 ),
@@ -469,12 +476,12 @@ class TestWhileNodeSerialization(unittest.TestCase):
         original = while_model.WhileNode(
             inputs=["n", "acc"],
             outputs=["result", "count"],
-            case=model.ConditionalCase(
-                condition=model.LabeledNode(
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
                     label="check",
                     node=make_atomic(["val"], ["flag"]),
                 ),
-                body=model.LabeledNode(
+                body=helper_models.LabeledNode(
                     label="step",
                     node=make_atomic(["x", "y"], ["a", "b"]),
                 ),
@@ -503,12 +510,12 @@ class TestWhileNodeSerialization(unittest.TestCase):
         wn = while_model.WhileNode(
             inputs=["x"],
             outputs=["y"],
-            case=model.ConditionalCase(
-                condition=model.LabeledNode(
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
                     label="cond",
                     node=make_atomic(["inp"], ["out"]),
                 ),
-                body=model.LabeledNode(
+                body=helper_models.LabeledNode(
                     label="body",
                     node=make_atomic(["a"], ["b"]),
                 ),
@@ -583,12 +590,12 @@ class TestWhileNodeSerialization(unittest.TestCase):
         wn = while_model.WhileNode(
             inputs=["start"],
             outputs=["end"],
-            case=model.ConditionalCase(
-                condition=model.LabeledNode(
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
                     label="check",
                     node=make_atomic(["v"], ["done"]),
                 ),
-                body=model.LabeledNode(label="process", node=inner),
+                body=helper_models.LabeledNode(label="process", node=inner),
             ),
             input_edges={"process.a": "start"},
             output_edges={"end": "process.b"},
@@ -611,12 +618,12 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
         wn = while_model.WhileNode(
             inputs=[],
             outputs=[],
-            case=model.ConditionalCase(
-                condition=model.LabeledNode(
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
                     label="c",
                     node=make_atomic([], ["done"]),
                 ),
-                body=model.LabeledNode(
+                body=helper_models.LabeledNode(
                     label="b",
                     node=make_atomic([], []),
                 ),
@@ -632,12 +639,12 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
     def test_condition_with_zero_outputs_rejected(self):
         """Condition must have at least one output for evaluation."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ConditionalCase(
-                condition=model.LabeledNode(
+            helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
                     label="c",
                     node=make_atomic([], []),  # No outputs!
                 ),
-                body=model.LabeledNode(
+                body=helper_models.LabeledNode(
                     label="b",
                     node=make_atomic([], []),
                 ),
@@ -657,12 +664,12 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
         wn = while_model.WhileNode(
             inputs=["x"],
             outputs=["y"],
-            case=model.ConditionalCase(
-                condition=model.LabeledNode(
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
                     label="cond",
                     node=make_atomic(["val"], ["ok"]),
                 ),
-                body=model.LabeledNode(
+                body=helper_models.LabeledNode(
                     label="body",
                     node=make_atomic(["inp"], ["out"]),
                 ),

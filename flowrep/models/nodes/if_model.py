@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 import pydantic
 
 from flowrep.models import edges as edges_model
-from flowrep.models.nodes import model
+from flowrep.models.nodes import helper_models, model
 
 if TYPE_CHECKING:
     from flowrep.models.nodes.union import NodeType  # Satisfies mypy
@@ -50,10 +50,10 @@ class IfNode(model.NodeModel):
     type: Literal[model.RecipeElementType.IF] = pydantic.Field(
         default=model.RecipeElementType.IF, frozen=True
     )
-    cases: list[model.ConditionalCase]
+    cases: list[helper_models.ConditionalCase]
     input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
     output_edges_matrix: dict[edges_model.OutputTarget, list[edges_model.SourceHandle]]
-    else_case: model.LabeledNode | None = None
+    else_case: helper_models.LabeledNode | None = None
 
     @property
     def prospective_nodes(self) -> dict[str, "NodeType"]:  # noqa: F821, UP037

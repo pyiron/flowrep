@@ -5,7 +5,7 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import edges as edges_model
-from flowrep.models.nodes import model
+from flowrep.models.nodes import helper_models, model
 
 
 class ForNode(model.NodeModel):
@@ -69,7 +69,7 @@ class ForNode(model.NodeModel):
     type: Literal[model.RecipeElementType.FOR] = pydantic.Field(
         default=model.RecipeElementType.FOR, frozen=True
     )
-    body_node: model.LabeledNode
+    body_node: helper_models.LabeledNode
     input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
     output_edges: dict[edges_model.OutputTarget, edges_model.SourceHandle]
     nested_ports: list[str] = pydantic.Field(default_factory=list)

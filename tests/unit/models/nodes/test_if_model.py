@@ -3,7 +3,14 @@ import unittest
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import atomic_model, if_model, model, union, workflow_model
+from flowrep.models.nodes import (
+    atomic_model,
+    helper_models,
+    if_model,
+    model,
+    union,
+    workflow_model,
+)
 
 
 def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
@@ -22,17 +29,19 @@ def _make_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     )
 
 
-def _make_case(n: int, inputs=None, outputs=None) -> model.ConditionalCase:
-    return model.ConditionalCase(
-        condition=model.LabeledNode(
+def _make_case(n: int, inputs=None, outputs=None) -> helper_models.ConditionalCase:
+    return helper_models.ConditionalCase(
+        condition=helper_models.LabeledNode(
             label=f"condition_{n}", node=_make_condition(inputs=inputs)
         ),
-        body=model.LabeledNode(label=f"body_{n}", node=_make_body(outputs=outputs)),
+        body=helper_models.LabeledNode(
+            label=f"body_{n}", node=_make_body(outputs=outputs)
+        ),
     )
 
 
-def _make_else(inputs=None, outputs=None) -> model.LabeledNode:
-    return model.LabeledNode(
+def _make_else(inputs=None, outputs=None) -> helper_models.LabeledNode:
+    return helper_models.LabeledNode(
         label="else_body", node=_make_body(inputs=inputs, outputs=outputs)
     )
 
@@ -112,13 +121,13 @@ class TestIfNodeCasesValidation(unittest.TestCase):
 
     def test_duplicate_labels_across_cases_rejected(self):
         """Labels must be unique across all conditions, bodies, and else_case."""
-        case0 = model.ConditionalCase(
-            condition=model.LabeledNode(label="cond_0", node=_make_condition()),
-            body=model.LabeledNode(label="shared_label", node=_make_body()),
+        case0 = helper_models.ConditionalCase(
+            condition=helper_models.LabeledNode(label="cond_0", node=_make_condition()),
+            body=helper_models.LabeledNode(label="shared_label", node=_make_body()),
         )
-        case1 = model.ConditionalCase(
-            condition=model.LabeledNode(label="cond_1", node=_make_condition()),
-            body=model.LabeledNode(
+        case1 = helper_models.ConditionalCase(
+            condition=helper_models.LabeledNode(label="cond_1", node=_make_condition()),
+            body=helper_models.LabeledNode(
                 label="shared_label", node=_make_body()
             ),  # Duplicate
         )
@@ -160,11 +169,11 @@ class TestIfNodeCasesValidation(unittest.TestCase):
         )
 
         cases = [
-            model.ConditionalCase(
-                condition=model.LabeledNode(
+            helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
                     label="workflow_condition", node=workflow_condition
                 ),
-                body=model.LabeledNode(label="body", node=_make_body()),
+                body=helper_models.LabeledNode(label="body", node=_make_body()),
             )
         ]
 
@@ -485,9 +494,9 @@ class TestIfNodeSerialization(unittest.TestCase):
             outputs=["y"],
         )
         cases = [
-            model.ConditionalCase(
-                condition=model.LabeledNode(label="condition", node=condition),
-                body=model.LabeledNode(label="body", node=body),
+            helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(label="condition", node=condition),
+                body=helper_models.LabeledNode(label="body", node=body),
                 condition_output="a",
             )
         ]
@@ -638,9 +647,11 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
             outputs=["out1", "out2"],
         )
         cases = [
-            model.ConditionalCase(
-                condition=model.LabeledNode(label="condition", node=_make_condition()),
-                body=model.LabeledNode(label="body", node=body_node),
+            helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="condition", node=_make_condition()
+                ),
+                body=helper_models.LabeledNode(label="body", node=body_node),
             )
         ]
         node = if_model.IfNode(
@@ -667,16 +678,18 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
             outputs=["out1", "out2"],
         )
         cases = [
-            model.ConditionalCase(
-                condition=model.LabeledNode(label="condition", node=_make_condition()),
-                body=model.LabeledNode(label="body", node=body_node),
+            helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="condition", node=_make_condition()
+                ),
+                body=helper_models.LabeledNode(label="body", node=body_node),
             )
         ]
         node = if_model.IfNode(
             inputs=["inp"],
             outputs=["a", "b"],
             cases=cases,
-            else_case=model.LabeledNode(label="else_case", node=body_node),
+            else_case=helper_models.LabeledNode(label="else_case", node=body_node),
             input_edges=_make_input_edges(cases),
             output_edges_matrix={
                 edges.OutputTarget(port="a"): [

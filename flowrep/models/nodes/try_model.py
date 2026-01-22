@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 import pydantic
 
 from flowrep.models import edges as edges_model
-from flowrep.models.nodes import model
+from flowrep.models.nodes import helper_models, model
 
 if TYPE_CHECKING:
     from flowrep.models.nodes.union import NodeType  # Satisfies mypy
@@ -49,8 +49,8 @@ class TryNode(model.NodeModel):
     type: Literal[model.RecipeElementType.TRY] = pydantic.Field(
         default=model.RecipeElementType.TRY, frozen=True
     )
-    try_node: model.LabeledNode
-    exception_cases: list[model.ExceptionCase]
+    try_node: helper_models.LabeledNode
+    exception_cases: list[helper_models.ExceptionCase]
     input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
     output_edges_matrix: dict[edges_model.OutputTarget, list[edges_model.SourceHandle]]
 

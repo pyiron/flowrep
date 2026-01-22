@@ -5,7 +5,7 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import edges as edges_model
-from flowrep.models.nodes import model
+from flowrep.models.nodes import helper_models, model
 
 
 class WhileNode(model.NodeModel):
@@ -52,7 +52,7 @@ class WhileNode(model.NodeModel):
     type: Literal[model.RecipeElementType.WHILE] = pydantic.Field(
         default=model.RecipeElementType.WHILE, frozen=True
     )
-    case: model.ConditionalCase
+    case: helper_models.ConditionalCase
     input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
     output_edges: dict[edges_model.OutputTarget, edges_model.SourceHandle]
     body_body_edges: dict[edges_model.TargetHandle, edges_model.SourceHandle]
