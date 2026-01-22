@@ -22,7 +22,9 @@ class IOTypes(StrEnum):
     OUTPUTS = "outputs"
 
 
-RESERVED_NAMES = {"inputs", "outputs"}  # No having child nodes with these names
+RESERVED_NAMES = {
+    k for k in IOTypes.__members__.values()
+}  # No having labels with these names
 
 
 def _has_unique_elements(values: list[Any]) -> bool:

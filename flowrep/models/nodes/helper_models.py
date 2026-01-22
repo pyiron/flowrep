@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pydantic
 
-from flowrep.models.nodes import base_models
+from flowrep.models import base_models
 
 if TYPE_CHECKING:
     from flowrep.models.nodes.union import NodeType  # Satisfies mypy

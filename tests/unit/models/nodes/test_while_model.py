@@ -4,9 +4,9 @@ import unittest
 
 import pydantic
 
+from flowrep.models import base_models
 from flowrep.models.nodes import (
     atomic_model,
-    base_models,
     helper_models,
     union,
     while_model,

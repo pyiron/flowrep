@@ -5,8 +5,8 @@ from typing import Literal
 
 import pydantic
 
-from flowrep.models import edge_models
-from flowrep.models.nodes import atomic_model, base_models, union, workflow_model
+from flowrep.models import base_models, edge_models
+from flowrep.models.nodes import atomic_model, union, workflow_model
 
 
 class TestNodeModel(unittest.TestCase):

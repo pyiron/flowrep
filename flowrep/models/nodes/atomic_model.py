@@ -5,7 +5,7 @@ from typing import Literal
 
 import pydantic
 
-from flowrep.models.nodes import base_models
+from flowrep.models import base_models
 
 
 class UnpackMode(StrEnum):

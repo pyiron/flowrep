@@ -4,8 +4,8 @@ from typing import Literal
 
 import pydantic
 
-from flowrep.models import edge_models
-from flowrep.models.nodes import base_models, helper_models
+from flowrep.models import base_models, edge_models
+from flowrep.models.nodes import helper_models
 
 
 class WhileNode(base_models.NodeModel):
