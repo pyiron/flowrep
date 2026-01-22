@@ -30,15 +30,19 @@ class HandleModel(pydantic.BaseModel):
 
 class SourceHandle(HandleModel):
     node: str
+    port: str
 
 
 class TargetHandle(HandleModel):
     node: str
+    port: str
 
 
 class InputSource(HandleModel):
     node: None = pydantic.Field(default=None, frozen=True)
+    port: str
 
 
 class OutputTarget(HandleModel):
     node: None = pydantic.Field(default=None, frozen=True)
+    port: str
