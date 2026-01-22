@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import model
+from flowrep.models import model, union
 
 
 def _make_condition(inputs=None, outputs=None) -> model.AtomicNode:
@@ -508,14 +508,14 @@ class TestIfNodeSerialization(unittest.TestCase):
         original = _make_valid_if_node()
         data = original.model_dump(mode="json")
 
-        node = pydantic.TypeAdapter(model.NodeType).validate_python(data)
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
         self.assertIsInstance(node, model.IfNode)
 
     def test_discriminated_union_roundtrip_without_else(self):
         original = _make_valid_if_node(with_else=False)
         data = original.model_dump(mode="json")
 
-        node = pydantic.TypeAdapter(model.NodeType).validate_python(data)
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
         self.assertIsInstance(node, model.IfNode)
         self.assertIsNone(node.else_case)
 

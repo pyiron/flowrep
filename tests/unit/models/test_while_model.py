@@ -4,7 +4,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import model
+from flowrep.models import model, union
 
 
 def make_atomic(inputs: list[str], outputs: list[str]) -> model.AtomicNode:
@@ -567,7 +567,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
             "body_body_edges": {},
             "body_condition_edges": {},
         }
-        node = pydantic.TypeAdapter(model.NodeType).validate_python(data)
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
         self.assertIsInstance(node, model.WhileNode)
 
     def test_nested_workflow_in_body(self):

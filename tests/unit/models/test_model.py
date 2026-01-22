@@ -5,7 +5,7 @@ from typing import Literal
 
 import pydantic
 
-from flowrep.models import model
+from flowrep.models import model, union
 
 
 class TestNodeModel(unittest.TestCase):
@@ -1165,7 +1165,7 @@ class TestSerialization(unittest.TestCase):
             "inputs": ["x"],
             "outputs": ["y"],
         }
-        node = pydantic.TypeAdapter(model.NodeType).validate_python(data)
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
         self.assertIsInstance(node, model.AtomicNode)
 
         data = {
@@ -1177,7 +1177,7 @@ class TestSerialization(unittest.TestCase):
             "edges": {},
             "output_edges": {},
         }
-        node = pydantic.TypeAdapter(model.NodeType).validate_python(data)
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
         self.assertIsInstance(node, model.WorkflowNode)
 
 

@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import model
+from flowrep.models import model, union
 
 
 class TestForNodeBasic(unittest.TestCase):
@@ -639,7 +639,7 @@ class TestForNodeSerialization(unittest.TestCase):
             "zipped_ports": [],
             "transfer_edges": {},
         }
-        node = pydantic.TypeAdapter(model.NodeType).validate_python(data)
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
         self.assertIsInstance(node, model.ForNode)
 
 

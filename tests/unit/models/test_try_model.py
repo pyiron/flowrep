@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import model
+from flowrep.models import model, union
 
 
 def _make_try_body(inputs=None, outputs=None) -> model.AtomicNode:
@@ -607,7 +607,7 @@ class TestTryNodeSerialization(unittest.TestCase):
         original = _make_valid_try_node()
         data = original.model_dump(mode="json")
 
-        node = pydantic.TypeAdapter(model.NodeType).validate_python(data)
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
         self.assertIsInstance(node, model.TryNode)
 
 

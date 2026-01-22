@@ -1,10 +1,21 @@
+from __future__ import annotations
+
 import keyword
 from enum import StrEnum
-from typing import Annotated, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import networkx as nx
 import pydantic
 import pydantic_core
+
+if TYPE_CHECKING:
+    from flowrep.models.union import NodeType  # Satisfies mypy
+
+    # Still not enough to satisfy ruff, which doesn't understand the string forward
+    # reference, even with the TYPE_CHECKING import
+    # Better to nonetheless leave the references as strings to make sure the pydantic
+    # handling of forward references is maximally robust through the model_rebuild()
+    # Ultimately, just silence ruff as needed
 
 
 class RecipeElementType(StrEnum):
@@ -166,7 +177,7 @@ class WorkflowNode(NodeModel):
     type: Literal[RecipeElementType.WORKFLOW] = pydantic.Field(
         default=RecipeElementType.WORKFLOW, frozen=True
     )
-    nodes: dict[str, "NodeType"]
+    nodes: dict[str, "NodeType"]  # noqa: F821, UP037
     input_edges: dict[TargetHandle, InputSource]
     edges: dict[TargetHandle, SourceHandle]
     output_edges: dict[OutputTarget, SourceHandle]
@@ -251,7 +262,7 @@ class WorkflowNode(NodeModel):
 
 class LabeledNode(pydantic.BaseModel):
     label: str
-    node: "NodeType"
+    node: "NodeType"  # noqa: F821, UP037
 
     @pydantic.field_validator("label")
     @classmethod
@@ -750,7 +761,7 @@ class IfNode(NodeModel):
     else_case: LabeledNode | None = None
 
     @property
-    def prospective_nodes(self) -> dict[str, "NodeType"]:
+    def prospective_nodes(self) -> dict[str, "NodeType"]:  # noqa: F821, UP037
         nodes = {}
         for case in self.cases:
             nodes[case.condition.label] = case.condition.node
@@ -915,7 +926,7 @@ class TryNode(NodeModel):
     output_edges_matrix: dict[OutputTarget, list[SourceHandle]]
 
     @property
-    def prospective_nodes(self) -> dict[str, "NodeType"]:
+    def prospective_nodes(self) -> dict[str, "NodeType"]:  # noqa: F821, UP037
         nodes = {self.try_node.label: self.try_node.node}
         for case in self.exception_cases:
             nodes[case.body.label] = case.body.node
@@ -1006,12 +1017,3 @@ class TryNode(NodeModel):
                 f"Missing: {missing or 'none'}, Extra: {extra or 'none'}"
             )
         return self
-
-
-# Discriminated Union
-NodeType = Annotated[
-    AtomicNode | WorkflowNode | ForNode | WhileNode | IfNode | TryNode,
-    pydantic.Field(discriminator="type"),
-]
-
-WorkflowNode.model_rebuild()
