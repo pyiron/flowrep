@@ -6,7 +6,7 @@ import networkx as nx
 import pydantic
 
 from flowrep.models import edges_model
-from flowrep.models.nodes import model
+from flowrep.models.nodes import base_models
 
 if TYPE_CHECKING:
     from flowrep.models.nodes.union import NodeType  # Satisfies mypy
@@ -18,9 +18,9 @@ if TYPE_CHECKING:
     # Ultimately, just silence ruff as needed
 
 
-class WorkflowNode(model.NodeModel):
-    type: Literal[model.RecipeElementType.WORKFLOW] = pydantic.Field(
-        default=model.RecipeElementType.WORKFLOW, frozen=True
+class WorkflowNode(base_models.NodeModel):
+    type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
+        default=base_models.RecipeElementType.WORKFLOW, frozen=True
     )
     nodes: dict[str, "NodeType"]  # noqa: F821, UP037
     input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
@@ -30,7 +30,7 @@ class WorkflowNode(model.NodeModel):
     @pydantic.field_validator("nodes")
     @classmethod
     def validate_node_labels(cls, v, info):
-        model._validate_labels(set(v.keys()), info)
+        base_models._validate_labels(set(v.keys()), info)
         return v
 
     @pydantic.model_validator(mode="after")

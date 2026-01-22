@@ -2,7 +2,12 @@ import unittest
 
 import pydantic
 
-from flowrep.models.nodes import atomic_model, helper_models, model, workflow_model
+from flowrep.models.nodes import (
+    atomic_model,
+    base_models,
+    helper_models,
+    workflow_model,
+)
 
 
 def _make_atomic(
@@ -175,7 +180,7 @@ class TestLabeledNode(unittest.TestCase):
 
     def test_invalid_label_reserved(self):
         """LabeledNode rejects reserved names as labels."""
-        for reserved in model.RESERVED_NAMES:
+        for reserved in base_models.RESERVED_NAMES:
             with (
                 self.subTest(label=reserved),
                 self.assertRaises(pydantic.ValidationError),

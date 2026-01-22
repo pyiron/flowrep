@@ -6,8 +6,8 @@ import pydantic
 
 from flowrep.models.nodes import (
     atomic_model,
+    base_models,
     helper_models,
-    model,
     union,
     while_model,
     workflow_model,
@@ -75,7 +75,7 @@ class TestWhileNodeBasic(unittest.TestCase):
         Subject to change -- do we want to allow a trivial while node at all?
         """
         wn = make_valid_while_node()
-        self.assertEqual(wn.type, model.RecipeElementType.WHILE)
+        self.assertEqual(wn.type, base_models.RecipeElementType.WHILE)
         self.assertEqual(wn.inputs, ["x"])
         self.assertEqual(wn.outputs, ["y"])
         self.assertEqual(wn.input_edges, {})

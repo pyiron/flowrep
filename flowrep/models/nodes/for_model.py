@@ -5,10 +5,10 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import edges_model
-from flowrep.models.nodes import helper_models, model
+from flowrep.models.nodes import base_models, helper_models
 
 
-class ForNode(model.NodeModel):
+class ForNode(base_models.NodeModel):
     """
     Loop over a body node and collect outputs as a list.
     This is a dynamic node, which must actualize the body of its subgraph at runtime.
@@ -66,8 +66,8 @@ class ForNode(model.NodeModel):
         which input was used to produce each output element.
     """
 
-    type: Literal[model.RecipeElementType.FOR] = pydantic.Field(
-        default=model.RecipeElementType.FOR, frozen=True
+    type: Literal[base_models.RecipeElementType.FOR] = pydantic.Field(
+        default=base_models.RecipeElementType.FOR, frozen=True
     )
     body_node: helper_models.LabeledNode
     input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
@@ -81,7 +81,7 @@ class ForNode(model.NodeModel):
     @pydantic.field_validator("nested_ports", "zipped_ports")
     @classmethod
     def validate_single_appearance(cls, v, info):
-        if not model._has_unique_elements(v):
+        if not base_models._has_unique_elements(v):
             raise ValueError(
                 f"'{info.field_name}' must contain unique values, but got {v}."
             )

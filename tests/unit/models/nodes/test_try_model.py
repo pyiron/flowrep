@@ -5,8 +5,8 @@ import pydantic
 from flowrep.models import edges_model
 from flowrep.models.nodes import (
     atomic_model,
+    base_models,
     helper_models,
-    model,
     try_model,
     union,
     workflow_model,
@@ -81,7 +81,7 @@ class TestTryNodeBasicConstruction(unittest.TestCase):
     def test_valid_single_exception_case(self):
         """TryNode with one exception case should validate."""
         node = _make_valid_try_node(n_exception_cases=1)
-        self.assertEqual(node.type, model.RecipeElementType.TRY)
+        self.assertEqual(node.type, base_models.RecipeElementType.TRY)
         self.assertEqual(len(node.exception_cases), 1)
 
     def test_valid_multiple_exception_cases(self):

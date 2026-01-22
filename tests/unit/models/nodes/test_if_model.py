@@ -5,9 +5,9 @@ import pydantic
 from flowrep.models import edges_model
 from flowrep.models.nodes import (
     atomic_model,
+    base_models,
     helper_models,
     if_model,
-    model,
     union,
     workflow_model,
 )
@@ -87,7 +87,7 @@ class TestIfNodeBasicConstruction(unittest.TestCase):
     def test_valid_single_case(self):
         """IfNode with one case should validate."""
         node = _make_valid_if_node(n_cases=1)
-        self.assertEqual(node.type, model.RecipeElementType.IF)
+        self.assertEqual(node.type, base_models.RecipeElementType.IF)
         self.assertEqual(len(node.cases), 1)
 
     def test_valid_multiple_cases(self):
@@ -105,7 +105,7 @@ class TestIfNodeBasicConstruction(unittest.TestCase):
         """IfNode type field should be frozen."""
         node = _make_valid_if_node()
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            node.type = model.RecipeElementType.WORKFLOW
+            node.type = base_models.RecipeElementType.WORKFLOW
         self.assertIn("frozen", str(ctx.exception).lower())
 
 

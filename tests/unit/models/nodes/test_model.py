@@ -6,7 +6,7 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import edges_model
-from flowrep.models.nodes import atomic_model, model, union, workflow_model
+from flowrep.models.nodes import atomic_model, base_models, union, workflow_model
 
 
 class TestNodeModel(unittest.TestCase):
@@ -52,7 +52,7 @@ class TestNodeModel(unittest.TestCase):
         test_cases = [
             ("for", "Python keyword"),
             ("while", "Python keyword"),
-            *[(reserved, "reserved name") for reserved in model.RESERVED_NAMES],
+            *[(reserved, "reserved name") for reserved in base_models.RESERVED_NAMES],
             ("1invalid", "not an identifier"),
             ("my-var", "not an identifier"),
             ("my var", "not an identifier"),
@@ -98,14 +98,14 @@ class TestNodeTypeImmutability(unittest.TestCase):
         """AtomicNode should reject type override during instantiation."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             atomic_model.AtomicNode(
-                type=model.RecipeElementType.WORKFLOW,  # Wrong type
+                type=base_models.RecipeElementType.WORKFLOW,  # Wrong type
                 fully_qualified_name="mod.func",
                 inputs=["x"],
                 outputs=["y"],
             )
         exc_str = str(ctx.exception)
         self.assertIn("Input should be", exc_str)
-        self.assertIn(model.RecipeElementType.ATOMIC.value, exc_str)
+        self.assertIn(base_models.RecipeElementType.ATOMIC.value, exc_str)
 
     def test_type_field_cannot_be_mutated_after_construction(self):
         """AtomicNode should reject mutation of type field."""
@@ -115,7 +115,7 @@ class TestNodeTypeImmutability(unittest.TestCase):
             outputs=["y"],
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            node.type = model.RecipeElementType.WORKFLOW
+            node.type = base_models.RecipeElementType.WORKFLOW
         exc_str = str(ctx.exception)
         self.assertIn("frozen", exc_str.lower())
 
@@ -123,8 +123,8 @@ class TestNodeTypeImmutability(unittest.TestCase):
         """NodeModel subclasses must provide a default value for 'type'."""
         with self.assertRaises(TypeError) as ctx:
 
-            class BadNode(model.NodeModel):
-                type: Literal[model.RecipeElementType.ATOMIC]  # No default
+            class BadNode(base_models.NodeModel):
+                type: Literal[base_models.RecipeElementType.ATOMIC]  # No default
                 inputs: list[str]
                 outputs: list[str]
 
@@ -136,9 +136,9 @@ class TestNodeTypeImmutability(unittest.TestCase):
         """NodeModel subclasses must mark 'type' as frozen."""
         with self.assertRaises(TypeError) as ctx:
 
-            class BadNode(model.NodeModel):
-                type: Literal[model.RecipeElementType.ATOMIC] = (
-                    model.RecipeElementType.ATOMIC
+            class BadNode(base_models.NodeModel):
+                type: Literal[base_models.RecipeElementType.ATOMIC] = (
+                    base_models.RecipeElementType.ATOMIC
                 )  # Not frozen
                 inputs: list[str]
                 outputs: list[str]
@@ -151,7 +151,7 @@ class TestNodeTypeImmutability(unittest.TestCase):
         """NodeModel subclasses must redefine 'type' field, not inherit base definition."""
         with self.assertRaises(TypeError) as ctx:
 
-            class BadNode(model.NodeModel):
+            class BadNode(base_models.NodeModel):
                 # Doesn't mention 'type' at all
                 inputs: list[str]
                 outputs: list[str]
@@ -171,7 +171,7 @@ class TestAtomicNode(unittest.TestCase):
             outputs=[],
         )
         self.assertEqual(node.fully_qualified_name, "module.func")
-        self.assertEqual(node.type, model.RecipeElementType.ATOMIC)
+        self.assertEqual(node.type, base_models.RecipeElementType.ATOMIC)
 
     def test_valid_fqn_deep(self):
         node = atomic_model.AtomicNode(
@@ -690,7 +690,7 @@ class TestWorkflowNodeReservedNames(unittest.TestCase):
         test_cases = [
             ("for", "Python keyword"),
             ("while", "Python keyword"),
-            *[(reserved, "reserved name") for reserved in model.RESERVED_NAMES],
+            *[(reserved, "reserved name") for reserved in base_models.RESERVED_NAMES],
             ("1invalid", "not an identifier"),
             ("my-var", "not an identifier"),
             ("my var", "not an identifier"),
@@ -1144,7 +1144,7 @@ class TestSerialization(unittest.TestCase):
     def test_discriminated_union_roundtrip(self):
         """Ensure type discriminator works for polymorphic deserialization."""
         data = {
-            "type": model.RecipeElementType.ATOMIC,
+            "type": base_models.RecipeElementType.ATOMIC,
             "fully_qualified_name": "a.b",
             "inputs": ["x"],
             "outputs": ["y"],
@@ -1153,7 +1153,7 @@ class TestSerialization(unittest.TestCase):
         self.assertIsInstance(node, atomic_model.AtomicNode)
 
         data = {
-            "type": model.RecipeElementType.WORKFLOW,
+            "type": base_models.RecipeElementType.WORKFLOW,
             "inputs": [],
             "outputs": [],
             "nodes": {},

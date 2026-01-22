@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 import pydantic
 
 from flowrep.models import edges_model
-from flowrep.models.nodes import helper_models, model
+from flowrep.models.nodes import base_models, helper_models
 
 if TYPE_CHECKING:
     from flowrep.models.nodes.union import NodeType  # Satisfies mypy
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     # Ultimately, just silence ruff as needed
 
 
-class TryNode(model.NodeModel):
+class TryNode(base_models.NodeModel):
     """
     Try and except your way through a series of exceptions, with the option to perform
     a finally step.
@@ -52,8 +52,8 @@ class TryNode(model.NodeModel):
         thus non-data values at the end of the node's execution.
     """
 
-    type: Literal[model.RecipeElementType.TRY] = pydantic.Field(
-        default=model.RecipeElementType.TRY, frozen=True
+    type: Literal[base_models.RecipeElementType.TRY] = pydantic.Field(
+        default=base_models.RecipeElementType.TRY, frozen=True
     )
     try_node: helper_models.LabeledNode
     exception_cases: list[helper_models.ExceptionCase]
@@ -77,7 +77,7 @@ class TryNode(model.NodeModel):
     @pydantic.model_validator(mode="after")
     def validate_unique_labels(self):
         labels = [self.try_node.label] + [c.body.label for c in self.exception_cases]
-        if not model._has_unique_elements(labels):
+        if not base_models._has_unique_elements(labels):
             raise ValueError(f"All node labels must be unique. Got: {labels}")
         return self
 
@@ -126,7 +126,7 @@ class TryNode(model.NodeModel):
                     f"output_edges_matrix['{target.port}'] sources must be from "
                     f"{expected_nodes}, got invalid: {invalid_nodes}"
                 )
-            if not model._has_unique_elements(source_nodes):
+            if not base_models._has_unique_elements(source_nodes):
                 raise ValueError(
                     f"output_edges_matrix['{target.port}'] must have at most one "
                     f"source from each other node. Got duplicates in: {source_nodes}"

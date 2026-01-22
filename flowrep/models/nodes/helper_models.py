@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pydantic
 
-from flowrep.models.nodes import model
+from flowrep.models.nodes import base_models
 
 if TYPE_CHECKING:
     from flowrep.models.nodes.union import NodeType  # Satisfies mypy
@@ -23,10 +23,10 @@ class LabeledNode(pydantic.BaseModel):
     @pydantic.field_validator("label")
     @classmethod
     def validate_label(cls, v):
-        if not model._valid_label(v):
+        if not base_models._valid_label(v):
             raise ValueError(
                 f"Label must be a valid Python identifier and not in "
-                f"reserved labels {model.RESERVED_NAMES}. Got '{v}'"
+                f"reserved labels {base_models.RESERVED_NAMES}. Got '{v}'"
             )
         return v
 

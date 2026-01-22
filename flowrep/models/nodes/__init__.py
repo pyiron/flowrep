@@ -4,10 +4,10 @@ import pydantic
 
 from flowrep.models.nodes import (
     atomic_model,
+    base_models,
     for_model,
     helper_models,
     if_model,
-    model,
     try_model,
     while_model,
     workflow_model,

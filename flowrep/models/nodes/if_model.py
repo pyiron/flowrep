@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 import pydantic
 
 from flowrep.models import edges_model
-from flowrep.models.nodes import helper_models, model
+from flowrep.models.nodes import base_models, helper_models
 
 if TYPE_CHECKING:
     from flowrep.models.nodes.union import NodeType  # Satisfies mypy
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     # Ultimately, just silence ruff as needed
 
 
-class IfNode(model.NodeModel):
+class IfNode(base_models.NodeModel):
     """
     Walk through one or more cases, executing and returning the body result for the
     first case with a positive condition evaluation.
@@ -53,8 +53,8 @@ class IfNode(model.NodeModel):
         will be left in a state of non-data.
     """
 
-    type: Literal[model.RecipeElementType.IF] = pydantic.Field(
-        default=model.RecipeElementType.IF, frozen=True
+    type: Literal[base_models.RecipeElementType.IF] = pydantic.Field(
+        default=base_models.RecipeElementType.IF, frozen=True
     )
     cases: list[helper_models.ConditionalCase]
     input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
@@ -86,7 +86,7 @@ class IfNode(model.NodeModel):
             + [case.body.label for case in self.cases]
             + ([self.else_case.label] if self.else_case else [])
         )
-        if not model._has_unique_elements(labels):
+        if not base_models._has_unique_elements(labels):
             raise ValueError(
                 f"All prospective node labels must be unique. Got: {labels}"
             )
@@ -147,7 +147,7 @@ class IfNode(model.NodeModel):
                     f"output_edges_matrix['{target.port}'] sources must be from "
                     f"{expected_nodes}, got invalid sources: {invalid_nodes}"
                 )
-            if not model._has_unique_elements(source_nodes):
+            if not base_models._has_unique_elements(source_nodes):
                 raise ValueError(
                     f"output_edges_matrix['{target.port}'] must have at most one "
                     f"source from each other node. Got duplicates in: {source_nodes}"

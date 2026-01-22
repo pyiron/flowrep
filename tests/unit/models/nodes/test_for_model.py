@@ -5,9 +5,9 @@ import pydantic
 from flowrep.models import edges_model
 from flowrep.models.nodes import (
     atomic_model,
+    base_models,
     for_model,
     helper_models,
-    model,
     union,
     workflow_model,
 )
@@ -38,7 +38,7 @@ class TestForNodeBasic(unittest.TestCase):
             },
             nested_ports=["item"],
         )
-        self.assertEqual(for_node.type, model.RecipeElementType.FOR)
+        self.assertEqual(for_node.type, base_models.RecipeElementType.FOR)
         self.assertEqual(for_node.nested_ports, ["item"])
         self.assertEqual(for_node.zipped_ports, [])
 
@@ -635,7 +635,7 @@ class TestForNodeSerialization(unittest.TestCase):
     def test_discriminated_union_roundtrip(self):
         """ForNode should be correctly identified via type discriminator."""
         data = {
-            "type": model.RecipeElementType.FOR,
+            "type": base_models.RecipeElementType.FOR,
             "inputs": ["items"],
             "outputs": ["results"],
             "body_node": {

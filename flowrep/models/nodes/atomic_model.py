@@ -5,7 +5,7 @@ from typing import Literal
 
 import pydantic
 
-from flowrep.models.nodes import model
+from flowrep.models.nodes import base_models
 
 
 class UnpackMode(StrEnum):
@@ -22,9 +22,9 @@ class UnpackMode(StrEnum):
     DATACLASS = "dataclass"
 
 
-class AtomicNode(model.NodeModel):
-    type: Literal[model.RecipeElementType.ATOMIC] = pydantic.Field(
-        default=model.RecipeElementType.ATOMIC, frozen=True
+class AtomicNode(base_models.NodeModel):
+    type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
+        default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
     fully_qualified_name: str
     unpack_mode: UnpackMode = UnpackMode.TUPLE

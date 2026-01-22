@@ -5,10 +5,10 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import edges_model
-from flowrep.models.nodes import helper_models, model
+from flowrep.models.nodes import base_models, helper_models
 
 
-class WhileNode(model.NodeModel):
+class WhileNode(base_models.NodeModel):
     """
     A loop node that repeatedly executes a body while a condition is true.
     This is a dynamic node, which must actualize the body of its subgraph at runtime.
@@ -49,8 +49,8 @@ class WhileNode(model.NodeModel):
             re-evaluation after each iteration.
     """
 
-    type: Literal[model.RecipeElementType.WHILE] = pydantic.Field(
-        default=model.RecipeElementType.WHILE, frozen=True
+    type: Literal[base_models.RecipeElementType.WHILE] = pydantic.Field(
+        default=base_models.RecipeElementType.WHILE, frozen=True
     )
     case: helper_models.ConditionalCase
     input_edges: dict[edges_model.TargetHandle, edges_model.InputSource]
