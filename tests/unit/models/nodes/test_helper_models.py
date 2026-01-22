@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models.nodes import model
+from flowrep.models.nodes import model, workflow_model
 
 
 def _make_atomic(
@@ -150,7 +150,7 @@ class TestLabeledNode(unittest.TestCase):
 
     def test_labeled_node_with_workflow(self):
         """LabeledNode can contain a WorkflowNode."""
-        inner = model.WorkflowNode(
+        inner = workflow_model.WorkflowNode(
             inputs=["a"],
             outputs=["b"],
             nodes={"leaf": _make_atomic(inputs=["x"], outputs=["y"])},
@@ -159,7 +159,7 @@ class TestLabeledNode(unittest.TestCase):
             output_edges={"b": "leaf.y"},
         )
         ln = model.LabeledNode(label="nested", node=inner)
-        self.assertIsInstance(ln.node, model.WorkflowNode)
+        self.assertIsInstance(ln.node, workflow_model.WorkflowNode)
 
     def test_invalid_label_keyword(self):
         """LabeledNode rejects Python keywords as labels."""

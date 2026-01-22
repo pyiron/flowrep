@@ -2,7 +2,14 @@ from typing import cast
 
 import pydantic
 
-from flowrep.models.nodes import for_model, if_model, model, try_model, while_model
+from flowrep.models.nodes import (
+    for_model,
+    if_model,
+    model,
+    try_model,
+    while_model,
+    workflow_model,
+)
 from flowrep.models.nodes.union import NodeType
 
 for cls in [
@@ -10,8 +17,8 @@ for cls in [
     for_model.ForNode,
     if_model.IfNode,
     model.LabeledNode,
-    model.WorkflowNode,
     try_model.TryNode,
     while_model.WhileNode,
+    workflow_model.WorkflowNode,
 ]:
     cast(type[pydantic.BaseModel], cls).model_rebuild()

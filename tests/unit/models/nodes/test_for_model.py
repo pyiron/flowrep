@@ -3,7 +3,7 @@ import unittest
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import for_model, model, union
+from flowrep.models.nodes import for_model, model, union, workflow_model
 
 
 class TestForNodeBasic(unittest.TestCase):
@@ -646,7 +646,7 @@ class TestForNodeSerialization(unittest.TestCase):
 
 class TestForNodeComposition(unittest.TestCase):
     def test_workflow_body_node(self):
-        inner_workflow = model.WorkflowNode(
+        inner_workflow = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={
@@ -688,7 +688,7 @@ class TestForNodeComposition(unittest.TestCase):
             },
             nested_ports=["x"],
         )
-        self.assertIsInstance(for_node.body_node.node, model.WorkflowNode)
+        self.assertIsInstance(for_node.body_node.node, workflow_model.WorkflowNode)
 
     def test_for_node_as_workflow_child(self):
         for_node = for_model.ForNode(
@@ -715,7 +715,7 @@ class TestForNodeComposition(unittest.TestCase):
             nested_ports=["item"],
         )
 
-        workflow = model.WorkflowNode(
+        workflow = workflow_model.WorkflowNode(
             inputs=["data"],
             outputs=["processed"],
             nodes={"loop": for_node},
@@ -761,7 +761,7 @@ class TestForNodeComposition(unittest.TestCase):
             nested_ports=["item"],
         )
 
-        workflow = model.WorkflowNode(
+        workflow = workflow_model.WorkflowNode(
             inputs=["raw_data"],
             outputs=["final"],
             nodes={

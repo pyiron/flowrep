@@ -6,7 +6,7 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import model, union
+from flowrep.models.nodes import model, union, workflow_model
 
 
 class TestNodeModel(unittest.TestCase):
@@ -26,7 +26,7 @@ class TestNodeModel(unittest.TestCase):
     def test_duplicate_outputs_rejected(self):
         """Any NodeModel subclass should reject duplicate outputs."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["a"],
                 outputs=["x", "y", "x"],  # duplicate 'x'
                 nodes={},
@@ -306,7 +306,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
 
     def test_valid_input_edge(self):
         """Input edge from workflow input to child input."""
-        wf = model.WorkflowNode(
+        wf = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={
@@ -333,7 +333,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
     def test_input_edge_invalid_workflow_input(self):
         """Input edge referencing nonexistent workflow input."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -356,7 +356,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
     def test_input_edge_invalid_child_node(self):
         """Input edge referencing nonexistent child node."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -379,7 +379,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
     def test_input_edge_invalid_child_port(self):
         """Input edge referencing nonexistent port on child."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -406,7 +406,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
 
     def test_valid_output_edge(self):
         """Output edge from child output to workflow output."""
-        wf = model.WorkflowNode(
+        wf = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={
@@ -433,7 +433,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
     def test_output_edge_invalid_workflow_output(self):
         """Output edge referencing nonexistent workflow output."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -456,7 +456,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
     def test_output_edge_invalid_child_node(self):
         """Output edge referencing nonexistent child node."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -479,7 +479,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
     def test_output_edge_invalid_child_port(self):
         """Output edge referencing nonexistent port on child."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -507,7 +507,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
 
     def test_valid_internal_edge(self):
         """Edge between two child nodes."""
-        wf = model.WorkflowNode(
+        wf = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={
@@ -539,7 +539,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
     def test_internal_edge_invalid_source_node(self):
         """Internal edge from nonexistent source node."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -562,7 +562,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
     def test_internal_edge_invalid_target_node(self):
         """Internal edge to nonexistent target node."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -585,7 +585,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
     def test_internal_edge_invalid_source_port(self):
         """Internal edge from nonexistent source port."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -613,7 +613,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
     def test_internal_edge_invalid_target_port(self):
         """Internal edge to nonexistent target port."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -644,7 +644,7 @@ class TestWorkflowNodeMultiplePorts(unittest.TestCase):
 
     def test_multiple_ports_valid(self):
         """Valid edges with multiple input/output ports."""
-        wf = model.WorkflowNode(
+        wf = workflow_model.WorkflowNode(
             inputs=["a", "b"],
             outputs=["x", "y"],
             nodes={
@@ -694,7 +694,7 @@ class TestWorkflowNodeReservedNames(unittest.TestCase):
         for invalid_label, reason in test_cases:
             with self.subTest(label=invalid_label, reason=reason):
                 with self.assertRaises(pydantic.ValidationError) as ctx:
-                    model.WorkflowNode(
+                    workflow_model.WorkflowNode(
                         inputs=["a"],
                         outputs=["b"],
                         nodes={
@@ -718,7 +718,7 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
     def test_simple_cycle_rejected(self):
         """A -> B -> A should fail."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -757,7 +757,7 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
     def test_self_loop_rejected(self):
         """A -> A should fail."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
@@ -787,7 +787,7 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
 
     def test_valid_dag(self):
         """Linear chain should pass."""
-        wf = model.WorkflowNode(
+        wf = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={
@@ -830,7 +830,7 @@ class TestNestedWorkflow(unittest.TestCase):
 
     def test_nested_construction(self):
         """Nested workflows should validate recursively."""
-        inner = model.WorkflowNode(
+        inner = workflow_model.WorkflowNode(
             inputs=["a"],
             outputs=["b"],
             nodes={
@@ -853,7 +853,7 @@ class TestNestedWorkflow(unittest.TestCase):
             },
         )
 
-        outer = model.WorkflowNode(
+        outer = workflow_model.WorkflowNode(
             inputs=["x", "y"],
             outputs=["z"],
             nodes={"inner": inner},
@@ -867,16 +867,16 @@ class TestNestedWorkflow(unittest.TestCase):
                 ),
             },
         )
-        self.assertIsInstance(outer.nodes["inner"], model.WorkflowNode)
+        self.assertIsInstance(outer.nodes["inner"], workflow_model.WorkflowNode)
 
     def test_nested_invalid_fqn_bubbles_up(self):
         """Validation errors in nested nodes should propagate."""
         with self.assertRaises(pydantic.ValidationError):
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "inner": model.WorkflowNode(
+                    "inner": workflow_model.WorkflowNode(
                         inputs=["a"],
                         outputs=["b"],
                         nodes={
@@ -898,7 +898,7 @@ class TestNestedWorkflow(unittest.TestCase):
 
     def test_nested_workflow_port_validation(self):
         """Port validation works for nested workflows."""
-        inner = model.WorkflowNode(
+        inner = workflow_model.WorkflowNode(
             inputs=["inner_in"],
             outputs=["inner_out"],
             nodes={
@@ -921,7 +921,7 @@ class TestNestedWorkflow(unittest.TestCase):
             },
         )
 
-        outer = model.WorkflowNode(
+        outer = workflow_model.WorkflowNode(
             inputs=["outer_in"],
             outputs=["outer_out"],
             nodes={"inner": inner},
@@ -941,7 +941,7 @@ class TestNestedWorkflow(unittest.TestCase):
 
     def test_nested_workflow_invalid_port(self):
         """Port validation catches errors in nested workflow edges."""
-        inner = model.WorkflowNode(
+        inner = workflow_model.WorkflowNode(
             inputs=["inner_in"],
             outputs=["inner_out"],
             nodes={
@@ -965,7 +965,7 @@ class TestNestedWorkflow(unittest.TestCase):
         )
 
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
+            workflow_model.WorkflowNode(
                 inputs=["outer_in"],
                 outputs=["outer_out"],
                 nodes={"inner": inner},
@@ -1009,7 +1009,7 @@ class TestSerialization(unittest.TestCase):
         self.assertEqual(original, restored)
 
     def test_workflow_json_roundtrip(self):
-        original = model.WorkflowNode(
+        original = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={
@@ -1028,7 +1028,7 @@ class TestSerialization(unittest.TestCase):
             },
         )
         data = original.model_dump(mode="json")
-        restored = model.WorkflowNode.model_validate(data)
+        restored = workflow_model.WorkflowNode.model_validate(data)
         self.assertEqual(original.inputs, restored.inputs)
         self.assertEqual(original.outputs, restored.outputs)
         self.assertEqual(len(original.nodes), len(restored.nodes))
@@ -1038,7 +1038,7 @@ class TestSerialization(unittest.TestCase):
 
     def test_workflow_python_roundtrip(self):
         """Python mode roundtrip for WorkflowNode."""
-        original = model.WorkflowNode(
+        original = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={
@@ -1057,7 +1057,7 @@ class TestSerialization(unittest.TestCase):
             },
         )
         data = original.model_dump(mode="python")
-        restored = model.WorkflowNode.model_validate(data)
+        restored = workflow_model.WorkflowNode.model_validate(data)
         self.assertEqual(original.inputs, restored.inputs)
         self.assertEqual(original.outputs, restored.outputs)
         self.assertEqual(len(original.nodes), len(restored.nodes))
@@ -1067,7 +1067,7 @@ class TestSerialization(unittest.TestCase):
 
     def test_edge_serialization_format(self):
         """Edges serialize handles to dot-notation strings."""
-        original = model.WorkflowNode(
+        original = workflow_model.WorkflowNode(
             inputs=["x", "y"],
             outputs=["z", "w"],
             nodes={
@@ -1134,14 +1134,14 @@ class TestSerialization(unittest.TestCase):
             "output_edges": {},
         }
         node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, model.WorkflowNode)
+        self.assertIsInstance(node, workflow_model.WorkflowNode)
 
 
 class TestEmptyWorkflow(unittest.TestCase):
     """Edge cases with empty collections."""
 
     def test_empty_nodes_and_edges(self):
-        wf = model.WorkflowNode(
+        wf = workflow_model.WorkflowNode(
             inputs=[],
             outputs=[],
             nodes={},
@@ -1155,7 +1155,7 @@ class TestEmptyWorkflow(unittest.TestCase):
         self.assertEqual(wf.output_edges, {})
 
     def test_empty_inputs_outputs(self):
-        wf = model.WorkflowNode(
+        wf = workflow_model.WorkflowNode(
             inputs=[],
             outputs=[],
             nodes={

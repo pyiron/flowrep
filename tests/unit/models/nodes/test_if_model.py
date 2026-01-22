@@ -3,7 +3,7 @@ import unittest
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import if_model, model, union
+from flowrep.models.nodes import if_model, model, union, workflow_model
 
 
 def _make_condition(inputs=None, outputs=None) -> model.AtomicNode:
@@ -138,7 +138,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
         self.assertIn("unique", str(ctx.exception).lower())
 
     def test_cases_accepts_various_node_types(self):
-        workflow_condition = model.WorkflowNode(
+        workflow_condition = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["result"],
             nodes={
@@ -175,7 +175,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             input_edges=_make_input_edges(cases),
             output_edges_matrix=_make_output_edges(cases),
         )
-        self.assertIsInstance(node.cases[0].condition.node, model.WorkflowNode)
+        self.assertIsInstance(node.cases[0].condition.node, workflow_model.WorkflowNode)
 
 
 class TestIfNodeInputEdgesValidation(unittest.TestCase):
@@ -524,7 +524,7 @@ class TestIfNodeSerialization(unittest.TestCase):
 class TestIfNodeInWorkflow(unittest.TestCase):
     def test_if_node_as_workflow_child(self):
         if_node = _make_valid_if_node()
-        workflow = model.WorkflowNode(
+        workflow = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={"if_block": if_node},
@@ -545,7 +545,7 @@ class TestIfNodeInWorkflow(unittest.TestCase):
 
     def test_if_node_without_else_as_workflow_child(self):
         if_node = _make_valid_if_node(with_else=False)
-        workflow = model.WorkflowNode(
+        workflow = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={"if_block": if_node},

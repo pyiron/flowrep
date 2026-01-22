@@ -4,7 +4,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models.nodes import model, union, while_model
+from flowrep.models.nodes import model, union, while_model, workflow_model
 
 
 def make_atomic(inputs: list[str], outputs: list[str]) -> model.AtomicNode:
@@ -572,7 +572,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
 
     def test_nested_workflow_in_body(self):
         """WhileNode can contain WorkflowNode in body."""
-        inner = model.WorkflowNode(
+        inner = workflow_model.WorkflowNode(
             inputs=["a"],
             outputs=["b"],
             nodes={"leaf": make_atomic(["x"], ["y"])},
@@ -597,7 +597,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
         )
         data = wn.model_dump(mode="json")
         restored = while_model.WhileNode.model_validate(data)
-        self.assertIsInstance(restored.case.body.node, model.WorkflowNode)
+        self.assertIsInstance(restored.case.body.node, workflow_model.WorkflowNode)
 
 
 class TestWhileNodeEdgeCases(unittest.TestCase):

@@ -3,7 +3,7 @@ import unittest
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import model, try_model, union
+from flowrep.models.nodes import model, try_model, union, workflow_model
 
 
 def _make_try_body(inputs=None, outputs=None) -> model.AtomicNode:
@@ -149,7 +149,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
 
     def test_exception_cases_accept_various_node_types(self):
         """Exception case bodies can be any NodeModel type."""
-        workflow_body = model.WorkflowNode(
+        workflow_body = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={
@@ -184,7 +184,9 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             input_edges=_make_input_edges(try_node, [exception_case]),
             output_edges_matrix=_make_output_edges_matrix(try_node, [exception_case]),
         )
-        self.assertIsInstance(node.exception_cases[0].body.node, model.WorkflowNode)
+        self.assertIsInstance(
+            node.exception_cases[0].body.node, workflow_model.WorkflowNode
+        )
 
 
 class TestTryNodeInputEdgesValidation(unittest.TestCase):
@@ -616,7 +618,7 @@ class TestTryNodeInWorkflow(unittest.TestCase):
     def test_try_node_as_workflow_child(self):
         """TryNode can be used as a child node in a WorkflowNode."""
         try_node = _make_valid_try_node()
-        workflow = model.WorkflowNode(
+        workflow = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={"try_block": try_node},
@@ -638,7 +640,7 @@ class TestTryNodeInWorkflow(unittest.TestCase):
     def test_try_node_multiple_exception_cases_as_workflow_child(self):
         """TryNode with multiple exception cases can be a workflow child."""
         try_node = _make_valid_try_node(n_exception_cases=3)
-        workflow = model.WorkflowNode(
+        workflow = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={"try_block": try_node},
@@ -661,7 +663,7 @@ class TestTryNodeInWorkflow(unittest.TestCase):
     def test_workflow_with_try_node_roundtrip(self):
         """Workflow containing TryNode serializes and deserializes correctly."""
         try_node = _make_valid_try_node(n_exception_cases=2)
-        original = model.WorkflowNode(
+        original = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={"try_block": try_node},
@@ -681,7 +683,7 @@ class TestTryNodeInWorkflow(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = model.WorkflowNode.model_validate(data)
+                restored = workflow_model.WorkflowNode.model_validate(data)
                 self.assertIsInstance(restored.nodes["try_block"], try_model.TryNode)
                 self.assertEqual(len(restored.nodes["try_block"].exception_cases), 2)
 
