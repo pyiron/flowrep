@@ -6,9 +6,9 @@ from flowrep import model
 
 
 def _make_atomic(
-        fully_qualified_name: str = "mod.func",
-        inputs: list[str] | None = None,
-        outputs: list[str] | None = None
+    fully_qualified_name: str = "mod.func",
+    inputs: list[str] | None = None,
+    outputs: list[str] | None = None,
 ) -> model.AtomicNode:
     return model.AtomicNode(
         fully_qualified_name=fully_qualified_name,
@@ -121,11 +121,14 @@ class TestExceptionCaseSerialization(unittest.TestCase):
         """ExceptionCase JSON roundtrip."""
         original = model.ExceptionCase(
             exceptions=["builtins.ValueError", "builtins.TypeError"],
-            body=model.LabeledNode(label="handler", node=model.AtomicNode(
-            fully_qualified_name="mod.handle_error",
-            inputs=["x"],
-            outputs=["y"],
-        )),
+            body=model.LabeledNode(
+                label="handler",
+                node=model.AtomicNode(
+                    fully_qualified_name="mod.handle_error",
+                    inputs=["x"],
+                    outputs=["y"],
+                ),
+            ),
         )
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
@@ -250,7 +253,9 @@ class TestConditionalCase(unittest.TestCase):
     def test_distinct_labels_valid(self):
         """Condition and body can have different labels."""
         cc = model.ConditionalCase(
-            condition=model.LabeledNode(label="check", node=_make_atomic(outputs=["ok"])),
+            condition=model.LabeledNode(
+                label="check", node=_make_atomic(outputs=["ok"])
+            ),
             body=model.LabeledNode(label="run", node=_make_atomic()),
         )
         self.assertEqual(cc.condition.label, "check")
@@ -260,7 +265,9 @@ class TestConditionalCase(unittest.TestCase):
         """Condition and body must have distinct labels."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             model.ConditionalCase(
-                condition=model.LabeledNode(label="same", node=_make_atomic(outputs=["ok"])),
+                condition=model.LabeledNode(
+                    label="same", node=_make_atomic(outputs=["ok"])
+                ),
                 body=model.LabeledNode(label="same", node=_make_atomic()),
             )
         self.assertIn("distinct labels", str(ctx.exception))
