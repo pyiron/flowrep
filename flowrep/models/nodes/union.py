@@ -3,6 +3,7 @@ from typing import Annotated
 import pydantic
 
 from flowrep.models import model
+from flowrep.models.nodes import try_model
 
 # Discriminated Union
 NodeType = Annotated[
@@ -11,6 +12,6 @@ NodeType = Annotated[
     | model.ForNode
     | model.WhileNode
     | model.IfNode
-    | model.TryNode,
+    | try_model.TryNode,
     pydantic.Field(discriminator="type"),
 ]

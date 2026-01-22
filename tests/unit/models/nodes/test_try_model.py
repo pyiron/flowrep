@@ -3,7 +3,7 @@ import unittest
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import model, union
+from flowrep.models.nodes import model, try_model, union
 
 
 def _make_try_body(inputs=None, outputs=None) -> model.AtomicNode:
@@ -58,7 +58,7 @@ def _make_valid_try_node(n_exception_cases=1):
     try_node = model.LabeledNode(label="try_body", node=_make_try_body())
     exception_cases = [_make_exception_case(n) for n in range(n_exception_cases)]
 
-    return model.TryNode(
+    return try_model.TryNode(
         inputs=["inp"],
         outputs=["out"],
         try_node=try_node,
@@ -86,7 +86,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
         """TryNode must have at least one exception case."""
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -106,7 +106,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             ),  # Duplicate
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -132,7 +132,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             body=model.LabeledNode(label="handler", node=_make_except_body()),  # Dup
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -176,7 +176,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             body=model.LabeledNode(label="workflow_handler", node=workflow_body),
         )
 
-        node = model.TryNode(
+        node = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -193,7 +193,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -214,7 +214,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         """input_edges can target the try_node."""
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
-        node = model.TryNode(
+        node = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -232,7 +232,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         """input_edges can target exception case bodies."""
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(n) for n in range(2)]
-        node = model.TryNode(
+        node = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -254,7 +254,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -277,7 +277,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -302,7 +302,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -323,7 +323,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -345,7 +345,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out", "other"],
                 try_node=try_node,
@@ -367,7 +367,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -391,7 +391,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -406,7 +406,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
         """An output can have sources from only some prospective nodes."""
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(n) for n in range(3)]
-        node = model.TryNode(
+        node = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -428,7 +428,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
         """An output can have sources from all prospective nodes."""
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(n) for n in range(2)]
-        node = model.TryNode(
+        node = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -451,7 +451,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
         try_node = model.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.TryNode(
+            try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -479,7 +479,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
             exceptions=["builtins.ValueError"],
             body=model.LabeledNode(label="except_body", node=body_node),
         )
-        node = model.TryNode(
+        node = try_model.TryNode(
             inputs=["inp"],
             outputs=["a", "b"],
             try_node=try_node,
@@ -526,7 +526,7 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 ),
             ),
         )
-        node = model.TryNode(
+        node = try_model.TryNode(
             inputs=["inp"],
             outputs=[],
             try_node=try_node,
@@ -569,7 +569,7 @@ class TestTryNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = model.TryNode.model_validate(data)
+                restored = try_model.TryNode.model_validate(data)
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
                 self.assertEqual(
@@ -588,7 +588,7 @@ class TestTryNodeSerialization(unittest.TestCase):
             ],
             body=model.LabeledNode(label="handler", node=_make_except_body()),
         )
-        original = model.TryNode(
+        original = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -600,7 +600,7 @@ class TestTryNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = model.TryNode.model_validate(data)
+                restored = try_model.TryNode.model_validate(data)
                 self.assertEqual(len(restored.exception_cases[0].exceptions), 3)
 
     def test_discriminated_union_roundtrip(self):
@@ -609,7 +609,7 @@ class TestTryNodeSerialization(unittest.TestCase):
         data = original.model_dump(mode="json")
 
         node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, model.TryNode)
+        self.assertIsInstance(node, try_model.TryNode)
 
 
 class TestTryNodeInWorkflow(unittest.TestCase):
@@ -633,7 +633,7 @@ class TestTryNodeInWorkflow(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["try_block"], model.TryNode)
+        self.assertIsInstance(workflow.nodes["try_block"], try_model.TryNode)
 
     def test_try_node_multiple_exception_cases_as_workflow_child(self):
         """TryNode with multiple exception cases can be a workflow child."""
@@ -655,7 +655,7 @@ class TestTryNodeInWorkflow(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["try_block"], model.TryNode)
+        self.assertIsInstance(workflow.nodes["try_block"], try_model.TryNode)
         self.assertEqual(len(workflow.nodes["try_block"].exception_cases), 3)
 
     def test_workflow_with_try_node_roundtrip(self):
@@ -682,7 +682,7 @@ class TestTryNodeInWorkflow(unittest.TestCase):
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
                 restored = model.WorkflowNode.model_validate(data)
-                self.assertIsInstance(restored.nodes["try_block"], model.TryNode)
+                self.assertIsInstance(restored.nodes["try_block"], try_model.TryNode)
                 self.assertEqual(len(restored.nodes["try_block"].exception_cases), 2)
 
 
