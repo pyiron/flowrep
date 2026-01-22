@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import keyword
 from enum import StrEnum
-from typing import Any
+from typing import Annotated, Any
 
 import pydantic
 import pydantic_core
@@ -39,24 +39,22 @@ def _valid_label(label: str) -> bool:
     )
 
 
-def _get_invalid_labels(labels: list[str] | set[str]) -> set[str]:
-    return {label for label in labels if not _valid_label(label)}
-
-
-def _validate_labels(labels: list[str] | set[str], info) -> None:
-    invalid = _get_invalid_labels(labels)
-    if invalid:
+def _validate_label(v: str) -> str:
+    if not _valid_label(v):
         raise ValueError(
-            f"All elements of '{info.field_name}' must be a valid Python "
-            f"identifier and not in the reserved labels {RESERVED_NAMES}. "
-            f"{invalid} are non-compliant."
+            f"Label must be a valid Python identifier and not in "
+            f"reserved labels {RESERVED_NAMES}. Got '{v}'"
         )
+    return v
+
+
+Label = Annotated[str, pydantic.BeforeValidator(_validate_label)]
 
 
 class NodeModel(pydantic.BaseModel):
     type: RecipeElementType
-    inputs: list[str]
-    outputs: list[str]
+    inputs: list[Label]
+    outputs: list[Label]
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
@@ -79,6 +77,4 @@ class NodeModel(pydantic.BaseModel):
                 f"'{info.field_name}' must contain unique values. "
                 f"Found duplicates: {set(duplicates)}"
             )
-
-        _validate_labels(v, info)
         return v

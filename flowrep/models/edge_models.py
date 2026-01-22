@@ -4,11 +4,13 @@ from typing import ClassVar
 
 import pydantic
 
+from flowrep.models import base_models
+
 
 class HandleModel(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(frozen=True)
-    node: str | None
-    port: str
+    node: base_models.Label | None
+    port: base_models.Label
     delimiter: ClassVar[str] = "."
 
     @pydantic.model_serializer
@@ -29,20 +31,20 @@ class HandleModel(pydantic.BaseModel):
 
 
 class SourceHandle(HandleModel):
-    node: str
-    port: str
+    node: base_models.Label
+    port: base_models.Label
 
 
 class TargetHandle(HandleModel):
-    node: str
-    port: str
+    node: base_models.Label
+    port: base_models.Label
 
 
 class InputSource(HandleModel):
     node: None = pydantic.Field(default=None, frozen=True)
-    port: str
+    port: base_models.Label
 
 
 class OutputTarget(HandleModel):
     node: None = pydantic.Field(default=None, frozen=True)
-    port: str
+    port: base_models.Label
