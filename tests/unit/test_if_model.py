@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep import model
+from flowrep.models import model
 
 
 def _make_condition(inputs=None, outputs=None) -> model.AtomicNode:

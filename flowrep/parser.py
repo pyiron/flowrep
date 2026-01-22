@@ -8,7 +8,8 @@ from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel
 
-from flowrep import model, workflow
+from flowrep import workflow
+from flowrep.models import model
 
 
 class OutputMeta(BaseModel, extra="ignore"):

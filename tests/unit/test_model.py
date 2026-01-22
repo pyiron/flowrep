@@ -5,7 +5,7 @@ from typing import Literal
 
 import pydantic
 
-from flowrep import model
+from flowrep.models import model
 
 
 class TestNodeModel(unittest.TestCase):

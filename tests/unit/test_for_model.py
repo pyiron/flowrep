@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep import model
+from flowrep.models import model
 
 
 class TestForNodeBasic(unittest.TestCase):
