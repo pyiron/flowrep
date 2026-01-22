@@ -2,8 +2,8 @@ from typing import cast
 
 import pydantic
 
-from flowrep.models import model
-from flowrep.models.union import NodeType
+from flowrep.models.nodes import model
+from flowrep.models.nodes.union import NodeType
 
 for cls in [
     model.AtomicNode,

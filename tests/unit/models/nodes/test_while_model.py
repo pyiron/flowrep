@@ -4,7 +4,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import model, union
+from flowrep.models.nodes import model, union
 
 
 def make_atomic(inputs: list[str], outputs: list[str]) -> model.AtomicNode:

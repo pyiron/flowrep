@@ -11,7 +11,7 @@ import pydantic_core
 from flowrep.models.edges import InputSource, OutputTarget, SourceHandle, TargetHandle
 
 if TYPE_CHECKING:
-    from flowrep.models.union import NodeType  # Satisfies mypy
+    from flowrep.models.nodes.union import NodeType  # Satisfies mypy
 
     # Still not enough to satisfy ruff, which doesn't understand the string forward
     # reference, even with the TYPE_CHECKING import
