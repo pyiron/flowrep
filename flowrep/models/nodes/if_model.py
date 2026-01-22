@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Literal
 import pydantic
 
 from flowrep.models import base_models, edge_models
+from flowrep.models.base_models import validate_unique
 from flowrep.models.nodes import helper_models
 
 if TYPE_CHECKING:
@@ -58,11 +59,15 @@ class IfNode(base_models.NodeModel):
     )
     cases: list[helper_models.ConditionalCase]
     input_edges: dict[edge_models.TargetHandle, edge_models.InputSource]
-    output_edges_matrix: dict[edge_models.OutputTarget, list[edge_models.SourceHandle]]
+    output_edges_matrix: dict[
+        edge_models.OutputTarget, base_models.UniqueList[edge_models.SourceHandle]
+    ]
     else_case: helper_models.LabeledNode | None = None
 
     @property
-    def prospective_nodes(self) -> dict[str, "NodeType"]:  # noqa: F821, UP037
+    def prospective_nodes(
+        self,
+    ) -> dict[base_models.Label, "NodeType"]:  # noqa: F821, UP037
         nodes = {}
         for case in self.cases:
             nodes[case.condition.label] = case.condition.node
@@ -86,10 +91,7 @@ class IfNode(base_models.NodeModel):
             + [case.body.label for case in self.cases]
             + ([self.else_case.label] if self.else_case else [])
         )
-        if not base_models._has_unique_elements(labels):
-            raise ValueError(
-                f"All prospective node labels must be unique. Got: {labels}"
-            )
+        validate_unique(labels)
         return self
 
     @pydantic.model_validator(mode="after")
@@ -147,11 +149,7 @@ class IfNode(base_models.NodeModel):
                     f"output_edges_matrix['{target.port}'] sources must be from "
                     f"{expected_nodes}, got invalid sources: {invalid_nodes}"
                 )
-            if not base_models._has_unique_elements(source_nodes):
-                raise ValueError(
-                    f"output_edges_matrix['{target.port}'] must have at most one "
-                    f"source from each other node. Got duplicates in: {source_nodes}"
-                )
+            base_models.validate_unique(source_nodes)
             for source in sources:
                 node = self.prospective_nodes[source.node]
                 if source.port not in node.outputs:

@@ -77,8 +77,7 @@ class TryNode(base_models.NodeModel):
     @pydantic.model_validator(mode="after")
     def validate_unique_labels(self):
         labels = [self.try_node.label] + [c.body.label for c in self.exception_cases]
-        if not base_models._has_unique_elements(labels):
-            raise ValueError(f"All node labels must be unique. Got: {labels}")
+        base_models.validate_unique(labels)
         return self
 
     @pydantic.model_validator(mode="after")
@@ -126,11 +125,7 @@ class TryNode(base_models.NodeModel):
                     f"output_edges_matrix['{target.port}'] sources must be from "
                     f"{expected_nodes}, got invalid: {invalid_nodes}"
                 )
-            if not base_models._has_unique_elements(source_nodes):
-                raise ValueError(
-                    f"output_edges_matrix['{target.port}'] must have at most one "
-                    f"source from each other node. Got duplicates in: {source_nodes}"
-                )
+            base_models.validate_unique(source_nodes)
             for source in sources:
                 node = self.prospective_nodes[source.node]
                 if source.port not in node.outputs:

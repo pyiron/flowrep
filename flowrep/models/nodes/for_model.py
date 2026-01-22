@@ -72,20 +72,15 @@ class ForNode(base_models.NodeModel):
     body_node: helper_models.LabeledNode
     input_edges: dict[edge_models.TargetHandle, edge_models.InputSource]
     output_edges: dict[edge_models.OutputTarget, edge_models.SourceHandle]
-    nested_ports: list[base_models.Label] = pydantic.Field(default_factory=list)
-    zipped_ports: list[base_models.Label] = pydantic.Field(default_factory=list)
+    nested_ports: base_models.UniqueList[base_models.Label] = pydantic.Field(
+        default_factory=list
+    )
+    zipped_ports: base_models.UniqueList[base_models.Label] = pydantic.Field(
+        default_factory=list
+    )
     transfer_edges: dict[edge_models.OutputTarget, edge_models.InputSource] = (
         pydantic.Field(default_factory=dict)
     )
-
-    @pydantic.field_validator("nested_ports", "zipped_ports")
-    @classmethod
-    def validate_single_appearance(cls, v, info):
-        if not base_models._has_unique_elements(v):
-            raise ValueError(
-                f"'{info.field_name}' must contain unique values, but got {v}."
-            )
-        return v
 
     @pydantic.model_validator(mode="after")
     def validate_some_loop(self):

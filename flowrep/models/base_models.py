@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import keyword
+from collections.abc import Hashable
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, TypeVar
 
 import pydantic
 import pydantic_core
@@ -27,10 +28,6 @@ RESERVED_NAMES = {
 }  # No having labels with these names
 
 
-def _has_unique_elements(values: list[Any]) -> bool:
-    return len(values) == len(set(values))
-
-
 def _valid_label(label: str) -> bool:
     return (
         label.isidentifier()
@@ -51,10 +48,26 @@ def _validate_label(v: str) -> str:
 Label = Annotated[str, pydantic.BeforeValidator(_validate_label)]
 
 
+T = TypeVar("T", bound=Hashable)
+
+
+def validate_unique(v: list[T]) -> list[T]:
+    if len(v) != len(set(v)):
+        dupes = [x for x in v if v.count(x) > 1]
+        raise ValueError(f"List must have unique elements. Duplicates: {set(dupes)}")
+    return v
+
+
+UniqueList = Annotated[list[T], pydantic.AfterValidator(validate_unique)]
+# We want the ordered property of a list -- especially during round-trip serialization
+# But also the "one of each element" property of a list
+# This is useful, e.g., for guaranteeing that outputs are all uniquely named
+
+
 class NodeModel(pydantic.BaseModel):
     type: RecipeElementType
-    inputs: list[Label]
-    outputs: list[Label]
+    inputs: UniqueList[Label]
+    outputs: UniqueList[Label]
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
@@ -67,14 +80,3 @@ class NodeModel(pydantic.BaseModel):
                 )
             if not type_field.frozen:
                 raise TypeError(f"{cls.__name__} must mark 'type' as frozen")
-
-    @pydantic.field_validator("inputs", "outputs")
-    @classmethod
-    def validate_io_labels(cls, v, info):
-        if len(v) != len(set(v)):
-            duplicates = [x for x in v if v.count(x) > 1]
-            raise ValueError(
-                f"'{info.field_name}' must contain unique values. "
-                f"Found duplicates: {set(duplicates)}"
-            )
-        return v
