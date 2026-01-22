@@ -7,7 +7,13 @@ import pydantic
 from flowrep.models.nodes import model
 
 if TYPE_CHECKING:
-    from flowrep.models.nodes.union import NodeType
+    from flowrep.models.nodes.union import NodeType  # Satisfies mypy
+
+    # Still not enough to satisfy ruff, which doesn't understand the string forward
+    # reference, even with the TYPE_CHECKING import
+    # Better to nonetheless leave the references as strings to make sure the pydantic
+    # handling of forward references is maximally robust through the model_rebuild()
+    # Ultimately, just silence ruff as needed
 
 
 class LabeledNode(pydantic.BaseModel):

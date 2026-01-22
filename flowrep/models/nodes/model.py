@@ -2,19 +2,10 @@ from __future__ import annotations
 
 import keyword
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pydantic
 import pydantic_core
-
-if TYPE_CHECKING:
-    pass
-
-    # Still not enough to satisfy ruff, which doesn't understand the string forward
-    # reference, even with the TYPE_CHECKING import
-    # Better to nonetheless leave the references as strings to make sure the pydantic
-    # handling of forward references is maximally robust through the model_rebuild()
-    # Ultimately, just silence ruff as needed
 
 
 class RecipeElementType(StrEnum):
