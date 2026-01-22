@@ -3,7 +3,7 @@ import unittest
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import model, union
+from flowrep.models.nodes import if_model, model, union
 
 
 def _make_condition(inputs=None, outputs=None) -> model.AtomicNode:
@@ -62,7 +62,7 @@ def _make_valid_if_node(n_cases=1, with_else=True):
     cases = [_make_case(n) for n in range(n_cases)]
     else_case = _make_else() if with_else else None
 
-    return model.IfNode(
+    return if_model.IfNode(
         inputs=["inp"],
         outputs=["out"],
         cases=cases,
@@ -101,7 +101,7 @@ class TestIfNodeBasicConstruction(unittest.TestCase):
 class TestIfNodeCasesValidation(unittest.TestCase):
     def test_empty_cases_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=[],
@@ -123,7 +123,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             ),  # Duplicate
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=[case0, case1],
@@ -168,7 +168,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             )
         ]
 
-        node = model.IfNode(
+        node = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
@@ -182,7 +182,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
     def test_input_edges_invalid_target_node(self):
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -199,7 +199,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
     def test_input_edges_can_target_condition(self):
         """input_edges targets can include condition nodes."""
         cases = [_make_case(n) for n in range(2)]
-        node = model.IfNode(
+        node = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,  # body has input "x"
@@ -218,7 +218,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
     def test_input_edges_can_target_bodies(self):
         """input_edges targets can include body nodes."""
         cases = [_make_case(n) for n in range(2)]
-        node = model.IfNode(
+        node = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,  # body has input "x"
@@ -238,7 +238,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
         """input_edges targets can include the else node."""
         cases = [_make_case(n) for n in range(2)]
         else_case = _make_else()
-        node = model.IfNode(
+        node = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,  # body has input "x"
@@ -258,7 +258,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         """Sources must reference valid prospective nodes."""
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -277,7 +277,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         """Each prospective node can appear at most once per output."""
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -296,7 +296,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
     def test_output_edges_matrix_keys_must_match_outputs(self):
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out", "other"],
                 cases=cases,
@@ -316,7 +316,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         """output_edges cannot have keys not in outputs."""
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -338,7 +338,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         """An output must have at least one source."""
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -352,7 +352,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         """An output can have sources from only some prospective nodes."""
         cases = [_make_case(n) for n in range(3)]
         else_case = _make_else()
-        node = model.IfNode(
+        node = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
@@ -374,7 +374,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         """An output can have sources from all prospective nodes."""
         cases = [_make_case(n) for n in range(2)]
         else_case = _make_else()
-        node = model.IfNode(
+        node = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
@@ -400,7 +400,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
         feel a bit silly.
         """
         cases = [_make_case(0)]
-        node = model.IfNode(
+        node = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
@@ -446,7 +446,7 @@ class TestIfNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = model.IfNode.model_validate(data)
+                restored = if_model.IfNode.model_validate(data)
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
                 self.assertEqual(len(original.cases), len(restored.cases))
@@ -457,7 +457,7 @@ class TestIfNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = model.IfNode.model_validate(data)
+                restored = if_model.IfNode.model_validate(data)
                 self.assertIsNone(restored.else_case)
                 self.assertEqual(len(restored.cases), 2)
 
@@ -466,7 +466,7 @@ class TestIfNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = model.IfNode.model_validate(data)
+                restored = if_model.IfNode.model_validate(data)
                 self.assertEqual(len(restored.cases), 3)
                 self.assertEqual(len(restored.input_edges), 4)  # 3 bodies + 1 else
                 self.assertEqual(
@@ -491,7 +491,7 @@ class TestIfNodeSerialization(unittest.TestCase):
                 condition_output="a",
             )
         ]
-        original = model.IfNode(
+        original = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
@@ -502,7 +502,7 @@ class TestIfNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = model.IfNode.model_validate(data)
+                restored = if_model.IfNode.model_validate(data)
                 self.assertEqual(restored.cases[0].condition_output, "a")
 
     def test_discriminated_union_roundtrip(self):
@@ -510,14 +510,14 @@ class TestIfNodeSerialization(unittest.TestCase):
         data = original.model_dump(mode="json")
 
         node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, model.IfNode)
+        self.assertIsInstance(node, if_model.IfNode)
 
     def test_discriminated_union_roundtrip_without_else(self):
         original = _make_valid_if_node(with_else=False)
         data = original.model_dump(mode="json")
 
         node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, model.IfNode)
+        self.assertIsInstance(node, if_model.IfNode)
         self.assertIsNone(node.else_case)
 
 
@@ -541,7 +541,7 @@ class TestIfNodeInWorkflow(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["if_block"], model.IfNode)
+        self.assertIsInstance(workflow.nodes["if_block"], if_model.IfNode)
 
     def test_if_node_without_else_as_workflow_child(self):
         if_node = _make_valid_if_node(with_else=False)
@@ -562,7 +562,7 @@ class TestIfNodeInWorkflow(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["if_block"], model.IfNode)
+        self.assertIsInstance(workflow.nodes["if_block"], if_model.IfNode)
         self.assertIsNone(workflow.nodes["if_block"].else_case)
 
 
@@ -570,7 +570,7 @@ class TestIfNodeInputEdgesPortValidation(unittest.TestCase):
     def test_input_edges_invalid_target_port(self):
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,  # condition has input "x"
@@ -591,7 +591,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
         """output_edges source port must exist on the body node."""
         cases = [_make_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,  # body has output "y"
@@ -613,7 +613,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
         cases = [_make_case(0)]
         else_case = _make_else()
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.IfNode(
+            if_model.IfNode(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,  # body has output "y"
@@ -643,7 +643,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
                 body=model.LabeledNode(label="body", node=body_node),
             )
         ]
-        node = model.IfNode(
+        node = if_model.IfNode(
             inputs=["inp"],
             outputs=["a", "b"],
             cases=cases,
@@ -672,7 +672,7 @@ class TestIfNodeOutputEdgesMatrixPortValidation(unittest.TestCase):
                 body=model.LabeledNode(label="body", node=body_node),
             )
         ]
-        node = model.IfNode(
+        node = if_model.IfNode(
             inputs=["inp"],
             outputs=["a", "b"],
             cases=cases,
