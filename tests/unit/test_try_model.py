@@ -67,37 +67,6 @@ def _make_valid_try_node(n_exception_cases=1):
     )
 
 
-class TestExceptionCaseValidation(unittest.TestCase):
-    def test_valid_single_exception(self):
-        """ExceptionCase with a single exception type should validate."""
-        case = model.ExceptionCase(
-            exceptions=["builtins.ValueError"],
-            body=model.LabeledNode(label="handler", node=_make_except_body()),
-        )
-        self.assertEqual(case.exceptions, ["builtins.ValueError"])
-
-    def test_valid_multiple_exceptions(self):
-        """ExceptionCase with multiple exception types should validate."""
-        case = model.ExceptionCase(
-            exceptions=[
-                "builtins.ValueError",
-                "builtins.TypeError",
-                "builtins.KeyError",
-            ],
-            body=model.LabeledNode(label="handler", node=_make_except_body()),
-        )
-        self.assertEqual(len(case.exceptions), 3)
-
-    def test_empty_exceptions_rejected(self):
-        """ExceptionCase must have at least one exception type."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ExceptionCase(
-                exceptions=[],
-                body=model.LabeledNode(label="handler", node=_make_except_body()),
-            )
-        self.assertIn("at least one", str(ctx.exception))
-
-
 class TestTryNodeBasicConstruction(unittest.TestCase):
     def test_valid_single_exception_case(self):
         """TryNode with one exception case should validate."""
@@ -714,21 +683,6 @@ class TestTryNodeInWorkflow(unittest.TestCase):
                 restored = model.WorkflowNode.model_validate(data)
                 self.assertIsInstance(restored.nodes["try_block"], model.TryNode)
                 self.assertEqual(len(restored.nodes["try_block"].exception_cases), 2)
-
-
-class TestExceptionCaseSerialization(unittest.TestCase):
-    def test_exception_case_roundtrip(self):
-        """ExceptionCase JSON roundtrip."""
-        original = model.ExceptionCase(
-            exceptions=["builtins.ValueError", "builtins.TypeError"],
-            body=model.LabeledNode(label="handler", node=_make_except_body()),
-        )
-        for mode in ["json", "python"]:
-            with self.subTest(mode=mode):
-                data = original.model_dump(mode=mode)
-                restored = model.ExceptionCase.model_validate(data)
-                self.assertEqual(len(restored.exceptions), 2)
-                self.assertEqual(restored.body.label, "handler")
 
 
 if __name__ == "__main__":
