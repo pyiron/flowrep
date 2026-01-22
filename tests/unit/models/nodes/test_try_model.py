@@ -338,7 +338,9 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
 
     def test_output_edges_matrix_duplicate_source_node_rejected(self):
         """Each prospective node can appear at most once per output."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
+        try_node = helper_models.LabeledNode(
+            label="try_body", node=_make_try_body(outputs=["y", "z"])
+        )
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
@@ -351,13 +353,13 @@ class TestTryNodeOutputEdgesMatrixValidation(unittest.TestCase):
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node="try_body", port="y"),
                         edge_models.SourceHandle(
-                            node="try_body", port="y"
-                        ),  # Duplicate
+                            node="try_body", port="z"
+                        ),  # Duplicate source node
                     ]
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("at most one", exc_str)
+        self.assertIn("must have unique elements", exc_str)
         self.assertIn("duplicates", exc_str.lower())
 
     def test_output_edges_matrix_keys_must_match_outputs(self):
@@ -580,6 +582,26 @@ class TestTryNodeProspectiveNodes(unittest.TestCase):
         self.assertIn("except_1", prospective)
         self.assertIn("except_2", prospective)
         self.assertEqual(len(prospective), 4)
+
+    def test_prospective_nodes_conflicting_labels_rejected(self):
+        """prospective_nodes rejects nodes with conflicting labels."""
+        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
+        exception_case = helper_models.ExceptionCase(
+            exceptions=["builtins.ValueError"],
+            body=helper_models.LabeledNode(label="try_body", node=_make_except_body()),
+        )
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            try_model.TryNode(
+                inputs=["inp"],
+                outputs=[],
+                try_node=try_node,
+                exception_cases=[exception_case],
+                input_edges={},
+                output_edges_matrix={},
+            )
+        ctx_str = str(ctx.exception)
+        self.assertIn("must have unique elements", ctx_str)
+        self.assertIn("Duplicates", ctx_str)
 
 
 class TestTryNodeSerialization(unittest.TestCase):

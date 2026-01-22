@@ -64,7 +64,11 @@ def _make_output_edges(cases, else_case=None):
         edge_models.SourceHandle(node=case.body.label, port="y") for case in cases
     ]
     if else_case is not None:
-        sources.append(edge_models.SourceHandle(node=else_case.label, port="y"))
+        sources.append(
+            edge_models.SourceHandle(
+                node=else_case.label, port=else_case.node.outputs[0]
+            )
+        )
     return {edge_models.OutputTarget(port="out"): sources}
 
 
@@ -287,7 +291,7 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
 
     def test_output_edges_matrix_duplicate_source_node_rejected(self):
         """Each prospective node can appear at most once per output."""
-        cases = [_make_case(0)]
+        cases = [_make_case(0, outputs=["x", "y"])]
         with self.assertRaises(pydantic.ValidationError) as ctx:
             if_model.IfNode(
                 inputs=["inp"],
@@ -296,13 +300,13 @@ class TestIfNodeOutputEdgesMatrixValidation(unittest.TestCase):
                 input_edges=_make_input_edges(cases),
                 output_edges_matrix={
                     edge_models.OutputTarget(port="out"): [
-                        edge_models.SourceHandle(node=cases[0].body.label, port="y"),
+                        edge_models.SourceHandle(node=cases[0].body.label, port="x"),
                         edge_models.SourceHandle(node=cases[0].body.label, port="y"),
                     ]
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("at most one", exc_str)
+        self.assertIn("unique elements", exc_str)
         self.assertIn("duplicates", exc_str.lower())
 
     def test_output_edges_matrix_keys_must_match_outputs(self):
@@ -452,6 +456,29 @@ class TestIfNodeProspectiveNodes(unittest.TestCase):
         self.assertIn("body_1", prospective)
         self.assertNotIn("else_body", prospective)
         self.assertEqual(len(prospective), 4)
+
+    def test_prospective_nodes_conflicting_labels_rejected(self):
+        """
+        If prospective nodes from different sources should not share a label.
+
+        The tricky thing here is not to cause another validation error on the way here.
+        """
+        cases = [_make_case(0)]
+        else_case = helper_models.LabeledNode(
+            label=cases[0].body.label, node=_make_body(outputs=["z"])
+        )
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            if_model.IfNode(
+                inputs=["inp"],
+                outputs=[],
+                cases=cases,
+                else_case=else_case,
+                input_edges={},
+                output_edges_matrix={},
+            )
+        ctx_str = str(ctx.exception)
+        self.assertIn("must have unique elements", ctx_str)
+        self.assertIn("duplicates", ctx_str.lower())
 
 
 class TestIfNodeSerialization(unittest.TestCase):

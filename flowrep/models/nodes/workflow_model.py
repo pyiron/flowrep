@@ -26,12 +26,6 @@ class WorkflowNode(base_models.NodeModel):
     edges: dict[edge_models.TargetHandle, edge_models.SourceHandle]
     output_edges: dict[edge_models.OutputTarget, edge_models.SourceHandle]
 
-    @pydantic.field_validator("nodes")
-    @classmethod
-    def validate_node_labels(cls, v, info):
-        cls.validate_io_labels(list(v.keys()), info)
-        return v
-
     @pydantic.model_validator(mode="after")
     def validate_edge_references(self):
         """Validate that edges reference existing nodes and valid ports."""
