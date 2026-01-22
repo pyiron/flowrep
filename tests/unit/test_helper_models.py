@@ -5,11 +5,15 @@ import pydantic
 from flowrep import model
 
 
-def _make_atomic(inputs: list[str], outputs: list[str]) -> model.AtomicNode:
+def _make_atomic(
+        fully_qualified_name: str = "mod.func",
+        inputs: list[str] | None = None,
+        outputs: list[str] | None = None
+) -> model.AtomicNode:
     return model.AtomicNode(
-        fully_qualified_name="mod.func",
-        inputs=inputs,
-        outputs=outputs,
+        fully_qualified_name=fully_qualified_name,
+        inputs=inputs or [],
+        outputs=outputs or [],
     )
 
 
@@ -136,7 +140,7 @@ class TestLabeledNode(unittest.TestCase):
         """LabeledNode with valid label and node."""
         ln = model.LabeledNode(
             label="my_node",
-            node=_make_atomic(["x"], ["y"]),
+            node=_make_atomic(inputs=["x"], outputs=["y"]),
         )
         self.assertEqual(ln.label, "my_node")
         self.assertIsInstance(ln.node, model.AtomicNode)
@@ -146,7 +150,7 @@ class TestLabeledNode(unittest.TestCase):
         inner = model.WorkflowNode(
             inputs=["a"],
             outputs=["b"],
-            nodes={"leaf": _make_atomic(["x"], ["y"])},
+            nodes={"leaf": _make_atomic(inputs=["x"], outputs=["y"])},
             input_edges={"leaf.x": "a"},
             edges={},
             output_edges={"b": "leaf.y"},
@@ -157,7 +161,7 @@ class TestLabeledNode(unittest.TestCase):
     def test_invalid_label_keyword(self):
         """LabeledNode rejects Python keywords as labels."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.LabeledNode(label="for", node=_make_atomic([], []))
+            model.LabeledNode(label="for", node=_make_atomic())
         self.assertIn("valid Python identifier", str(ctx.exception))
 
     def test_invalid_label_reserved(self):
@@ -167,7 +171,7 @@ class TestLabeledNode(unittest.TestCase):
                 self.subTest(label=reserved),
                 self.assertRaises(pydantic.ValidationError),
             ):
-                model.LabeledNode(label=reserved, node=_make_atomic([], []))
+                model.LabeledNode(label=reserved, node=_make_atomic())
 
     def test_invalid_label_not_identifier(self):
         """LabeledNode rejects non-identifiers as labels."""
@@ -176,7 +180,7 @@ class TestLabeledNode(unittest.TestCase):
                 self.subTest(label=invalid),
                 self.assertRaises(pydantic.ValidationError),
             ):
-                model.LabeledNode(label=invalid, node=_make_atomic([], []))
+                model.LabeledNode(label=invalid, node=_make_atomic())
 
 
 class TestConditionalCase(unittest.TestCase):
@@ -187,11 +191,11 @@ class TestConditionalCase(unittest.TestCase):
         cc = model.ConditionalCase(
             condition=model.LabeledNode(
                 label="cond",
-                node=_make_atomic(["x"], ["result"]),
+                node=_make_atomic(inputs=["x"], outputs=["result"]),
             ),
             body=model.LabeledNode(
                 label="body",
-                node=_make_atomic(["y"], ["out"]),
+                node=_make_atomic(inputs=["y"], outputs=["out"]),
             ),
         )
         self.assertIsNone(cc.condition_output)
@@ -201,11 +205,11 @@ class TestConditionalCase(unittest.TestCase):
         cc = model.ConditionalCase(
             condition=model.LabeledNode(
                 label="cond",
-                node=_make_atomic(["x"], ["a", "b", "flag"]),
+                node=_make_atomic(inputs=["x"], outputs=["a", "b", "flag"]),
             ),
             body=model.LabeledNode(
                 label="body",
-                node=_make_atomic(["y"], ["out"]),
+                node=_make_atomic(inputs=["y"], outputs=["out"]),
             ),
             condition_output="flag",
         )
@@ -217,11 +221,11 @@ class TestConditionalCase(unittest.TestCase):
             model.ConditionalCase(
                 condition=model.LabeledNode(
                     label="cond",
-                    node=_make_atomic(["x"], ["a", "b"]),
+                    node=_make_atomic(inputs=["x"], outputs=["a", "b"]),
                 ),
                 body=model.LabeledNode(
                     label="body",
-                    node=_make_atomic(["y"], ["out"]),
+                    node=_make_atomic(inputs=["y"], outputs=["out"]),
                 ),
             )
         self.assertIn("exactly one output", str(ctx.exception))
@@ -232,11 +236,11 @@ class TestConditionalCase(unittest.TestCase):
             model.ConditionalCase(
                 condition=model.LabeledNode(
                     label="cond",
-                    node=_make_atomic(["x"], ["a", "b"]),
+                    node=_make_atomic(inputs=["x"], outputs=["a", "b"]),
                 ),
                 body=model.LabeledNode(
                     label="body",
-                    node=_make_atomic(["y"], ["out"]),
+                    node=_make_atomic(inputs=["y"], outputs=["out"]),
                 ),
                 condition_output="nonexistent",
             )
@@ -246,8 +250,8 @@ class TestConditionalCase(unittest.TestCase):
     def test_distinct_labels_valid(self):
         """Condition and body can have different labels."""
         cc = model.ConditionalCase(
-            condition=model.LabeledNode(label="check", node=_make_atomic([], ["ok"])),
-            body=model.LabeledNode(label="run", node=_make_atomic([], [])),
+            condition=model.LabeledNode(label="check", node=_make_atomic(outputs=["ok"])),
+            body=model.LabeledNode(label="run", node=_make_atomic()),
         )
         self.assertEqual(cc.condition.label, "check")
         self.assertEqual(cc.body.label, "run")
@@ -256,8 +260,8 @@ class TestConditionalCase(unittest.TestCase):
         """Condition and body must have distinct labels."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             model.ConditionalCase(
-                condition=model.LabeledNode(label="same", node=_make_atomic([], ["ok"])),
-                body=model.LabeledNode(label="same", node=_make_atomic([], [])),
+                condition=model.LabeledNode(label="same", node=_make_atomic(outputs=["ok"])),
+                body=model.LabeledNode(label="same", node=_make_atomic()),
             )
         self.assertIn("distinct labels", str(ctx.exception))
         self.assertIn("same", str(ctx.exception))
