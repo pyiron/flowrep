@@ -3,12 +3,12 @@ import unittest
 import pydantic
 
 from flowrep.models import edges
-from flowrep.models.nodes import model, union
+from flowrep.models.nodes import for_model, model, union
 
 
 class TestForNodeBasic(unittest.TestCase):
     def test_valid_for_node_with_nested_ports(self):
-        for_node = model.ForNode(
+        for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results"],
             body_node=model.LabeledNode(
@@ -36,7 +36,7 @@ class TestForNodeBasic(unittest.TestCase):
         self.assertEqual(for_node.zipped_ports, [])
 
     def test_valid_for_node_with_zipped_ports(self):
-        for_node = model.ForNode(
+        for_node = for_model.ForNode(
             inputs=["xs", "ys"],
             outputs=["results"],
             body_node=model.LabeledNode(
@@ -62,7 +62,7 @@ class TestForNodeBasic(unittest.TestCase):
         self.assertEqual(for_node.nested_ports, [])
 
     def test_valid_for_node_with_both_nested_and_zipped(self):
-        for_node = model.ForNode(
+        for_node = for_model.ForNode(
             inputs=["outer", "inner1", "inner2"],
             outputs=["results"],
             body_node=model.LabeledNode(
@@ -99,7 +99,7 @@ class TestForNodeBasic(unittest.TestCase):
 class TestForNodeLoopPortValidation(unittest.TestCase):
     def test_no_loop_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["x"],
                 outputs=["y"],
                 body_node=model.LabeledNode(
@@ -127,7 +127,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
 
     def test_duplicate_nested_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -154,7 +154,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
 
     def test_duplicate_zipped_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["xs"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -181,7 +181,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
 
     def test_overlapping_nested_and_zipped_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -210,7 +210,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
 
     def test_loop_port_not_on_body_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -239,7 +239,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
 class TestForNodeInputEdges(unittest.TestCase):
     def test_input_edge_wrong_target_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -266,7 +266,7 @@ class TestForNodeInputEdges(unittest.TestCase):
 
     def test_input_edge_wrong_target_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -293,7 +293,7 @@ class TestForNodeInputEdges(unittest.TestCase):
 
     def test_input_edge_invalid_source_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -322,7 +322,7 @@ class TestForNodeInputEdges(unittest.TestCase):
 class TestForNodeOutputEdges(unittest.TestCase):
     def test_output_edge_wrong_source_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -349,7 +349,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
 
     def test_output_edge_wrong_source_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -376,7 +376,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
 
     def test_output_edge_invalid_target_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -405,7 +405,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
 class TestForNodeTransferEdges(unittest.TestCase):
     def test_valid_transfer_edge(self):
         """Transfer edges should forward looped inputs to outputs."""
-        for_node = model.ForNode(
+        for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results", "original_items"],
             body_node=model.LabeledNode(
@@ -438,7 +438,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
     def test_transfer_source_not_in_inputs_rejected(self):
         """Transfer edge sources must be ForNode inputs."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results", "forwarded"],
                 body_node=model.LabeledNode(
@@ -472,7 +472,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
     def test_transfer_target_not_in_outputs_rejected(self):
         """Transfer edge targets must be ForNode outputs."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -506,7 +506,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
     def test_transfer_source_not_looped_rejected(self):
         """Transfer edge sources must be looped (in nested_ports or zipped_ports)."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items", "static_value"],
                 outputs=["results", "forwarded"],
                 body_node=model.LabeledNode(
@@ -542,7 +542,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
 
     def test_transfer_target_collides_with_output_edge_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.ForNode(
+            for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=model.LabeledNode(
@@ -574,7 +574,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
 
 class TestForNodeSerialization(unittest.TestCase):
     def test_roundtrip(self):
-        original = model.ForNode(
+        original = for_model.ForNode(
             inputs=["items", "multiplier"],
             outputs=["results", "original_items"],
             body_node=model.LabeledNode(
@@ -608,7 +608,7 @@ class TestForNodeSerialization(unittest.TestCase):
         for mode in ["python", "json"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = model.ForNode.model_validate(data)
+                restored = for_model.ForNode.model_validate(data)
 
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
@@ -641,7 +641,7 @@ class TestForNodeSerialization(unittest.TestCase):
             "transfer_edges": {},
         }
         node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, model.ForNode)
+        self.assertIsInstance(node, for_model.ForNode)
 
 
 class TestForNodeComposition(unittest.TestCase):
@@ -669,7 +669,7 @@ class TestForNodeComposition(unittest.TestCase):
             },
         )
 
-        for_node = model.ForNode(
+        for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results"],
             body_node=model.LabeledNode(
@@ -691,7 +691,7 @@ class TestForNodeComposition(unittest.TestCase):
         self.assertIsInstance(for_node.body_node.node, model.WorkflowNode)
 
     def test_for_node_as_workflow_child(self):
-        for_node = model.ForNode(
+        for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results"],
             body_node=model.LabeledNode(
@@ -732,12 +732,12 @@ class TestForNodeComposition(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["loop"], model.ForNode)
+        self.assertIsInstance(workflow.nodes["loop"], for_model.ForNode)
         self.assertEqual(workflow.inputs, ["data"])
         self.assertEqual(workflow.outputs, ["processed"])
 
     def test_for_node_chained_in_workflow(self):
-        for_node = model.ForNode(
+        for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results"],
             body_node=model.LabeledNode(
@@ -798,6 +798,6 @@ class TestForNodeComposition(unittest.TestCase):
         )
 
         self.assertEqual(len(workflow.nodes), 3)
-        self.assertIsInstance(workflow.nodes["loop"], model.ForNode)
+        self.assertIsInstance(workflow.nodes["loop"], for_model.ForNode)
         self.assertIsInstance(workflow.nodes["preprocess"], model.AtomicNode)
         self.assertIsInstance(workflow.nodes["postprocess"], model.AtomicNode)
