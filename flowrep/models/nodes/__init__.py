@@ -12,6 +12,7 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 from flowrep.models.nodes.union import Nodes, NodeType
+
 # Subtlety: Anywhere we use `typing.TYPE_CHECKING` to avoid a real import _and_ use
 # the guarded object as a pydantic field annotator, we are going to need to make sure
 # the annotation is manually stringified, and rebuild the model with the correct value
