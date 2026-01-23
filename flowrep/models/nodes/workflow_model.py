@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-import networkx as nx
 import pydantic
 
 from flowrep.models import base_models, edge_models, subgraph_protocols
