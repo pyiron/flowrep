@@ -42,14 +42,14 @@ class BuildsSubgraph(HasSubgraphInput, Protocol):
 
 
 @runtime_checkable
-class BuildsSubgraphWithDynamicOutput(BuildsSubgraph, Protocol):
-    prospective_output_edges: ProspectiveOutputEdges
-
-
-@runtime_checkable
 class BuildsSubgraphWithStaticOutput(
     HasStaticSubgraphOutput, BuildsSubgraph, Protocol
 ): ...
+
+
+@runtime_checkable
+class BuildsSubgraphWithDynamicOutput(BuildsSubgraph, Protocol):
+    prospective_output_edges: ProspectiveOutputEdges
 
 
 def validate_input_sources(macro: HasSubgraphInput) -> None:
