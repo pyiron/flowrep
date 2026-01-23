@@ -53,7 +53,7 @@ class TryNode(base_models.NodeModel):
     exception_cases: list[helper_models.ExceptionCase]
     input_edges: edge_models.InputEdges
     prospective_output_edges: dict[
-        edge_models.OutputTarget, list[edge_models.SourceHandle]
+        edge_models.OutputTarget, base_models.UniqueList[edge_models.SourceHandle]
     ]
 
     @property
