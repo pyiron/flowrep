@@ -66,7 +66,7 @@ def _validate_input_targets(
         target.node for target in input_edges if target.node not in nodes
     }:
         raise ValueError(
-            f"Invalid input_edges targets. Could node find target nodes "
+            f"Invalid input_edges targets. Could not find target nodes "
             f"({invalid_nodes}) among available nodes ({nodes})"
         )
     if invalid_ports := {
