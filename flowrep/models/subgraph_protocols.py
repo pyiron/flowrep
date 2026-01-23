@@ -70,7 +70,7 @@ def _validate_input_targets(
             f"({invalid_nodes}) among available nodes ({nodes})"
         )
     if invalid_ports := {
-        (target, nodes[target.node].inputs)
+        (target, tuple(nodes[target.node].inputs))
         for target in input_edges
         if target.port not in nodes[target.node].inputs
     }:
@@ -121,7 +121,7 @@ def validate_output_sources(macro: HasStaticSubgraph) -> None:
             f"({invalid_nodes}) among available nodes ({nodes})"
         )
     if invalid_ports := {
-        (source, nodes[source.node].outputs)
+        (source, tuple(nodes[source.node].outputs))
         for source in macro.output_edges.values()
         if source.port not in nodes[source.node].outputs
     }:
@@ -151,7 +151,7 @@ def validate_prospective_output_sources(macro: BuildsSubgraphWithDynamicOutput) 
                 f"Could not find source nodes ({invalid_nodes}) among available nodes"
             )
         if invalid_ports := {
-            (source, nodes[source.node].outputs)
+            (source, tuple(nodes[source.node].outputs))
             for source in sources
             if source.node in nodes and source.port not in nodes[source.node].outputs
         }:
