@@ -2,11 +2,10 @@ import unittest
 
 import pydantic
 
-from flowrep.models import base_models, edge_models
+from flowrep.models import base_models, edge_models, subgraph_protocols
 from flowrep.models.nodes import (
     atomic_model,
     helper_models,
-    subgraph_protocols,
     try_model,
     union,
     workflow_model,
