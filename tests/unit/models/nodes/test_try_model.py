@@ -55,7 +55,7 @@ def _make_input_edges(try_node, exception_cases):
     return edges_dict
 
 
-def _make_output_edge_possibilities(try_node, exception_cases):
+def _make_prospective_output_edges(try_node, exception_cases):
     sources = [edge_models.SourceHandle(node=try_node.label, port="y")]
     for case in exception_cases:
         sources.append(edge_models.SourceHandle(node=case.body.label, port="y"))
@@ -72,7 +72,7 @@ def _make_valid_try_node(n_exception_cases=1):
         try_node=try_node,
         exception_cases=exception_cases,
         input_edges=_make_input_edges(try_node, exception_cases),
-        output_edge_possibilities=_make_output_edge_possibilities(
+        prospective_output_edges=_make_prospective_output_edges(
             try_node, exception_cases
         ),
     )
@@ -102,7 +102,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=[],
                 input_edges={},
-                output_edge_possibilities={edge_models.OutputTarget(port="out"): []},
+                prospective_output_edges={edge_models.OutputTarget(port="out"): []},
             )
         self.assertIn("at least one", str(ctx.exception))
 
@@ -124,7 +124,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=[exception_case],
                 input_edges={},
-                output_edge_possibilities={
+                prospective_output_edges={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node="shared_label", port="y"),
                     ]
@@ -152,7 +152,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=[case0, case1],
                 input_edges={},
-                output_edge_possibilities={
+                prospective_output_edges={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node="try_body", port="y"),
                         edge_models.SourceHandle(node="handler", port="y"),
@@ -200,7 +200,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             try_node=try_node,
             exception_cases=[exception_case],
             input_edges=_make_input_edges(try_node, [exception_case]),
-            output_edge_possibilities=_make_output_edge_possibilities(
+            prospective_output_edges=_make_prospective_output_edges(
                 try_node, [exception_case]
             ),
         )
@@ -225,7 +225,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
                         node="nonexistent", port="x"
                     ): edge_models.InputSource(port="inp")
                 },
-                output_edge_possibilities=_make_output_edge_possibilities(
+                prospective_output_edges=_make_prospective_output_edges(
                     try_node, exception_cases
                 ),
             )
@@ -246,7 +246,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
                     node="try_body", port="x"
                 ): edge_models.InputSource(port="inp"),
             },
-            output_edge_possibilities=_make_output_edge_possibilities(
+            prospective_output_edges=_make_prospective_output_edges(
                 try_node, exception_cases
             ),
         )
@@ -269,7 +269,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
                     node="except_1", port="x"
                 ): edge_models.InputSource(port="inp"),
             },
-            output_edge_possibilities=_make_output_edge_possibilities(
+            prospective_output_edges=_make_prospective_output_edges(
                 try_node, exception_cases
             ),
         )
@@ -290,7 +290,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
                         node="try_body", port="nonexistent"
                     ): edge_models.InputSource(port="inp")
                 },
-                output_edge_possibilities=_make_output_edge_possibilities(
+                prospective_output_edges=_make_prospective_output_edges(
                     try_node, exception_cases
                 ),
             )
@@ -313,7 +313,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
                         node="try_body", port="x"
                     ): edge_models.InputSource(port="nonexistent")
                 },
-                output_edge_possibilities=_make_output_edge_possibilities(
+                prospective_output_edges=_make_prospective_output_edges(
                     try_node, exception_cases
                 ),
             )
@@ -322,8 +322,8 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         self.assertIn("nonexistent", exc_str)
 
 
-class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
-    def test_output_edge_possibilities_invalid_source_node(self):
+class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
+    def test_prospective_output_edges_invalid_source_node(self):
         """Sources must reference valid prospective nodes."""
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
@@ -334,7 +334,7 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
-                output_edge_possibilities={
+                prospective_output_edges={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node="nonexistent", port="y"),
                     ]
@@ -344,7 +344,7 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
         self.assertIn("invalid", exc_str.lower())
         self.assertIn("nonexistent", exc_str)
 
-    def test_output_edge_possibilities_duplicate_source_node_rejected(self):
+    def test_prospective_output_edges_duplicate_source_node_rejected(self):
         """Each prospective node can appear at most once per output."""
         try_node = helper_models.LabeledNode(
             label="try_body", node=_make_try_body(outputs=["y", "z"])
@@ -357,7 +357,7 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
-                output_edge_possibilities={
+                prospective_output_edges={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node="try_body", port="y"),
                         edge_models.SourceHandle(
@@ -370,8 +370,8 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
         self.assertIn("must have unique elements", exc_str)
         self.assertIn("duplicates", exc_str.lower())
 
-    def test_output_edge_possibilities_keys_must_match_outputs(self):
-        """output_edge_possibilities keys must match TryNode outputs."""
+    def test_prospective_output_edges_keys_must_match_outputs(self):
+        """prospective_output_edges keys must match TryNode outputs."""
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -381,7 +381,7 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
-                output_edge_possibilities={
+                prospective_output_edges={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node="try_body", port="y"),
                     ]
@@ -392,8 +392,8 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
         self.assertIn("must match outputs", exc_str)
         self.assertIn("other", exc_str)
 
-    def test_output_edge_possibilities_extra_key_rejected(self):
-        """output_edge_possibilities cannot have keys not in outputs."""
+    def test_prospective_output_edges_extra_key_rejected(self):
+        """prospective_output_edges cannot have keys not in outputs."""
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -403,7 +403,7 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
-                output_edge_possibilities={
+                prospective_output_edges={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node="try_body", port="y"),
                     ],
@@ -416,7 +416,7 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
         self.assertIn("must match outputs", exc_str)
         self.assertIn("extra", exc_str)
 
-    def test_output_edge_possibilities_empty_sources_rejected(self):
+    def test_prospective_output_edges_empty_sources_rejected(self):
         """An output must have at least one source."""
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
@@ -427,12 +427,12 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
-                output_edge_possibilities={edge_models.OutputTarget(port="out"): []},
+                prospective_output_edges={edge_models.OutputTarget(port="out"): []},
             )
         exc_str = str(ctx.exception)
         self.assertIn("at least one", exc_str)
 
-    def test_output_edge_possibilities_partial_sources_allowed(self):
+    def test_prospective_output_edges_partial_sources_allowed(self):
         """An output can have sources from only some prospective nodes."""
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(n) for n in range(3)]
@@ -442,7 +442,7 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
             try_node=try_node,
             exception_cases=exception_cases,
             input_edges=_make_input_edges(try_node, exception_cases),
-            output_edge_possibilities={
+            prospective_output_edges={
                 edge_models.OutputTarget(port="out"): [
                     # Only try_body and except_0, skipping except_1 and except_2
                     edge_models.SourceHandle(node="try_body", port="y"),
@@ -451,10 +451,10 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
             },
         )
         self.assertEqual(
-            len(node.output_edge_possibilities[edge_models.OutputTarget(port="out")]), 2
+            len(node.prospective_output_edges[edge_models.OutputTarget(port="out")]), 2
         )
 
-    def test_output_edge_possibilities_all_sources_allowed(self):
+    def test_prospective_output_edges_all_sources_allowed(self):
         """An output can have sources from all prospective nodes."""
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(n) for n in range(2)]
@@ -464,7 +464,7 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
             try_node=try_node,
             exception_cases=exception_cases,
             input_edges=_make_input_edges(try_node, exception_cases),
-            output_edge_possibilities={
+            prospective_output_edges={
                 edge_models.OutputTarget(port="out"): [
                     edge_models.SourceHandle(node="try_body", port="y"),
                     edge_models.SourceHandle(node="except_0", port="y"),
@@ -473,11 +473,11 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
             },
         )
         self.assertEqual(
-            len(node.output_edge_possibilities[edge_models.OutputTarget(port="out")]), 3
+            len(node.prospective_output_edges[edge_models.OutputTarget(port="out")]), 3
         )
 
-    def test_output_edge_possibilities_invalid_source_port(self):
-        """output_edge_possibilities source port must exist on the source node."""
+    def test_prospective_output_edges_invalid_source_port(self):
+        """prospective_output_edges source port must exist on the source node."""
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [_make_exception_case(0)]
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -487,7 +487,7 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=exception_cases,
                 input_edges=_make_input_edges(try_node, exception_cases),
-                output_edge_possibilities={
+                prospective_output_edges={
                     edge_models.OutputTarget(port="out"): [
                         edge_models.SourceHandle(node="try_body", port="nonexistent"),
                     ]
@@ -497,8 +497,8 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
         self.assertIn("has no output port", exc_str)
         self.assertIn("nonexistent", exc_str)
 
-    def test_output_edge_possibilities_valid_multiple_outputs(self):
-        """output_edge_possibilities works with multiple outputs."""
+    def test_prospective_output_edges_valid_multiple_outputs(self):
+        """prospective_output_edges works with multiple outputs."""
         body_node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["x"],
@@ -522,7 +522,7 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
                     node="except_body", port="x"
                 ): edge_models.InputSource(port="inp"),
             },
-            output_edge_possibilities={
+            prospective_output_edges={
                 edge_models.OutputTarget(port="a"): [
                     edge_models.SourceHandle(node="try_body", port="out1"),
                     edge_models.SourceHandle(node="except_body", port="out1"),
@@ -533,10 +533,10 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
                 ],
             },
         )
-        self.assertEqual(len(node.output_edge_possibilities), 2)
+        self.assertEqual(len(node.prospective_output_edges), 2)
 
     def test_empty_outputs_with_empty_matrix(self):
-        """TryNode with no outputs requires empty output_edge_possibilities."""
+        """TryNode with no outputs requires empty prospective_output_edges."""
         try_node = helper_models.LabeledNode(
             label="try_body",
             node=atomic_model.AtomicNode(
@@ -566,10 +566,10 @@ class TestTryNodeOutputEdgePossibilitiesValidation(unittest.TestCase):
                     node="try_body", port="x"
                 ): edge_models.InputSource(port="inp"),
             },
-            output_edge_possibilities={},
+            prospective_output_edges={},
         )
         self.assertEqual(node.outputs, [])
-        self.assertEqual(node.output_edge_possibilities, {})
+        self.assertEqual(node.prospective_output_edges, {})
 
 
 class TestTryNodeProspectiveNodes(unittest.TestCase):
@@ -605,7 +605,7 @@ class TestTryNodeProspectiveNodes(unittest.TestCase):
                 try_node=try_node,
                 exception_cases=[exception_case],
                 input_edges={},
-                output_edge_possibilities={},
+                prospective_output_edges={},
             )
         ctx_str = str(ctx.exception)
         self.assertIn("must have unique elements", ctx_str)
@@ -644,7 +644,7 @@ class TestTryNodeSerialization(unittest.TestCase):
             try_node=try_node,
             exception_cases=[exception_case],
             input_edges=_make_input_edges(try_node, [exception_case]),
-            output_edge_possibilities=_make_output_edge_possibilities(
+            prospective_output_edges=_make_prospective_output_edges(
                 try_node, [exception_case]
             ),
         )
