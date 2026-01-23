@@ -376,7 +376,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 edges={},
                 output_edges={},
             )
-        self.assertIn("not a workflow input", str(ctx.exception))
+        self.assertIn("source port not found in inputs", str(ctx.exception))
 
     def test_input_edge_invalid_child_node(self):
         """Input edge referencing nonexistent child node."""
@@ -399,7 +399,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 edges={},
                 output_edges={},
             )
-        self.assertIn("not a child node", str(ctx.exception))
+        self.assertIn("not find target nodes", str(ctx.exception))
 
     def test_input_edge_invalid_child_port(self):
         """Input edge referencing nonexistent port on child."""
@@ -422,7 +422,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 edges={},
                 output_edges={},
             )
-        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("not find port among node inputs", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
 
@@ -476,7 +476,8 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                     ): edge_models.SourceHandle(node="child", port="out"),
                 },
             )
-        self.assertIn("not a workflow output", str(ctx.exception))
+        self.assertIn("target port not found in outputs", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception))
 
     def test_output_edge_invalid_child_node(self):
         """Output edge referencing nonexistent child node."""
@@ -499,7 +500,8 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                     ),
                 },
             )
-        self.assertIn("not a child node", str(ctx.exception))
+        self.assertIn("not find source nodes", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception))
 
     def test_output_edge_invalid_child_port(self):
         """Output edge referencing nonexistent port on child."""
@@ -523,7 +525,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                     # 'wrong_port' doesn't exist
                 },
             )
-        self.assertIn("has no output port", str(ctx.exception))
+        self.assertIn("not find port among node outputs", str(ctx.exception))
         self.assertIn("wrong_port", str(ctx.exception))
 
 
@@ -586,7 +588,8 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 output_edges={},
             )
-        self.assertIn("not a child node", str(ctx.exception))
+        self.assertIn("node not found in nodes", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception))
 
     def test_internal_edge_invalid_target_node(self):
         """Internal edge to nonexistent target node."""
@@ -609,7 +612,8 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 output_edges={},
             )
-        self.assertIn("not a child node", str(ctx.exception))
+        self.assertIn("node not found in nodes", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception))
 
     def test_internal_edge_invalid_source_port(self):
         """Internal edge from nonexistent source port."""
@@ -637,7 +641,8 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 output_edges={},
             )
-        self.assertIn("has no output port", str(ctx.exception))
+        self.assertIn("port not found in node outputs", str(ctx.exception))
+        self.assertIn("wrong", str(ctx.exception))
 
     def test_internal_edge_invalid_target_port(self):
         """Internal edge to nonexistent target port."""
@@ -665,7 +670,8 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 output_edges={},
             )
-        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("port not found in node inputs", str(ctx.exception))
+        self.assertIn("wrong", str(ctx.exception))
 
 
 class TestWorkflowNodeMultiplePorts(unittest.TestCase):
@@ -1016,7 +1022,7 @@ class TestNestedWorkflow(unittest.TestCase):
                     ): edge_models.SourceHandle(node="inner", port="inner_out"),
                 },
             )
-        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("not find port", str(ctx.exception))
         self.assertIn("wrong_port", str(ctx.exception))
 
 
