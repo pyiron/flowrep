@@ -314,7 +314,7 @@ class TestWorkflowNodeStructure(unittest.TestCase):
         """model_json_schema() fails if forward refs aren't resolved."""
         workflow_model.WorkflowNode.model_json_schema()
 
-    def test_is_has_static_subgraph(self):
+    def test_obeys_has_static_subgraph(self):
         wf = workflow_model.WorkflowNode(
             inputs=[],
             outputs=[],
