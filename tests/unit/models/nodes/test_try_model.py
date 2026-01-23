@@ -80,6 +80,10 @@ def _make_valid_try_node(n_exception_cases=1):
 
 
 class TestTryNodeBasicConstruction(unittest.TestCase):
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        try_model.TryNode.model_json_schema()
+
     def test_obeys_build_subgraph_with_dynamic_output(self):
         """TryNode should obey build subgraph with dynamic output."""
         node = _make_valid_try_node()

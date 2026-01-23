@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import pydantic
 
 from flowrep.models import base_models, edge_models
-from flowrep.models.nodes import helper_models, subgraph_protocols
+from flowrep.models.nodes import helper_models
+
+if TYPE_CHECKING:
+    from flowrep.models.nodes.union import Nodes
 
 
 class ForNode(base_models.NodeModel):
@@ -79,7 +82,7 @@ class ForNode(base_models.NodeModel):
     )
 
     @property
-    def prospective_nodes(self) -> subgraph_protocols.Nodes:
+    def prospective_nodes(self) -> Nodes:
         return {self.body_node.label: self.body_node.node}
 
     @pydantic.model_validator(mode="after")

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import pydantic
 
 from flowrep.models import base_models, edge_models
 from flowrep.models.base_models import validate_unique
-from flowrep.models.nodes import helper_models, subgraph_protocols
+from flowrep.models.nodes import helper_models
+
+if TYPE_CHECKING:
+    from flowrep.models.nodes.union import Nodes
 
 
 class IfNode(base_models.NodeModel):
@@ -56,7 +59,7 @@ class IfNode(base_models.NodeModel):
     else_case: helper_models.LabeledNode | None = None
 
     @property
-    def prospective_nodes(self) -> subgraph_protocols.Nodes:
+    def prospective_nodes(self) -> Nodes:
         nodes = {}
         for case in self.cases:
             nodes[case.condition.label] = case.condition.node

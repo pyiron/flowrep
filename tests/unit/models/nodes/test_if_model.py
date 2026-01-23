@@ -88,6 +88,10 @@ def _make_valid_if_node(n_cases=1, with_else=True):
 
 
 class TestIfNodeBasicConstruction(unittest.TestCase):
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        if_model.IfNode.model_json_schema()
+
     def test_obeys_build_subgraph_with_dynamic_output(self):
         """IfNode should obey build subgraph with dynamic output."""
         node = _make_valid_if_node()

@@ -2,6 +2,7 @@ from typing import Annotated
 
 import pydantic
 
+from flowrep.models import base_models
 from flowrep.models.nodes import (
     atomic_model,
     for_model,
@@ -21,3 +22,5 @@ NodeType = Annotated[
     | workflow_model.WorkflowNode,
     pydantic.Field(discriminator="type"),
 ]
+
+Nodes = dict[base_models.Label, "NodeType"]

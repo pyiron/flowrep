@@ -1,19 +1,21 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import networkx as nx
 import pydantic
 
 from flowrep.models import base_models, edge_models
-from flowrep.models.nodes import subgraph_protocols
+
+if TYPE_CHECKING:
+    from flowrep.models.nodes.union import Nodes
 
 
 class WorkflowNode(base_models.NodeModel):
     type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
         default=base_models.RecipeElementType.WORKFLOW, frozen=True
     )
-    nodes: subgraph_protocols.Nodes
+    nodes: "Nodes"  # noqa: UP037
     input_edges: edge_models.InputEdges
     edges: edge_models.Edges
     output_edges: edge_models.OutputEdges

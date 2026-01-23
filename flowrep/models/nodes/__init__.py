@@ -11,7 +11,13 @@ from flowrep.models.nodes import (
     while_model,
     workflow_model,
 )
-from flowrep.models.nodes.union import NodeType
+from flowrep.models.nodes.union import Nodes, NodeType
+# Subtlety: Anywhere we use `typing.TYPE_CHECKING` to avoid a real import _and_ use
+# the guarded object as a pydantic field annotator, we are going to need to make sure
+# the annotation is manually stringified, and rebuild the model with the correct value
+# for the stringified hint in-scope
+# Running a `model_json_schema()` on the model classes should provide a final layer of
+# security that pydantic can find all the necessary types.
 
 for cls in [
     atomic_model.AtomicNode,

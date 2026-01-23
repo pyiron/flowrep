@@ -69,6 +69,10 @@ def make_valid_while_node(
 
 
 class TestWhileNodeBasic(unittest.TestCase):
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        while_model.WhileNode.model_json_schema()
+
     def test_obeys_build_subgraph_with_static_output(self):
         """WhileNode should obey build subgraph with static output."""
         node = make_valid_while_node()

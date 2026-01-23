@@ -164,6 +164,10 @@ class TestNodeTypeImmutability(unittest.TestCase):
 class TestAtomicNode(unittest.TestCase):
     """Tests for AtomicNode validation."""
 
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        atomic_model.AtomicNode.model_json_schema()
+
     def test_valid_fqn(self):
         node = atomic_model.AtomicNode(
             fully_qualified_name="module.func",
@@ -303,8 +307,12 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             self.assertEqual(node.unpack_mode, mode)
 
 
-class TestWorkflowNodeProtocol(unittest.TestCase):
-    """Tests for protocol validation."""
+class TestWorkflowNodeStructure(unittest.TestCase):
+    """Tests for protocol validation and schema availability."""
+
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        workflow_model.WorkflowNode.model_json_schema()
 
     def test_is_has_static_subgraph(self):
         wf = workflow_model.WorkflowNode(

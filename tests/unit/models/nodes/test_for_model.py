@@ -14,6 +14,10 @@ from flowrep.models.nodes import (
 
 
 class TestForNodeBasic(unittest.TestCase):
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        for_model.ForNode.model_json_schema()
+
     def test_obeys_build_subgraph_with_static_output(self):
         """ForNode should obey build subgraph with static output."""
         node = for_model.ForNode(

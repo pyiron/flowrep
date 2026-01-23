@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import pydantic
 
 from flowrep.models import base_models, edge_models
-from flowrep.models.nodes import helper_models, subgraph_protocols
+from flowrep.models.nodes import helper_models
+
+if TYPE_CHECKING:
+    from flowrep.models.nodes.union import Nodes  # Satisfies mpypy
+
+    # Still not enough to satisfy ruff, which doesn't understand the string forward
+    # reference, even with the TYPE_CHECKING import
+    # Better to nonetheless leave the references as strings to make sure the pydantic
+    # handling of forward references is maximally robust through the model_rebuild()
+    # Ultimately, just silence ruff as needed
 
 
 class WhileNode(base_models.NodeModel):
@@ -59,7 +68,7 @@ class WhileNode(base_models.NodeModel):
     body_condition_edges: edge_models.Edges
 
     @property
-    def prospective_nodes(self) -> subgraph_protocols.Nodes:
+    def prospective_nodes(self) -> Nodes:
         return {
             self.case.condition.label: self.case.condition.node,
             self.case.body.label: self.case.body.node,
