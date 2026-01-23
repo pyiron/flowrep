@@ -7,6 +7,7 @@ from flowrep.models.nodes import (
     atomic_model,
     helper_models,
     if_model,
+    subgraph_protocols,
     union,
     workflow_model,
 )
@@ -87,6 +88,11 @@ def _make_valid_if_node(n_cases=1, with_else=True):
 
 
 class TestIfNodeBasicConstruction(unittest.TestCase):
+    def test_obeys_build_subgraph_with_dynamic_output(self):
+        """IfNode should obey build subgraph with dynamic output."""
+        node = _make_valid_if_node()
+        self.assertIsInstance(node, subgraph_protocols.BuildsSubgraphWithDynamicOutput)
+
     def test_valid_single_case(self):
         """IfNode with one case should validate."""
         node = _make_valid_if_node(n_cases=1)

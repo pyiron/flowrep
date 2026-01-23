@@ -1,21 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import pydantic
 
 from flowrep.models import base_models, edge_models
 from flowrep.models.base_models import validate_unique
-from flowrep.models.nodes import helper_models
-
-if TYPE_CHECKING:
-    from flowrep.models.nodes.union import NodeType  # Satisfies mypy
-
-    # Still not enough to satisfy ruff, which doesn't understand the string forward
-    # reference, even with the TYPE_CHECKING import
-    # Better to nonetheless leave the references as strings to make sure the pydantic
-    # handling of forward references is maximally robust through the model_rebuild()
-    # Ultimately, just silence ruff as needed
+from flowrep.models.nodes import helper_models, subgraph_protocols
 
 
 class IfNode(base_models.NodeModel):
@@ -65,9 +56,7 @@ class IfNode(base_models.NodeModel):
     else_case: helper_models.LabeledNode | None = None
 
     @property
-    def prospective_nodes(
-        self,
-    ) -> dict[base_models.Label, "NodeType"]:  # noqa: F821, UP037
+    def prospective_nodes(self) -> subgraph_protocols.Nodes:
         nodes = {}
         for case in self.cases:
             nodes[case.condition.label] = case.condition.node

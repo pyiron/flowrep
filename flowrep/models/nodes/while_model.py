@@ -5,7 +5,7 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import base_models, edge_models
-from flowrep.models.nodes import helper_models
+from flowrep.models.nodes import helper_models, subgraph_protocols
 
 
 class WhileNode(base_models.NodeModel):
@@ -57,6 +57,13 @@ class WhileNode(base_models.NodeModel):
     output_edges: edge_models.OutputEdges
     body_body_edges: edge_models.Edges
     body_condition_edges: edge_models.Edges
+
+    @property
+    def prospective_nodes(self) -> subgraph_protocols.Nodes:
+        return {
+            self.case.condition.label: self.case.condition.node,
+            self.case.body.label: self.case.body.node,
+        }
 
     @pydantic.model_validator(mode="after")
     def validate_input_edges(self):

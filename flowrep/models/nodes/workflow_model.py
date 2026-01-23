@@ -13,7 +13,7 @@ class WorkflowNode(base_models.NodeModel):
     type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
         default=base_models.RecipeElementType.WORKFLOW, frozen=True
     )
-    nodes: subgraph_protocols.Nodes  # noqa: F821, UP037
+    nodes: subgraph_protocols.Nodes
     input_edges: edge_models.InputEdges
     edges: edge_models.Edges
     output_edges: edge_models.OutputEdges

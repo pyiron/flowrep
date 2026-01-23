@@ -5,7 +5,7 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import base_models, edge_models
-from flowrep.models.nodes import helper_models
+from flowrep.models.nodes import helper_models, subgraph_protocols
 
 
 class ForNode(base_models.NodeModel):
@@ -77,6 +77,10 @@ class ForNode(base_models.NodeModel):
     transfer_edges: dict[edge_models.OutputTarget, edge_models.InputSource] = (
         pydantic.Field(default_factory=dict)
     )
+
+    @property
+    def prospective_nodes(self) -> subgraph_protocols.Nodes:
+        return {self.body_node.label: self.body_node.node}
 
     @pydantic.model_validator(mode="after")
     def validate_some_loop(self):

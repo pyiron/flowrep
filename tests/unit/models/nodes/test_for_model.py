@@ -7,12 +7,32 @@ from flowrep.models.nodes import (
     atomic_model,
     for_model,
     helper_models,
+    subgraph_protocols,
     union,
     workflow_model,
 )
 
 
 class TestForNodeBasic(unittest.TestCase):
+    def test_obeys_build_subgraph_with_static_output(self):
+        """ForNode should obey build subgraph with static output."""
+        node = for_model.ForNode(
+            inputs=[],
+            outputs=[],
+            body_node=helper_models.LabeledNode(
+                label="body",
+                node=atomic_model.AtomicNode(
+                    fully_qualified_name="mod.func",
+                    inputs=["item"],
+                    outputs=["result"],
+                ),
+            ),
+            input_edges={},
+            output_edges={},
+            nested_ports=["item"],
+        )
+        self.assertIsInstance(node, subgraph_protocols.BuildsSubgraphWithStaticOutput)
+
     def test_valid_for_node_with_nested_ports(self):
         for_node = for_model.ForNode(
             inputs=["items"],

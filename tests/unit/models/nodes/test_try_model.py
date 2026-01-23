@@ -6,6 +6,7 @@ from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import (
     atomic_model,
     helper_models,
+    subgraph_protocols,
     try_model,
     union,
     workflow_model,
@@ -79,6 +80,11 @@ def _make_valid_try_node(n_exception_cases=1):
 
 
 class TestTryNodeBasicConstruction(unittest.TestCase):
+    def test_obeys_build_subgraph_with_dynamic_output(self):
+        """TryNode should obey build subgraph with dynamic output."""
+        node = _make_valid_try_node()
+        self.assertIsInstance(node, subgraph_protocols.BuildsSubgraphWithDynamicOutput)
+
     def test_valid_single_exception_case(self):
         """TryNode with one exception case should validate."""
         node = _make_valid_try_node(n_exception_cases=1)

@@ -8,6 +8,7 @@ from flowrep.models import base_models
 from flowrep.models.nodes import (
     atomic_model,
     helper_models,
+    subgraph_protocols,
     union,
     while_model,
     workflow_model,
@@ -68,6 +69,11 @@ def make_valid_while_node(
 
 
 class TestWhileNodeBasic(unittest.TestCase):
+    def test_obeys_build_subgraph_with_static_output(self):
+        """WhileNode should obey build subgraph with static output."""
+        node = make_valid_while_node()
+        self.assertIsInstance(node, subgraph_protocols.BuildsSubgraphWithStaticOutput)
+
     def test_valid_minimal(self):
         """
         Minimal valid WhileNode with empty edges.

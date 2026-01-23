@@ -6,7 +6,7 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import base_models, edge_models
-from flowrep.models.nodes import atomic_model, union, workflow_model
+from flowrep.models.nodes import atomic_model, subgraph_protocols, union, workflow_model
 
 
 class TestNodeModel(unittest.TestCase):
@@ -301,6 +301,21 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
                 unpack_mode=mode,
             )
             self.assertEqual(node.unpack_mode, mode)
+
+
+class TestWorkflowNodeProtocol(unittest.TestCase):
+    """Tests for protocol validation."""
+
+    def test_is_has_static_subgraph(self):
+        wf = workflow_model.WorkflowNode(
+            inputs=[],
+            outputs=[],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
+        self.assertIsInstance(wf, subgraph_protocols.HasStaticSubgraph)
 
 
 class TestWorkflowNodeInputEdges(unittest.TestCase):
