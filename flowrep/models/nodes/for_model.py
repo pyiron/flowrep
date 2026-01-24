@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Literal
 
 import pydantic
 
-from flowrep.models import base_models, edge_models
+from flowrep.models import base_models, edge_models, subgraph_protocols
 from flowrep.models.nodes import helper_models
 
 if TYPE_CHECKING:
@@ -86,6 +86,14 @@ class ForNode(base_models.NodeModel):
         return {self.body_node.label: self.body_node.node}
 
     @pydantic.model_validator(mode="after")
+    def validate_io_edges(self):
+        subgraph_protocols.validate_input_sources(self)
+        subgraph_protocols.validate_prospective_input_targets(self)
+        subgraph_protocols.validate_output_sources_from_prospective_nodes(self)
+        subgraph_protocols.validate_output_targets(self)
+        return self
+
+    @pydantic.model_validator(mode="after")
     def validate_some_loop(self):
         if not (self.nested_ports or self.zipped_ports):
             raise ValueError("For loop must have at least one nested or zipped port")
@@ -102,106 +110,33 @@ class ForNode(base_models.NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_loop_ports_exist(self):
-        invalid = [
+        if invalid := {
             port
             for port in self.nested_ports + self.zipped_ports
             if port not in self.body_node.node.inputs
-        ]
-        if invalid:
+        }:
             raise ValueError(
-                f"For loop must loop on body node ports ({self.body_node.node.inputs}) but got: {invalid}"
+                f"For loop must loop on body node ports ({self.body_node.node.inputs}) "
+                f"but got: {invalid}"
             )
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_edge_nodes(self):
-        """Validate that all edge handles reference the correct nodes."""
-        # Input edges must target the body node
-        invalid_input_targets = [
-            str(target)
-            for target in self.input_edges
-            if (
-                target.node != self.body_node.label
-                or target.port not in self.body_node.node.inputs
-            )
-        ]
-        if invalid_input_targets:
-            raise ValueError(
-                f"All input_edges must target body_node '{self.body_node.label}'. "
-                f"Found invalid targets: {invalid_input_targets}"
-            )
-
-        # Output edges must source from the body node
-        invalid_output_sources = [
-            str(source)
-            for source in self.output_edges.values()
-            if (
-                source.node != self.body_node.label
-                or source.port not in self.body_node.node.outputs
-            )
-        ]
-        if invalid_output_sources:
-            raise ValueError(
-                f"All output_edges must source from body_node '{self.body_node.label}'. "
-                f"Found invalid sources: {invalid_output_sources}"
-            )
-
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_input_sources_are_inputs(self):
-        invalid_input_ports = [
-            str(source)
-            for source in self.input_edges.values()
-            if source.port not in self.inputs
-        ]
-        if invalid_input_ports:
-            raise ValueError(
-                f"All input_edges sources must reference valid inputs. "
-                f"Found invalid: {invalid_input_ports}"
-            )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_output_targets_are_outputs(self):
-        invalid_output_ports = [
-            str(target)
-            for target in self.output_edges
-            if target.port not in self.outputs
-        ]
-        if invalid_output_ports:
-            raise ValueError(
-                f"All output_edges targets must reference valid outputs. "
-                f"Found invalid: {invalid_output_ports}"
-            )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_transfer_sources_are_inputs(self):
+    def validate_transfer_edges_exist(self):
         invalid = [
             source.port
             for source in self.transfer_edges.values()
             if source.port not in self.inputs
         ]
-        if invalid:
-            raise ValueError(
-                f"Transfer edge sources must be ForNode inputs. "
-                f"Unknown inputs: {invalid}. Available: {self.inputs}"
-            )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_transfer_targets_are_outputs(self):
-        invalid = [
-            target.port
-            for target in self.transfer_edges
-            if target.port not in self.outputs
-        ]
-        if invalid:
-            raise ValueError(
-                f"Transfer edge targets must be ForNode outputs. "
-                f"Unknown outputs: {invalid}. Available: {self.outputs}"
-            )
+        for node_collection, handel_type, io_name, io_panel in [
+            (self.transfer_edges.values(), "source", "inputs", self.inputs),
+            (self.transfer_edges, "target", "outputs", self.outputs),
+        ]:
+            if {node.port for node in node_collection if node.port not in io_panel}:
+                raise ValueError(
+                    f"Transfer edge {handel_type} must be ForNode {io_name}. "
+                    f"Unknown {io_name}: {invalid}. Available: {io_panel}"
+                )
         return self
 
     @pydantic.model_validator(mode="after")

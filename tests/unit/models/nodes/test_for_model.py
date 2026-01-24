@@ -533,7 +533,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
                     ): edge_models.InputSource(port="items"),
                 },
             )
-        self.assertIn("nonexistent", str(ctx.exception))
+        self.assertIn("edge target must be", str(ctx.exception))
         self.assertIn("outputs", str(ctx.exception).lower())
 
     def test_transfer_source_not_looped_rejected(self):
