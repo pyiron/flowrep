@@ -114,10 +114,23 @@ class TestValidateOutputTargets(unittest.TestCase):
 
     def test_valid_output_targets(self):
         macro = mock.Mock(spec=subgraph_protocols.HasStaticSubgraphOutput)
-        macro.outputs = ["y", "z"]
+        macro.outputs = ["y"]
         macro.output_edges = {
             edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
                 node="a", port="out"
+            ),
+        }
+        subgraph_protocols.validate_output_targets(macro)
+
+    def test_valid_multiple_outputs(self):
+        macro = mock.Mock(spec=subgraph_protocols.HasStaticSubgraphOutput)
+        macro.outputs = ["y", "z"]
+        macro.output_edges = {
+            edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
+                node="a", port="out1"
+            ),
+            edge_models.OutputTarget(port="z"): edge_models.SourceHandle(
+                node="a", port="out2"
             ),
         }
         subgraph_protocols.validate_output_targets(macro)
@@ -134,6 +147,26 @@ class TestValidateOutputTargets(unittest.TestCase):
             subgraph_protocols.validate_output_targets(macro)
         self.assertIn("nonexistent", str(ctx.exception))
 
+    def test_missing_output_edge(self):
+        macro = mock.Mock(spec=subgraph_protocols.HasStaticSubgraphOutput)
+        macro.outputs = ["y", "z"]
+        macro.output_edges = {
+            edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
+                node="a", port="out"
+            ),
+            # Missing edge for "z"
+        }
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_protocols.validate_output_targets(macro)
+        self.assertIn("Missing", str(ctx.exception))
+        self.assertIn("z", str(ctx.exception))
+
+    def test_empty_outputs_and_edges(self):
+        macro = mock.Mock(spec=subgraph_protocols.HasStaticSubgraphOutput)
+        macro.outputs = []
+        macro.output_edges = {}
+        subgraph_protocols.validate_output_targets(macro)
+
 
 class TestValidateProspectiveOutputTargets(unittest.TestCase):
     """Tests for validate_prospective_output_targets."""
@@ -144,6 +177,19 @@ class TestValidateProspectiveOutputTargets(unittest.TestCase):
         macro.prospective_output_edges = {
             edge_models.OutputTarget(port="y"): [
                 edge_models.SourceHandle(node="a", port="out")
+            ],
+        }
+        subgraph_protocols.validate_prospective_output_targets(macro)
+
+    def test_valid_multiple_outputs(self):
+        macro = mock.Mock(spec=subgraph_protocols.BuildsSubgraphWithDynamicOutput)
+        macro.outputs = ["y", "z"]
+        macro.prospective_output_edges = {
+            edge_models.OutputTarget(port="y"): [
+                edge_models.SourceHandle(node="a", port="out1")
+            ],
+            edge_models.OutputTarget(port="z"): [
+                edge_models.SourceHandle(node="a", port="out2")
             ],
         }
         subgraph_protocols.validate_prospective_output_targets(macro)
@@ -159,6 +205,26 @@ class TestValidateProspectiveOutputTargets(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             subgraph_protocols.validate_prospective_output_targets(macro)
         self.assertIn("nonexistent", str(ctx.exception))
+
+    def test_missing_prospective_output_edge(self):
+        macro = mock.Mock(spec=subgraph_protocols.BuildsSubgraphWithDynamicOutput)
+        macro.outputs = ["y", "z"]
+        macro.prospective_output_edges = {
+            edge_models.OutputTarget(port="y"): [
+                edge_models.SourceHandle(node="a", port="out")
+            ],
+            # Missing edge for "z"
+        }
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_protocols.validate_prospective_output_targets(macro)
+        self.assertIn("Missing", str(ctx.exception))
+        self.assertIn("z", str(ctx.exception))
+
+    def test_empty_outputs_and_edges(self):
+        macro = mock.Mock(spec=subgraph_protocols.BuildsSubgraphWithDynamicOutput)
+        macro.outputs = []
+        macro.prospective_output_edges = {}
+        subgraph_protocols.validate_prospective_output_targets(macro)
 
 
 class TestValidateOutputSources(unittest.TestCase):

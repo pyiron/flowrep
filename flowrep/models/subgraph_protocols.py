@@ -1,7 +1,7 @@
 import abc
 import collections
 import itertools
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from typing import Protocol, runtime_checkable
 
 import networkx as nx
@@ -89,25 +89,25 @@ def validate_prospective_input_targets(macro: BuildsSubgraph) -> None:
     _validate_input_targets(macro.input_edges, macro.prospective_nodes)
 
 
-def validate_output_targets(macro: HasStaticSubgraphOutput) -> None:
-    if invalid_targets := {
-        target.port for target in macro.output_edges if target.port not in macro.outputs
-    }:
+def _validate_output_targets(
+    outputs: base_models.Labels,
+    edge_targets: Iterable[edge_models.OutputTarget],
+) -> None:
+    edge_target_ports = {target.port for target in edge_targets}
+    if invalid_targets := edge_target_ports - set(outputs):
         raise ValueError(
-            f"Invalid output_edges, target port not found in outputs: {invalid_targets}"
+            f"Invalid edge, target port not found in outputs: {invalid_targets}"
         )
+    if missing_outputs := set(outputs) - edge_target_ports:
+        raise ValueError(f"Missing edge for output(s): {missing_outputs}")
+
+
+def validate_output_targets(macro: HasStaticSubgraphOutput) -> None:
+    _validate_output_targets(macro.outputs, macro.output_edges)
 
 
 def validate_prospective_output_targets(macro: BuildsSubgraphWithDynamicOutput) -> None:
-    if invalid_targets := {
-        target.port
-        for target in macro.prospective_output_edges
-        if target.port not in macro.outputs
-    }:
-        raise ValueError(
-            f"Invalid prospective_output_edges, target port not found in outputs: "
-            f"{invalid_targets}"
-        )
+    _validate_output_targets(macro.outputs, macro.prospective_output_edges)
 
 
 def _validate_output_sources(
