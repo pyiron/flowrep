@@ -295,7 +295,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("invalid sources", exc_str)
+        self.assertIn("not find source nodes", exc_str)
         self.assertIn("nonexistent", exc_str)
 
     def test_prospective_output_edges_duplicate_source_node_rejected(self):
@@ -315,8 +315,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("unique elements", exc_str)
-        self.assertIn("duplicates", exc_str.lower())
+        self.assertIn("Duplicate source nodes", exc_str)
 
     def test_prospective_output_edges_keys_must_match_outputs(self):
         cases = [_make_case(0)]
@@ -334,7 +333,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("must match outputs", exc_str)
+        self.assertIn("Missing edge for output", exc_str)
         self.assertIn("other", exc_str)
 
     def test_prospective_output_edges_extra_key_rejected(self):
@@ -356,7 +355,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("must match outputs", exc_str)
+        self.assertIn("target port not found in outputs", exc_str)
         self.assertIn("extra", exc_str)
 
     def test_prospective_output_edges_empty_sources_rejected(self):
@@ -371,7 +370,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
                 prospective_output_edges={edge_models.OutputTarget(port="out"): []},
             )
         exc_str = str(ctx.exception)
-        self.assertIn("at least one", exc_str)
+        self.assertIn("cannot be empty", exc_str)
 
     def test_prospective_output_edges_partial_sources_allowed(self):
         """An output can have sources from only some prospective nodes."""
@@ -637,7 +636,7 @@ class TestIfNodeInputEdgesPortValidation(unittest.TestCase):
                 prospective_output_edges=_make_output_edges(cases),
             )
         exc_str = str(ctx.exception)
-        self.assertIn("has no input port", exc_str)
+        self.assertIn("not find port among node inputs", exc_str)
         self.assertIn("nonexistent", exc_str)
 
 
@@ -660,7 +659,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("has no output port", exc_str)
+        self.assertIn("not find port among node outputs", exc_str)
         self.assertIn("nonexistent", exc_str)
 
     def test_prospective_output_edges_invalid_else_source_port(self):
@@ -684,7 +683,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("has no output port", exc_str)
+        self.assertIn("not find port among node outputs", exc_str)
         self.assertIn("nonexistent", exc_str)
 
     def test_prospective_output_edges_valid_source_ports(self):

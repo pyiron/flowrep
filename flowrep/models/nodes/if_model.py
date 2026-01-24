@@ -4,8 +4,7 @@ from typing import TYPE_CHECKING, Literal
 
 import pydantic
 
-from flowrep.models import base_models, edge_models
-from flowrep.models.base_models import validate_unique
+from flowrep.models import base_models, edge_models, subgraph_protocols
 from flowrep.models.nodes import helper_models
 
 if TYPE_CHECKING:
@@ -69,84 +68,31 @@ class IfNode(base_models.NodeModel):
             nodes[self.else_case.label] = self.else_case.node
         return nodes
 
+    @pydantic.model_validator(mode="after")
+    def validate_prospective_nodes_have_unique_labels(self):
+        base_models.validate_unique(
+            [
+                label
+                for case in self.cases
+                for label in [case.condition.label, case.body.label]
+            ]
+            + [self.else_case.label]
+            if self.else_case
+            else []
+        )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_io_edges(self):
+        subgraph_protocols.validate_input_sources(self)
+        subgraph_protocols.validate_prospective_input_targets(self)
+        subgraph_protocols.validate_prospective_output_sources(self)
+        subgraph_protocols.validate_prospective_output_targets(self)
+        return self
+
     @pydantic.field_validator("cases")
     @classmethod
     def validate_cases_not_empty(cls, v):
         if len(v) < 1:
             raise ValueError("If nodes must have at least one explicit case")
         return v
-
-    @pydantic.model_validator(mode="after")
-    def validate_unique_labels(self):
-        labels = (
-            [case.condition.label for case in self.cases]
-            + [case.body.label for case in self.cases]
-            + ([self.else_case.label] if self.else_case else [])
-        )
-        validate_unique(labels)
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_input_edges_targets_are_extant_child_nodes(self):
-        invalid = {
-            target.node
-            for target in self.input_edges
-            if target.node not in self.prospective_nodes
-        }
-        if invalid:
-            raise ValueError(
-                f"input_edges targets must be a body node based on for-node naming "
-                f"schemes -- i.e. map data from parent input to child nodes. "
-                f"Got invalid target nodes: {invalid}"
-            )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_input_edges_ports_exist(self):
-        """Validate that input_edges target ports exist on their target nodes."""
-        for target in self.input_edges:
-            node = self.prospective_nodes[target.node]
-            if target.port not in node.inputs:
-                raise ValueError(
-                    f"Invalid input_edge target: {target.node} has no input port "
-                    f"'{target.port}'. Available inputs: {node.inputs}"
-                )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_prospective_output_edges_keys_match_outputs(self):
-        edge_ports = {target.port for target in self.prospective_output_edges}
-        output_ports = set(self.outputs)
-        if edge_ports != output_ports:
-            missing = output_ports - edge_ports
-            extra = edge_ports - output_ports
-            raise ValueError(
-                f"prospective_output_edges keys must match outputs. "
-                f"Missing: {missing or 'none'}, Extra: {extra or 'none'}"
-            )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_prospective_output_edges_sources(self):
-        expected_nodes = list(self.prospective_nodes)
-        for target, sources in self.prospective_output_edges.items():
-            source_nodes = [s.node for s in sources]
-            invalid_nodes = set(source_nodes) - set(expected_nodes)
-            if len(source_nodes) == 0:
-                raise ValueError(
-                    f"prospective_output_edges['{target.port}'] must have at least one source"
-                )
-            if invalid_nodes:
-                raise ValueError(
-                    f"prospective_output_edges['{target.port}'] sources must be from "
-                    f"{expected_nodes}, got invalid sources: {invalid_nodes}"
-                )
-            base_models.validate_unique(source_nodes)
-            for source in sources:
-                node = self.prospective_nodes[source.node]
-                if source.port not in node.outputs:
-                    raise ValueError(
-                        f"Invalid prospective_output_edges source: {source.node} has no "
-                        f"output port '{source.port}'. Available outputs: {node.outputs}"
-                    )
-        return self
