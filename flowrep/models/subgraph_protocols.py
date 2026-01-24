@@ -142,6 +142,11 @@ def validate_output_sources_from_prospective_nodes(
 def validate_prospective_output_sources(macro: BuildsSubgraphWithDynamicOutput) -> None:
     nodes = macro.prospective_nodes
     for target, sources in macro.prospective_output_edges.items():
+        if not sources:
+            raise ValueError(
+                f"Invalid prospective_output_edges for {target}. "
+                f"Sources list cannot be empty."
+            )
         node_counts = collections.Counter(source.node for source in sources)
         if duplicate_nodes := {
             node for node, count in node_counts.items() if count > 1

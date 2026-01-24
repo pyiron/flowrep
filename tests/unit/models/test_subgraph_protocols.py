@@ -226,6 +226,16 @@ class TestValidateProspectiveOutputTargets(unittest.TestCase):
         macro.prospective_output_edges = {}
         subgraph_protocols.validate_prospective_output_targets(macro)
 
+    def test_empty_sources_list_rejected(self):
+        macro = mock.Mock(spec=subgraph_protocols.BuildsSubgraphWithDynamicOutput)
+        macro.prospective_nodes = {"a": MockNode(inputs=[], outputs=["out"])}
+        macro.prospective_output_edges = {
+            edge_models.OutputTarget(port="y"): [],  # Empty list
+        }
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_protocols.validate_prospective_output_sources(macro)
+        self.assertIn("empty", str(ctx.exception).lower())
+
 
 class TestValidateOutputSources(unittest.TestCase):
     """Tests for validate_output_sources."""
