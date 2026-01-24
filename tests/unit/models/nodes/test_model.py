@@ -572,7 +572,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             workflow_model.WorkflowNode(
                 inputs=["x"],
-                outputs=["y"],
+                outputs=[],
                 nodes={
                     "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
@@ -596,7 +596,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             workflow_model.WorkflowNode(
                 inputs=["x"],
-                outputs=["y"],
+                outputs=[],
                 nodes={
                     "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
@@ -620,7 +620,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             workflow_model.WorkflowNode(
                 inputs=["x"],
-                outputs=["y"],
+                outputs=[],
                 nodes={
                     "a": atomic_model.AtomicNode(
                         fully_qualified_name="mod.f",
@@ -649,7 +649,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             workflow_model.WorkflowNode(
                 inputs=["x"],
-                outputs=["y"],
+                outputs=[],
                 nodes={
                     "a": atomic_model.AtomicNode(
                         fully_qualified_name="mod.f",
