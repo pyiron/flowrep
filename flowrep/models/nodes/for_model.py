@@ -90,7 +90,11 @@ class ForNode(base_models.NodeModel):
         subgraph_protocols.validate_input_sources(self)
         subgraph_protocols.validate_prospective_input_targets(self)
         subgraph_protocols.validate_output_sources_from_prospective_nodes(self)
-        subgraph_protocols.validate_output_targets(self)
+        # subgraph_protocols.validate_output_targets(self)
+        subgraph_protocols._validate_output_targets(
+            self.outputs,
+            list(self.output_edges.keys()) + list(self.transfer_edges.keys()),
+        )
         return self
 
     @pydantic.model_validator(mode="after")
