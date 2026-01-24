@@ -199,6 +199,60 @@ class TestValidateOutputSources(unittest.TestCase):
         self.assertIn("wrong_port", str(ctx.exception))
 
 
+class TestValidateOutputSourcesFromProspectiveNodes(unittest.TestCase):
+    """Tests for validate_output_sources_from_prospective_nodes."""
+
+    def test_valid_output_sources(self):
+        macro = mock.Mock(spec=subgraph_protocols.BuildsSubgraphWithStaticOutput)
+        macro.prospective_nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
+        macro.output_edges = {
+            edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
+                node="a", port="out"
+            ),
+        }
+        subgraph_protocols.validate_output_sources_from_prospective_nodes(macro)
+
+    def test_invalid_source_node(self):
+        macro = mock.Mock(spec=subgraph_protocols.BuildsSubgraphWithStaticOutput)
+        macro.prospective_nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
+        macro.output_edges = {
+            edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
+                node="nonexistent", port="out"
+            ),
+        }
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_protocols.validate_output_sources_from_prospective_nodes(macro)
+        self.assertIn("nonexistent", str(ctx.exception))
+
+    def test_invalid_source_port(self):
+        macro = mock.Mock(spec=subgraph_protocols.BuildsSubgraphWithStaticOutput)
+        macro.prospective_nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
+        macro.output_edges = {
+            edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
+                node="a", port="wrong_port"
+            ),
+        }
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_protocols.validate_output_sources_from_prospective_nodes(macro)
+        self.assertIn("wrong_port", str(ctx.exception))
+
+    def test_multiple_output_edges(self):
+        macro = mock.Mock(spec=subgraph_protocols.BuildsSubgraphWithStaticOutput)
+        macro.prospective_nodes = {
+            "a": MockNode(inputs=[], outputs=["out1", "out2"]),
+            "b": MockNode(inputs=[], outputs=["out"]),
+        }
+        macro.output_edges = {
+            edge_models.OutputTarget(port="x"): edge_models.SourceHandle(
+                node="a", port="out1"
+            ),
+            edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
+                node="b", port="out"
+            ),
+        }
+        subgraph_protocols.validate_output_sources_from_prospective_nodes(macro)
+
+
 class TestValidateProspectiveOutputSources(unittest.TestCase):
     """Tests for validate_prospective_output_sources."""
 

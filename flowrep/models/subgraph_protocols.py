@@ -1,6 +1,7 @@
 import abc
 import collections
 import itertools
+from collections.abc import Collection
 from typing import Protocol, runtime_checkable
 
 import networkx as nx
@@ -109,26 +110,33 @@ def validate_prospective_output_targets(macro: BuildsSubgraphWithDynamicOutput) 
         )
 
 
-def validate_output_sources(macro: HasStaticSubgraph) -> None:
-    nodes = macro.nodes
-    if invalid_nodes := {
-        source.node
-        for source in macro.output_edges.values()
-        if source.node not in nodes
-    }:
+def _validate_output_sources(
+    sources: Collection[edge_models.SourceHandle], nodes: NodesAlias
+) -> None:
+    if invalid_nodes := {source.node for source in sources if source.node not in nodes}:
         raise ValueError(
-            f"Invalid output_edges sources. Could not find source nodes "
+            f"Invalid output sources. Could not find source nodes "
             f"({invalid_nodes}) among available nodes ({nodes})"
         )
     if invalid_ports := {
         (source.port, tuple(nodes[source.node].outputs))
-        for source in macro.output_edges.values()
+        for source in sources
         if source.port not in nodes[source.node].outputs
     }:
         raise ValueError(
-            f"Invalid output_edges sources. Could not find port among node outputs "
+            f"Invalid output source. Could not find port among node outputs "
             f"(source port, available outputs): {invalid_ports}"
         )
+
+
+def validate_output_sources(macro: HasStaticSubgraph) -> None:
+    _validate_output_sources(macro.output_edges.values(), macro.nodes)
+
+
+def validate_output_sources_from_prospective_nodes(
+    macro: BuildsSubgraphWithStaticOutput,
+) -> None:
+    _validate_output_sources(macro.output_edges.values(), macro.prospective_nodes)
 
 
 def validate_prospective_output_sources(macro: BuildsSubgraphWithDynamicOutput) -> None:
@@ -142,24 +150,8 @@ def validate_prospective_output_sources(macro: BuildsSubgraphWithDynamicOutput) 
                 f"Invalid prospective_output_edges for {target}. "
                 f"Duplicate source nodes: {duplicate_nodes}"
             )
-    for target, sources in macro.prospective_output_edges.items():
-        if invalid_nodes := {
-            source.node for source in sources if source.node not in nodes
-        }:
-            raise ValueError(
-                f"Invalid prospective_output_edges sources for {target}. "
-                f"Could not find source nodes ({invalid_nodes}) among available nodes"
-            )
-        if invalid_ports := {
-            (source.port, tuple(nodes[source.node].outputs))
-            for source in sources
-            if source.node in nodes and source.port not in nodes[source.node].outputs
-        }:
-            raise ValueError(
-                f"Invalid prospective_output_edges sources for {target}. "
-                f"Could not find port among node outputs "
-                f"(source port, available outputs): {invalid_ports}"
-            )
+    for sources in macro.prospective_output_edges.values():
+        _validate_output_sources(sources, nodes)
 
 
 def validate_extant_edges(edges: edge_models.Edges, nodes: NodesAlias) -> None:
