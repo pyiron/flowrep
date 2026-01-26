@@ -4,7 +4,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import base_models
+from flowrep.models import base_models, subgraph_validation
 from flowrep.models.nodes import (
     atomic_model,
     helper_models,
@@ -37,7 +37,7 @@ def make_valid_while_node(
     body_condition_edges: dict | None = None,
 ) -> while_model.WhileNode:
     inputs = inputs if inputs is not None else ["x"]
-    outputs = outputs if outputs is not None else ["y"]
+    outputs = outputs if outputs is not None else []
     condition_inputs = condition_inputs if condition_inputs is not None else ["val"]
     condition_outputs = (
         condition_outputs if condition_outputs is not None else ["result"]
@@ -68,6 +68,15 @@ def make_valid_while_node(
 
 
 class TestWhileNodeBasic(unittest.TestCase):
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        while_model.WhileNode.model_json_schema()
+
+    def test_obeys_build_subgraph_with_static_output(self):
+        """WhileNode should obey build subgraph with static output."""
+        node = make_valid_while_node()
+        self.assertIsInstance(node, subgraph_validation.DynamicSubgraphStaticOutput)
+
     def test_valid_minimal(self):
         """
         Minimal valid WhileNode with empty edges.
@@ -77,7 +86,7 @@ class TestWhileNodeBasic(unittest.TestCase):
         wn = make_valid_while_node()
         self.assertEqual(wn.type, base_models.RecipeElementType.WHILE)
         self.assertEqual(wn.inputs, ["x"])
-        self.assertEqual(wn.outputs, ["y"])
+        self.assertEqual(wn.outputs, [])
         self.assertEqual(wn.input_edges, {})
         self.assertEqual(wn.output_edges, {})
         self.assertEqual(wn.body_body_edges, {})
@@ -187,7 +196,7 @@ class TestWhileNodeInputEdges(unittest.TestCase):
                 condition_inputs=["val"],
                 input_edges={"cond.val": "nonexistent"},
             )
-        self.assertIn("not a workflow input", str(ctx.exception))
+        self.assertIn("Invalid input_edges source ports", str(ctx.exception))
         self.assertIn("nonexistent", str(ctx.exception))
 
     def test_invalid_target_node(self):
@@ -198,7 +207,7 @@ class TestWhileNodeInputEdges(unittest.TestCase):
                 input_edges={"unknown.port": "x"},
             )
         exc_str = str(ctx.exception)
-        self.assertIn("must be", exc_str)
+        self.assertIn("Invalid input_edges target nodes", exc_str)
         self.assertIn("cond", exc_str)
         self.assertIn("body", exc_str)
 
@@ -210,7 +219,7 @@ class TestWhileNodeInputEdges(unittest.TestCase):
                 condition_inputs=["val"],
                 input_edges={"cond.wrong": "x"},
             )
-        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("Invalid input_edges target ports", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_invalid_target_port_on_body(self):
@@ -221,7 +230,7 @@ class TestWhileNodeInputEdges(unittest.TestCase):
                 body_inputs=["inp"],
                 input_edges={"body.missing": "x"},
             )
-        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("Invalid input_edges target ports", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
 
@@ -262,7 +271,7 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
                 body_outputs=["out"],
                 output_edges={"nonexistent": "body.out"},
             )
-        self.assertIn("not a workflow output", str(ctx.exception))
+        self.assertIn("Invalid output target ports", str(ctx.exception))
         self.assertIn("nonexistent", str(ctx.exception))
 
     def test_invalid_source_node(self):
@@ -273,9 +282,8 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
                 output_edges={"y": "unknown.port"},
             )
         exc_str = str(ctx.exception)
-        self.assertIn("must be", exc_str)
-        self.assertIn("cond", exc_str)
-        self.assertIn("body", exc_str)
+        self.assertIn("Invalid output source nodes", exc_str)
+        self.assertIn("unknown.port", exc_str)
 
     def test_invalid_source_port_on_condition(self):
         """Output edge source port must exist on condition node."""
@@ -285,7 +293,7 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
                 condition_outputs=["result"],
                 output_edges={"y": "cond.wrong"},
             )
-        self.assertIn("has no output port", str(ctx.exception))
+        self.assertIn("Invalid output source ports", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_invalid_source_port_on_body(self):
@@ -296,7 +304,7 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
                 body_outputs=["out"],
                 output_edges={"y": "body.missing"},
             )
-        self.assertIn("has no output port", str(ctx.exception))
+        self.assertIn("Invalid output source ports", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
 
@@ -333,7 +341,7 @@ class TestWhileNodeBodyBodyEdges(unittest.TestCase):
                 body_label="body",
                 body_body_edges={"body.inp": "wrong.out"},
             )
-        self.assertIn("node must be 'body'", str(ctx.exception))
+        self.assertIn("Invalid edge source node", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_invalid_source_port(self):
@@ -345,7 +353,7 @@ class TestWhileNodeBodyBodyEdges(unittest.TestCase):
                 body_label="body",
                 body_body_edges={"body.inp": "body.missing"},
             )
-        self.assertIn("not an output of body node", str(ctx.exception))
+        self.assertIn("Invalid edge source port", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
     def test_invalid_target_node(self):
@@ -357,7 +365,7 @@ class TestWhileNodeBodyBodyEdges(unittest.TestCase):
                 body_label="body",
                 body_body_edges={"wrong.inp": "body.out"},
             )
-        self.assertIn("node must be 'body'", str(ctx.exception))
+        self.assertIn("Invalid edge target node", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_invalid_target_port(self):
@@ -369,7 +377,7 @@ class TestWhileNodeBodyBodyEdges(unittest.TestCase):
                 body_label="body",
                 body_body_edges={"body.missing": "body.out"},
             )
-        self.assertIn("not an input of body node", str(ctx.exception))
+        self.assertIn("Invalid edge target port", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
 
@@ -409,8 +417,32 @@ class TestWhileNodeBodyConditionEdges(unittest.TestCase):
                 body_label="body",
                 body_condition_edges={"cond.val": "wrong.out"},
             )
-        self.assertIn("node must be 'body'", str(ctx.exception))
+        self.assertIn("Invalid edge source node", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
+
+    def test_condition_cannot_be_source(self):
+        """Body-body edge source cannot be the condition node."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            make_valid_while_node(
+                body_inputs=["inp"],
+                body_outputs=["out"],
+                body_label="body",
+                body_condition_edges={"cond.val": "cond.result"},
+            )
+        self.assertIn("Invalid edge source node", str(ctx.exception))
+        self.assertIn("cond", str(ctx.exception))
+
+    def test_body_cannot_be_target(self):
+        """Body-body edge source cannot be the condition node."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            make_valid_while_node(
+                body_inputs=["inp"],
+                body_outputs=["out"],
+                body_label="body",
+                body_condition_edges={"body.inp": "body.out"},
+            )
+        self.assertIn("Invalid edge target node", str(ctx.exception))
+        self.assertIn("body", str(ctx.exception))
 
     def test_invalid_source_port(self):
         """Body-condition edge source port must be body output."""
@@ -422,7 +454,7 @@ class TestWhileNodeBodyConditionEdges(unittest.TestCase):
                 body_label="body",
                 body_condition_edges={"cond.val": "body.missing"},
             )
-        self.assertIn("not an output of body node", str(ctx.exception))
+        self.assertIn("Invalid edge source port", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
     def test_invalid_target_node(self):
@@ -435,7 +467,7 @@ class TestWhileNodeBodyConditionEdges(unittest.TestCase):
                 body_label="body",
                 body_condition_edges={"wrong.val": "body.out"},
             )
-        self.assertIn("node must be 'cond'", str(ctx.exception))
+        self.assertIn("Invalid edge target node", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_invalid_target_port(self):
@@ -448,7 +480,7 @@ class TestWhileNodeBodyConditionEdges(unittest.TestCase):
                 body_label="body",
                 body_condition_edges={"cond.missing": "body.out"},
             )
-        self.assertIn("not an input of condition node", str(ctx.exception))
+        self.assertIn("Invalid edge target port", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
 
@@ -548,7 +580,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
         data = {
             "type": "while",
             "inputs": ["x"],
-            "outputs": ["y"],
+            "outputs": [],
             "case": {
                 "condition": {
                     "label": "c",

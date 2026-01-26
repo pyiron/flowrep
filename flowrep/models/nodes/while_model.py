@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import pydantic
 
-from flowrep.models import base_models, edge_models
+from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import helper_models
+
+if TYPE_CHECKING:
+    from flowrep.models.nodes.union import Nodes
 
 
 class WhileNode(base_models.NodeModel):
@@ -58,124 +61,47 @@ class WhileNode(base_models.NodeModel):
     body_body_edges: edge_models.Edges
     body_condition_edges: edge_models.Edges
 
-    @pydantic.model_validator(mode="after")
-    def validate_input_edges(self):
-        """
-        Validate input_edges: sources from workflow inputs, targets to case nodes.
-        """
-        valid_targets = {
-            self.case.condition.label: self.case.condition.node.inputs,
-            self.case.body.label: self.case.body.node.inputs,
+    @property
+    def prospective_nodes(self) -> Nodes:
+        return {
+            self.case.condition.label: self.case.condition.node,
+            self.case.body.label: self.case.body.node,
         }
-        workflow_inputs = self.inputs
 
-        for target, source in self.input_edges.items():
-            if source.port not in workflow_inputs:
-                raise ValueError(
-                    f"Invalid input_edge source: '{source.port}' is not a workflow "
-                    f"input. Available inputs: {self.inputs}"
-                )
-            if target.node not in valid_targets:
-                raise ValueError(
-                    f"Invalid input_edge target: node '{target.node}' must be "
-                    f"'{self.case.condition.label}' or '{self.case.body.label}'"
-                )
-            if target.port not in valid_targets[target.node]:
-                raise ValueError(
-                    f"Invalid input_edge target: node '{target.node}' has no input "
-                    f"port '{target.port}'. Available inputs: "
-                    f"{list(valid_targets[target.node])}"
-                )
+    @pydantic.field_validator("case")
+    @classmethod
+    def validate_prospective_nodes_have_unique_labels(
+        cls, v: helper_models.ConditionalCase
+    ):
+        base_models.validate_unique([v.condition.label, v.body.label])
+        return v
+
+    @pydantic.model_validator(mode="after")
+    def validate_io_edges(self):
+        subgraph_validation.validate_input_edge_sources(self.input_edges, self.inputs)
+        subgraph_validation.validate_input_edge_targets(
+            self.input_edges,
+            self.prospective_nodes,
+        )
+        subgraph_validation.validate_output_edge_targets(
+            self.output_edges, self.outputs
+        )
+        subgraph_validation.validate_output_edge_sources(
+            self.output_edges.values(),
+            self.prospective_nodes,
+        )
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_output_edges(self):
-        """
-        Validate output_edges: sources from case nodes, targets to workflow outputs.
-        """
-        valid_sources = {
-            self.case.condition.label: self.case.condition.node.outputs,
-            self.case.body.label: self.case.body.node.outputs,
-        }
-        workflow_outputs = self.outputs
-
-        for target, source in self.output_edges.items():
-            if target.port not in workflow_outputs:
-                raise ValueError(
-                    f"Invalid output_edge target: '{target.port}' is not a workflow "
-                    f"output. Available outputs: {self.outputs}"
-                )
-            if source.node not in valid_sources:
-                raise ValueError(
-                    f"Invalid output_edge source: node '{source.node}' must be "
-                    f"'{self.case.condition.label}' or '{self.case.body.label}'"
-                )
-            if source.port not in valid_sources[source.node]:
-                raise ValueError(
-                    f"Invalid output_edge source: node '{source.node}' has no output "
-                    f"port '{source.port}'. Available outputs: "
-                    f"{list(valid_sources[source.node])}"
-                )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_body_body_edges(self):
-        """Validate body_body_edges: body outputs -> body inputs."""
-        body_outputs = self.case.body.node.outputs
-        body_inputs = self.case.body.node.inputs
-        body_label = self.case.body.label
-
-        for target, source in self.body_body_edges.items():
-            if source.node != body_label:
-                raise ValueError(
-                    f"Invalid body_body_edge source: node must be '{body_label}', "
-                    f"got '{source.node}'"
-                )
-            if source.port not in body_outputs:
-                raise ValueError(
-                    f"Invalid body_body_edge source: '{source.port}' is not an output "
-                    f"of body node. Available outputs: {list(body_outputs)}"
-                )
-            if target.node != body_label:
-                raise ValueError(
-                    f"Invalid body_body_edge target: node must be '{body_label}', "
-                    f"got '{target.node}'"
-                )
-            if target.port not in body_inputs:
-                raise ValueError(
-                    f"Invalid body_body_edge target: '{target.port}' is not an input "
-                    f"of body node. Available inputs: {list(body_inputs)}"
-                )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_body_condition_edges(self):
-        """Validate body_condition_edges: body outputs -> condition inputs."""
-        body_outputs = set(self.case.body.node.outputs)
-        body_label = self.case.body.label
-        condition_inputs = set(self.case.condition.node.inputs)
-        condition_label = self.case.condition.label
-
-        for target, source in self.body_condition_edges.items():
-            if source.node != body_label:
-                raise ValueError(
-                    f"Invalid body_condition_edge source: node must be '{body_label}', "
-                    f"got '{source.node}'"
-                )
-            if source.port not in body_outputs:
-                raise ValueError(
-                    f"Invalid body_condition_edge source: '{source.port}' is not an "
-                    f"output of body node. Available outputs: {list(body_outputs)}"
-                )
-            if target.node != condition_label:
-                raise ValueError(
-                    f"Invalid body_condition_edge target: node must be "
-                    f"'{condition_label}', got '{target.node}'"
-                )
-            if target.port not in condition_inputs:
-                raise ValueError(
-                    f"Invalid body_condition_edge target: '{target.port}' is not an "
-                    f"input of condition node. Available inputs: "
-                    f"{list(condition_inputs)}"
-                )
+    def validate_internal_edges(self):
+        """Validate sibling edges between condition and body nodes."""
+        subgraph_validation.validate_sibling_edges(
+            self.body_body_edges,
+            {self.case.body.label: self.case.body.node},
+        )
+        subgraph_validation.validate_sibling_edges(
+            self.body_condition_edges,
+            target_nodes={self.case.condition.label: self.case.condition.node},
+            source_nodes={self.case.body.label: self.case.body.node},
+        )
         return self

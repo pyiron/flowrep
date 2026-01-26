@@ -5,7 +5,7 @@ from typing import Literal
 
 import pydantic
 
-from flowrep.models import base_models, edge_models
+from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import atomic_model, union, workflow_model
 
 
@@ -164,6 +164,10 @@ class TestNodeTypeImmutability(unittest.TestCase):
 class TestAtomicNode(unittest.TestCase):
     """Tests for AtomicNode validation."""
 
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        atomic_model.AtomicNode.model_json_schema()
+
     def test_valid_fqn(self):
         node = atomic_model.AtomicNode(
             fully_qualified_name="module.func",
@@ -303,6 +307,25 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             self.assertEqual(node.unpack_mode, mode)
 
 
+class TestWorkflowNodeStructure(unittest.TestCase):
+    """Tests for protocol validation and schema availability."""
+
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        workflow_model.WorkflowNode.model_json_schema()
+
+    def test_obeys_has_static_subgraph(self):
+        wf = workflow_model.WorkflowNode(
+            inputs=[],
+            outputs=[],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
+        self.assertIsInstance(wf, subgraph_validation.StaticSubgraphOwner)
+
+
 class TestWorkflowNodeInputEdges(unittest.TestCase):
     """Tests for input_edges validation (workflow inputs -> child inputs)."""
 
@@ -353,7 +376,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 edges={},
                 output_edges={},
             )
-        self.assertIn("not a workflow input", str(ctx.exception))
+        self.assertIn("Invalid input_edges source ports", str(ctx.exception))
 
     def test_input_edge_invalid_child_node(self):
         """Input edge referencing nonexistent child node."""
@@ -376,7 +399,8 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 edges={},
                 output_edges={},
             )
-        self.assertIn("not a child node", str(ctx.exception))
+        self.assertIn("Invalid input_edges target nodes", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception))
 
     def test_input_edge_invalid_child_port(self):
         """Input edge referencing nonexistent port on child."""
@@ -399,7 +423,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 edges={},
                 output_edges={},
             )
-        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("Invalid input_edges target ports", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
 
@@ -453,7 +477,8 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                     ): edge_models.SourceHandle(node="child", port="out"),
                 },
             )
-        self.assertIn("not a workflow output", str(ctx.exception))
+        self.assertIn("Invalid output target ports", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception))
 
     def test_output_edge_invalid_child_node(self):
         """Output edge referencing nonexistent child node."""
@@ -476,7 +501,8 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                     ),
                 },
             )
-        self.assertIn("not a child node", str(ctx.exception))
+        self.assertIn("Invalid output source nodes", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception))
 
     def test_output_edge_invalid_child_port(self):
         """Output edge referencing nonexistent port on child."""
@@ -500,7 +526,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                     # 'wrong_port' doesn't exist
                 },
             )
-        self.assertIn("has no output port", str(ctx.exception))
+        self.assertIn("Invalid output source ports", str(ctx.exception))
         self.assertIn("wrong_port", str(ctx.exception))
 
 
@@ -547,7 +573,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             workflow_model.WorkflowNode(
                 inputs=["x"],
-                outputs=["y"],
+                outputs=[],
                 nodes={
                     "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
@@ -563,14 +589,15 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 output_edges={},
             )
-        self.assertIn("not a child node", str(ctx.exception))
+        self.assertIn("Invalid edge source node", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception))
 
     def test_internal_edge_invalid_target_node(self):
         """Internal edge to nonexistent target node."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             workflow_model.WorkflowNode(
                 inputs=["x"],
-                outputs=["y"],
+                outputs=[],
                 nodes={
                     "child": atomic_model.AtomicNode(
                         fully_qualified_name="mod.func",
@@ -586,14 +613,15 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 output_edges={},
             )
-        self.assertIn("not a child node", str(ctx.exception))
+        self.assertIn("Invalid edge target node", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception))
 
     def test_internal_edge_invalid_source_port(self):
         """Internal edge from nonexistent source port."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             workflow_model.WorkflowNode(
                 inputs=["x"],
-                outputs=["y"],
+                outputs=[],
                 nodes={
                     "a": atomic_model.AtomicNode(
                         fully_qualified_name="mod.f",
@@ -614,14 +642,15 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 output_edges={},
             )
-        self.assertIn("has no output port", str(ctx.exception))
+        self.assertIn("Invalid edge source port", str(ctx.exception))
+        self.assertIn("wrong", str(ctx.exception))
 
     def test_internal_edge_invalid_target_port(self):
         """Internal edge to nonexistent target port."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             workflow_model.WorkflowNode(
                 inputs=["x"],
-                outputs=["y"],
+                outputs=[],
                 nodes={
                     "a": atomic_model.AtomicNode(
                         fully_qualified_name="mod.f",
@@ -642,7 +671,8 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 },
                 output_edges={},
             )
-        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("Invalid edge target port", str(ctx.exception))
+        self.assertIn("wrong", str(ctx.exception))
 
 
 class TestWorkflowNodeMultiplePorts(unittest.TestCase):
@@ -993,7 +1023,7 @@ class TestNestedWorkflow(unittest.TestCase):
                     ): edge_models.SourceHandle(node="inner", port="inner_out"),
                 },
             )
-        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("Invalid input_edges target ports", str(ctx.exception))
         self.assertIn("wrong_port", str(ctx.exception))
 
 

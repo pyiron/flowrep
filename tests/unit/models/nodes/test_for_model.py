@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import base_models, edge_models
+from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import (
     atomic_model,
     for_model,
@@ -13,6 +13,29 @@ from flowrep.models.nodes import (
 
 
 class TestForNodeBasic(unittest.TestCase):
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        for_model.ForNode.model_json_schema()
+
+    def test_obeys_build_subgraph_with_static_output(self):
+        """ForNode should obey build subgraph with static output."""
+        node = for_model.ForNode(
+            inputs=[],
+            outputs=[],
+            body_node=helper_models.LabeledNode(
+                label="body",
+                node=atomic_model.AtomicNode(
+                    fully_qualified_name="mod.func",
+                    inputs=["item"],
+                    outputs=["result"],
+                ),
+            ),
+            input_edges={},
+            output_edges={},
+            nested_ports=["item"],
+        )
+        self.assertIsInstance(node, subgraph_validation.DynamicSubgraphStaticOutput)
+
     def test_valid_for_node_with_nested_ports(self):
         for_node = for_model.ForNode(
             inputs=["items"],
@@ -355,7 +378,8 @@ class TestForNodeOutputEdges(unittest.TestCase):
                 },
                 nested_ports=["item"],
             )
-        self.assertIn("body", str(ctx.exception))
+        self.assertIn("Invalid output source nodes", str(ctx.exception))
+        self.assertIn("wrong_node", str(ctx.exception))
 
     def test_output_edge_wrong_source_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -510,8 +534,8 @@ class TestForNodeTransferEdges(unittest.TestCase):
                     ): edge_models.InputSource(port="items"),
                 },
             )
-        self.assertIn("nonexistent", str(ctx.exception))
-        self.assertIn("outputs", str(ctx.exception).lower())
+        self.assertIn("Invalid output target ports", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception).lower())
 
     def test_transfer_source_not_looped_rejected(self):
         """Transfer edge sources must be looped (in nested_ports or zipped_ports)."""

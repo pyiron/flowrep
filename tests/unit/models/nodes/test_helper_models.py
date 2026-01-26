@@ -150,6 +150,10 @@ class TestExceptionCaseSerialization(unittest.TestCase):
 
 
 class TestLabeledNode(unittest.TestCase):
+    def test_schema_generation(self):
+        """model_json_schema() fails if forward refs aren't resolved."""
+        helper_models.LabeledNode.model_json_schema()
+
     def test_valid_labeled_node(self):
         """LabeledNode with valid label and node."""
         ln = helper_models.LabeledNode(
