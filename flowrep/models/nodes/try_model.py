@@ -63,18 +63,18 @@ class TryNode(base_models.NodeModel):
             nodes[case.body.label] = case.body.node
         return nodes
 
+    @pydantic.model_validator(mode="after")
+    def validate_prospective_nodes_have_unique_labels(self):
+        labels = [self.try_node.label] + [c.body.label for c in self.exception_cases]
+        base_models.validate_unique(labels)
+        return self
+
     @pydantic.field_validator("exception_cases")
     @classmethod
     def validate_exception_cases_not_empty(cls, v):
         if len(v) < 1:
             raise ValueError("TryNode must have at least one exception case")
         return v
-
-    @pydantic.model_validator(mode="after")
-    def validate_unique_labels(self):
-        labels = [self.try_node.label] + [c.body.label for c in self.exception_cases]
-        base_models.validate_unique(labels)
-        return self
 
     @pydantic.model_validator(mode="after")
     def validate_input_edges_targets_are_extant_child_nodes(self):
