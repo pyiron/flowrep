@@ -1,4 +1,3 @@
-import abc
 import collections
 import itertools
 from collections.abc import Collection
@@ -19,33 +18,40 @@ class NodeProtocol(Protocol):
 NodesAlias = dict[base_models.Label, NodeProtocol]
 
 
-class HasSubgraphInput(NodeProtocol, Protocol):
+@runtime_checkable
+class StaticSubgraphOwner(Protocol):
+    """Owns a concrete subgraph known at definition time (WorkflowNode)."""
+
+    inputs: base_models.Labels
+    outputs: base_models.Labels
+    nodes: NodesAlias
     input_edges: edge_models.InputEdges
-
-
-class HasStaticSubgraphOutput(HasSubgraphInput, Protocol):
+    edges: edge_models.Edges
     output_edges: edge_models.OutputEdges
 
 
-@runtime_checkable
-class HasStaticSubgraph(HasStaticSubgraphOutput, Protocol):
-    nodes: NodesAlias
+class DynamicSubgraphOwner(Protocol):
+    """Owns a subgraph instantiated at runtime (ForNode, WhileNode, IfNode, TryNode)."""
 
+    inputs: base_models.Labels
+    outputs: base_models.Labels
+    input_edges: edge_models.InputEdges
 
-class BuildsSubgraph(HasSubgraphInput, Protocol):
     @property
-    @abc.abstractmethod
     def prospective_nodes(self) -> NodesAlias: ...
 
 
 @runtime_checkable
-class BuildsSubgraphWithStaticOutput(
-    HasStaticSubgraphOutput, BuildsSubgraph, Protocol
-): ...
+class DynamicSubgraphStaticOutput(DynamicSubgraphOwner, Protocol):
+    """Dynamic subgraph with output interface known a-priori (ForNode, WhileNode)."""
+
+    output_edges: edge_models.OutputEdges
 
 
 @runtime_checkable
-class BuildsSubgraphWithDynamicOutput(BuildsSubgraph, Protocol):
+class DynamicSubgraphDynamicOutput(DynamicSubgraphOwner, Protocol):
+    """Dynamic subgraph with output interface known at runtime (IfNode, TryNode)."""
+
     prospective_output_edges: ProspectiveOutputEdges
 
 

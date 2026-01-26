@@ -86,7 +86,7 @@ class TestTryNodeBasicConstruction(unittest.TestCase):
     def test_obeys_build_subgraph_with_dynamic_output(self):
         """TryNode should obey build subgraph with dynamic output."""
         node = _make_valid_try_node()
-        self.assertIsInstance(node, subgraph_protocols.BuildsSubgraphWithDynamicOutput)
+        self.assertIsInstance(node, subgraph_protocols.DynamicSubgraphDynamicOutput)
 
     def test_valid_single_exception_case(self):
         """TryNode with one exception case should validate."""

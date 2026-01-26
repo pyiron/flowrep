@@ -94,7 +94,7 @@ class TestIfNodeBasicConstruction(unittest.TestCase):
     def test_obeys_build_subgraph_with_dynamic_output(self):
         """IfNode should obey build subgraph with dynamic output."""
         node = _make_valid_if_node()
-        self.assertIsInstance(node, subgraph_protocols.BuildsSubgraphWithDynamicOutput)
+        self.assertIsInstance(node, subgraph_protocols.DynamicSubgraphDynamicOutput)
 
     def test_valid_single_case(self):
         """IfNode with one case should validate."""

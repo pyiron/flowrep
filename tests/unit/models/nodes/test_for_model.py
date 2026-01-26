@@ -34,7 +34,7 @@ class TestForNodeBasic(unittest.TestCase):
             output_edges={},
             nested_ports=["item"],
         )
-        self.assertIsInstance(node, subgraph_protocols.BuildsSubgraphWithStaticOutput)
+        self.assertIsInstance(node, subgraph_protocols.DynamicSubgraphStaticOutput)
 
     def test_valid_for_node_with_nested_ports(self):
         for_node = for_model.ForNode(

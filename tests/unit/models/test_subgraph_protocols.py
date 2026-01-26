@@ -358,7 +358,7 @@ class TestRuntimeCheckableProtocols(unittest.TestCase):
             edges = {}
             output_edges = {}
 
-        self.assertIsInstance(ValidImpl(), subgraph_protocols.HasStaticSubgraph)
+        self.assertIsInstance(ValidImpl(), subgraph_protocols.StaticSubgraphOwner)
 
     def test_builds_subgraph_with_static_output_protocol(self):
         """BuildsSubgraphWithStaticOutput is runtime_checkable."""
@@ -374,7 +374,7 @@ class TestRuntimeCheckableProtocols(unittest.TestCase):
                 return {}
 
         self.assertIsInstance(
-            ValidImpl(), subgraph_protocols.BuildsSubgraphWithStaticOutput
+            ValidImpl(), subgraph_protocols.DynamicSubgraphStaticOutput
         )
 
     def test_builds_subgraph_with_dynamic_output_protocol(self):
@@ -391,7 +391,7 @@ class TestRuntimeCheckableProtocols(unittest.TestCase):
                 return {}
 
         self.assertIsInstance(
-            ValidImpl(), subgraph_protocols.BuildsSubgraphWithDynamicOutput
+            ValidImpl(), subgraph_protocols.DynamicSubgraphDynamicOutput
         )
 
 

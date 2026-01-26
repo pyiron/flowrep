@@ -323,7 +323,7 @@ class TestWorkflowNodeStructure(unittest.TestCase):
             edges={},
             output_edges={},
         )
-        self.assertIsInstance(wf, subgraph_protocols.HasStaticSubgraph)
+        self.assertIsInstance(wf, subgraph_protocols.StaticSubgraphOwner)
 
 
 class TestWorkflowNodeInputEdges(unittest.TestCase):
