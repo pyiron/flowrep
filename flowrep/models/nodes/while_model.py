@@ -83,7 +83,9 @@ class WhileNode(base_models.NodeModel):
             self.input_edges,
             self.prospective_nodes,
         )
-        subgraph_validation.validate_output_edge_targets(self.output_edges, self.outputs)
+        subgraph_validation.validate_output_edge_targets(
+            self.output_edges, self.outputs
+        )
         subgraph_validation.validate_output_edge_sources(
             self.output_edges.values(),
             self.prospective_nodes,

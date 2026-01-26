@@ -272,7 +272,9 @@ class TestValidateSiblingEdges(unittest.TestCase):
             ),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_validation.validate_sibling_edges(edges, target_nodes, source_nodes)
+            subgraph_validation.validate_sibling_edges(
+                edges, target_nodes, source_nodes
+            )
         self.assertIn("source", str(ctx.exception).lower())
 
 

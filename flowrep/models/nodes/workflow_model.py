@@ -26,7 +26,9 @@ class WorkflowNode(base_models.NodeModel):
         subgraph_validation.validate_output_edge_sources(
             self.output_edges.values(), self.nodes
         )
-        subgraph_validation.validate_output_edge_targets(self.output_edges, self.outputs)
+        subgraph_validation.validate_output_edge_targets(
+            self.output_edges, self.outputs
+        )
         return self
 
     @pydantic.model_validator(mode="after")
