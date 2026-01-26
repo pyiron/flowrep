@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Literal
 
 import pydantic
 
-from flowrep.models import base_models, edge_models, subgraph_protocols
+from flowrep.models import base_models, edge_models, subgraph_validation
 
 if TYPE_CHECKING:
     from flowrep.models.nodes.union import Nodes
@@ -21,18 +21,18 @@ class WorkflowNode(base_models.NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_io_edges(self):
-        subgraph_protocols.validate_input_edge_sources(self.input_edges, self.inputs)
-        subgraph_protocols.validate_input_edge_targets(self.input_edges, self.nodes)
-        subgraph_protocols.validate_output_edge_sources(
+        subgraph_validation.validate_input_edge_sources(self.input_edges, self.inputs)
+        subgraph_validation.validate_input_edge_targets(self.input_edges, self.nodes)
+        subgraph_validation.validate_output_edge_sources(
             self.output_edges.values(), self.nodes
         )
-        subgraph_protocols.validate_output_edge_targets(self.output_edges, self.outputs)
+        subgraph_validation.validate_output_edge_targets(self.output_edges, self.outputs)
         return self
 
     @pydantic.model_validator(mode="after")
     def validate_subgraph(self):
-        subgraph_protocols.validate_sibling_edges(self.edges, self.nodes)
-        subgraph_protocols.validate_acyclic_edges(
+        subgraph_validation.validate_sibling_edges(self.edges, self.nodes)
+        subgraph_validation.validate_acyclic_edges(
             self.edges,
             message="Workflow models must be acyclic (DAG), but found cycle(s)",
         )

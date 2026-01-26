@@ -5,7 +5,7 @@ from typing import Literal
 
 import pydantic
 
-from flowrep.models import base_models, edge_models, subgraph_protocols
+from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import atomic_model, union, workflow_model
 
 
@@ -323,7 +323,7 @@ class TestWorkflowNodeStructure(unittest.TestCase):
             edges={},
             output_edges={},
         )
-        self.assertIsInstance(wf, subgraph_protocols.StaticSubgraphOwner)
+        self.assertIsInstance(wf, subgraph_validation.StaticSubgraphOwner)
 
 
 class TestWorkflowNodeInputEdges(unittest.TestCase):

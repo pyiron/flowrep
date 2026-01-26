@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import base_models, edge_models, subgraph_protocols
+from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import (
     atomic_model,
     for_model,
@@ -34,7 +34,7 @@ class TestForNodeBasic(unittest.TestCase):
             output_edges={},
             nested_ports=["item"],
         )
-        self.assertIsInstance(node, subgraph_protocols.DynamicSubgraphStaticOutput)
+        self.assertIsInstance(node, subgraph_validation.DynamicSubgraphStaticOutput)
 
     def test_valid_for_node_with_nested_ports(self):
         for_node = for_model.ForNode(

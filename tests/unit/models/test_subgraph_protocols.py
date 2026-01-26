@@ -1,8 +1,8 @@
-"""Unit tests for flowrep.models.subgraph_protocols"""
+"""Unit tests for flowrep.models.subgraph_validation"""
 
 import unittest
 
-from flowrep.models import edge_models, subgraph_protocols
+from flowrep.models import edge_models, subgraph_validation
 
 
 class MockNode:
@@ -22,7 +22,7 @@ class TestValidateInputEdgeSources(unittest.TestCase):
                 port="x"
             ),
         }
-        subgraph_protocols.validate_input_edge_sources(input_edges, ["x", "y"])
+        subgraph_validation.validate_input_edge_sources(input_edges, ["x", "y"])
 
     def test_invalid_source_port(self):
         input_edges = {
@@ -31,11 +31,11 @@ class TestValidateInputEdgeSources(unittest.TestCase):
             ),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_input_edge_sources(input_edges, ["x"])
+            subgraph_validation.validate_input_edge_sources(input_edges, ["x"])
         self.assertIn("nonexistent", str(ctx.exception))
 
     def test_empty_edges(self):
-        subgraph_protocols.validate_input_edge_sources({}, ["x"])
+        subgraph_validation.validate_input_edge_sources({}, ["x"])
 
 
 class TestValidateInputEdgeTargets(unittest.TestCase):
@@ -48,7 +48,7 @@ class TestValidateInputEdgeTargets(unittest.TestCase):
                 port="x"
             ),
         }
-        subgraph_protocols.validate_input_edge_targets(input_edges, nodes)
+        subgraph_validation.validate_input_edge_targets(input_edges, nodes)
 
     def test_invalid_target_node(self):
         nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
@@ -58,7 +58,7 @@ class TestValidateInputEdgeTargets(unittest.TestCase):
             ): edge_models.InputSource(port="x"),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_input_edge_targets(input_edges, nodes)
+            subgraph_validation.validate_input_edge_targets(input_edges, nodes)
         self.assertIn("nonexistent", str(ctx.exception))
 
     def test_invalid_target_port(self):
@@ -69,12 +69,12 @@ class TestValidateInputEdgeTargets(unittest.TestCase):
             ): edge_models.InputSource(port="x"),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_input_edge_targets(input_edges, nodes)
+            subgraph_validation.validate_input_edge_targets(input_edges, nodes)
         self.assertIn("wrong_port", str(ctx.exception))
 
     def test_empty_edges(self):
         nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
-        subgraph_protocols.validate_input_edge_targets({}, nodes)
+        subgraph_validation.validate_input_edge_targets({}, nodes)
 
 
 class TestValidateOutputEdgeTargets(unittest.TestCase):
@@ -82,30 +82,30 @@ class TestValidateOutputEdgeTargets(unittest.TestCase):
 
     def test_valid_output_targets(self):
         output_targets = [edge_models.OutputTarget(port="y")]
-        subgraph_protocols.validate_output_edge_targets(output_targets, ["y"])
+        subgraph_validation.validate_output_edge_targets(output_targets, ["y"])
 
     def test_valid_multiple_outputs(self):
         output_targets = [
             edge_models.OutputTarget(port="y"),
             edge_models.OutputTarget(port="z"),
         ]
-        subgraph_protocols.validate_output_edge_targets(output_targets, ["y", "z"])
+        subgraph_validation.validate_output_edge_targets(output_targets, ["y", "z"])
 
     def test_invalid_output_target(self):
         output_targets = [edge_models.OutputTarget(port="nonexistent")]
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_output_edge_targets(output_targets, ["y"])
+            subgraph_validation.validate_output_edge_targets(output_targets, ["y"])
         self.assertIn("nonexistent", str(ctx.exception))
 
     def test_missing_output_edge(self):
         output_targets = [edge_models.OutputTarget(port="y")]
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_output_edge_targets(output_targets, ["y", "z"])
+            subgraph_validation.validate_output_edge_targets(output_targets, ["y", "z"])
         self.assertIn("Missing", str(ctx.exception))
         self.assertIn("z", str(ctx.exception))
 
     def test_empty_outputs_and_edges(self):
-        subgraph_protocols.validate_output_edge_targets([], [])
+        subgraph_validation.validate_output_edge_targets([], [])
 
 
 class TestValidateOutputEdgeSources(unittest.TestCase):
@@ -114,20 +114,20 @@ class TestValidateOutputEdgeSources(unittest.TestCase):
     def test_valid_output_sources(self):
         nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
         sources = [edge_models.SourceHandle(node="a", port="out")]
-        subgraph_protocols.validate_output_edge_sources(sources, nodes)
+        subgraph_validation.validate_output_edge_sources(sources, nodes)
 
     def test_invalid_source_node(self):
         nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
         sources = [edge_models.SourceHandle(node="nonexistent", port="out")]
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_output_edge_sources(sources, nodes)
+            subgraph_validation.validate_output_edge_sources(sources, nodes)
         self.assertIn("nonexistent", str(ctx.exception))
 
     def test_invalid_source_port(self):
         nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
         sources = [edge_models.SourceHandle(node="a", port="wrong_port")]
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_output_edge_sources(sources, nodes)
+            subgraph_validation.validate_output_edge_sources(sources, nodes)
         self.assertIn("wrong_port", str(ctx.exception))
 
     def test_multiple_sources(self):
@@ -139,11 +139,11 @@ class TestValidateOutputEdgeSources(unittest.TestCase):
             edge_models.SourceHandle(node="a", port="out1"),
             edge_models.SourceHandle(node="b", port="out"),
         ]
-        subgraph_protocols.validate_output_edge_sources(sources, nodes)
+        subgraph_validation.validate_output_edge_sources(sources, nodes)
 
     def test_empty_sources(self):
         nodes = {"a": MockNode(inputs=[], outputs=["out"])}
-        subgraph_protocols.validate_output_edge_sources([], nodes)
+        subgraph_validation.validate_output_edge_sources([], nodes)
 
 
 class TestValidateProspectiveSources(unittest.TestCase):
@@ -155,12 +155,12 @@ class TestValidateProspectiveSources(unittest.TestCase):
             edge_models.SourceHandle(node="a", port="out1"),
             edge_models.SourceHandle(node="b", port="out"),
         ]
-        subgraph_protocols.validate_prospective_sources_list(target, sources)
+        subgraph_validation.validate_prospective_sources_list(target, sources)
 
     def test_empty_sources_rejected(self):
         target = edge_models.OutputTarget(port="y")
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_prospective_sources_list(target, [])
+            subgraph_validation.validate_prospective_sources_list(target, [])
         self.assertIn("empty", str(ctx.exception).lower())
 
     def test_duplicate_source_nodes_rejected(self):
@@ -170,13 +170,13 @@ class TestValidateProspectiveSources(unittest.TestCase):
             edge_models.SourceHandle(node="a", port="out2"),
         ]
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_prospective_sources_list(target, sources)
+            subgraph_validation.validate_prospective_sources_list(target, sources)
         self.assertIn("Duplicate", str(ctx.exception))
 
     def test_single_source_valid(self):
         target = edge_models.OutputTarget(port="y")
         sources = [edge_models.SourceHandle(node="a", port="out")]
-        subgraph_protocols.validate_prospective_sources_list(target, sources)
+        subgraph_validation.validate_prospective_sources_list(target, sources)
 
 
 class TestValidateSiblingEdges(unittest.TestCase):
@@ -192,7 +192,7 @@ class TestValidateSiblingEdges(unittest.TestCase):
                 node="a", port="out"
             ),
         }
-        subgraph_protocols.validate_sibling_edges(edges, nodes)
+        subgraph_validation.validate_sibling_edges(edges, nodes)
 
     def test_invalid_target_node(self):
         nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
@@ -202,7 +202,7 @@ class TestValidateSiblingEdges(unittest.TestCase):
             ): edge_models.SourceHandle(node="a", port="out"),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_sibling_edges(edges, nodes)
+            subgraph_validation.validate_sibling_edges(edges, nodes)
         self.assertIn("target", str(ctx.exception).lower())
 
     def test_invalid_source_node(self):
@@ -213,7 +213,7 @@ class TestValidateSiblingEdges(unittest.TestCase):
             ),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_sibling_edges(edges, nodes)
+            subgraph_validation.validate_sibling_edges(edges, nodes)
         self.assertIn("source", str(ctx.exception).lower())
 
     def test_invalid_target_port(self):
@@ -227,7 +227,7 @@ class TestValidateSiblingEdges(unittest.TestCase):
             ): edge_models.SourceHandle(node="a", port="out"),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_sibling_edges(edges, nodes)
+            subgraph_validation.validate_sibling_edges(edges, nodes)
         self.assertIn("target", str(ctx.exception).lower())
 
     def test_invalid_source_port(self):
@@ -241,12 +241,12 @@ class TestValidateSiblingEdges(unittest.TestCase):
             ),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_sibling_edges(edges, nodes)
+            subgraph_validation.validate_sibling_edges(edges, nodes)
         self.assertIn("source", str(ctx.exception).lower())
 
     def test_empty_edges(self):
         nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
-        subgraph_protocols.validate_sibling_edges({}, nodes)
+        subgraph_validation.validate_sibling_edges({}, nodes)
 
     def test_separate_source_and_target_nodes(self):
         """Test with different source_nodes and target_nodes dicts."""
@@ -257,7 +257,7 @@ class TestValidateSiblingEdges(unittest.TestCase):
                 node="a", port="out"
             ),
         }
-        subgraph_protocols.validate_sibling_edges(edges, target_nodes, source_nodes)
+        subgraph_validation.validate_sibling_edges(edges, target_nodes, source_nodes)
 
     def test_separate_nodes_invalid_source(self):
         """Source node must be in source_nodes, not target_nodes."""
@@ -272,7 +272,7 @@ class TestValidateSiblingEdges(unittest.TestCase):
             ),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_sibling_edges(edges, target_nodes, source_nodes)
+            subgraph_validation.validate_sibling_edges(edges, target_nodes, source_nodes)
         self.assertIn("source", str(ctx.exception).lower())
 
 
@@ -288,7 +288,7 @@ class TestValidateAcyclicEdges(unittest.TestCase):
                 node="b", port="out"
             ),
         }
-        subgraph_protocols.validate_acyclic_edges(edges)
+        subgraph_validation.validate_acyclic_edges(edges)
 
     def test_acyclic_diamond(self):
         edges = {
@@ -305,7 +305,7 @@ class TestValidateAcyclicEdges(unittest.TestCase):
                 node="c", port="out"
             ),
         }
-        subgraph_protocols.validate_acyclic_edges(edges)
+        subgraph_validation.validate_acyclic_edges(edges)
 
     def test_simple_cycle_rejected(self):
         edges = {
@@ -317,7 +317,7 @@ class TestValidateAcyclicEdges(unittest.TestCase):
             ): edge_models.SourceHandle(node="b", port="out"),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_acyclic_edges(edges)
+            subgraph_validation.validate_acyclic_edges(edges)
         self.assertIn("cycle", str(ctx.exception).lower())
 
     def test_self_loop_rejected(self):
@@ -327,7 +327,7 @@ class TestValidateAcyclicEdges(unittest.TestCase):
             ): edge_models.SourceHandle(node="a", port="out"),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_acyclic_edges(edges)
+            subgraph_validation.validate_acyclic_edges(edges)
         self.assertIn("cycle", str(ctx.exception).lower())
 
     def test_custom_message(self):
@@ -337,11 +337,11 @@ class TestValidateAcyclicEdges(unittest.TestCase):
             ): edge_models.SourceHandle(node="a", port="out"),
         }
         with self.assertRaises(ValueError) as ctx:
-            subgraph_protocols.validate_acyclic_edges(edges, message="Custom error")
+            subgraph_validation.validate_acyclic_edges(edges, message="Custom error")
         self.assertIn("Custom error", str(ctx.exception))
 
     def test_empty_edges(self):
-        subgraph_protocols.validate_acyclic_edges({})
+        subgraph_validation.validate_acyclic_edges({})
 
 
 class TestRuntimeCheckableProtocols(unittest.TestCase):
@@ -358,7 +358,7 @@ class TestRuntimeCheckableProtocols(unittest.TestCase):
             edges = {}
             output_edges = {}
 
-        self.assertIsInstance(ValidImpl(), subgraph_protocols.StaticSubgraphOwner)
+        self.assertIsInstance(ValidImpl(), subgraph_validation.StaticSubgraphOwner)
 
     def test_builds_subgraph_with_static_output_protocol(self):
         """BuildsSubgraphWithStaticOutput is runtime_checkable."""
@@ -374,7 +374,7 @@ class TestRuntimeCheckableProtocols(unittest.TestCase):
                 return {}
 
         self.assertIsInstance(
-            ValidImpl(), subgraph_protocols.DynamicSubgraphStaticOutput
+            ValidImpl(), subgraph_validation.DynamicSubgraphStaticOutput
         )
 
     def test_builds_subgraph_with_dynamic_output_protocol(self):
@@ -391,7 +391,7 @@ class TestRuntimeCheckableProtocols(unittest.TestCase):
                 return {}
 
         self.assertIsInstance(
-            ValidImpl(), subgraph_protocols.DynamicSubgraphDynamicOutput
+            ValidImpl(), subgraph_validation.DynamicSubgraphDynamicOutput
         )
 
 

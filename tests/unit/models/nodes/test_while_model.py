@@ -4,7 +4,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import base_models, subgraph_protocols
+from flowrep.models import base_models, subgraph_validation
 from flowrep.models.nodes import (
     atomic_model,
     helper_models,
@@ -75,7 +75,7 @@ class TestWhileNodeBasic(unittest.TestCase):
     def test_obeys_build_subgraph_with_static_output(self):
         """WhileNode should obey build subgraph with static output."""
         node = make_valid_while_node()
-        self.assertIsInstance(node, subgraph_protocols.DynamicSubgraphStaticOutput)
+        self.assertIsInstance(node, subgraph_validation.DynamicSubgraphStaticOutput)
 
     def test_valid_minimal(self):
         """

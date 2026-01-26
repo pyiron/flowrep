@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import base_models, edge_models, subgraph_protocols
+from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import (
     atomic_model,
     helper_models,
@@ -94,7 +94,7 @@ class TestIfNodeBasicConstruction(unittest.TestCase):
     def test_obeys_build_subgraph_with_dynamic_output(self):
         """IfNode should obey build subgraph with dynamic output."""
         node = _make_valid_if_node()
-        self.assertIsInstance(node, subgraph_protocols.DynamicSubgraphDynamicOutput)
+        self.assertIsInstance(node, subgraph_validation.DynamicSubgraphDynamicOutput)
 
     def test_valid_single_case(self):
         """IfNode with one case should validate."""

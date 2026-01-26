@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Literal
 
 import pydantic
 
-from flowrep.models import base_models, edge_models, subgraph_protocols
+from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import helper_models
 
 if TYPE_CHECKING:
@@ -84,20 +84,20 @@ class IfNode(base_models.NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_io_edges(self):
-        subgraph_protocols.validate_input_edge_sources(self.input_edges, self.inputs)
-        subgraph_protocols.validate_input_edge_targets(
+        subgraph_validation.validate_input_edge_sources(self.input_edges, self.inputs)
+        subgraph_validation.validate_input_edge_targets(
             self.input_edges,
             self.prospective_nodes,
         )
         for target, prospective_sources in self.prospective_output_edges.items():
-            subgraph_protocols.validate_prospective_sources_list(
+            subgraph_validation.validate_prospective_sources_list(
                 target, prospective_sources
             )
-            subgraph_protocols.validate_output_edge_sources(
+            subgraph_validation.validate_output_edge_sources(
                 prospective_sources,
                 self.prospective_nodes,
             )
-        subgraph_protocols.validate_output_edge_targets(
+        subgraph_validation.validate_output_edge_targets(
             self.prospective_output_edges, self.outputs
         )
         return self
