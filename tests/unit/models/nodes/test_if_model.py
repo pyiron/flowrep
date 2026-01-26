@@ -295,7 +295,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("not find source nodes", exc_str)
+        self.assertIn("Invalid output source nodes", exc_str)
         self.assertIn("nonexistent", exc_str)
 
     def test_prospective_output_edges_duplicate_source_node_rejected(self):
@@ -333,7 +333,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("Missing edge for output", exc_str)
+        self.assertIn("Missing output edge for", exc_str)
         self.assertIn("other", exc_str)
 
     def test_prospective_output_edges_extra_key_rejected(self):
@@ -355,7 +355,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("target port not found in outputs", exc_str)
+        self.assertIn("Invalid output target ports", exc_str)
         self.assertIn("extra", exc_str)
 
     def test_prospective_output_edges_empty_sources_rejected(self):
@@ -636,7 +636,7 @@ class TestIfNodeInputEdgesPortValidation(unittest.TestCase):
                 prospective_output_edges=_make_output_edges(cases),
             )
         exc_str = str(ctx.exception)
-        self.assertIn("not find port among node inputs", exc_str)
+        self.assertIn("Invalid input_edges target ports", exc_str)
         self.assertIn("nonexistent", exc_str)
 
 
@@ -659,7 +659,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("not find port among node outputs", exc_str)
+        self.assertIn("Invalid output source ports", exc_str)
         self.assertIn("nonexistent", exc_str)
 
     def test_prospective_output_edges_invalid_else_source_port(self):
@@ -683,7 +683,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
                 },
             )
         exc_str = str(ctx.exception)
-        self.assertIn("not find port among node outputs", exc_str)
+        self.assertIn("Invalid output source ports", exc_str)
         self.assertIn("nonexistent", exc_str)
 
     def test_prospective_output_edges_valid_source_ports(self):

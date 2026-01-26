@@ -84,10 +84,22 @@ class IfNode(base_models.NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_io_edges(self):
-        subgraph_protocols.validate_input_sources(self)
-        subgraph_protocols.validate_prospective_input_targets(self)
-        subgraph_protocols.validate_prospective_output_sources(self)
-        subgraph_protocols.validate_prospective_output_targets(self)
+        subgraph_protocols.validate_input_edge_sources(self.input_edges, self.inputs)
+        subgraph_protocols.validate_input_edge_targets(
+            self.input_edges,
+            self.prospective_nodes,
+        )
+        for target, prospective_sources in self.prospective_output_edges.items():
+            subgraph_protocols.validate_prospective_sources_list(
+                target, prospective_sources
+            )
+            subgraph_protocols.validate_output_edge_sources(
+                prospective_sources,
+                self.prospective_nodes,
+            )
+        subgraph_protocols.validate_output_edge_targets(
+            self.prospective_output_edges, self.outputs
+        )
         return self
 
     @pydantic.field_validator("cases")

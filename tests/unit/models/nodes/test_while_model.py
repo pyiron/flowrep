@@ -196,7 +196,7 @@ class TestWhileNodeInputEdges(unittest.TestCase):
                 condition_inputs=["val"],
                 input_edges={"cond.val": "nonexistent"},
             )
-        self.assertIn("Invalid input_edges, source port not found", str(ctx.exception))
+        self.assertIn("Invalid input_edges source ports", str(ctx.exception))
         self.assertIn("nonexistent", str(ctx.exception))
 
     def test_invalid_target_node(self):
@@ -207,9 +207,7 @@ class TestWhileNodeInputEdges(unittest.TestCase):
                 input_edges={"unknown.port": "x"},
             )
         exc_str = str(ctx.exception)
-        self.assertIn(
-            "Invalid input_edges targets. Could not find target node", exc_str
-        )
+        self.assertIn("Invalid input_edges target nodes", exc_str)
         self.assertIn("cond", exc_str)
         self.assertIn("body", exc_str)
 
@@ -221,9 +219,7 @@ class TestWhileNodeInputEdges(unittest.TestCase):
                 condition_inputs=["val"],
                 input_edges={"cond.wrong": "x"},
             )
-        self.assertIn(
-            "Invalid input_edges targets. Could not find port", str(ctx.exception)
-        )
+        self.assertIn("Invalid input_edges target ports", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_invalid_target_port_on_body(self):
@@ -234,9 +230,7 @@ class TestWhileNodeInputEdges(unittest.TestCase):
                 body_inputs=["inp"],
                 input_edges={"body.missing": "x"},
             )
-        self.assertIn(
-            "Invalid input_edges targets. Could not find port", str(ctx.exception)
-        )
+        self.assertIn("Invalid input_edges target ports", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
 
@@ -277,9 +271,7 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
                 body_outputs=["out"],
                 output_edges={"nonexistent": "body.out"},
             )
-        self.assertIn(
-            "Invalid edge, target port not found in outputs", str(ctx.exception)
-        )
+        self.assertIn("Invalid output target ports", str(ctx.exception))
         self.assertIn("nonexistent", str(ctx.exception))
 
     def test_invalid_source_node(self):
@@ -290,9 +282,8 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
                 output_edges={"y": "unknown.port"},
             )
         exc_str = str(ctx.exception)
-        self.assertIn("Invalid output sources. Could not find source nodes", exc_str)
-        self.assertIn("cond", exc_str)
-        self.assertIn("body", exc_str)
+        self.assertIn("Invalid output source nodes", exc_str)
+        self.assertIn("unknown.port", exc_str)
 
     def test_invalid_source_port_on_condition(self):
         """Output edge source port must exist on condition node."""
@@ -302,10 +293,7 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
                 condition_outputs=["result"],
                 output_edges={"y": "cond.wrong"},
             )
-        self.assertIn(
-            "Invalid output source. Could not find port among node outputs",
-            str(ctx.exception),
-        )
+        self.assertIn("Invalid output source ports", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_invalid_source_port_on_body(self):
@@ -316,10 +304,7 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
                 body_outputs=["out"],
                 output_edges={"y": "body.missing"},
             )
-        self.assertIn(
-            "Invalid output source. Could not find port among node outputs",
-            str(ctx.exception),
-        )
+        self.assertIn("Invalid output source ports", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
 
@@ -356,7 +341,7 @@ class TestWhileNodeBodyBodyEdges(unittest.TestCase):
                 body_label="body",
                 body_body_edges={"body.inp": "wrong.out"},
             )
-        self.assertIn("Invalid edge source, node not found", str(ctx.exception))
+        self.assertIn("Invalid edge source node", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_invalid_source_port(self):
@@ -368,7 +353,7 @@ class TestWhileNodeBodyBodyEdges(unittest.TestCase):
                 body_label="body",
                 body_body_edges={"body.inp": "body.missing"},
             )
-        self.assertIn("Invalid edge source, port not found", str(ctx.exception))
+        self.assertIn("Invalid edge source port", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
     def test_invalid_target_node(self):
@@ -380,9 +365,7 @@ class TestWhileNodeBodyBodyEdges(unittest.TestCase):
                 body_label="body",
                 body_body_edges={"wrong.inp": "body.out"},
             )
-        self.assertIn(
-            "Invalid edge target, node not found in nodes", str(ctx.exception)
-        )
+        self.assertIn("Invalid edge target node", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_invalid_target_port(self):
@@ -394,7 +377,7 @@ class TestWhileNodeBodyBodyEdges(unittest.TestCase):
                 body_label="body",
                 body_body_edges={"body.missing": "body.out"},
             )
-        self.assertIn("Invalid edge target, port not found", str(ctx.exception))
+        self.assertIn("Invalid edge target port", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
 
@@ -434,7 +417,7 @@ class TestWhileNodeBodyConditionEdges(unittest.TestCase):
                 body_label="body",
                 body_condition_edges={"cond.val": "wrong.out"},
             )
-        self.assertIn("Invalid edge source, node not found", str(ctx.exception))
+        self.assertIn("Invalid edge source node", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_condition_cannot_be_source(self):
@@ -446,10 +429,7 @@ class TestWhileNodeBodyConditionEdges(unittest.TestCase):
                 body_label="body",
                 body_condition_edges={"cond.val": "cond.result"},
             )
-        self.assertIn(
-            "body_condition_edges must have the body node as the source",
-            str(ctx.exception),
-        )
+        self.assertIn("Invalid edge source node", str(ctx.exception))
         self.assertIn("cond", str(ctx.exception))
 
     def test_body_cannot_be_target(self):
@@ -461,11 +441,8 @@ class TestWhileNodeBodyConditionEdges(unittest.TestCase):
                 body_label="body",
                 body_condition_edges={"body.inp": "body.out"},
             )
-        self.assertIn(
-            "body_condition_edges must have the condition node as the target",
-            str(ctx.exception),
-        )
-        self.assertIn("cond", str(ctx.exception))
+        self.assertIn("Invalid edge target node", str(ctx.exception))
+        self.assertIn("body", str(ctx.exception))
 
     def test_invalid_source_port(self):
         """Body-condition edge source port must be body output."""
@@ -477,7 +454,7 @@ class TestWhileNodeBodyConditionEdges(unittest.TestCase):
                 body_label="body",
                 body_condition_edges={"cond.val": "body.missing"},
             )
-        self.assertIn("Invalid edge source, port not found", str(ctx.exception))
+        self.assertIn("Invalid edge source port", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
     def test_invalid_target_node(self):
@@ -490,7 +467,7 @@ class TestWhileNodeBodyConditionEdges(unittest.TestCase):
                 body_label="body",
                 body_condition_edges={"wrong.val": "body.out"},
             )
-        self.assertIn("Invalid edge target, node not found", str(ctx.exception))
+        self.assertIn("Invalid edge target node", str(ctx.exception))
         self.assertIn("wrong", str(ctx.exception))
 
     def test_invalid_target_port(self):
@@ -503,7 +480,7 @@ class TestWhileNodeBodyConditionEdges(unittest.TestCase):
                 body_label="body",
                 body_condition_edges={"cond.missing": "body.out"},
             )
-        self.assertIn("Invalid edge target, port not found", str(ctx.exception))
+        self.assertIn("Invalid edge target port", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
 
 

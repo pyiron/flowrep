@@ -1,7 +1,7 @@
 import abc
 import collections
 import itertools
-from collections.abc import Collection, Iterable
+from collections.abc import Collection
 from typing import Protocol, runtime_checkable
 
 import networkx as nx
@@ -49,130 +49,86 @@ class BuildsSubgraphWithDynamicOutput(BuildsSubgraph, Protocol):
     prospective_output_edges: ProspectiveOutputEdges
 
 
-def validate_input_sources(macro: HasSubgraphInput) -> None:
-    if invalid_sources := {
-        source.port
-        for source in macro.input_edges.values()
-        if source.port not in macro.inputs
+def validate_input_edge_sources(
+    input_edges: edge_models.InputEdges,
+    available_inputs: base_models.Labels,
+) -> None:
+    if invalid := {
+        s.serialize() for s in input_edges.values() if s.port not in available_inputs
     }:
-        raise ValueError(
-            f"Invalid input_edges, source port not found in inputs: {invalid_sources}"
-        )
+        raise ValueError(f"Invalid input_edges source ports: {invalid}")
 
 
-def _validate_input_targets(
-    input_edges: edge_models.InputEdges, nodes: NodesAlias
+def validate_input_edge_targets(
+    input_edges: edge_models.InputEdges,
+    target_nodes: NodesAlias,
 ) -> None:
     if invalid_nodes := {
-        target.node for target in input_edges if target.node not in nodes
+        t.serialize() for t in input_edges if t.node not in target_nodes
     }:
         raise ValueError(
-            f"Invalid input_edges targets. Could not find target nodes "
-            f"{invalid_nodes} among available nodes {tuple(nodes.keys())}"
+            f"Invalid input_edges target nodes {invalid_nodes}, "
+            f"available: {tuple(target_nodes.keys())}"
         )
     if invalid_ports := {
-        (target.port, tuple(nodes[target.node].inputs))
-        for target in input_edges
-        if target.port not in nodes[target.node].inputs
+        t.serialize() for t in input_edges if t.port not in target_nodes[t.node].inputs
     }:
-        raise ValueError(
-            f"Invalid input_edges targets. Could not find port among node inputs "
-            f"(target port, available inputs): {invalid_ports}"
-        )
+        raise ValueError(f"Invalid input_edges target ports: {invalid_ports}")
 
 
-def validate_input_targets(macro: HasStaticSubgraph) -> None:
-    _validate_input_targets(macro.input_edges, macro.nodes)
-
-
-def validate_prospective_input_targets(macro: BuildsSubgraph) -> None:
-    _validate_input_targets(macro.input_edges, macro.prospective_nodes)
-
-
-def _validate_output_targets(
-    outputs: base_models.Labels,
-    edge_targets: Iterable[edge_models.OutputTarget],
+def validate_output_edge_targets(
+    output_targets: Collection[edge_models.OutputTarget],
+    available_outputs: base_models.Labels,
 ) -> None:
-    edge_target_ports = {target.port for target in edge_targets}
-    if invalid_targets := edge_target_ports - set(outputs):
-        raise ValueError(
-            f"Invalid edge, target port not found in outputs: {invalid_targets}"
-        )
-    if missing_outputs := set(outputs) - edge_target_ports:
-        raise ValueError(f"Missing edge for output(s): {missing_outputs}")
+    target_ports = {t.port for t in output_targets}
+    if invalid := target_ports - set(available_outputs):
+        raise ValueError(f"Invalid output target ports: {invalid}")
+    if missing := set(available_outputs) - target_ports:
+        raise ValueError(f"Missing output edge for: {missing}")
 
 
-def validate_output_targets(macro: HasStaticSubgraphOutput) -> None:
-    _validate_output_targets(macro.outputs, macro.output_edges)
-
-
-def validate_prospective_output_targets(macro: BuildsSubgraphWithDynamicOutput) -> None:
-    _validate_output_targets(macro.outputs, macro.prospective_output_edges)
-
-
-def _validate_output_sources(
-    sources: Collection[edge_models.SourceHandle], nodes: NodesAlias
+def validate_output_edge_sources(
+    sources: Collection[edge_models.SourceHandle],
+    source_nodes: NodesAlias,
 ) -> None:
-    if invalid_nodes := {source.node for source in sources if source.node not in nodes}:
-        raise ValueError(
-            f"Invalid output sources. Could not find source nodes "
-            f"({invalid_nodes}) among available nodes ({nodes})"
-        )
+    if invalid_nodes := {s.serialize() for s in sources if s.node not in source_nodes}:
+        raise ValueError(f"Invalid output source nodes: {invalid_nodes}")
     if invalid_ports := {
-        (source.port, tuple(nodes[source.node].outputs))
-        for source in sources
-        if source.port not in nodes[source.node].outputs
+        s.serialize() for s in sources if s.port not in source_nodes[s.node].outputs
     }:
+        raise ValueError(f"Invalid output source ports: {invalid_ports}")
+
+
+def validate_prospective_sources_list(
+    target: edge_models.OutputTarget,
+    sources: Collection[edge_models.SourceHandle],
+) -> None:
+    if not sources:
+        raise ValueError(f"Sources for '{target.serialize()}' cannot be empty.")
+    node_counts = collections.Counter(source.node for source in sources)
+    if duplicate_nodes := {node for node, count in node_counts.items() if count > 1}:
         raise ValueError(
-            f"Invalid output source. Could not find port among node outputs "
-            f"(source port, available outputs): {invalid_ports}"
+            f"Sources for {target.serialize()} must be unique. "
+            f"Duplicate source nodes: {duplicate_nodes}"
         )
 
 
-def validate_output_sources(macro: HasStaticSubgraph) -> None:
-    _validate_output_sources(macro.output_edges.values(), macro.nodes)
-
-
-def validate_output_sources_from_prospective_nodes(
-    macro: BuildsSubgraphWithStaticOutput,
+def validate_sibling_edges(
+    edges: edge_models.Edges,
+    target_nodes: NodesAlias,
+    source_nodes: NodesAlias | None = None,
 ) -> None:
-    _validate_output_sources(macro.output_edges.values(), macro.prospective_nodes)
-
-
-def validate_prospective_output_sources(macro: BuildsSubgraphWithDynamicOutput) -> None:
-    nodes = macro.prospective_nodes
-    for target, sources in macro.prospective_output_edges.items():
-        if not sources:
-            raise ValueError(
-                f"Invalid prospective_output_edges for {target}. "
-                f"Sources list cannot be empty."
-            )
-        node_counts = collections.Counter(source.node for source in sources)
-        if duplicate_nodes := {
-            node for node, count in node_counts.items() if count > 1
-        }:
-            raise ValueError(
-                f"Invalid prospective_output_edges for {target}. "
-                f"Duplicate source nodes: {duplicate_nodes}"
-            )
-    for sources in macro.prospective_output_edges.values():
-        _validate_output_sources(sources, nodes)
-
-
-def validate_extant_edges(edges: edge_models.Edges, nodes: NodesAlias) -> None:
+    if source_nodes is None:
+        source_nodes = target_nodes
     for target, source in edges.items():
-        if target.node not in nodes:
-            raise ValueError(f"Invalid edge target, node not found in nodes: {target}")
-        if source.node not in nodes:
-            raise ValueError(f"Invalid edge source, node not found in nodes: {source}")
-        if target.port not in nodes[target.node].inputs:
-            raise ValueError(
-                f"Invalid edge target, port not found in node inputs: {target}"
-            )
-        if source.port not in nodes[source.node].outputs:
-            raise ValueError(
-                f"Invalid edge source, port not found in node outputs: {source}"
-            )
+        if target.node not in target_nodes:
+            raise ValueError(f"Invalid edge target node: {target.serialize()}")
+        if source.node not in source_nodes:
+            raise ValueError(f"Invalid edge source node: {source.serialize()}")
+        if target.port not in target_nodes[target.node].inputs:
+            raise ValueError(f"Invalid edge target port: {target.serialize()}")
+        if source.port not in source_nodes[source.node].outputs:
+            raise ValueError(f"Invalid edge source port: {source.serialize()}")
 
 
 def validate_acyclic_edges(

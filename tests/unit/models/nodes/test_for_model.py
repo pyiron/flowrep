@@ -378,7 +378,8 @@ class TestForNodeOutputEdges(unittest.TestCase):
                 },
                 nested_ports=["item"],
             )
-        self.assertIn("body", str(ctx.exception))
+        self.assertIn("Invalid output source nodes", str(ctx.exception))
+        self.assertIn("wrong_node", str(ctx.exception))
 
     def test_output_edge_wrong_source_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -533,8 +534,8 @@ class TestForNodeTransferEdges(unittest.TestCase):
                     ): edge_models.InputSource(port="items"),
                 },
             )
-        self.assertIn("target port not found in outputs", str(ctx.exception))
-        self.assertIn("outputs", str(ctx.exception).lower())
+        self.assertIn("Invalid output target ports", str(ctx.exception))
+        self.assertIn("nonexistent", str(ctx.exception).lower())
 
     def test_transfer_source_not_looped_rejected(self):
         """Transfer edge sources must be looped (in nested_ports or zipped_ports)."""

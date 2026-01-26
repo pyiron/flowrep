@@ -78,38 +78,28 @@ class WhileNode(base_models.NodeModel):
 
     @pydantic.model_validator(mode="after")
     def validate_io_edges(self):
-        subgraph_protocols.validate_input_sources(self)
-        subgraph_protocols.validate_prospective_input_targets(self)
-        subgraph_protocols.validate_output_sources_from_prospective_nodes(self)
-        subgraph_protocols.validate_output_targets(self)
+        subgraph_protocols.validate_input_edge_sources(self.input_edges, self.inputs)
+        subgraph_protocols.validate_input_edge_targets(
+            self.input_edges,
+            self.prospective_nodes,
+        )
+        subgraph_protocols.validate_output_edge_targets(self.output_edges, self.outputs)
+        subgraph_protocols.validate_output_edge_sources(
+            self.output_edges.values(),
+            self.prospective_nodes,
+        )
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_body_body_edges(self):
-        """Validate body_body_edges: body outputs -> body inputs."""
-        subgraph_protocols.validate_extant_edges(
+    def validate_internal_edges(self):
+        """Validate sibling edges between condition and body nodes."""
+        subgraph_protocols.validate_sibling_edges(
             self.body_body_edges,
             {self.case.body.label: self.case.body.node},
         )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_body_condition_edges(self):
-        """Validate body_condition_edges: body outputs -> condition inputs."""
-        subgraph_protocols.validate_extant_edges(
+        subgraph_protocols.validate_sibling_edges(
             self.body_condition_edges,
-            self.prospective_nodes,
+            target_nodes={self.case.condition.label: self.case.condition.node},
+            source_nodes={self.case.body.label: self.case.body.node},
         )
-        for source in self.body_condition_edges.values():
-            if source.node != self.case.body.label:
-                raise ValueError(
-                    f"body_condition_edges must have the body node as the source, but "
-                    f"{source.model_dump(mode='json')} does not"
-                )
-        for target in self.body_condition_edges:
-            if target.node != self.case.condition.label:
-                raise ValueError(
-                    f"body_condition_edges must have the condition node as the target, "
-                    f"but {target.model_dump(mode='json')} does not"
-                )
         return self
