@@ -23,6 +23,28 @@ class UnpackMode(StrEnum):
 
 
 class AtomicNode(base_models.NodeModel):
+    """
+    Atomos: uncuttable, indivisible.
+
+    A node representing a python function call.
+
+    Intended recipe realization:
+    - Atomic nodes do not have internal structure from the perspective of a workflow
+        graph.
+    - The actions _inside_ them are ephemeral and not available for retrospective
+        inspection.
+    - As with all nodes, their IO should be available for retrospective inspection.
+    - The conversion of function return values to node outputs is controlled via the
+        `unpack_mode` flag.
+
+    Attributes:
+        type: The node type -- always "atomic".
+        inputs: The available input port names.
+        outputs: The available output port names.
+        fully_qualified_name: The fully qualified name of the function to call, i.e.
+            module and qualname as a dot-separated string.
+        unpack_mode: How to handle return values from running functions in atomic nodes.
+    """
     type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
         default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
