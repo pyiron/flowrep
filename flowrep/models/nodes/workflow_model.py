@@ -11,6 +11,26 @@ if TYPE_CHECKING:
 
 
 class WorkflowNode(base_models.NodeModel):
+    """
+    Hold and execute a subgraph of nodes.
+    This is a completely static graph; everything is known about it at the class level,
+    and its retrospective version looks identical to its prospective version (modulo
+    actually having all the output data).
+
+    Intended recipe realization:
+    - WfMS are expected to make the IO of nodes available retrospectively, regardless of
+        how deeply nested in subgraphs they are.
+
+    Attributes:
+        type: The node type -- always "workflow".
+        inputs: The available input port names.
+        outputs: The available output port names.
+        nodes: The nodes of the subgraph.
+        input_edges: Edges from workflow inputs to inputs of subgraph nodes.
+        edges: Edges between subgraph nodes.
+        output_edges: Edges from subgraph nodes back to workflow outputs.
+    """
+
     type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
         default=base_models.RecipeElementType.WORKFLOW, frozen=True
     )
