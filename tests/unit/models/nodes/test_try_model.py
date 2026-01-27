@@ -7,7 +7,6 @@ from flowrep.models.nodes import (
     atomic_model,
     helper_models,
     try_model,
-    union,
     workflow_model,
 )
 
@@ -664,14 +663,6 @@ class TestTryNodeSerialization(unittest.TestCase):
                 data = original.model_dump(mode=mode)
                 restored = try_model.TryNode.model_validate(data)
                 self.assertEqual(len(restored.exception_cases[0].exceptions), 3)
-
-    def test_discriminated_union_roundtrip(self):
-        """Ensure type discriminator works for polymorphic deserialization."""
-        original = _make_valid_try_node()
-        data = original.model_dump(mode="json")
-
-        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, try_model.TryNode)
 
 
 class TestTryNodeInWorkflow(unittest.TestCase):

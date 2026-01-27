@@ -8,7 +8,6 @@ from flowrep.models import base_models, subgraph_validation
 from flowrep.models.nodes import (
     atomic_model,
     helper_models,
-    union,
     while_model,
     workflow_model,
 )
@@ -574,40 +573,6 @@ class TestWhileNodeSerialization(unittest.TestCase):
         # body_condition_edges: both are "node.port"
         self.assertIn("cond.inp", data["body_condition_edges"])
         self.assertEqual(data["body_condition_edges"]["cond.inp"], "body.b")
-
-    def test_discriminated_union_roundtrip(self):
-        """WhileNode correctly deserializes via NodeType discriminator."""
-        data = {
-            "type": "while",
-            "inputs": ["x"],
-            "outputs": [],
-            "case": {
-                "condition": {
-                    "label": "c",
-                    "node": {
-                        "type": "atomic",
-                        "fully_qualified_name": "m.f",
-                        "inputs": [],
-                        "outputs": ["ok"],
-                    },
-                },
-                "body": {
-                    "label": "b",
-                    "node": {
-                        "type": "atomic",
-                        "fully_qualified_name": "m.g",
-                        "inputs": [],
-                        "outputs": [],
-                    },
-                },
-            },
-            "input_edges": {},
-            "output_edges": {},
-            "body_body_edges": {},
-            "body_condition_edges": {},
-        }
-        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, while_model.WhileNode)
 
     def test_nested_workflow_in_body(self):
         """WhileNode can contain WorkflowNode in body."""

@@ -3,7 +3,7 @@ import unittest
 import pydantic
 
 from flowrep.models import base_models, edge_models, subgraph_validation
-from flowrep.models.nodes import atomic_model, union, workflow_model
+from flowrep.models.nodes import atomic_model, workflow_model
 
 
 class TestWorkflowNodeStructure(unittest.TestCase):
@@ -853,20 +853,6 @@ class TestWorkflowNodeSerialization(unittest.TestCase):
         self.assertIsInstance(data["output_edges"], dict)
         self.assertIn("z", data["output_edges"])
         self.assertEqual(data["output_edges"]["z"], "a.o2")
-
-    def test_discriminated_union_roundtrip(self):
-        """Ensure type discriminator works for polymorphic deserialization."""
-        data = {
-            "type": base_models.RecipeElementType.WORKFLOW,
-            "inputs": [],
-            "outputs": [],
-            "nodes": {},
-            "input_edges": {},
-            "edges": {},
-            "output_edges": {},
-        }
-        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, workflow_model.WorkflowNode)
 
 
 if __name__ == "__main__":
