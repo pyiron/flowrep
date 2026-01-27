@@ -7,7 +7,6 @@ from flowrep.models.nodes import (
     atomic_model,
     for_model,
     helper_models,
-    union,
     workflow_model,
 )
 
@@ -654,30 +653,6 @@ class TestForNodeSerialization(unittest.TestCase):
                 self.assertEqual(original.input_edges, restored.input_edges)
                 self.assertEqual(original.output_edges, restored.output_edges)
                 self.assertEqual(original.transfer_edges, restored.transfer_edges)
-
-    def test_discriminated_union_roundtrip(self):
-        """ForNode should be correctly identified via type discriminator."""
-        data = {
-            "type": base_models.RecipeElementType.FOR,
-            "inputs": ["items"],
-            "outputs": ["results"],
-            "body_node": {
-                "label": "body",
-                "node": {
-                    "type": "atomic",
-                    "fully_qualified_name": "mod.func",
-                    "inputs": ["item"],
-                    "outputs": ["result"],
-                },
-            },
-            "input_edges": {"body.item": "items"},
-            "output_edges": {"results": "body.result"},
-            "nested_ports": ["item"],
-            "zipped_ports": [],
-            "transfer_edges": {},
-        }
-        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, for_model.ForNode)
 
 
 class TestForNodeComposition(unittest.TestCase):

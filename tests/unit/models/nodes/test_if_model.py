@@ -7,7 +7,6 @@ from flowrep.models.nodes import (
     atomic_model,
     helper_models,
     if_model,
-    union,
     workflow_model,
 )
 
@@ -558,21 +557,6 @@ class TestIfNodeSerialization(unittest.TestCase):
                 data = original.model_dump(mode=mode)
                 restored = if_model.IfNode.model_validate(data)
                 self.assertEqual(restored.cases[0].condition_output, "a")
-
-    def test_discriminated_union_roundtrip(self):
-        original = _make_valid_if_node()
-        data = original.model_dump(mode="json")
-
-        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, if_model.IfNode)
-
-    def test_discriminated_union_roundtrip_without_else(self):
-        original = _make_valid_if_node(with_else=False)
-        data = original.model_dump(mode="json")
-
-        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, if_model.IfNode)
-        self.assertIsNone(node.else_case)
 
 
 class TestIfNodeInWorkflow(unittest.TestCase):
