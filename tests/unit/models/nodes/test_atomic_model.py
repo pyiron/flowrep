@@ -76,8 +76,10 @@ class TestAtomicNodeFQN(unittest.TestCase):
             ("..", "only dots"),
         ]
         for fqn, reason in invalid_fqns:
-            with self.subTest(fqn=fqn, reason=reason):
-                with self.assertRaises(pydantic.ValidationError):
+            with (
+                self.subTest(fqn=fqn, reason=reason),
+                self.assertRaises(pydantic.ValidationError),
+            ):
                     atomic_model.AtomicNode(
                         fully_qualified_name=fqn,
                         inputs=[],
