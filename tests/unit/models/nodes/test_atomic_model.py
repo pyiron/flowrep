@@ -1,26 +1,44 @@
+"""Unit tests for flowrep.models.nodes.atomic_model"""
+
 import unittest
 
 import pydantic
 
 from flowrep.models import base_models
-from flowrep.models.nodes import atomic_model, union
+from flowrep.models.nodes import atomic_model
 
 
-class TestAtomicNode(unittest.TestCase):
-    """Tests for AtomicNode validation."""
+class TestAtomicNodeStructure(unittest.TestCase):
+    """Tests for basic structure and schema."""
 
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
         atomic_model.AtomicNode.model_json_schema()
 
-    def test_valid_fqn(self):
+    def test_type_defaults_to_atomic(self):
+        node = atomic_model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=[],
+        )
+        self.assertEqual(node.type, base_models.RecipeElementType.ATOMIC)
+
+    def test_required_fields(self):
+        """fully_qualified_name is required; inputs/outputs have no default."""
+        with self.assertRaises(pydantic.ValidationError):
+            atomic_model.AtomicNode()
+
+
+class TestAtomicNodeFQN(unittest.TestCase):
+    """Tests for fully_qualified_name validation."""
+
+    def test_valid_fqn_simple(self):
         node = atomic_model.AtomicNode(
             fully_qualified_name="module.func",
             inputs=[],
             outputs=[],
         )
         self.assertEqual(node.fully_qualified_name, "module.func")
-        self.assertEqual(node.type, base_models.RecipeElementType.ATOMIC)
 
     def test_valid_fqn_deep(self):
         node = atomic_model.AtomicNode(
@@ -30,7 +48,7 @@ class TestAtomicNode(unittest.TestCase):
         )
         self.assertEqual(node.fully_qualified_name, "a.b.c.d")
 
-    def test_fqn_no_period(self):
+    def test_fqn_no_period_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             atomic_model.AtomicNode(
                 fully_qualified_name="noDot",
@@ -39,41 +57,46 @@ class TestAtomicNode(unittest.TestCase):
             )
         self.assertIn("at least one period", str(ctx.exception))
 
-    def test_fqn_empty_string(self):
-        with self.assertRaises(pydantic.ValidationError):
+    def test_fqn_empty_string_rejected(self):
+        with self.assertRaises(pydantic.ValidationError) as ctx:
             atomic_model.AtomicNode(
                 fully_qualified_name="",
                 inputs=[],
                 outputs=[],
             )
+        self.assertIn("at least one period", str(ctx.exception))
 
-    def test_fqn_empty_part(self):
+    def test_fqn_empty_parts_rejected(self):
         """e.g., 'module.' or '.func' or 'a..b'"""
-        for bad in ["module.", ".func", "a..b"]:
-            with self.assertRaises(
-                pydantic.ValidationError, msg=f"Should reject {bad!r}"
-            ):
-                atomic_model.AtomicNode(
-                    fully_qualified_name=bad,
-                    inputs=[],
-                    outputs=[],
-                )
+        invalid_fqns = [
+            ("module.", "trailing dot"),
+            (".func", "leading dot"),
+            ("a..b", "consecutive dots"),
+            (".", "single dot"),
+            ("..", "only dots"),
+        ]
+        for fqn, reason in invalid_fqns:
+            with self.subTest(fqn=fqn, reason=reason):
+                with self.assertRaises(pydantic.ValidationError):
+                    atomic_model.AtomicNode(
+                        fully_qualified_name=fqn,
+                        inputs=[],
+                        outputs=[],
+                    )
 
 
-class TestAtomicNodeUnpacking(unittest.TestCase):
+class TestAtomicNodeUnpackMode(unittest.TestCase):
     """Tests for unpack_mode validation."""
 
-    def test_default_unpack_mode(self):
-        """Default unpack_mode should be 'tuple'."""
+    def test_default_unpack_mode_is_tuple(self):
         node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
-            inputs=["x"],
+            inputs=[],
             outputs=["a", "b"],
         )
         self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.TUPLE)
 
     def test_tuple_mode_multiple_outputs(self):
-        """Multiple outputs allowed with unpack_mode='tuple'."""
         node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=[],
@@ -81,10 +104,17 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             unpack_mode=atomic_model.UnpackMode.TUPLE,
         )
         self.assertEqual(len(node.outputs), 3)
-        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.TUPLE)
+
+    def test_tuple_mode_zero_outputs(self):
+        node = atomic_model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=[],
+            unpack_mode=atomic_model.UnpackMode.TUPLE,
+        )
+        self.assertEqual(len(node.outputs), 0)
 
     def test_dataclass_mode_multiple_outputs(self):
-        """Multiple outputs allowed with unpack_mode='dataclass'."""
         node = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=[],
@@ -94,8 +124,25 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
         self.assertEqual(len(node.outputs), 3)
         self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.DATACLASS)
 
+    def test_none_mode_single_output(self):
+        node = atomic_model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=["result"],
+            unpack_mode=atomic_model.UnpackMode.NONE,
+        )
+        self.assertEqual(node.outputs, ["result"])
+
+    def test_none_mode_zero_outputs(self):
+        node = atomic_model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=[],
+            unpack_mode=atomic_model.UnpackMode.NONE,
+        )
+        self.assertEqual(len(node.outputs), 0)
+
     def test_none_mode_multiple_outputs_rejected(self):
-        """Multiple outputs rejected when unpack_mode='none'."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             atomic_model.AtomicNode(
                 fully_qualified_name="mod.func",
@@ -104,56 +151,38 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
                 unpack_mode=atomic_model.UnpackMode.NONE,
             )
         self.assertIn("exactly one element", str(ctx.exception))
-        self.assertIn(
-            f"unpack_mode={atomic_model.UnpackMode.NONE.value}", str(ctx.exception)
-        )
+        self.assertIn(atomic_model.UnpackMode.NONE.value, str(ctx.exception))
 
-    def test_none_mode_single_output_valid(self):
-        """Single output valid with unpack_mode='none'."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=["x"],
-            outputs=["result"],
-            unpack_mode=atomic_model.UnpackMode.NONE,
-        )
-        self.assertEqual(node.outputs, ["result"])
-        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.NONE)
-
-    def test_none_mode_zero_outputs_valid(self):
-        """Zero outputs valid with unpack_mode='none'."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=[],
-            outputs=[],
-            unpack_mode=atomic_model.UnpackMode.NONE,
-        )
-        self.assertEqual(len(node.outputs), 0)
-        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.NONE)
-
-    def test_tuple_mode_zero_outputs_valid(self):
-        """Zero outputs valid with unpack_mode='tuple'."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=["x"],
-            outputs=[],
-            unpack_mode=atomic_model.UnpackMode.TUPLE,
-        )
-        self.assertEqual(len(node.outputs), 0)
-
-    def test_all_unpack_modes_valid_literal(self):
-        """All three unpack modes should be valid."""
+    def test_all_unpack_modes_accepted_as_string(self):
         for mode in ["none", "tuple", "dataclass"]:
-            node = atomic_model.AtomicNode(
-                fully_qualified_name="mod.func",
-                inputs=[],
-                outputs=["out"],
-                unpack_mode=mode,
-            )
-            self.assertEqual(node.unpack_mode, mode)
+            with self.subTest(mode=mode):
+                node = atomic_model.AtomicNode(
+                    fully_qualified_name="mod.func",
+                    inputs=[],
+                    outputs=["out"],
+                    unpack_mode=mode,
+                )
+                self.assertEqual(node.unpack_mode, mode)
+
+
+class TestUnpackModeEnum(unittest.TestCase):
+    """Tests for UnpackMode enum."""
+
+    def test_all_expected_values_exist(self):
+        expected = {"none", "tuple", "dataclass"}
+        actual = {e.value for e in atomic_model.UnpackMode}
+        self.assertEqual(expected, actual)
+
+    def test_is_str_enum(self):
+        for mode in atomic_model.UnpackMode:
+            self.assertIsInstance(mode, str)
+            self.assertEqual(mode, mode.value)
 
 
 class TestAtomicNodeSerialization(unittest.TestCase):
-    def test_atomic_roundtrip(self):
+    """Tests for serialization roundtrips."""
+
+    def test_roundtrip(self):
         original = atomic_model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["a"],
@@ -165,16 +194,32 @@ class TestAtomicNodeSerialization(unittest.TestCase):
                 restored = atomic_model.AtomicNode.model_validate(data)
                 self.assertEqual(original, restored)
 
-    def test_discriminated_union_roundtrip(self):
-        """Ensure type discriminator works for polymorphic deserialization."""
-        data = {
-            "type": base_models.RecipeElementType.ATOMIC,
-            "fully_qualified_name": "a.b",
-            "inputs": ["x"],
-            "outputs": ["y"],
-        }
-        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, atomic_model.AtomicNode)
+    def test_roundtrip_with_unpack_mode(self):
+        for mode in atomic_model.UnpackMode:
+            with self.subTest(mode=mode):
+                original = atomic_model.AtomicNode(
+                    fully_qualified_name="mod.func",
+                    inputs=[],
+                    outputs=["out"],
+                    unpack_mode=mode,
+                )
+                data = original.model_dump(mode="json")
+                restored = atomic_model.AtomicNode.model_validate(data)
+                self.assertEqual(original.unpack_mode, restored.unpack_mode)
+
+    def test_json_structure(self):
+        node = atomic_model.AtomicNode(
+            fully_qualified_name="pkg.mod.func",
+            inputs=["x", "y"],
+            outputs=["z"],
+            unpack_mode=atomic_model.UnpackMode.NONE,
+        )
+        data = node.model_dump(mode="json")
+        self.assertEqual(data["type"], "atomic")
+        self.assertEqual(data["fully_qualified_name"], "pkg.mod.func")
+        self.assertEqual(data["inputs"], ["x", "y"])
+        self.assertEqual(data["outputs"], ["z"])
+        self.assertEqual(data["unpack_mode"], "none")
 
 
 if __name__ == "__main__":
