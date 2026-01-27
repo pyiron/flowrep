@@ -1,310 +1,9 @@
-"""Unit tests for flowrep.model"""
-
 import unittest
-from typing import Literal
 
 import pydantic
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import atomic_model, union, workflow_model
-
-
-class TestNodeModel(unittest.TestCase):
-    """Tests for input/output uniqueness validation on NodeModel base class."""
-
-    def test_duplicate_inputs_rejected(self):
-        """Any NodeModel subclass should reject duplicate inputs."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            atomic_model.AtomicNode(
-                fully_qualified_name="mod.func",
-                inputs=["x", "y", "x"],  # duplicate 'x'
-                outputs=["z"],
-            )
-        self.assertIn("unique", str(ctx.exception).lower())
-        self.assertIn("x", str(ctx.exception))
-
-    def test_duplicate_outputs_rejected(self):
-        """Any NodeModel subclass should reject duplicate outputs."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            workflow_model.WorkflowNode(
-                inputs=["a"],
-                outputs=["x", "y", "x"],  # duplicate 'x'
-                nodes={},
-                input_edges={},
-                edges={},
-                output_edges={},
-            )
-        self.assertIn("unique", str(ctx.exception).lower())
-        self.assertIn("x", str(ctx.exception))
-
-    def test_unique_inputs_outputs_preserved_order(self):
-        """Unique inputs/outputs should preserve declaration order."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=["c", "a", "b"],
-            outputs=["z", "x", "y"],
-        )
-        # Order must be preserved for function signature mapping
-        self.assertEqual(node.inputs, ["c", "a", "b"])
-        self.assertEqual(node.outputs, ["z", "x", "y"])
-
-    def test_invalid_IO_labels(self):
-        test_cases = [
-            ("for", "Python keyword"),
-            ("while", "Python keyword"),
-            *[(reserved, "reserved name") for reserved in base_models.RESERVED_NAMES],
-            ("1invalid", "not an identifier"),
-            ("my-var", "not an identifier"),
-            ("my var", "not an identifier"),
-            ("", "not an identifier"),
-        ]
-
-        for io_type in ["inputs", "outputs"]:
-            for invalid_label, reason in test_cases:
-                with self.subTest(io_type=io_type, label=invalid_label, reason=reason):
-                    with self.assertRaises(pydantic.ValidationError) as ctx:
-                        kwargs = {
-                            "fully_qualified_name": "mod.func",
-                            "inputs": ["x"],
-                            "outputs": ["y"],
-                        }
-                        kwargs[io_type] = [invalid_label, "valid"]
-                        atomic_model.AtomicNode(**kwargs)
-
-                    exc_str = str(ctx.exception)
-                    self.assertIn(
-                        "valid Python identifier",
-                        exc_str,
-                        f"{io_type} with {invalid_label} ({reason}) should fail",
-                    )
-                    if invalid_label:  # empty string won't appear in error
-                        self.assertIn(invalid_label, exc_str)
-
-    def test_valid_IO_labels(self):
-        """Valid identifiers should pass."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=["x", "y_1", "_private", "camelCase"],
-            outputs=["result", "status_code"],
-        )
-        self.assertEqual(len(node.inputs), 4)
-        self.assertEqual(len(node.outputs), 2)
-
-
-class TestNodeTypeImmutability(unittest.TestCase):
-    """Tests that the 'type' field is immutable on NodeModel subclasses."""
-
-    def test_type_field_cannot_be_overridden_at_construction(self):
-        """AtomicNode should reject type override during instantiation."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            atomic_model.AtomicNode(
-                type=base_models.RecipeElementType.WORKFLOW,  # Wrong type
-                fully_qualified_name="mod.func",
-                inputs=["x"],
-                outputs=["y"],
-            )
-        exc_str = str(ctx.exception)
-        self.assertIn("Input should be", exc_str)
-        self.assertIn(base_models.RecipeElementType.ATOMIC.value, exc_str)
-
-    def test_type_field_cannot_be_mutated_after_construction(self):
-        """AtomicNode should reject mutation of type field."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=["x"],
-            outputs=["y"],
-        )
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            node.type = base_models.RecipeElementType.WORKFLOW
-        exc_str = str(ctx.exception)
-        self.assertIn("frozen", exc_str.lower())
-
-    def test_subclass_must_provide_type_default(self):
-        """NodeModel subclasses must provide a default value for 'type'."""
-        with self.assertRaises(TypeError) as ctx:
-
-            class BadNode(base_models.NodeModel):
-                type: Literal[base_models.RecipeElementType.ATOMIC]  # No default
-                inputs: list[str]
-                outputs: list[str]
-
-        exc_str = str(ctx.exception)
-        self.assertIn("BadNode", exc_str)
-        self.assertIn("default value for 'type'", exc_str)
-
-    def test_subclass_must_freeze_type_field(self):
-        """NodeModel subclasses must mark 'type' as frozen."""
-        with self.assertRaises(TypeError) as ctx:
-
-            class BadNode(base_models.NodeModel):
-                type: Literal[base_models.RecipeElementType.ATOMIC] = (
-                    base_models.RecipeElementType.ATOMIC
-                )  # Not frozen
-                inputs: list[str]
-                outputs: list[str]
-
-        exc_str = str(ctx.exception)
-        self.assertIn("BadNode", exc_str)
-        self.assertIn("frozen", exc_str)
-
-    def test_subclass_must_redefine_type_field(self):
-        """NodeModel subclasses must redefine 'type' field, not inherit base definition."""
-        with self.assertRaises(TypeError) as ctx:
-
-            class BadNode(base_models.NodeModel):
-                # Doesn't mention 'type' at all
-                inputs: list[str]
-                outputs: list[str]
-
-        exc_str = str(ctx.exception)
-        self.assertIn("BadNode", exc_str)
-        self.assertIn("default value for 'type'", exc_str)
-
-
-class TestAtomicNode(unittest.TestCase):
-    """Tests for AtomicNode validation."""
-
-    def test_schema_generation(self):
-        """model_json_schema() fails if forward refs aren't resolved."""
-        atomic_model.AtomicNode.model_json_schema()
-
-    def test_valid_fqn(self):
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="module.func",
-            inputs=[],
-            outputs=[],
-        )
-        self.assertEqual(node.fully_qualified_name, "module.func")
-        self.assertEqual(node.type, base_models.RecipeElementType.ATOMIC)
-
-    def test_valid_fqn_deep(self):
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="a.b.c.d",
-            inputs=[],
-            outputs=[],
-        )
-        self.assertEqual(node.fully_qualified_name, "a.b.c.d")
-
-    def test_fqn_no_period(self):
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            atomic_model.AtomicNode(
-                fully_qualified_name="noDot",
-                inputs=[],
-                outputs=[],
-            )
-        self.assertIn("at least one period", str(ctx.exception))
-
-    def test_fqn_empty_string(self):
-        with self.assertRaises(pydantic.ValidationError):
-            atomic_model.AtomicNode(
-                fully_qualified_name="",
-                inputs=[],
-                outputs=[],
-            )
-
-    def test_fqn_empty_part(self):
-        """e.g., 'module.' or '.func' or 'a..b'"""
-        for bad in ["module.", ".func", "a..b"]:
-            with self.assertRaises(
-                pydantic.ValidationError, msg=f"Should reject {bad!r}"
-            ):
-                atomic_model.AtomicNode(
-                    fully_qualified_name=bad,
-                    inputs=[],
-                    outputs=[],
-                )
-
-
-class TestAtomicNodeUnpacking(unittest.TestCase):
-    """Tests for unpack_mode validation."""
-
-    def test_default_unpack_mode(self):
-        """Default unpack_mode should be 'tuple'."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=["x"],
-            outputs=["a", "b"],
-        )
-        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.TUPLE)
-
-    def test_tuple_mode_multiple_outputs(self):
-        """Multiple outputs allowed with unpack_mode='tuple'."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=[],
-            outputs=["a", "b", "c"],
-            unpack_mode=atomic_model.UnpackMode.TUPLE,
-        )
-        self.assertEqual(len(node.outputs), 3)
-        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.TUPLE)
-
-    def test_dataclass_mode_multiple_outputs(self):
-        """Multiple outputs allowed with unpack_mode='dataclass'."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=[],
-            outputs=["a", "b", "c"],
-            unpack_mode=atomic_model.UnpackMode.DATACLASS,
-        )
-        self.assertEqual(len(node.outputs), 3)
-        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.DATACLASS)
-
-    def test_none_mode_multiple_outputs_rejected(self):
-        """Multiple outputs rejected when unpack_mode='none'."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            atomic_model.AtomicNode(
-                fully_qualified_name="mod.func",
-                inputs=[],
-                outputs=["a", "b"],
-                unpack_mode=atomic_model.UnpackMode.NONE,
-            )
-        self.assertIn("exactly one element", str(ctx.exception))
-        self.assertIn(
-            f"unpack_mode={atomic_model.UnpackMode.NONE.value}", str(ctx.exception)
-        )
-
-    def test_none_mode_single_output_valid(self):
-        """Single output valid with unpack_mode='none'."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=["x"],
-            outputs=["result"],
-            unpack_mode=atomic_model.UnpackMode.NONE,
-        )
-        self.assertEqual(node.outputs, ["result"])
-        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.NONE)
-
-    def test_none_mode_zero_outputs_valid(self):
-        """Zero outputs valid with unpack_mode='none'."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=[],
-            outputs=[],
-            unpack_mode=atomic_model.UnpackMode.NONE,
-        )
-        self.assertEqual(len(node.outputs), 0)
-        self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.NONE)
-
-    def test_tuple_mode_zero_outputs_valid(self):
-        """Zero outputs valid with unpack_mode='tuple'."""
-        node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=["x"],
-            outputs=[],
-            unpack_mode=atomic_model.UnpackMode.TUPLE,
-        )
-        self.assertEqual(len(node.outputs), 0)
-
-    def test_all_unpack_modes_valid_literal(self):
-        """All three unpack modes should be valid."""
-        for mode in ["none", "tuple", "dataclass"]:
-            node = atomic_model.AtomicNode(
-                fully_qualified_name="mod.func",
-                inputs=[],
-                outputs=["out"],
-                unpack_mode=mode,
-            )
-            self.assertEqual(node.unpack_mode, mode)
 
 
 class TestWorkflowNodeStructure(unittest.TestCase):
@@ -1027,63 +726,45 @@ class TestNestedWorkflow(unittest.TestCase):
         self.assertIn("wrong_port", str(ctx.exception))
 
 
-class TestSerialization(unittest.TestCase):
-    """Tests for JSON and Python mode serialization roundtrip."""
+class TestEmptyWorkflow(unittest.TestCase):
+    """Edge cases with empty collections."""
 
-    def test_atomic_json_roundtrip(self):
-        original = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=["a"],
-            outputs=["b"],
+    def test_empty_nodes_and_edges(self):
+        wf = workflow_model.WorkflowNode(
+            inputs=[],
+            outputs=[],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={},
         )
-        data = original.model_dump(mode="json")
-        restored = atomic_model.AtomicNode.model_validate(data)
-        self.assertEqual(original, restored)
+        self.assertEqual(wf.nodes, {})
+        self.assertEqual(wf.input_edges, {})
+        self.assertEqual(wf.edges, {})
+        self.assertEqual(wf.output_edges, {})
 
-    def test_atomic_python_roundtrip(self):
-        original = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
-            inputs=["a"],
-            outputs=["b"],
-        )
-        data = original.model_dump(mode="python")
-        restored = atomic_model.AtomicNode.model_validate(data)
-        self.assertEqual(original, restored)
-
-    def test_workflow_json_roundtrip(self):
-        original = workflow_model.WorkflowNode(
-            inputs=["x"],
-            outputs=["y"],
+    def test_empty_inputs_outputs(self):
+        wf = workflow_model.WorkflowNode(
+            inputs=[],
+            outputs=[],
             nodes={
                 "n": atomic_model.AtomicNode(
                     fully_qualified_name="m.f",
-                    inputs=["inp"],
-                    outputs=["out"],
+                    inputs=[],
+                    outputs=[],
                 )
             },
-            input_edges={
-                edge_models.TargetHandle(node="n", port="inp"): edge_models.InputSource(
-                    port="x"
-                ),
-            },
+            input_edges={},
             edges={},
-            output_edges={
-                edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
-                    node="n", port="out"
-                ),
-            },
+            output_edges={},
         )
-        data = original.model_dump(mode="json")
-        restored = workflow_model.WorkflowNode.model_validate(data)
-        self.assertEqual(original.inputs, restored.inputs)
-        self.assertEqual(original.outputs, restored.outputs)
-        self.assertEqual(len(original.nodes), len(restored.nodes))
-        self.assertEqual(original.input_edges, restored.input_edges)
-        self.assertEqual(original.edges, restored.edges)
-        self.assertEqual(original.output_edges, restored.output_edges)
+        self.assertEqual(wf.inputs, [])
+        self.assertEqual(wf.outputs, [])
 
+
+class TestWorkflowNodeSerialization(unittest.TestCase):
     def test_workflow_python_roundtrip(self):
-        """Python mode roundtrip for WorkflowNode."""
+        """Roundtrip for WorkflowNode."""
         original = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
@@ -1106,14 +787,16 @@ class TestSerialization(unittest.TestCase):
                 ),
             },
         )
-        data = original.model_dump(mode="python")
-        restored = workflow_model.WorkflowNode.model_validate(data)
-        self.assertEqual(original.inputs, restored.inputs)
-        self.assertEqual(original.outputs, restored.outputs)
-        self.assertEqual(len(original.nodes), len(restored.nodes))
-        self.assertEqual(original.input_edges, restored.input_edges)
-        self.assertEqual(original.edges, restored.edges)
-        self.assertEqual(original.output_edges, restored.output_edges)
+        for mode in ["python", "json"]:
+            with self.subTest(mode=mode):
+                data = original.model_dump(mode=mode)
+                restored = workflow_model.WorkflowNode.model_validate(data)
+                self.assertEqual(original.inputs, restored.inputs)
+                self.assertEqual(original.outputs, restored.outputs)
+                self.assertEqual(len(original.nodes), len(restored.nodes))
+                self.assertEqual(original.input_edges, restored.input_edges)
+                self.assertEqual(original.edges, restored.edges)
+                self.assertEqual(original.output_edges, restored.output_edges)
 
     def test_edge_serialization_format(self):
         """Edges serialize handles to dot-notation strings."""
@@ -1174,15 +857,6 @@ class TestSerialization(unittest.TestCase):
     def test_discriminated_union_roundtrip(self):
         """Ensure type discriminator works for polymorphic deserialization."""
         data = {
-            "type": base_models.RecipeElementType.ATOMIC,
-            "fully_qualified_name": "a.b",
-            "inputs": ["x"],
-            "outputs": ["y"],
-        }
-        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
-        self.assertIsInstance(node, atomic_model.AtomicNode)
-
-        data = {
             "type": base_models.RecipeElementType.WORKFLOW,
             "inputs": [],
             "outputs": [],
@@ -1193,42 +867,6 @@ class TestSerialization(unittest.TestCase):
         }
         node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
         self.assertIsInstance(node, workflow_model.WorkflowNode)
-
-
-class TestEmptyWorkflow(unittest.TestCase):
-    """Edge cases with empty collections."""
-
-    def test_empty_nodes_and_edges(self):
-        wf = workflow_model.WorkflowNode(
-            inputs=[],
-            outputs=[],
-            nodes={},
-            input_edges={},
-            edges={},
-            output_edges={},
-        )
-        self.assertEqual(wf.nodes, {})
-        self.assertEqual(wf.input_edges, {})
-        self.assertEqual(wf.edges, {})
-        self.assertEqual(wf.output_edges, {})
-
-    def test_empty_inputs_outputs(self):
-        wf = workflow_model.WorkflowNode(
-            inputs=[],
-            outputs=[],
-            nodes={
-                "n": atomic_model.AtomicNode(
-                    fully_qualified_name="m.f",
-                    inputs=[],
-                    outputs=[],
-                )
-            },
-            input_edges={},
-            edges={},
-            output_edges={},
-        )
-        self.assertEqual(wf.inputs, [])
-        self.assertEqual(wf.outputs, [])
 
 
 if __name__ == "__main__":
