@@ -10,6 +10,7 @@ from flowrep.models import base_models
 
 class _ValidTestNode(base_models.NodeModel):
     """Minimal valid NodeModel subclass for testing base class behavior."""
+
     type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
         default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
@@ -97,6 +98,7 @@ class TestNodeModelTypeFieldConstraints(unittest.TestCase):
 
     def test_subclass_without_type_default_rejected(self):
         with self.assertRaises(TypeError) as ctx:
+
             class _NoDefault(base_models.NodeModel):
                 type: Literal[base_models.RecipeElementType.ATOMIC]
 
@@ -105,6 +107,7 @@ class TestNodeModelTypeFieldConstraints(unittest.TestCase):
 
     def test_subclass_without_frozen_type_rejected(self):
         with self.assertRaises(TypeError) as ctx:
+
             class _NotFrozen(base_models.NodeModel):
                 type: Literal[base_models.RecipeElementType.ATOMIC] = (
                     base_models.RecipeElementType.ATOMIC
@@ -116,6 +119,7 @@ class TestNodeModelTypeFieldConstraints(unittest.TestCase):
     def test_subclass_inheriting_base_type_rejected(self):
         """Subclass must redefine type, not inherit base definition."""
         with self.assertRaises(TypeError) as ctx:
+
             class _InheritsType(base_models.NodeModel):
                 extra_field: str = "foo"
 
