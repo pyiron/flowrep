@@ -80,11 +80,11 @@ class TestAtomicNodeFQN(unittest.TestCase):
                 self.subTest(fqn=fqn, reason=reason),
                 self.assertRaises(pydantic.ValidationError),
             ):
-                    atomic_model.AtomicNode(
-                        fully_qualified_name=fqn,
-                        inputs=[],
-                        outputs=[],
-                    )
+                atomic_model.AtomicNode(
+                    fully_qualified_name=fqn,
+                    inputs=[],
+                    outputs=[],
+                )
 
 
 class TestAtomicNodeUnpackMode(unittest.TestCase):
