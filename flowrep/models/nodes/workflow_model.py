@@ -30,6 +30,7 @@ class WorkflowNode(base_models.NodeModel):
         edges: Edges between subgraph nodes.
         output_edges: Edges from subgraph nodes back to workflow outputs.
     """
+
     type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
         default=base_models.RecipeElementType.WORKFLOW, frozen=True
     )

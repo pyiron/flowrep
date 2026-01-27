@@ -45,6 +45,7 @@ class AtomicNode(base_models.NodeModel):
             module and qualname as a dot-separated string.
         unpack_mode: How to handle return values from running functions in atomic nodes.
     """
+
     type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
         default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
