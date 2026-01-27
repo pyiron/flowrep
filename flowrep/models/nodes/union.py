@@ -23,4 +23,4 @@ NodeType = Annotated[
     pydantic.Field(discriminator="type"),
 ]
 
-Nodes = dict[base_models.Label, "NodeType"]
+Nodes = dict[base_models.Label, NodeType]
