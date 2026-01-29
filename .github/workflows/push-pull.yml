@@ -14,6 +14,7 @@ jobs:
     with:
       do-coveralls: false
       do-codecov: true
+      do-mypy: true
       # The test matrix supports up to four python versions
       python-version-alt3: 'exclude'
       python-version-alt2: '3.11'
