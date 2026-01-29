@@ -1263,3 +1263,33 @@ def wf_dict_to_graph(wf_dict: dict, prefix: str | None = None) -> nx.DiGraph:
                 tag = f"{prefix}.{tag}"
             G.add_node(tag, **content)
     return G
+
+
+def simple_run(G: nx.DiGraph) -> nx.DiGraph:
+    for node in nx.topological_sort(G):
+        data = G.nodes[node]
+        if data.get("type") == "Function":
+            if all("value" in G.nodes[succ] for succ in G.successors(node)):
+                continue
+            kwargs = {}
+            for inp in G.predecessors(node):
+                kwargs[inp.split(".")[-1]] = G.nodes[inp]["value"]
+            outputs = data["function"](**kwargs)
+            successors = list(G.successors(node))
+            if len(successors) == 1:
+                G.nodes[successors[0]]["value"] = outputs
+            else:
+                for succ in successors:
+                    G.nodes[succ]["value"] = outputs[
+                        int(G.nodes[succ].get("position", succ.split(".")[-1]))
+                    ]
+            continue
+        if "default" in data and "value" not in data:
+            data["value"] = data["default"]
+        if G.in_degree(node) == 0 and "value" not in data:
+            raise ValueError("Input values not entirely set")
+        assert "value" in data
+        for succ in G.successors(node):
+            if G.nodes[succ].get("type") != "Function":
+                G.nodes[succ]["value"] = data["value"]
+    return G
