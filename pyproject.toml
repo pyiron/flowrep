@@ -91,6 +91,7 @@ extend-exclude = '''
 '''
 
 [tool.mypy]
+plugins = ["pydantic.mypy"]
 exclude = [
     "^docs/conf\\.py$",
     "^tests/",
