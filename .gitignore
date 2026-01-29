@@ -1,6 +1,7 @@
 *.pyc
 .DS_Store
 .coverage
+.pre-commit-config.yaml
 nohup.out
 pyiron.log
 .idea/
