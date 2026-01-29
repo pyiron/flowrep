@@ -1213,3 +1213,53 @@ def _get_function_keywords(function: Callable) -> list[str | int]:
         else:
             items.append(name)
     return items
+
+
+def wf_dict_to_graph(wf_dict: dict, prefix: str | None = None) -> nx.DiGraph:
+    """
+    Convert a workflow dictionary into a directed graph representation.
+
+    Args:
+        wf_dict (dict): The dictionary representation of the workflow.
+        prefix (str | None): An optional prefix to add to node names.
+
+    Returns:
+        nx.DiGraph: A directed graph representing the workflow.
+    """
+    G = nx.DiGraph()
+    for edge in _get_missing_edges(wf_dict["edges"]):
+        if prefix is not None:
+            edge = [f"{prefix}.{e}" for e in edge]
+        G.add_edge(*edge)
+    for node, data in wf_dict["nodes"].items():
+        full_node = node
+        if prefix is not None:
+            full_node = f"{prefix}.{node}"
+        if data["type"] != "Function":
+            G.remove_node(full_node)
+            G.update(wf_dict_to_graph(data, prefix=full_node))
+            continue
+        else:
+            G.add_node(
+                full_node,
+                **{
+                    key: value
+                    for key, value in data.items()
+                    if key not in ["inputs", "outputs"]
+                },
+            )
+        for io in ["inputs", "outputs"]:
+            for ii, (tag, content) in enumerate(
+                wf_dict["nodes"][node].get(io, {}).items()
+            ):
+                tag = f"{full_node}.{io}.{tag}"
+                if io == "outputs" and len(wf_dict["nodes"][node][io]) > 1:
+                    content["position"] = content.get("position", ii)
+                G.add_node(tag, **content)
+    for io in ["inputs", "outputs"]:
+        for ii, (tag, content) in enumerate(wf_dict.get(io, {}).items()):
+            tag = f"{io}.{tag}"
+            if prefix is not None:
+                tag = f"{prefix}.{tag}"
+            G.add_node(tag, **content)
+    return G

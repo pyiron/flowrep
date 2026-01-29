@@ -714,6 +714,12 @@ class TestWorkflow(unittest.TestCase):
     def test_value(self):
         self.assertAlmostEqual(example_macro.run(0.1, 0.2)["outputs"]["f"]["value"], 1)
 
+    def test_wf_dict_to_graph(self):
+        wf_dict = example_workflow.serialize_workflow()
+        G = fwf.wf_dict_to_graph(wf_dict)
+        self.assertIsInstance(G, nx.DiGraph)
+
+
 
 if __name__ == "__main__":
     unittest.main()
