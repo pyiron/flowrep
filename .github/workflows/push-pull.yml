@@ -9,12 +9,14 @@ on:
 
 jobs:
   pyiron:
-    uses: pyiron/actions/.github/workflows/push-pull.yml@actions-4.0.8
+    uses: pyiron/actions/.github/workflows/push-pull.yml@actions-4.0.12
     secrets: inherit
     with:
       do-coveralls: false
       do-codecov: true
+      # Run mypy, ensuring it has access to pydantic
       do-mypy: true
+      mypy-env-files: .ci_support/environment.yml
       # The test matrix supports up to four python versions
       python-version-alt3: 'exclude'
       python-version-alt2: '3.11'
