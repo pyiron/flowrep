@@ -1293,3 +1293,65 @@ def simple_run(G: nx.DiGraph) -> nx.DiGraph:
             if G.nodes[succ].get("type") != "Function":
                 G.nodes[succ]["value"] = data["value"]
     return G
+
+
+def _get_nodes_and_edge(orig, dest):
+    nodes = orig.split(".")[:-2]
+    edge = [".".join(e.split(".")[-2:]) for e in [orig, dest]]
+    return nodes, edge
+
+
+def graph_to_wf_dict(G: nx.DiGraph) -> dict:
+    """
+    Convert a directed graph representation of a workflow into a workflow
+    dictionary.
+
+    Args:
+        G (nx.DiGraph): A directed graph representing the workflow.
+
+    Returns:
+        dict: The dictionary representation of the workflow.
+    """
+    wf_dict = tools.dict_to_recursive_dd({})
+
+    for node, metadata in list(G.nodes.data()):
+        for io in ["inputs", "outputs"]:
+            if "." in node and node.split(".")[-2] == io:
+                d = wf_dict
+                for n in node.split(".")[:-2]:
+                    d = d["nodes"][n]
+                d[io][node.split(".")[-1]] = metadata
+                break
+        else:
+            d = wf_dict
+            for n in node.split("."):
+                d = d["nodes"][n]
+            d.update(metadata)
+
+    for edge in G.edges:
+        if any(
+            "." not in e or e.split(".")[-2] not in ["inputs", "outputs"] for e in edge
+        ):
+            continue
+        if len(edge[0].split(".")) == len(edge[1].split(".")):
+            nodes = edge[0].split(".")[:-3]
+            edge = tuple([".".join(e.split(".")[-3:]) for e in edge])
+        elif len(edge[0].split(".")) > len(edge[1].split(".")):
+            nodes = edge[1].split(".")[:-2]
+            edge = (
+                ".".join(edge[0].split(".")[-3:]),
+                ".".join(edge[1].split(".")[-2:]),
+            )
+        else:
+            nodes = edge[0].split(".")[:-2]
+            edge = (
+                ".".join(edge[0].split(".")[-2:]),
+                ".".join(edge[1].split(".")[-3:]),
+            )
+        d = wf_dict
+        for node in nodes:
+            d = d["nodes"][node]
+        if not isinstance(d["edges"], list):
+            d["edges"] = []
+        d["edges"].append(edge)
+    return tools.recursive_dd_to_dict(wf_dict)

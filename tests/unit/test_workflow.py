@@ -722,6 +722,16 @@ class TestWorkflow(unittest.TestCase):
         G = fwf.wf_dict_to_graph(wf_dict)
         G = fwf.simple_run(G)
         self.assertDictEqual(G.nodes["outputs.z"], {"value": 12})
+        rev_edges = fwf.graph_to_wf_dict(G)["edges"]
+        self.assertEqual(
+            sorted(rev_edges),
+            sorted(wf_dict["edges"]),
+        )
+        rev_macro_edges = fwf.graph_to_wf_dict(G)["nodes"]["example_macro_0"]["edges"]
+        self.assertEqual(
+            sorted(rev_macro_edges),
+            sorted(wf_dict["nodes"]["example_macro_0"]["edges"]),
+        )
 
 
 if __name__ == "__main__":
