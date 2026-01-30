@@ -1295,12 +1295,6 @@ def simple_run(G: nx.DiGraph) -> nx.DiGraph:
     return G
 
 
-def _get_nodes_and_edge(orig, dest):
-    nodes = orig.split(".")[:-2]
-    edge = [".".join(e.split(".")[-2:]) for e in [orig, dest]]
-    return nodes, edge
-
-
 def graph_to_wf_dict(G: nx.DiGraph) -> dict:
     """
     Convert a directed graph representation of a workflow into a workflow
