@@ -39,7 +39,7 @@ class FunctionWithWorkflow(Generic[F]):
             list(wf_dict["inputs"].keys()), *args, **kwargs
         ).items():
             wf_dict["inputs"][arg]["value"] = value
-        G = wf_dict_to_graph(wf_dict)
+        G = get_workflow_graph(wf_dict)
         G_run = simple_run(G)
         return graph_to_wf_dict(G_run)
 
@@ -917,7 +917,7 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
     Returns:
         nx.DiGraph: A directed graph representing the workflow.
     """
-    G = nx.DiGraph(name=workflow_dict["label"])
+    G = nx.DiGraph()
     for inp, data in workflow_dict.get("inputs", {}).items():
         G.add_node(f"inputs.{inp}", step="input", **data)
     for out, data in workflow_dict.get("outputs", {}).items():
@@ -928,15 +928,24 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
         assert node["type"] in ["Function", "Workflow"]
         if node["type"] == "Workflow":
             child_G = get_workflow_graph(node)
+            child_G.graph[key] = child_G.graph.pop("")
             mapping = {n: key + "." + n for n in child_G.nodes()}
             G = nx.union(nx.relabel_nodes(child_G, mapping), G)
             nodes_to_delete.append(key)
         else:
-            G.add_node(key, step="node", function=node["function"])
-        for ii, (inp, data) in enumerate(workflow_dict["nodes"][key].get("inputs", {}).items()):
+            G.add_node(
+                key,
+                step="node",
+                **{
+                    k: v for k, v in node.items() if k not in ["inputs", "outputs"]
+                },
+            )
+        for ii, (inp, data) in enumerate(node.get("inputs", {}).items()):
             G.add_node(f"{key}.inputs.{inp}", step="input", **({"position": ii} | data))
-        for ii, (out, data) in enumerate(workflow_dict["nodes"][key].get("outputs", {}).items()):
-            G.add_node(f"{key}.outputs.{out}", step="output", **({"position": ii} | data))
+        for ii, (out, data) in enumerate(node.get("outputs", {}).items()):
+            G.add_node(
+                f"{key}.outputs.{out}", step="output", **({"position": ii} | data)
+            )
     for edge in _get_missing_edges(cast(list[tuple[str, str]], workflow_dict["edges"])):
         G.add_edge(*edge)
     for node in nodes_to_delete:
@@ -948,6 +957,12 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
             G.nodes[node]["step"] = "input"
         elif node.split(".")[-2] == "outputs":
             G.nodes[node]["step"] = "output"
+    G.graph[""] = {
+        key: value
+        for key, value in workflow_dict.items()
+        if key not in ["nodes", "edges", "inputs", "outputs"]
+    }
+
     return G
 
 
@@ -1066,65 +1081,10 @@ def _get_function_keywords(function: Callable) -> list[str | int]:
     return items
 
 
-def wf_dict_to_graph(wf_dict: dict, prefix: str | None = None) -> nx.DiGraph:
-    """
-    Convert a workflow dictionary into a directed graph representation.
-
-    Args:
-        wf_dict (dict): The dictionary representation of the workflow.
-        prefix (str | None): An optional prefix to add to node names.
-
-    Returns:
-        nx.DiGraph: A directed graph representing the workflow.
-    """
-    G = nx.DiGraph()
-    for edge in _get_missing_edges(wf_dict["edges"]):
-        if prefix is not None:
-            edge = [f"{prefix}.{e}" for e in edge]
-        G.add_edge(*edge)
-    for node, data in wf_dict["nodes"].items():
-        full_node = node
-        if prefix is not None:
-            full_node = f"{prefix}.{node}"
-        if data["type"] != "Function":
-            G.remove_node(full_node)
-            G.update(wf_dict_to_graph(data, prefix=full_node))
-            continue
-        else:
-            G.add_node(
-                full_node,
-                **{
-                    key: value
-                    for key, value in data.items()
-                    if key not in ["inputs", "outputs"]
-                },
-            )
-        for io in ["inputs", "outputs"]:
-            for ii, (tag, content) in enumerate(
-                wf_dict["nodes"][node].get(io, {}).items()
-            ):
-                tag = f"{full_node}.{io}.{tag}"
-                if io == "outputs" and len(wf_dict["nodes"][node][io]) > 1:
-                    content["position"] = content.get("position", ii)
-                G.add_node(tag, **content)
-    for io in ["inputs", "outputs"]:
-        for tag, content in wf_dict.get(io, {}).items():
-            tag = f"{io}.{tag}"
-            if prefix is not None:
-                tag = f"{prefix}.{tag}"
-            G.add_node(tag, **content)
-    G.graph["" if prefix is None else prefix] = {
-        key: value
-        for key, value in wf_dict.items()
-        if key not in ["nodes", "edges", "inputs", "outputs"]
-    }
-    return G
-
-
 def simple_run(G: nx.DiGraph) -> nx.DiGraph:
     for node in nx.topological_sort(G):
         data = G.nodes[node]
-        if data.get("type") == "Function":
+        if data["step"] == "node":
             if all("value" in G.nodes[succ] for succ in G.successors(node)):
                 continue
             kwargs = {}
@@ -1165,18 +1125,19 @@ def graph_to_wf_dict(G: nx.DiGraph) -> dict:
     wf_dict = tools.dict_to_recursive_dd({})
 
     for node, metadata in list(G.nodes.data()):
-        for io in ["inputs", "outputs"]:
-            if "." in node and node.split(".")[-2] == io:
-                d = wf_dict
-                for n in node.split(".")[:-2]:
-                    d = d["nodes"][n]
-                d[io][node.split(".")[-1]] = metadata
-                break
+        t = metadata["step"]
+        if t in ["input", "output"]:
+            d = wf_dict
+            for n in node.split(".")[:-2]:
+                d = d["nodes"][n]
+            d[f"{t}s"][node.split(".")[-1]] = {
+                key: value for key, value in metadata.items() if key != "step"
+            }
         else:
             d = wf_dict
             for n in node.split("."):
                 d = d["nodes"][n]
-            d.update(metadata)
+            d.update({key: value for key, value in metadata.items() if key != "step"})
 
     for edge in G.edges:
         if any(
