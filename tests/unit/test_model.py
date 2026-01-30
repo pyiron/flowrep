@@ -29,7 +29,9 @@ class TestNodeModel(unittest.TestCase):
                 inputs=["a"],
                 outputs=["x", "y", "x"],  # duplicate 'x'
                 nodes={},
+                input_edges={},
                 edges={},
+                output_edges={},
             )
         self.assertIn("unique", str(ctx.exception).lower())
         self.assertIn("x", str(ctx.exception))
@@ -298,12 +300,57 @@ class TestAtomicNodeUnpacking(unittest.TestCase):
             self.assertEqual(node.unpack_mode, mode)
 
 
-class TestWorkflowNodeEdgeValidation(unittest.TestCase):
-    """Tests for WorkflowNode edge validation."""
+class TestHandleModels(unittest.TestCase):
+    """Tests for HandleModel subclasses and their type constraints."""
 
-    def _make_workflow(self, edges):
-        """Helper to create a workflow with given edges and one atomic child."""
-        return model.WorkflowNode(
+    def test_source_handle_requires_node(self):
+        """SourceHandle must have a non-None node."""
+        h = model.SourceHandle(node="child", port="out")
+        self.assertEqual(h.node, "child")
+        self.assertEqual(h.port, "out")
+
+    def test_target_handle_requires_node(self):
+        """TargetHandle must have a non-None node."""
+        h = model.TargetHandle(node="child", port="inp")
+        self.assertEqual(h.node, "child")
+        self.assertEqual(h.port, "inp")
+
+    def test_input_source_has_none_node(self):
+        """InputSource always has node=None."""
+        h = model.InputSource(port="x")
+        self.assertIsNone(h.node)
+        self.assertEqual(h.port, "x")
+
+    def test_output_target_has_none_node(self):
+        """OutputTarget always has node=None."""
+        h = model.OutputTarget(port="y")
+        self.assertIsNone(h.node)
+        self.assertEqual(h.port, "y")
+
+    def test_handle_serialization(self):
+        """Handles serialize to dot-notation strings."""
+        self.assertEqual(
+            model.SourceHandle(node="n", port="p").model_dump(mode="json"), "n.p"
+        )
+        self.assertEqual(model.InputSource(port="x").model_dump(mode="json"), "x")
+
+    def test_handle_deserialization(self):
+        """Handles deserialize from dot-notation strings."""
+        h = model.SourceHandle.model_validate("child.output")
+        self.assertEqual(h.node, "child")
+        self.assertEqual(h.port, "output")
+
+        h = model.InputSource.model_validate("workflow_input")
+        self.assertIsNone(h.node)
+        self.assertEqual(h.port, "workflow_input")
+
+
+class TestWorkflowNodeInputEdges(unittest.TestCase):
+    """Tests for input_edges validation (workflow inputs -> child inputs)."""
+
+    def test_valid_input_edge(self):
+        """Input edge from workflow input to child input."""
+        wf = model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
             nodes={
@@ -313,51 +360,22 @@ class TestWorkflowNodeEdgeValidation(unittest.TestCase):
                     outputs=["out"],
                 )
             },
-            edges={
-                model.TargetHandle(node=k[0], port=k[1]): model.SourceHandle(
-                    node=v[0], port=v[1]
-                )
-                for k, v in edges.items()
+            input_edges={
+                model.TargetHandle(node="child", port="inp"): model.InputSource(
+                    port="x"
+                ),
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="y"): model.SourceHandle(
+                    node="child", port="out"
+                ),
             },
         )
+        self.assertEqual(len(wf.input_edges), 1)
 
-    def test_valid_edges(self):
-        wf = self._make_workflow(
-            {
-                ("child", "inp"): (None, "x"),
-                (None, "y"): ("child", "out"),
-            }
-        )
-        self.assertEqual(len(wf.edges), 2)
-
-    def test_edge_both_strings_rejected(self):
-        """
-        dict[str, str] should fail - it would represent pass-through data.
-        Don't do that, just make an edge going around this node!
-        """
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            self._make_workflow({(None, "y"): (None, "x")})
-        self.assertIn(
-            "Invalid edge: No pass-through data -- if a workflow declares IO "
-            "it should use it",
-            str(ctx.exception),
-        )
-
-    def test_edge_reference_nonexistent_node(self):
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            self._make_workflow({("nonexistent", "port"): (None, "x")})
-        self.assertIn("not a child node", str(ctx.exception))
-
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            self._make_workflow({("child", "inp"): ("nonexistent", "port")})
-        self.assertIn("not a child node", str(ctx.exception))
-
-
-class TestWorkflowNodePortValidation(unittest.TestCase):
-    """Tests for port name validation in edges."""
-
-    def test_invalid_input_port_name(self):
-        """Edge references non-existent input port on child node."""
+    def test_input_edge_invalid_workflow_input(self):
+        """Input edge referencing nonexistent workflow input."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             model.WorkflowNode(
                 inputs=["x"],
@@ -369,18 +387,95 @@ class TestWorkflowNodePortValidation(unittest.TestCase):
                         outputs=["out"],
                     )
                 },
-                edges={
-                    model.TargetHandle(
-                        node="child", port="wrong_port"
-                    ): model.SourceHandle(node=None, port="x"),
-                    # 'wrong_port' doesn't exist
+                input_edges={
+                    model.TargetHandle(node="child", port="inp"): model.InputSource(
+                        port="nonexistent"
+                    ),
                 },
+                edges={},
+                output_edges={},
+            )
+        self.assertIn("not a workflow input", str(ctx.exception))
+
+    def test_input_edge_invalid_child_node(self):
+        """Input edge referencing nonexistent child node."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "child": model.AtomicNode(
+                        fully_qualified_name="mod.func",
+                        inputs=["inp"],
+                        outputs=["out"],
+                    )
+                },
+                input_edges={
+                    model.TargetHandle(
+                        node="nonexistent", port="inp"
+                    ): model.InputSource(port="x"),
+                },
+                edges={},
+                output_edges={},
+            )
+        self.assertIn("not a child node", str(ctx.exception))
+
+    def test_input_edge_invalid_child_port(self):
+        """Input edge referencing nonexistent port on child."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "child": model.AtomicNode(
+                        fully_qualified_name="mod.func",
+                        inputs=["inp"],
+                        outputs=["out"],
+                    )
+                },
+                input_edges={
+                    model.TargetHandle(node="child", port="wrong"): model.InputSource(
+                        port="x"
+                    ),
+                },
+                edges={},
+                output_edges={},
             )
         self.assertIn("has no input port", str(ctx.exception))
-        self.assertIn("wrong_port", str(ctx.exception))
+        self.assertIn("wrong", str(ctx.exception))
 
-    def test_invalid_output_port_name(self):
-        """Edge references non-existent output port on child node."""
+
+class TestWorkflowNodeOutputEdges(unittest.TestCase):
+    """Tests for output_edges validation (child outputs -> workflow outputs)."""
+
+    def test_valid_output_edge(self):
+        """Output edge from child output to workflow output."""
+        wf = model.WorkflowNode(
+            inputs=["x"],
+            outputs=["y"],
+            nodes={
+                "child": model.AtomicNode(
+                    fully_qualified_name="mod.func",
+                    inputs=["inp"],
+                    outputs=["out"],
+                )
+            },
+            input_edges={
+                model.TargetHandle(node="child", port="inp"): model.InputSource(
+                    port="x"
+                ),
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="y"): model.SourceHandle(
+                    node="child", port="out"
+                ),
+            },
+        )
+        self.assertEqual(len(wf.output_edges), 1)
+
+    def test_output_edge_invalid_workflow_output(self):
+        """Output edge referencing nonexistent workflow output."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             model.WorkflowNode(
                 inputs=["x"],
@@ -392,11 +487,56 @@ class TestWorkflowNodePortValidation(unittest.TestCase):
                         outputs=["out"],
                     )
                 },
-                edges={
-                    model.TargetHandle(node="child", port="inp"): model.SourceHandle(
-                        node=None, port="x"
+                input_edges={},
+                edges={},
+                output_edges={
+                    model.OutputTarget(port="nonexistent"): model.SourceHandle(
+                        node="child", port="out"
                     ),
-                    model.TargetHandle(node=None, port="y"): model.SourceHandle(
+                },
+            )
+        self.assertIn("not a workflow output", str(ctx.exception))
+
+    def test_output_edge_invalid_child_node(self):
+        """Output edge referencing nonexistent child node."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "child": model.AtomicNode(
+                        fully_qualified_name="mod.func",
+                        inputs=["inp"],
+                        outputs=["out"],
+                    )
+                },
+                input_edges={},
+                edges={},
+                output_edges={
+                    model.OutputTarget(port="y"): model.SourceHandle(
+                        node="nonexistent", port="out"
+                    ),
+                },
+            )
+        self.assertIn("not a child node", str(ctx.exception))
+
+    def test_output_edge_invalid_child_port(self):
+        """Output edge referencing nonexistent port on child."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "child": model.AtomicNode(
+                        fully_qualified_name="mod.func",
+                        inputs=["inp"],
+                        outputs=["out"],
+                    )
+                },
+                input_edges={},
+                edges={},
+                output_edges={
+                    model.OutputTarget(port="y"): model.SourceHandle(
                         node="child", port="wrong_port"
                     ),
                     # 'wrong_port' doesn't exist
@@ -405,31 +545,43 @@ class TestWorkflowNodePortValidation(unittest.TestCase):
         self.assertIn("has no output port", str(ctx.exception))
         self.assertIn("wrong_port", str(ctx.exception))
 
-    def test_invalid_workflow_input_name(self):
-        """Edge references non-existent workflow input."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
-                inputs=["x"],
-                outputs=["y"],
-                nodes={
-                    "child": model.AtomicNode(
-                        fully_qualified_name="mod.func",
-                        inputs=["inp"],
-                        outputs=["out"],
-                    )
-                },
-                edges={
-                    model.TargetHandle(node="child", port="inp"): model.SourceHandle(
-                        node=None, port="nonexistent_input"
-                    ),
-                    # doesn't exist
-                },
-            )
-        self.assertIn("not a workflow input", str(ctx.exception))
-        self.assertIn("nonexistent_input", str(ctx.exception))
 
-    def test_invalid_workflow_output_name(self):
-        """Edge references non-existent workflow output."""
+class TestWorkflowNodeInternalEdges(unittest.TestCase):
+    """Tests for edges validation (child outputs -> child inputs)."""
+
+    def test_valid_internal_edge(self):
+        """Edge between two child nodes."""
+        wf = model.WorkflowNode(
+            inputs=["x"],
+            outputs=["y"],
+            nodes={
+                "a": model.AtomicNode(
+                    fully_qualified_name="mod.f",
+                    inputs=["inp"],
+                    outputs=["out"],
+                ),
+                "b": model.AtomicNode(
+                    fully_qualified_name="mod.g",
+                    inputs=["inp"],
+                    outputs=["out"],
+                ),
+            },
+            input_edges={
+                model.TargetHandle(node="a", port="inp"): model.InputSource(port="x"),
+            },
+            edges={
+                model.TargetHandle(node="b", port="inp"): model.SourceHandle(
+                    node="a", port="out"
+                ),
+            },
+            output_edges={
+                model.OutputTarget(port="y"): model.SourceHandle(node="b", port="out"),
+            },
+        )
+        self.assertEqual(len(wf.edges), 1)
+
+    def test_internal_edge_invalid_source_node(self):
+        """Internal edge from nonexistent source node."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             model.WorkflowNode(
                 inputs=["x"],
@@ -441,19 +593,98 @@ class TestWorkflowNodePortValidation(unittest.TestCase):
                         outputs=["out"],
                     )
                 },
+                input_edges={},
                 edges={
                     model.TargetHandle(node="child", port="inp"): model.SourceHandle(
-                        node=None, port="x"
+                        node="nonexistent", port="out"
                     ),
-                    model.TargetHandle(
-                        node=None, port="nonexistent_output"
-                    ): model.SourceHandle(
-                        node="child", port="out"
-                    ),  # doesn't exist
                 },
+                output_edges={},
             )
-        self.assertIn("not a workflow output", str(ctx.exception))
-        self.assertIn("nonexistent_output", str(ctx.exception))
+        self.assertIn("not a child node", str(ctx.exception))
+
+    def test_internal_edge_invalid_target_node(self):
+        """Internal edge to nonexistent target node."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "child": model.AtomicNode(
+                        fully_qualified_name="mod.func",
+                        inputs=["inp"],
+                        outputs=["out"],
+                    )
+                },
+                input_edges={},
+                edges={
+                    model.TargetHandle(
+                        node="nonexistent", port="inp"
+                    ): model.SourceHandle(node="child", port="out"),
+                },
+                output_edges={},
+            )
+        self.assertIn("not a child node", str(ctx.exception))
+
+    def test_internal_edge_invalid_source_port(self):
+        """Internal edge from nonexistent source port."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "a": model.AtomicNode(
+                        fully_qualified_name="mod.f",
+                        inputs=["inp"],
+                        outputs=["out"],
+                    ),
+                    "b": model.AtomicNode(
+                        fully_qualified_name="mod.g",
+                        inputs=["inp"],
+                        outputs=["out"],
+                    ),
+                },
+                input_edges={},
+                edges={
+                    model.TargetHandle(node="b", port="inp"): model.SourceHandle(
+                        node="a", port="wrong"
+                    ),
+                },
+                output_edges={},
+            )
+        self.assertIn("has no output port", str(ctx.exception))
+
+    def test_internal_edge_invalid_target_port(self):
+        """Internal edge to nonexistent target port."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["x"],
+                outputs=["y"],
+                nodes={
+                    "a": model.AtomicNode(
+                        fully_qualified_name="mod.f",
+                        inputs=["inp"],
+                        outputs=["out"],
+                    ),
+                    "b": model.AtomicNode(
+                        fully_qualified_name="mod.g",
+                        inputs=["inp"],
+                        outputs=["out"],
+                    ),
+                },
+                input_edges={},
+                edges={
+                    model.TargetHandle(node="b", port="wrong"): model.SourceHandle(
+                        node="a", port="out"
+                    ),
+                },
+                output_edges={},
+            )
+        self.assertIn("has no input port", str(ctx.exception))
+
+
+class TestWorkflowNodeMultiplePorts(unittest.TestCase):
+    """Tests for workflows with multiple input/output ports."""
 
     def test_multiple_ports_valid(self):
         """Valid edges with multiple input/output ports."""
@@ -467,100 +698,26 @@ class TestWorkflowNodePortValidation(unittest.TestCase):
                     outputs=["out1", "out2"],
                 )
             },
-            edges={
-                model.TargetHandle(node="node1", port="in1"): model.SourceHandle(
-                    node=None, port="a"
+            input_edges={
+                model.TargetHandle(node="node1", port="in1"): model.InputSource(
+                    port="a"
                 ),
-                model.TargetHandle(node="node1", port="in2"): model.SourceHandle(
-                    node=None, port="b"
+                model.TargetHandle(node="node1", port="in2"): model.InputSource(
+                    port="b"
                 ),
-                model.TargetHandle(node=None, port="x"): model.SourceHandle(
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="x"): model.SourceHandle(
                     node="node1", port="out1"
                 ),
-                model.TargetHandle(node=None, port="y"): model.SourceHandle(
+                model.OutputTarget(port="y"): model.SourceHandle(
                     node="node1", port="out2"
                 ),
             },
         )
-        self.assertEqual(len(wf.edges), 4)
-
-    def test_nested_workflow_port_validation(self):
-        """Port validation works for nested workflows."""
-        inner = model.WorkflowNode(
-            inputs=["inner_in"],
-            outputs=["inner_out"],
-            nodes={
-                "leaf": model.AtomicNode(
-                    fully_qualified_name="m.f",
-                    inputs=["x"],
-                    outputs=["y"],
-                )
-            },
-            edges={
-                model.TargetHandle(node="leaf", port="x"): model.SourceHandle(
-                    node=None, port="inner_in"
-                ),
-                model.TargetHandle(node=None, port="inner_out"): model.SourceHandle(
-                    node="leaf", port="y"
-                ),
-            },
-        )
-
-        outer = model.WorkflowNode(
-            inputs=["outer_in"],
-            outputs=["outer_out"],
-            nodes={"inner": inner},
-            edges={
-                model.TargetHandle(node="inner", port="inner_in"): model.SourceHandle(
-                    node=None, port="outer_in"
-                ),
-                model.TargetHandle(node=None, port="outer_out"): model.SourceHandle(
-                    node="inner", port="inner_out"
-                ),
-            },
-        )
-        self.assertEqual(len(outer.nodes), 1)
-
-    def test_nested_workflow_invalid_port(self):
-        """Port validation catches errors in nested workflow edges."""
-        inner = model.WorkflowNode(
-            inputs=["inner_in"],
-            outputs=["inner_out"],
-            nodes={
-                "leaf": model.AtomicNode(
-                    fully_qualified_name="m.f",
-                    inputs=["x"],
-                    outputs=["y"],
-                )
-            },
-            edges={
-                model.TargetHandle(node="leaf", port="x"): model.SourceHandle(
-                    node=None, port="inner_in"
-                ),
-                model.TargetHandle(node=None, port="inner_out"): model.SourceHandle(
-                    node="leaf", port="y"
-                ),
-            },
-        )
-
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            model.WorkflowNode(
-                inputs=["outer_in"],
-                outputs=["outer_out"],
-                nodes={"inner": inner},
-                edges={
-                    model.TargetHandle(
-                        node="inner", port="wrong_port"
-                    ): model.SourceHandle(
-                        node=None, port="outer_in"
-                    ),  # doesn't exist
-                    model.TargetHandle(node=None, port="outer_out"): model.SourceHandle(
-                        node="inner", port="inner_out"
-                    ),
-                },
-            )
-        self.assertIn("has no input port", str(ctx.exception))
-        self.assertIn("wrong_port", str(ctx.exception))
+        self.assertEqual(len(wf.input_edges), 2)
+        self.assertEqual(len(wf.output_edges), 2)
 
 
 class TestWorkflowNodeReservedNames(unittest.TestCase):
@@ -591,7 +748,9 @@ class TestWorkflowNodeReservedNames(unittest.TestCase):
                                 outputs=[],
                             )
                         },
+                        input_edges={},
                         edges={},
+                        output_edges={},
                     )
                 exc_str = str(ctx.exception)
                 self.assertIn(invalid_label, exc_str)
@@ -618,17 +777,21 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                         outputs=["out", "out2"],
                     ),
                 },
-                edges={
-                    model.TargetHandle(node="a", port="inp"): model.SourceHandle(
-                        node=None, port="x"
+                input_edges={
+                    model.TargetHandle(node="a", port="inp"): model.InputSource(
+                        port="x"
                     ),
+                },
+                edges={
                     model.TargetHandle(node="b", port="inp"): model.SourceHandle(
                         node="a", port="out"
                     ),
                     model.TargetHandle(node="a", port="feedback"): model.SourceHandle(
                         node="b", port="out"
-                    ),  # creates cycle
-                    model.TargetHandle(node=None, port="y"): model.SourceHandle(
+                    ),
+                },
+                output_edges={
+                    model.OutputTarget(port="y"): model.SourceHandle(
                         node="b", port="out2"
                     ),
                 },
@@ -648,14 +811,18 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                         outputs=["out", "out2"],
                     )
                 },
-                edges={
-                    model.TargetHandle(node="a", port="inp"): model.SourceHandle(
-                        node=None, port="x"
+                input_edges={
+                    model.TargetHandle(node="a", port="inp"): model.InputSource(
+                        port="x"
                     ),
+                },
+                edges={
                     model.TargetHandle(node="a", port="feedback"): model.SourceHandle(
                         node="a", port="out"
-                    ),  # self-loop
-                    model.TargetHandle(node=None, port="y"): model.SourceHandle(
+                    ),
+                },
+                output_edges={
+                    model.OutputTarget(port="y"): model.SourceHandle(
                         node="a", port="out2"
                     ),
                 },
@@ -684,19 +851,19 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                     outputs=["out"],
                 ),
             },
+            input_edges={
+                model.TargetHandle(node="a", port="inp"): model.InputSource(port="x"),
+            },
             edges={
-                model.TargetHandle(node="a", port="inp"): model.SourceHandle(
-                    node=None, port="x"
-                ),
                 model.TargetHandle(node="b", port="inp"): model.SourceHandle(
                     node="a", port="out"
                 ),
                 model.TargetHandle(node="c", port="inp"): model.SourceHandle(
                     node="b", port="out"
                 ),
-                model.TargetHandle(node=None, port="y"): model.SourceHandle(
-                    node="c", port="out"
-                ),
+            },
+            output_edges={
+                model.OutputTarget(port="y"): model.SourceHandle(node="c", port="out"),
             },
         )
         self.assertEqual(len(wf.nodes), 3)
@@ -707,35 +874,39 @@ class TestNestedWorkflow(unittest.TestCase):
 
     def test_nested_construction(self):
         """Nested workflows should validate recursively."""
+        inner = model.WorkflowNode(
+            inputs=["a"],
+            outputs=["b"],
+            nodes={
+                "leaf": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=["inp"],
+                    outputs=["out"],
+                )
+            },
+            input_edges={
+                model.TargetHandle(node="leaf", port="inp"): model.InputSource(
+                    port="a"
+                ),
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="b"): model.SourceHandle(
+                    node="leaf", port="out"
+                ),
+            },
+        )
+
         outer = model.WorkflowNode(
             inputs=["x", "y"],
             outputs=["z"],
-            nodes={
-                "inner": model.WorkflowNode(
-                    inputs=["a"],
-                    outputs=["b"],
-                    nodes={
-                        "leaf": model.AtomicNode(
-                            fully_qualified_name="m.f",
-                            inputs=["inp"],
-                            outputs=["out"],
-                        )
-                    },
-                    edges={
-                        model.TargetHandle(node="leaf", port="inp"): model.SourceHandle(
-                            node=None, port="a"
-                        ),
-                        model.TargetHandle(node=None, port="b"): model.SourceHandle(
-                            node="leaf", port="out"
-                        ),
-                    },
-                ),
+            nodes={"inner": inner},
+            input_edges={
+                model.TargetHandle(node="inner", port="a"): model.InputSource(port="x"),
             },
-            edges={
-                model.TargetHandle(node="inner", port="a"): model.SourceHandle(
-                    node=None, port="x"
-                ),
-                model.TargetHandle(node=None, port="z"): model.SourceHandle(
+            edges={},
+            output_edges={
+                model.OutputTarget(port="z"): model.SourceHandle(
                     node="inner", port="b"
                 ),
             },
@@ -759,18 +930,109 @@ class TestNestedWorkflow(unittest.TestCase):
                                 outputs=[],
                             )
                         },
+                        input_edges={},
                         edges={},
+                        output_edges={},
                     ),
                 },
+                input_edges={},
                 edges={},
+                output_edges={},
             )
+
+    def test_nested_workflow_port_validation(self):
+        """Port validation works for nested workflows."""
+        inner = model.WorkflowNode(
+            inputs=["inner_in"],
+            outputs=["inner_out"],
+            nodes={
+                "leaf": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=["x"],
+                    outputs=["y"],
+                )
+            },
+            input_edges={
+                model.TargetHandle(node="leaf", port="x"): model.InputSource(
+                    port="inner_in"
+                ),
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="inner_out"): model.SourceHandle(
+                    node="leaf", port="y"
+                ),
+            },
+        )
+
+        outer = model.WorkflowNode(
+            inputs=["outer_in"],
+            outputs=["outer_out"],
+            nodes={"inner": inner},
+            input_edges={
+                model.TargetHandle(node="inner", port="inner_in"): model.InputSource(
+                    port="outer_in"
+                ),
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="outer_out"): model.SourceHandle(
+                    node="inner", port="inner_out"
+                ),
+            },
+        )
+        self.assertEqual(len(outer.nodes), 1)
+
+    def test_nested_workflow_invalid_port(self):
+        """Port validation catches errors in nested workflow edges."""
+        inner = model.WorkflowNode(
+            inputs=["inner_in"],
+            outputs=["inner_out"],
+            nodes={
+                "leaf": model.AtomicNode(
+                    fully_qualified_name="m.f",
+                    inputs=["x"],
+                    outputs=["y"],
+                )
+            },
+            input_edges={
+                model.TargetHandle(node="leaf", port="x"): model.InputSource(
+                    port="inner_in"
+                ),
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="inner_out"): model.SourceHandle(
+                    node="leaf", port="y"
+                ),
+            },
+        )
+
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            model.WorkflowNode(
+                inputs=["outer_in"],
+                outputs=["outer_out"],
+                nodes={"inner": inner},
+                input_edges={
+                    model.TargetHandle(
+                        node="inner", port="wrong_port"
+                    ): model.InputSource(port="outer_in"),
+                },
+                edges={},
+                output_edges={
+                    model.OutputTarget(port="outer_out"): model.SourceHandle(
+                        node="inner", port="inner_out"
+                    ),
+                },
+            )
+        self.assertIn("has no input port", str(ctx.exception))
+        self.assertIn("wrong_port", str(ctx.exception))
 
 
 class TestSerialization(unittest.TestCase):
     """Tests for JSON and Python mode serialization roundtrip."""
 
     def test_atomic_json_roundtrip(self):
-        """JSON mode roundtrip for AtomicNode."""
         original = model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["a"],
@@ -781,7 +1043,6 @@ class TestSerialization(unittest.TestCase):
         self.assertEqual(original, restored)
 
     def test_atomic_python_roundtrip(self):
-        """Python mode roundtrip for AtomicNode."""
         original = model.AtomicNode(
             fully_qualified_name="mod.func",
             inputs=["a"],
@@ -792,7 +1053,6 @@ class TestSerialization(unittest.TestCase):
         self.assertEqual(original, restored)
 
     def test_workflow_json_roundtrip(self):
-        """JSON mode roundtrip for WorkflowNode."""
         original = model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
@@ -803,13 +1063,12 @@ class TestSerialization(unittest.TestCase):
                     outputs=["out"],
                 )
             },
-            edges={
-                model.TargetHandle(node="n", port="inp"): model.SourceHandle(
-                    node=None, port="x"
-                ),
-                model.TargetHandle(node=None, port="y"): model.SourceHandle(
-                    node="n", port="out"
-                ),
+            input_edges={
+                model.TargetHandle(node="n", port="inp"): model.InputSource(port="x"),
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="y"): model.SourceHandle(node="n", port="out"),
             },
         )
         data = original.model_dump(mode="json")
@@ -817,7 +1076,9 @@ class TestSerialization(unittest.TestCase):
         self.assertEqual(original.inputs, restored.inputs)
         self.assertEqual(original.outputs, restored.outputs)
         self.assertEqual(len(original.nodes), len(restored.nodes))
+        self.assertEqual(original.input_edges, restored.input_edges)
         self.assertEqual(original.edges, restored.edges)
+        self.assertEqual(original.output_edges, restored.output_edges)
 
     def test_workflow_python_roundtrip(self):
         """Python mode roundtrip for WorkflowNode."""
@@ -831,13 +1092,12 @@ class TestSerialization(unittest.TestCase):
                     outputs=["out"],
                 )
             },
-            edges={
-                model.TargetHandle(node="n", port="inp"): model.SourceHandle(
-                    node=None, port="x"
-                ),
-                model.TargetHandle(node=None, port="y"): model.SourceHandle(
-                    node="n", port="out"
-                ),
+            input_edges={
+                model.TargetHandle(node="n", port="inp"): model.InputSource(port="x"),
+            },
+            edges={},
+            output_edges={
+                model.OutputTarget(port="y"): model.SourceHandle(node="n", port="out"),
             },
         )
         data = original.model_dump(mode="python")
@@ -845,10 +1105,12 @@ class TestSerialization(unittest.TestCase):
         self.assertEqual(original.inputs, restored.inputs)
         self.assertEqual(original.outputs, restored.outputs)
         self.assertEqual(len(original.nodes), len(restored.nodes))
+        self.assertEqual(original.input_edges, restored.input_edges)
         self.assertEqual(original.edges, restored.edges)
+        self.assertEqual(original.output_edges, restored.output_edges)
 
-    def test_workflow_python_mode_preserves_dict_structure(self):
-        """Python mode should preserve dict with tuple keys, not convert to list."""
+    def test_edge_serialization_format(self):
+        """Edges serialize handles to dot-notation strings."""
         original = model.WorkflowNode(
             inputs=["x", "y"],
             outputs=["z", "w"],
@@ -857,66 +1119,43 @@ class TestSerialization(unittest.TestCase):
                     fully_qualified_name="m.f",
                     inputs=["i1", "i2"],
                     outputs=["o1", "o2"],
-                )
-            },
-            edges={
-                model.TargetHandle(node="a", port="i1"): model.SourceHandle(
-                    node=None, port="x"
                 ),
-                model.TargetHandle(node="a", port="i2"): model.SourceHandle(
-                    node=None, port="y"
-                ),
-                model.TargetHandle(node=None, port="z"): model.SourceHandle(
-                    node="a", port="o1"
-                ),
-                model.TargetHandle(node=None, port="w"): model.SourceHandle(
-                    node="a", port="o2"
-                ),
-            },
-        )
-        data = original.model_dump(mode="python")
-
-        # Verify edges is a dict, not a list
-        self.assertIsInstance(data["edges"], dict)
-
-        # Verify tuple keys are stringified
-        self.assertIn("a.i1", data["edges"])
-        self.assertIn("x", data["edges"].values())
-
-        # Verify values match
-        self.assertEqual(data["edges"]["a.i1"], "x")
-        self.assertEqual(data["edges"]["z"], "a.o1")
-
-    def test_workflow_json_mode_uses_list_structure(self):
-        """JSON mode should convert handles to simple strings."""
-        original = model.WorkflowNode(
-            inputs=["x"],
-            outputs=["y"],
-            nodes={
-                "n": model.AtomicNode(
-                    fully_qualified_name="m.f",
+                "b": model.AtomicNode(
+                    fully_qualified_name="m.g",
                     inputs=["inp"],
                     outputs=["out"],
-                )
+                ),
+            },
+            input_edges={
+                model.TargetHandle(node="a", port="i1"): model.InputSource(port="x"),
+                model.TargetHandle(node="a", port="i2"): model.InputSource(port="y"),
             },
             edges={
-                model.TargetHandle(node="n", port="inp"): model.SourceHandle(
-                    node=None, port="x"
+                model.TargetHandle(node="b", port="inp"): model.SourceHandle(
+                    node="a", port="o1"
                 ),
-                model.TargetHandle(node=None, port="y"): model.SourceHandle(
-                    node="n", port="out"
-                ),
+            },
+            output_edges={
+                model.OutputTarget(port="z"): model.SourceHandle(node="a", port="o2"),
+                model.OutputTarget(port="w"): model.SourceHandle(node="b", port="out"),
             },
         )
         data = original.model_dump(mode="json")
 
-        # Verify edges is a dict
+        # input_edges: keys are "node.port", values are just "port"
+        self.assertIsInstance(data["input_edges"], dict)
+        self.assertIn("a.i1", data["input_edges"])
+        self.assertEqual(data["input_edges"]["a.i1"], "x")
+
+        # edges: both keys and values are "node.port"
         self.assertIsInstance(data["edges"], dict)
-        self.assertEqual(len(data["edges"]), 2)
-        # Each element should be a [key, value] pair
-        for k, v in data["edges"].items():
-            self.assertIsInstance(k, str)
-            self.assertIsInstance(v, str)
+        self.assertIn("b.inp", data["edges"])
+        self.assertEqual(data["edges"]["b.inp"], "a.o1")
+
+        # output_edges: keys are just "port", values are "node.port"
+        self.assertIsInstance(data["output_edges"], dict)
+        self.assertIn("z", data["output_edges"])
+        self.assertEqual(data["output_edges"]["z"], "a.o2")
 
     def test_discriminated_union_roundtrip(self):
         """Ensure type discriminator works for polymorphic deserialization."""
@@ -934,7 +1173,9 @@ class TestSerialization(unittest.TestCase):
             "inputs": [],
             "outputs": [],
             "nodes": {},
+            "input_edges": {},
             "edges": {},
+            "output_edges": {},
         }
         node = pydantic.TypeAdapter(model.NodeType).validate_python(data)
         self.assertIsInstance(node, model.WorkflowNode)
@@ -944,9 +1185,18 @@ class TestEmptyWorkflow(unittest.TestCase):
     """Edge cases with empty collections."""
 
     def test_empty_nodes_and_edges(self):
-        wf = model.WorkflowNode(inputs=[], outputs=[], nodes={}, edges={})
+        wf = model.WorkflowNode(
+            inputs=[],
+            outputs=[],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
         self.assertEqual(wf.nodes, {})
+        self.assertEqual(wf.input_edges, {})
         self.assertEqual(wf.edges, {})
+        self.assertEqual(wf.output_edges, {})
 
     def test_empty_inputs_outputs(self):
         wf = model.WorkflowNode(
@@ -959,9 +1209,12 @@ class TestEmptyWorkflow(unittest.TestCase):
                     outputs=[],
                 )
             },
+            input_edges={},
             edges={},
+            output_edges={},
         )
         self.assertEqual(wf.inputs, [])
+        self.assertEqual(wf.outputs, [])
 
 
 if __name__ == "__main__":

@@ -120,6 +120,20 @@ class AtomicNode(NodeModel):
 
 
 class HandleModel(pydantic.BaseModel):
+    """
+    A pair of source (i.e. sending) and target (i.e. receiving) handle models represent
+    a graph edge.
+
+    To negotiate the flow of data into and out of subgraphs, we allow the `node` field
+    to take on `None` values, representing that the port comes from the local scope of
+    the parent node owning the sub-graph. Whether the port reference is to parent
+    input or output is always implicit from its position as source or target.
+    Data flows:
+    - parent input -> subgraph child input
+    - subgraph child A output -> subgraph child B input
+    - subgraph child output -> parent output
+    """
+
     model_config = pydantic.ConfigDict(frozen=True)
     node: str | None
     port: str
@@ -142,10 +156,24 @@ class HandleModel(pydantic.BaseModel):
         return data
 
 
-class SourceHandle(HandleModel): ...
+class SourceHandle(HandleModel):
+    node: str
 
 
-class TargetHandle(HandleModel): ...
+class TargetHandle(HandleModel):
+    node: str
+
+
+class InputSource(HandleModel):
+    """For negotiating the flow of data from a parent scope into a subgraph"""
+
+    node: None = pydantic.Field(default=None, frozen=True)
+
+
+class OutputTarget(HandleModel):
+    """For negotiating the flow of data from inside a subgraph up to the parent scope"""
+
+    node: None = pydantic.Field(default=None, frozen=True)
 
 
 class WorkflowNode(NodeModel):
@@ -153,23 +181,14 @@ class WorkflowNode(NodeModel):
         default=RecipeElementType.WORKFLOW, frozen=True
     )
     nodes: dict[str, "NodeType"]
+    input_edges: dict[TargetHandle, InputSource]
     edges: dict[TargetHandle, SourceHandle]
+    output_edges: dict[OutputTarget, SourceHandle]
 
     @pydantic.field_validator("nodes")
     @classmethod
     def validate_node_labels(cls, v, info):
         _validate_labels(set(v.keys()), info)
-        return v
-
-    @pydantic.field_validator("edges")
-    @classmethod
-    def validate_edges(cls, v):
-        for target, source in v.items():
-            if target.node is None and source.node is None:
-                raise ValueError(
-                    f"Invalid edge: No pass-through data -- if a workflow declares IO "
-                    f"it should use it. Got target={target}, source={source}"
-                )
         return v
 
     @pydantic.model_validator(mode="after")
@@ -179,7 +198,9 @@ class WorkflowNode(NodeModel):
         workflow_inputs = set(self.inputs)
         workflow_outputs = set(self.outputs)
 
-        for target, source in self.edges.items():
+        for target, source in (
+            self.input_edges.items() | self.edges.items() | self.output_edges.items()
+        ):
             # Validate source
             if source.node is None:
                 if source.port not in workflow_inputs:
