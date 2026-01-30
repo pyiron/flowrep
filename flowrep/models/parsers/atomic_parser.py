@@ -1,7 +1,6 @@
 import ast
 import dataclasses
 import inspect
-import textwrap
 from collections.abc import Callable
 from types import FunctionType
 from typing import Annotated, get_args, get_origin, get_type_hints
@@ -108,23 +107,7 @@ def _parse_return_label_without_unpacking(func: FunctionType) -> list[str]:
 
 
 def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
-    if func.__name__ == "<lambda>":
-        raise ValueError(
-            "Cannot parse return labels for lambda functions. "
-            "Use a named function with @atomic decorator."
-        )
-
-    try:
-        source_code = textwrap.dedent(inspect.getsource(func))
-    except (OSError, TypeError) as e:
-        raise ValueError(
-            f"Cannot parse return labels for {func.__qualname__}: "
-            f"source code unavailable (lambdas, dynamically defined functions, "
-            f"and compiled code are not supported)"
-        ) from e
-
-    ast_tree = ast.parse(source_code)
-    func_node = parser_helpers.get_function_definition(ast_tree)
+    func_node = parser_helpers.get_ast_function_node(func)
     return_labels = _extract_return_labels(func_node)
     if not all(len(ret) == len(return_labels[0]) for ret in return_labels):
         raise ValueError(
