@@ -721,7 +721,7 @@ class TestWorkflow(unittest.TestCase):
         with self.assertRaises(ValueError):
             G = fwf.wf_dict_to_graph(wf_dict)
             _ = fwf.simple_run(G)
-        wf_dict["inputs"] = {"a": {"value": 1}, "b": {"value": 2}}
+        wf_dict["inputs"] = {"a": {"value": 1}, "b": {"default": 2}}
         wf_dict["nodes"]["add_0"]["inputs"] = {"y": {"metadata": "something"}}
         G = fwf.wf_dict_to_graph(wf_dict)
         self.assertDictEqual(G.nodes["add_0.inputs.y"], {"metadata": "something"})
