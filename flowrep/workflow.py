@@ -1257,7 +1257,7 @@ def wf_dict_to_graph(wf_dict: dict, prefix: str | None = None) -> nx.DiGraph:
                     content["position"] = content.get("position", ii)
                 G.add_node(tag, **content)
     for io in ["inputs", "outputs"]:
-        for ii, (tag, content) in enumerate(wf_dict.get(io, {}).items()):
+        for tag, content in wf_dict.get(io, {}).items():
             tag = f"{io}.{tag}"
             if prefix is not None:
                 tag = f"{prefix}.{tag}"
