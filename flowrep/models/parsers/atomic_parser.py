@@ -4,53 +4,10 @@ import inspect
 import textwrap
 from collections.abc import Callable
 from types import FunctionType
-from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
+from typing import Annotated, get_args, get_origin, get_type_hints
 
-from pydantic import BaseModel
-
-from flowrep import workflow
 from flowrep.models.nodes import atomic_model
-
-
-class OutputMeta(BaseModel, extra="ignore"):
-    """
-    Metadata for output port annotations.
-
-    Can be used directly in Annotated hints or as a dict (which will be coerced).
-    Extra keys are ignored, allowing interoperability with other packages.
-    Downstream packages can explicitly `extra="forbid"` to lock things down again.
-
-    Examples:
-        # Using the model directly
-        def f(x) -> Annotated[float, OutputMeta(label="result")]:
-            ...
-
-        # Using a plain dict (coerced automatically)
-        def f(x) -> Annotated[float, {"label": "result"}]:
-            ...
-
-        # Extra keys are ignored (useful for other packages)
-        def f(x) -> Annotated[float, {"label": "result", "units": "m", "iri": "..."}]:
-            ...
-    """
-
-    label: str | None = None
-
-    @classmethod
-    def from_annotation(cls, meta: Any) -> Self | None:
-        """
-        Attempt to coerce annotation metadata into OutputMeta.
-
-        Returns None if the metadata cannot be interpreted as OutputMeta.
-        """
-        if isinstance(meta, cls):
-            return meta
-        if isinstance(meta, dict):
-            try:
-                return cls.model_validate(meta)
-            except Exception:
-                return None
-        return None
+from flowrep.models.parsers import ast_helpers, label_helpers
 
 
 def atomic(
@@ -80,18 +37,11 @@ def atomic(
         target_func = None
 
     def decorator(f: FunctionType) -> FunctionType:
-        _ensure_function(f, "@atomic")
+        ast_helpers.ensure_function(f, "@atomic")
         f.flowrep_recipe = parse_atomic(f, *parsed_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
         return f
 
     return decorator(target_func) if target_func else decorator
-
-
-def _ensure_function(f: Any, decorator_name: str) -> None:
-    if not isinstance(f, FunctionType):
-        raise TypeError(
-            f"{decorator_name} can only decorate functions, got {type(f).__name__}"
-        )
 
 
 def parse_atomic(
@@ -101,7 +51,7 @@ def parse_atomic(
 ) -> atomic_model.AtomicNode:
     fully_qualified_name = f"{func.__module__}.{func.__qualname__}"
 
-    input_labels = _get_input_labels(func)
+    input_labels = label_helpers.get_input_labels(func)
 
     scraped_output_labels = _get_output_labels(func, unpack_mode)
     if len(output_labels) > 0 and len(output_labels) != len(scraped_output_labels):
@@ -119,33 +69,6 @@ def parse_atomic(
         ),
         unpack_mode=unpack_mode,
     )
-
-
-def _get_function_definition(tree: ast.Module) -> ast.FunctionDef:
-    if len(tree.body) == 1 and isinstance(tree.body[0], ast.FunctionDef):
-        return tree.body[0]
-    raise ValueError(
-        f"Expected ast to receive a single function defintion, but got "
-        f"{workflow._function_to_ast_dict(tree.body)}"
-    )
-
-
-def _get_input_labels(func: FunctionType) -> list[str]:
-    sig = inspect.signature(func)
-    for param in sig.parameters.values():
-        if param.kind in (
-            inspect.Parameter.VAR_POSITIONAL,
-            inspect.Parameter.VAR_KEYWORD,
-        ):
-            raise ValueError(
-                f"Function arguments cannot contain *args or **kwargs, got "
-                f"{list(sig.parameters.keys())}"
-            )
-    return list(sig.parameters.keys())
-
-
-def default_output_label(i: int) -> str:
-    return f"output_{i}"
 
 
 def _get_output_labels(
@@ -173,83 +96,15 @@ def _parse_return_label_without_unpacking(func: FunctionType) -> list[str]:
     try:
         hints = get_type_hints(func, include_extras=True)
     except Exception:
-        return [default_output_label(0)]
+        return [label_helpers.default_output_label(0)]
 
     return_hint = hints.get("return")
     if return_hint is None:
-        return [default_output_label(0)]
+        return [label_helpers.default_output_label(0)]
 
     # Extract label from the outermost Annotated wrapper
-    label = _extract_label_from_annotated(return_hint)
-    return [label] if label is not None else [default_output_label(0)]
-
-
-def _extract_label_from_annotated(hint: Any) -> str | None:
-    """
-    Extract label from an Annotated type hint.
-
-    Accepts either OutputMeta instances or dicts with a "label" key.
-    Returns None if no label metadata found.
-    """
-    if get_origin(hint) is Annotated:
-        args = get_args(hint)
-        # args[0] is the actual type, args[1:] are metadata
-        for meta in args[1:]:
-            parsed = OutputMeta.from_annotation(meta)
-            if parsed is not None and parsed.label is not None:
-                return parsed.label
-    return None
-
-
-def _get_annotated_output_labels(func: FunctionType) -> list[str | None] | None:
-    """
-    Extract output labels from return type annotation using Annotated.
-
-    For TUPLE unpacking - looks at tuple element annotations.
-    Unwraps outer Annotated wrapper if present to get to tuple elements.
-
-    Supports:
-        - Single: `-> Annotated[T, {"label": "name"}]`
-        - Tuple:  `-> tuple[Annotated[T1, {"label": "a"}], Annotated[T2, {"label": "b"}]]`
-        - Wrapped: `-> Annotated[tuple[Annotated[...], ...], {"label": "ignored"}]`
-
-    Returns None if no annotation or no label metadata found.
-    Returns list with None elements for positions without labels.
-    """
-    try:
-        hints = get_type_hints(func, include_extras=True)
-    except Exception:
-        return None
-
-    return_hint = hints.get("return")
-    if return_hint is None:
-        return None
-
-    # Unwrap outer Annotated to get to the actual type (for TUPLE mode,
-    # we care about element annotations, not the tuple-level annotation)
-    inner_type = return_hint
-    if get_origin(return_hint) is Annotated:
-        inner_type = get_args(return_hint)[0]
-
-    origin = get_origin(inner_type)
-
-    # Handle tuple returns - look at element annotations
-    if origin is tuple:
-        args = get_args(inner_type)
-        # Handle tuple[T, ...] (homogeneous variable-length) - can't extract labels
-        if len(args) == 2 and args[1] is ...:
-            return None
-        labels = [_extract_label_from_annotated(arg) for arg in args]
-        # Return None if no labels found at all
-        if all(label is None for label in labels):
-            return None
-        return labels
-
-    # Single return value - use original hint (may have Annotated wrapper)
-    label = _extract_label_from_annotated(return_hint)
-    if label is not None:
-        return [label]
-    return None
+    label = label_helpers.extract_label_from_annotated(return_hint)
+    return [label] if label is not None else [label_helpers.default_output_label(0)]
 
 
 def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
@@ -269,7 +124,7 @@ def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
         ) from e
 
     ast_tree = ast.parse(source_code)
-    func_node = _get_function_definition(ast_tree)
+    func_node = ast_helpers.get_function_definition(ast_tree)
     return_labels = _extract_return_labels(func_node)
     if not all(len(ret) == len(return_labels[0]) for ret in return_labels):
         raise ValueError(
@@ -282,13 +137,13 @@ def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
         (
             label
             if all(other_branch[i] == label for other_branch in return_labels)
-            else default_output_label(i)
+            else label_helpers.default_output_label(i)
         )
         for i, label in enumerate(return_labels[0])
     )
 
     # Override with annotation-based labels where available
-    annotated = _get_annotated_output_labels(func)
+    annotated = label_helpers.get_annotated_output_labels(func)
     if annotated is not None:
         if len(annotated) != len(scraped):
             raise ValueError(
@@ -308,21 +163,7 @@ def _extract_return_labels(func_node: ast.FunctionDef) -> list[tuple[str, ...]]:
     return_stmts = [n for n in ast.walk(func_node) if isinstance(n, ast.Return)]
     return_labels: list[tuple[str, ...]] = [()] if len(return_stmts) == 0 else []
     for ret in return_stmts:
-        if ret.value is None:
-            return_labels.append(tuple())
-        elif isinstance(ret.value, ast.Tuple):
-            return_labels.append(
-                tuple(
-                    elt.id if isinstance(elt, ast.Name) else default_output_label(i)
-                    for i, elt in enumerate(ret.value.elts)
-                )
-            )
-        else:
-            return_labels.append(
-                (ret.value.id,)
-                if isinstance(ret.value, ast.Name)
-                else (default_output_label(0),)
-            )
+        return_labels.append(label_helpers.extract_return_labels(ret))
     return return_labels
 
 

@@ -6,73 +6,7 @@ import unittest
 from typing import Annotated
 
 from flowrep.models.nodes import atomic_model
-from flowrep.models.parsers import atomic_parser
-
-
-class TestOutputMeta(unittest.TestCase):
-    def test_from_annotation_with_model_instance(self):
-        meta = atomic_parser.OutputMeta(label="test")
-        result = atomic_parser.OutputMeta.from_annotation(meta)
-        self.assertEqual(result, meta)
-
-    def test_from_annotation_with_dict(self):
-        result = atomic_parser.OutputMeta.from_annotation({"label": "test"})
-        self.assertIsNotNone(result)
-        self.assertEqual(result.label, "test")
-
-    def test_from_annotation_ignores_extra_keys(self):
-        result = atomic_parser.OutputMeta.from_annotation(
-            {
-                "label": "test",
-                "units": "meters",
-                "uri": "http://example.org/distance",
-                "arbitrary": "garbage",
-            }
-        )
-        self.assertIsNotNone(result)
-        self.assertEqual(result.label, "test")
-
-    def test_from_annotation_with_no_label(self):
-        result = atomic_parser.OutputMeta.from_annotation({"units": "meters"})
-        self.assertIsNotNone(result)
-        self.assertIsNone(result.label)
-
-    def test_from_annotation_with_empty_dict(self):
-        result = atomic_parser.OutputMeta.from_annotation({})
-        self.assertIsNotNone(result)
-        self.assertIsNone(result.label)
-
-    def test_from_annotation_with_non_dict_non_model(self):
-        self.assertIsNone(atomic_parser.OutputMeta.from_annotation("string"))
-        self.assertIsNone(atomic_parser.OutputMeta.from_annotation(42))
-        self.assertIsNone(atomic_parser.OutputMeta.from_annotation(["list"]))
-
-    def test_model_direct_construction(self):
-        meta = atomic_parser.OutputMeta(label="result")
-        self.assertEqual(meta.label, "result")
-
-    def test_model_default_label_is_none(self):
-        meta = atomic_parser.OutputMeta()
-        self.assertIsNone(meta.label)
-
-
-class TestOutputMetaFromAnnotationExceptions(unittest.TestCase):
-    """Tests for exception handling in atomic_parser.OutputMeta.from_annotation."""
-
-    def test_dict_with_wrong_label_type_returns_none(self):
-        """Pydantic validation fails if label is not str."""
-        result = atomic_parser.OutputMeta.from_annotation({"label": 123})
-        self.assertIsNone(result)
-
-    def test_dict_with_label_as_list_returns_none(self):
-        result = atomic_parser.OutputMeta.from_annotation(
-            {"label": ["not", "a", "string"]}
-        )
-        self.assertIsNone(result)
-
-    def test_dict_with_label_as_dict_returns_none(self):
-        result = atomic_parser.OutputMeta.from_annotation({"label": {"nested": "dict"}})
-        self.assertIsNone(result)
+from flowrep.models.parsers import ast_helpers, atomic_parser, label_helpers
 
 
 class TestParseReturnLabelWithoutUnpackingExceptions(unittest.TestCase):
@@ -119,114 +53,6 @@ class TestParseReturnLabelWithoutUnpackingExceptions(unittest.TestCase):
 
         labels = atomic_parser._parse_return_label_without_unpacking(func)
         self.assertEqual(labels, ["output_0"])
-
-
-class TestGetAnnotatedOutputLabelsExceptions(unittest.TestCase):
-    """Tests for exception handling in _get_annotated_output_labels."""
-
-    def test_unresolvable_forward_reference_returns_none(self):
-        exec_globals = {}
-        exec(
-            "from typing import Annotated\n"
-            "def func() -> 'NonExistentType':\n"
-            "    return 42\n",
-            exec_globals,
-        )
-        func = exec_globals["func"]
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertIsNone(labels)
-
-    def test_tuple_with_unresolvable_element_returns_none(self):
-        exec_globals = {"Annotated": Annotated, "tuple": tuple}
-        exec(
-            "def func() -> tuple['UndefinedA', 'UndefinedB']:\n" "    return 1, 2\n",
-            exec_globals,
-        )
-        func = exec_globals["func"]
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertIsNone(labels)
-
-    def test_complex_invalid_annotation_returns_none(self):
-        """Deeply nested invalid annotation."""
-        exec_globals = {"Annotated": Annotated, "tuple": tuple}
-        exec(
-            "def func() -> Annotated[tuple['Missing', int], {'label': 'x'}]:\n"
-            "    return 1, 2\n",
-            exec_globals,
-        )
-        func = exec_globals["func"]
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertIsNone(labels)
-
-    def test_annotated_with_invalid_label_type_returns_none(self):
-        """Label exists but has wrong type - should not extract it."""
-
-        def func() -> Annotated[float, {"label": 999}]:
-            return 42.0
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        # from_annotation returns None for invalid label type,
-        # so no valid label is found
-        self.assertIsNone(labels)
-
-    def test_tuple_with_some_invalid_labels_partial_result(self):
-        """Mix of valid and invalid label types."""
-
-        def func() -> (
-            tuple[
-                Annotated[int, {"label": "valid"}],
-                Annotated[int, {"label": 123}],  # invalid type
-            ]
-        ):
-            return 1, 2
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        # First is valid, second fails validation -> None
-        self.assertEqual(labels, ["valid", None])
-
-
-class TestEnsureFunction(unittest.TestCase):
-    def test_rejects_class(self):
-        class MyClass:
-            pass
-
-        with self.assertRaises(TypeError) as ctx:
-            atomic_parser._ensure_function(MyClass, "@atomic")
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
-        self.assertIn("type", str(ctx.exception))
-
-    def test_rejects_callable_instance(self):
-        class Callable:
-            def __call__(self):
-                pass
-
-        with self.assertRaises(TypeError) as ctx:
-            atomic_parser._ensure_function(Callable(), "@atomic")
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
-        self.assertIn("Callable", str(ctx.exception))
-
-    def test_accepts_lambda(self):
-        # Lambdas are FunctionType, so this should pass _ensure_function
-        # (they fail later in parse_atomic due to source unavailability)
-        f = lambda: None  # noqa: E731
-        atomic_parser._ensure_function(f, "@atomic")
-
-    def test_rejects_builtin(self):
-        with self.assertRaises(TypeError) as ctx:
-            atomic_parser._ensure_function(len, "@atomic")
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
-        self.assertIn("builtin_function_or_method", str(ctx.exception))
-
-    def test_custom_decorator_name(self):
-        class Foo:
-            pass
-
-        with self.assertRaises(TypeError) as ctx:
-            atomic_parser._ensure_function(Foo(), "@custom")
-        self.assertIn("@custom can only decorate functions", str(ctx.exception))
 
 
 class TestAtomicDecorator(unittest.TestCase):
@@ -486,44 +312,6 @@ class TestAtomicEdgeCases(unittest.TestCase):
         self.assertEqual(func.flowrep_recipe.outputs, ["out1", "out2"])
 
 
-class TestGetInputLabels(unittest.TestCase):
-    def test_simple_params(self):
-        def func(a, b, c):
-            pass
-
-        labels = atomic_parser._get_input_labels(func)
-        self.assertEqual(labels, ["a", "b", "c"])
-
-    def test_no_params(self):
-        def func():
-            pass
-
-        labels = atomic_parser._get_input_labels(func)
-        self.assertEqual(labels, [])
-
-    def test_varargs_raises_error(self):
-        def func(*args):
-            pass
-
-        with self.assertRaises(ValueError) as ctx:
-            atomic_parser._get_input_labels(func)
-        self.assertIn("*args", str(ctx.exception))
-
-    def test_kwargs_raises_error(self):
-        def func(**kwargs):
-            pass
-
-        with self.assertRaises(ValueError) as ctx:
-            atomic_parser._get_input_labels(func)
-        self.assertIn("**kwargs", str(ctx.exception))
-
-
-class TestDefaultOutputLabel(unittest.TestCase):
-    def test_label_format(self):
-        self.assertEqual(atomic_parser.default_output_label(0), "output_0")
-        self.assertEqual(atomic_parser.default_output_label(5), "output_5")
-
-
 class TestGetOutputLabels(unittest.TestCase):
     def test_unpack_mode_none(self):
         def func():
@@ -655,7 +443,7 @@ class TestExtractReturnLabels(unittest.TestCase):
 
         source = textwrap.dedent(inspect.getsource(func))
         tree = ast.parse(source)
-        func_node = atomic_parser._get_function_definition(tree)
+        func_node = ast_helpers.get_function_definition(tree)
         labels = atomic_parser._extract_return_labels(func_node)
         self.assertEqual(labels, [()])
 
@@ -666,7 +454,7 @@ class TestExtractReturnLabels(unittest.TestCase):
 
         source = textwrap.dedent(inspect.getsource(func))
         tree = ast.parse(source)
-        func_node = atomic_parser._get_function_definition(tree)
+        func_node = ast_helpers.get_function_definition(tree)
         labels = atomic_parser._extract_return_labels(func_node)
         self.assertEqual(labels, [("x",)])
 
@@ -678,7 +466,7 @@ class TestExtractReturnLabels(unittest.TestCase):
 
         source = textwrap.dedent(inspect.getsource(func))
         tree = ast.parse(source)
-        func_node = atomic_parser._get_function_definition(tree)
+        func_node = ast_helpers.get_function_definition(tree)
         labels = atomic_parser._extract_return_labels(func_node)
         self.assertEqual(labels, [("a", "b")])
 
@@ -770,189 +558,6 @@ class TestParseDataclassReturnLabels(unittest.TestCase):
         self.assertIn("same number of elements", str(ctx.exception).lower())
 
 
-class TestGetFunctionDefinition(unittest.TestCase):
-    def test_valid_single_function(self):
-        source = "def func(): pass"
-        tree = ast.parse(source)
-        func_def = atomic_parser._get_function_definition(tree)
-        self.assertIsInstance(func_def, ast.FunctionDef)
-        self.assertEqual(func_def.name, "func")
-
-    def test_multiple_statements_raises_error(self):
-        source = "def func1(): pass\ndef func2(): pass"
-        tree = ast.parse(source)
-        with self.assertRaises(ValueError):
-            atomic_parser._get_function_definition(tree)
-
-    def test_non_function_raises_error(self):
-        source = "x = 1"
-        tree = ast.parse(source)
-        with self.assertRaises(ValueError):
-            atomic_parser._get_function_definition(tree)
-
-
-class TestExtractLabelFromAnnotated(unittest.TestCase):
-    def test_extracts_label_from_dict_metadata(self):
-        hint = Annotated[float, {"label": "distance"}]
-        label = atomic_parser._extract_label_from_annotated(hint)
-        self.assertEqual(label, "distance")
-
-    def test_extracts_label_from_output_meta(self):
-        hint = Annotated[float, atomic_parser.OutputMeta(label="distance")]
-        label = atomic_parser._extract_label_from_annotated(hint)
-        self.assertEqual(label, "distance")
-
-    def test_returns_none_for_plain_type(self):
-        label = atomic_parser._extract_label_from_annotated(float)
-        self.assertIsNone(label)
-
-    def test_returns_none_for_annotated_without_label(self):
-        hint = Annotated[float, "some other metadata"]
-        label = atomic_parser._extract_label_from_annotated(hint)
-        self.assertIsNone(label)
-
-    def test_finds_label_among_multiple_metadata(self):
-        with self.subTest("first metadata"):
-            hint = Annotated[
-                float, "units: meters", {"label": "distance"}, {"other": "data"}
-            ]
-            label = atomic_parser._extract_label_from_annotated(hint)
-            self.assertEqual(label, "distance")
-        with self.subTest("appears later"):
-            hint = Annotated[
-                float, "units: meters", {"other": "data"}, {"label": "distance"}
-            ]
-            label = atomic_parser._extract_label_from_annotated(hint)
-            self.assertEqual(label, "distance")
-
-    def test_finds_output_meta_among_multiple_metadata(self):
-        hint = Annotated[
-            float, "units: meters", atomic_parser.OutputMeta(label="distance"), 42
-        ]
-        label = atomic_parser._extract_label_from_annotated(hint)
-        self.assertEqual(label, "distance")
-
-    def test_uses_first_label_if_multiple_dicts(self):
-        with self.subTest("as dictionary"):
-            hint = Annotated[float, {"label": "first"}, {"label": "second"}]
-            label = atomic_parser._extract_label_from_annotated(hint)
-            self.assertEqual(label, "first")
-        with self.subTest("as model"):
-            hint = Annotated[
-                float,
-                atomic_parser.OutputMeta(label="first"),
-                atomic_parser.OutputMeta(label="second"),
-            ]
-            label = atomic_parser._extract_label_from_annotated(hint)
-            self.assertEqual(label, "first")
-
-    def test_dict_with_extra_keys_works(self):
-        hint = Annotated[
-            float, {"label": "distance", "units": "m", "uri": "http://..."}
-        ]
-        label = atomic_parser._extract_label_from_annotated(hint)
-        self.assertEqual(label, "distance")
-
-    def test_output_meta_none_label_returns_none(self):
-        hint = Annotated[float, atomic_parser.OutputMeta()]
-        label = atomic_parser._extract_label_from_annotated(hint)
-        self.assertIsNone(label)
-
-    def test_dict_without_label_key_returns_none(self):
-        hint = Annotated[float, {"units": "meters", "uri": "http://..."}]
-        label = atomic_parser._extract_label_from_annotated(hint)
-        self.assertIsNone(label)
-
-
-class TestGetAnnotatedOutputLabels(unittest.TestCase):
-    def test_single_annotated_return_dict(self):
-        def func(x) -> Annotated[float, {"label": "result"}]:
-            return x * 2
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertEqual(labels, ["result"])
-
-    def test_single_annotated_return_model(self):
-        def func(x) -> Annotated[float, atomic_parser.OutputMeta(label="result")]:
-            return x * 2
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertEqual(labels, ["result"])
-
-    def test_tuple_all_annotated_dict(self):
-        def func(
-            x,
-        ) -> tuple[
-            Annotated[float, {"label": "distance"}],
-            Annotated[str, {"label": "city"}],
-        ]:
-            return x, "somewhere"
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertEqual(labels, ["distance", "city"])
-
-    def test_tuple_all_annotated_model(self):
-        def func(x) -> tuple[
-            Annotated[float, atomic_parser.OutputMeta(label="distance")],
-            Annotated[str, atomic_parser.OutputMeta(label="city")],
-        ]:
-            return x, "somewhere"
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertEqual(labels, ["distance", "city"])
-
-    def test_tuple_mixed_dict_and_model(self):
-        def func(
-            x,
-        ) -> tuple[
-            Annotated[float, {"label": "from_dict"}],
-            Annotated[str, atomic_parser.OutputMeta(label="from_model")],
-        ]:
-            return x, "somewhere"
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertEqual(labels, ["from_dict", "from_model"])
-
-    def test_tuple_partial_annotation(self):
-        def func(
-            x,
-        ) -> tuple[
-            Annotated[float, {"label": "a"}], str, Annotated[int, {"label": "c"}]
-        ]:
-            return x, "b", 1
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertEqual(labels, ["a", None, "c"])
-
-    def test_no_return_annotation(self):
-        def func(x):
-            return x
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertIsNone(labels)
-
-    def test_plain_type_annotation(self):
-        def func(x) -> float:
-            return x
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertIsNone(labels)
-
-    def test_plain_tuple_annotation(self):
-        def func(x) -> tuple[float, str]:
-            return x, "y"
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertIsNone(labels)
-
-    def test_variable_length_tuple_returns_none(self):
-        def func(x) -> tuple[Annotated[int, {"label": "val"}], ...]:
-            return (1, 2, 3)
-
-        labels = atomic_parser._get_annotated_output_labels(func)
-        self.assertIsNone(labels)
-
-
 class TestParseTupleReturnLabelsWithAnnotations(unittest.TestCase):
     def test_annotation_overrides_scraped(self):
         def func() -> Annotated[int, {"label": "custom"}]:
@@ -1033,7 +638,7 @@ class TestAtomicWithAnnotations(unittest.TestCase):
 
     def test_atomic_uses_annotated_labels_model(self):
         @atomic_parser.atomic
-        def func(x) -> Annotated[float, atomic_parser.OutputMeta(label="doubled")]:
+        def func(x) -> Annotated[float, label_helpers.OutputMeta(label="doubled")]:
             return x * 2
 
         self.assertEqual(func.flowrep_recipe.outputs, ["doubled"])
@@ -1056,8 +661,8 @@ class TestAtomicWithAnnotations(unittest.TestCase):
 
             @atomic_parser.atomic
             def func(x) -> tuple[
-                Annotated[float, atomic_parser.OutputMeta(label="sum")],
-                Annotated[float, atomic_parser.OutputMeta(label="diff")],
+                Annotated[float, label_helpers.OutputMeta(label="sum")],
+                Annotated[float, label_helpers.OutputMeta(label="diff")],
             ]:
                 return x + 1, x - 1
 
@@ -1190,7 +795,7 @@ class TestAnnotationWithDataclass(unittest.TestCase):
             x: int
             y: int
 
-        def func() -> Annotated[Result, atomic_parser.OutputMeta(label="ignored")]:
+        def func() -> Annotated[Result, label_helpers.OutputMeta(label="ignored")]:
             return Result(1, 2)
 
         node = atomic_parser.parse_atomic(
