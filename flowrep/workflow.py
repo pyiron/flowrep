@@ -936,9 +936,7 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
             G.add_node(
                 key,
                 step="node",
-                **{
-                    k: v for k, v in node.items() if k not in ["inputs", "outputs"]
-                },
+                **{k: v for k, v in node.items() if k not in ["inputs", "outputs"]},
             )
         for ii, (inp, data) in enumerate(node.get("inputs", {}).items()):
             G.add_node(f"{key}.inputs.{inp}", step="input", **({"position": ii} | data))
