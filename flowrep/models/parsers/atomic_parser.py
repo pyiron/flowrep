@@ -7,7 +7,7 @@ from types import FunctionType
 from typing import Annotated, get_args, get_origin, get_type_hints
 
 from flowrep.models.nodes import atomic_model
-from flowrep.models.parsers import ast_helpers, label_helpers
+from flowrep.models.parsers import label_helpers, parser_helpers
 
 
 def atomic(
@@ -37,7 +37,7 @@ def atomic(
         target_func = None
 
     def decorator(f: FunctionType) -> FunctionType:
-        ast_helpers.ensure_function(f, "@atomic")
+        parser_helpers.ensure_function(f, "@atomic")
         f.flowrep_recipe = parse_atomic(f, *parsed_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
         return f
 
@@ -124,7 +124,7 @@ def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
         ) from e
 
     ast_tree = ast.parse(source_code)
-    func_node = ast_helpers.get_function_definition(ast_tree)
+    func_node = parser_helpers.get_function_definition(ast_tree)
     return_labels = _extract_return_labels(func_node)
     if not all(len(ret) == len(return_labels[0]) for ret in return_labels):
         raise ValueError(

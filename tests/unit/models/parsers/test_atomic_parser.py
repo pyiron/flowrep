@@ -6,7 +6,7 @@ import unittest
 from typing import Annotated
 
 from flowrep.models.nodes import atomic_model
-from flowrep.models.parsers import ast_helpers, atomic_parser, label_helpers
+from flowrep.models.parsers import atomic_parser, label_helpers, parser_helpers
 
 
 class TestParseReturnLabelWithoutUnpackingExceptions(unittest.TestCase):
@@ -443,7 +443,7 @@ class TestExtractReturnLabels(unittest.TestCase):
 
         source = textwrap.dedent(inspect.getsource(func))
         tree = ast.parse(source)
-        func_node = ast_helpers.get_function_definition(tree)
+        func_node = parser_helpers.get_function_definition(tree)
         labels = atomic_parser._extract_return_labels(func_node)
         self.assertEqual(labels, [()])
 
@@ -454,7 +454,7 @@ class TestExtractReturnLabels(unittest.TestCase):
 
         source = textwrap.dedent(inspect.getsource(func))
         tree = ast.parse(source)
-        func_node = ast_helpers.get_function_definition(tree)
+        func_node = parser_helpers.get_function_definition(tree)
         labels = atomic_parser._extract_return_labels(func_node)
         self.assertEqual(labels, [("x",)])
 
@@ -466,7 +466,7 @@ class TestExtractReturnLabels(unittest.TestCase):
 
         source = textwrap.dedent(inspect.getsource(func))
         tree = ast.parse(source)
-        func_node = ast_helpers.get_function_definition(tree)
+        func_node = parser_helpers.get_function_definition(tree)
         labels = atomic_parser._extract_return_labels(func_node)
         self.assertEqual(labels, [("a", "b")])
 
