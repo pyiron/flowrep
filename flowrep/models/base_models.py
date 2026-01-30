@@ -51,7 +51,7 @@ Label = Annotated[str, pydantic.BeforeValidator(_validate_label)]
 T = TypeVar("T", bound=Hashable)
 
 
-def validate_unique(v: list[T], message: str | None) -> list[T]:
+def validate_unique(v: list[T], message: str | None = None) -> list[T]:
     if len(v) != len(set(v)):
         dupes = [x for x in v if v.count(x) > 1]
         raise ValueError(
