@@ -5,8 +5,8 @@ import textwrap
 import unittest
 from typing import Annotated
 
-from flowrep.models import atomic_parser
 from flowrep.models.nodes import atomic_model
+from flowrep.models.parsers import atomic_parser
 
 
 class TestOutputMeta(unittest.TestCase):
