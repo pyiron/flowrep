@@ -66,5 +66,75 @@ class TestGetFunctionDefinition(unittest.TestCase):
             parser_helpers.get_function_definition(tree)
 
 
+class TestGetSourceCode(unittest.TestCase):
+    def test_returns_source_for_normal_function(self):
+        def my_func():
+            return 42
+
+        source = parser_helpers.get_source_code(my_func)
+        self.assertIn("def my_func", source)
+        self.assertIn("return 42", source)
+
+    def test_lambda_raises_error(self):
+        func = lambda x: x * 2  # noqa: E731
+
+        with self.assertRaises(ValueError) as ctx:
+            parser_helpers.get_source_code(func)
+        self.assertIn("lambda", str(ctx.exception))
+
+    def test_dynamically_defined_function_raises_error(self):
+        exec_globals = {}
+        exec("def dynamic_func(x): return x", exec_globals)
+        func = exec_globals["dynamic_func"]
+
+        with self.assertRaises(ValueError) as ctx:
+            parser_helpers.get_source_code(func)
+        self.assertIn("source code unavailable", str(ctx.exception))
+
+    def test_builtin_function_raises_error(self):
+        with self.assertRaises(ValueError) as ctx:
+            parser_helpers.get_source_code(len)
+        self.assertIn("source code unavailable", str(ctx.exception))
+
+    def test_dedents_source(self):
+        # Nested function to ensure indentation exists
+        def outer():
+            def inner():
+                return 1
+
+            return inner
+
+        func = outer()
+        source = parser_helpers.get_source_code(func)
+        # Should start at column 0, not be indented
+        self.assertTrue(source.startswith("def inner"))
+
+
+class TestGetAstFunctionNode(unittest.TestCase):
+    def test_returns_function_def_node(self):
+        def my_func(x, y):
+            return x + y
+
+        node = parser_helpers.get_ast_function_node(my_func)
+        self.assertIsInstance(node, ast.FunctionDef)
+        self.assertEqual(node.name, "my_func")
+        self.assertEqual(len(node.args.args), 2)
+
+    def test_lambda_raises_error(self):
+        func = lambda: None  # noqa: E731
+
+        with self.assertRaises(ValueError) as ctx:
+            parser_helpers.get_ast_function_node(func)
+        self.assertIn("lambda", str(ctx.exception))
+
+    def test_dynamically_defined_function_raises_error(self):
+        exec_globals = {}
+        exec("def f(): pass", exec_globals)
+
+        with self.assertRaises(ValueError) as ctx:
+            parser_helpers.get_ast_function_node(exec_globals["f"])
+        self.assertIn("source code unavailable", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

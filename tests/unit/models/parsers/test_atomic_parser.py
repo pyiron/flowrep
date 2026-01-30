@@ -414,27 +414,6 @@ class TestParseTupleReturnLabels(unittest.TestCase):
             atomic_parser._parse_tuple_return_labels(func)
         self.assertIn("same number of elements", str(ctx.exception))
 
-    def test_lambda_raises_error(self):
-        func = lambda x: x * 2  # noqa: E731
-
-        with self.assertRaises(ValueError) as ctx:
-            atomic_parser._parse_tuple_return_labels(func)
-        self.assertIn("lambda", str(ctx.exception))
-
-    def test_dynamically_defined_function_raises_error(self):
-        exec_globals = {}
-        exec("def dynamic_func(x): return x, x + 1", exec_globals)
-        func = exec_globals["dynamic_func"]
-
-        with self.assertRaises(ValueError) as ctx:
-            atomic_parser._parse_tuple_return_labels(func)
-        self.assertIn("source code unavailable", str(ctx.exception))
-
-    def test_builtin_function_raises_error(self):
-        with self.assertRaises(ValueError) as ctx:
-            atomic_parser._parse_tuple_return_labels(len)
-        self.assertIn("source code unavailable", str(ctx.exception))
-
 
 class TestExtractReturnLabels(unittest.TestCase):
     def test_no_return(self):
