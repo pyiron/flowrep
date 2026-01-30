@@ -933,10 +933,16 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
             nodes_to_delete.append(key)
         else:
             G.add_node(key, step="node", function=node["function"])
-        for inp, data in workflow_dict["nodes"][key].get("inputs", {}).items():
-            G.add_node(f"{key}.inputs.{inp}", step="input", **data)
-        for out, data in workflow_dict["nodes"][key].get("outputs", {}).items():
-            G.add_node(f"{key}.outputs.{out}", step="output", **data)
+        for ii, (inp, data) in enumerate(
+            workflow_dict["nodes"][key].get("inputs", {}).items()
+        ):
+            G.add_node(f"{key}.inputs.{inp}", step="input", **({"position": ii} | data))
+        for ii, (out, data) in enumerate(
+            workflow_dict["nodes"][key].get("outputs", {}).items()
+        ):
+            G.add_node(
+                f"{key}.outputs.{out}", step="output", **({"position": ii} | data)
+            )
     for edge in _get_missing_edges(cast(list[tuple[str, str]], workflow_dict["edges"])):
         G.add_edge(*edge)
     for node in nodes_to_delete:
