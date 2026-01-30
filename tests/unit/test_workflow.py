@@ -358,19 +358,6 @@ class TestWorkflow(unittest.TestCase):
         self.assertIn(("parallel_execution_0.outputs.e", "outputs.c"), edges)
         self.assertIn(("parallel_execution_0.outputs.f", "outputs.d"), edges)
 
-    def test_parallel_execution(self):
-        graph = fwf.analyze_function(parallel_execution)[0]
-        self.assertEqual(
-            fwf.find_parallel_execution_levels(graph),
-            [
-                ["a_0", "b_0"],
-                ["add_0", "multiply_0"],
-                ["c_0", "d_0"],
-                ["operation_0"],
-                ["e_0", "f_0"],
-            ],
-        )
-
     def test_run_without_predefined_arguments(self):
         data = without_predefined_arguments.run(a=5, b=3)
         x, y = without_predefined_arguments(a=5, b=3)
@@ -632,6 +619,7 @@ class TestWorkflow(unittest.TestCase):
             return x, y
 
         workflow_dict = workflow_with_data.run(a=10, b=20)
+        workflow_dict["label"] = "workflow_with_data"
         hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
         for node in hashed_dict.values():
             self.assertIn("hash", node)
@@ -647,11 +635,15 @@ class TestWorkflow(unittest.TestCase):
         for node in hashed_dict.values():
             self.assertNotIn("hash", node)
         workflow_dict["inputs"] = {"a": {"value": 10}, "b": {"value": 20}}
+        workflow_dict_run = workflow_with_data.run(a=10, b=20)
+        workflow_dict_run["label"] = "workflow_with_data"
         self.assertDictEqual(
             fwf.get_hashed_node_dict(workflow_dict),
-            fwf.get_hashed_node_dict(workflow_with_data.run(a=10, b=20)),
+            fwf.get_hashed_node_dict(workflow_dict_run),
         )
         workflow_dict = example_workflow.run(a=10, b=20)
+        workflow_dict["label"] = "example_workflow"
+        workflow_dict["nodes"]["example_macro_0"]["label"] = "example_macro_0"
         hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
         self.assertIn("example_macro_0.operation_0", hashed_dict)
 
@@ -662,6 +654,7 @@ class TestWorkflow(unittest.TestCase):
 
         test_instance = TestClass()
         workflow_dict = workflow_with_class.run(test=test_instance)
+        workflow_dict["label"] = "workflow_with_class"
         hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
         for node in hashed_dict.values():
             self.assertIn("hash", node)
@@ -713,6 +706,30 @@ class TestWorkflow(unittest.TestCase):
 
     def test_value(self):
         self.assertAlmostEqual(example_macro.run(0.1, 0.2)["outputs"]["f"]["value"], 1)
+
+    def test_wf_dict_to_graph(self):
+        wf_dict = example_workflow.serialize_workflow()
+        G = fwf.wf_dict_to_graph(wf_dict)
+        self.assertIsInstance(G, nx.DiGraph)
+        with self.assertRaises(ValueError):
+            G = fwf.wf_dict_to_graph(wf_dict)
+            _ = fwf.simple_run(G)
+        wf_dict["inputs"] = {"a": {"value": 1}, "b": {"default": 2}}
+        wf_dict["nodes"]["add_0"]["inputs"] = {"y": {"metadata": "something"}}
+        G = fwf.wf_dict_to_graph(wf_dict)
+        self.assertDictEqual(G.nodes["add_0.inputs.y"], {"metadata": "something"})
+        G = fwf.simple_run(G)
+        self.assertDictEqual(G.nodes["outputs.z"], {"value": 12})
+        rev_edges = fwf.graph_to_wf_dict(G)["edges"]
+        self.assertEqual(
+            sorted(rev_edges),
+            sorted(wf_dict["edges"]),
+        )
+        rev_macro_edges = fwf.graph_to_wf_dict(G)["nodes"]["example_macro_0"]["edges"]
+        self.assertEqual(
+            sorted(rev_macro_edges),
+            sorted(wf_dict["nodes"]["example_macro_0"]["edges"]),
+        )
 
 
 if __name__ == "__main__":

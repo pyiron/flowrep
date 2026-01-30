@@ -4,10 +4,9 @@ import hashlib
 import inspect
 import json
 import textwrap
-from collections import deque
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
-from functools import cached_property, update_wrapper
+from functools import update_wrapper
 from typing import Any, Generic, TypeVar, cast
 
 import networkx as nx
@@ -18,20 +17,31 @@ from flowrep import tools
 F = TypeVar("F", bound=Callable[..., object])
 
 
+def _sanitize_input(keys, *args, **kwargs) -> dict[str, Any]:
+    assert len(args) <= len(
+        keys
+    ), f"At most {len(keys)} positional arguments but {len(args)} were given"
+    for ii, arg in enumerate(args):
+        if keys[ii] in kwargs:
+            raise TypeError(f"Multiple values for argument '{keys[ii]}'")
+        kwargs[keys[ii]] = arg
+    return kwargs
+
+
 class FunctionWithWorkflow(Generic[F]):
     def __init__(self, func: F) -> None:
         self.func = func
         update_wrapper(self, func)  # Copies __name__, __doc__, etc.
 
-    def _get_workflow(self, with_function: bool = False) -> "_Workflow":
-        workflow_dict = self._serialize_workflow(
-            with_function=with_function, with_io=True
-        )
-        return _Workflow(workflow_dict)
-
     def run(self, *args, with_function: bool = False, **kwargs) -> dict[str, Any]:
-        w = self._get_workflow(with_function=with_function)
-        return w.run(*args, **kwargs)
+        wf_dict = self._serialize_workflow(with_function=with_function, with_io=True)
+        for arg, value in _sanitize_input(
+            list(wf_dict["inputs"].keys()), *args, **kwargs
+        ).items():
+            wf_dict["inputs"][arg]["value"] = value
+        G = wf_dict_to_graph(wf_dict)
+        G_run = simple_run(G)
+        return graph_to_wf_dict(G_run)
 
     # This function is to be overwritten in semantikon
     def serialize_workflow(
@@ -71,7 +81,7 @@ class FunctionDictFlowAnalyzer:
         for d in inp["defaults"]:
             assert d["_type"] == "Constant"
             defaults.append({"default": d["value"]})
-        defaults = (len(inp["args"]) - len(defaults)) * [{}] + defaults
+        defaults = [{} for _ in range(len(inp["args"]) - len(defaults))] + defaults
         return dict(zip(args, defaults, strict=True))
 
     def analyze(self) -> tuple[nx.DiGraph, dict[str, Any]]:
@@ -848,165 +858,6 @@ def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]
     return edge_list + extra_edges
 
 
-class _Workflow:
-    def __init__(self, workflow_dict: dict[str, Any]):
-        self._workflow = tools.dict_to_recursive_dd(workflow_dict)
-
-    @cached_property
-    def _all_edges(self) -> list[tuple[str, str]]:
-        return _get_missing_edges(cast(list[tuple[str, str]], self._workflow["edges"]))
-
-    @cached_property
-    def _graph(self) -> nx.DiGraph:
-        return nx.DiGraph(self._all_edges)
-
-    @cached_property
-    def _execution_list(self) -> list[list[str]]:
-        return find_parallel_execution_levels(self._graph)
-
-    def _sanitize_input(self, *args, **kwargs) -> dict[str, Any]:
-        keys = list(self._workflow["inputs"].keys())
-        assert len(args) <= len(keys), (
-            f"{self._workflow['label']}() takes at most {len(keys)} "
-            f"positional arguments but {len(args)} were given"
-        )
-        for ii, arg in enumerate(args):
-            if keys[ii] in kwargs:
-                raise TypeError(
-                    f"{self._workflow['label']}() got multiple values for"
-                    f" argument '{keys[ii]}'"
-                )
-            kwargs[keys[ii]] = arg
-        return kwargs
-
-    def _set_inputs(self, *args, **kwargs):
-        kwargs = self._sanitize_input(*args, **kwargs)
-        for key, value in kwargs.items():
-            self._workflow["inputs"][key]["value"] = value
-
-    def _get_value_from_global(self, path: str) -> Any:
-        io, var = path.split(".")
-        assert io in self._workflow, f"{io} not in workflow"
-        data = self._workflow[io][var]
-        assert (
-            "value" in data or "default" in data
-        ), f"value for {path} not set in {data}"
-        if "value" not in data and "default" in data:
-            data["value"] = data["default"]
-        return data["value"]
-
-    def _get_value_from_node(self, path: str) -> Any:
-        node, io, var = path.split(".")
-        assert (
-            "value" in self._workflow["nodes"][node][io][var]
-        ), f"value for {path} not set"
-        return self._workflow["nodes"][node][io][var]["value"]
-
-    def _set_value_from_global(self, path, value):
-        io, var = path.split(".")
-        self._workflow[io][var]["value"] = value
-
-    def _set_value_from_node(self, path, value):
-        node, io, var = path.split(".")
-        self._workflow["nodes"][node][io][var]["value"] = value
-
-    def _execute_node(self, function: str) -> Any:
-        node = self._workflow["nodes"][function]
-        input_kwargs = {}
-        input_args = []
-        try:
-            for key, content in node.get("inputs", {}).items():
-                assert "value" in content, f"value not defined for {function}"
-                try:
-                    input_args.append(content["value"])
-                except (ValueError, TypeError):
-                    input_kwargs[key] = content["value"]
-        except KeyError:
-            raise KeyError(f"value not defined for {function}") from None
-        if node["type"] == "Workflow":
-            workflow = _Workflow(node)
-            outputs = [
-                data["value"]
-                for data in workflow.run(*input_args, **input_kwargs)[
-                    "outputs"
-                ].values()
-            ]
-            if len(outputs) == 1:
-                outputs = outputs[0]
-        else:
-            outputs = node["function"](*input_args, **input_kwargs)
-        return outputs
-
-    def _set_value(self, tag, value):
-        if len(tag.split(".")) == 2 and tag.split(".")[0] in ("inputs", "outputs"):
-            self._set_value_from_global(tag, value)
-        elif len(tag.split(".")) == 3 and tag.split(".")[1] in ("inputs", "outputs"):
-            self._set_value_from_node(tag, value)
-        elif "." in tag:
-            raise ValueError(f"{tag} not recognized")
-
-    def _get_value(self, tag: str):
-        if len(tag.split(".")) == 2 and tag.split(".")[0] in ("inputs", "outputs"):
-            return self._get_value_from_global(tag)
-        elif len(tag.split(".")) == 3 and tag.split(".")[1] in ("inputs", "outputs"):
-            return self._get_value_from_node(tag)
-        elif "." not in tag:
-            return self._execute_node(tag)
-        else:
-            raise ValueError(f"{tag} not recognized")
-
-    def run(self, *args, **kwargs) -> dict[str, Any]:
-        self._set_inputs(*args, **kwargs)
-        for current_list in self._execution_list:
-            for item in current_list:
-                values = self._get_value(item)
-                nodes = self._graph.edges(item)
-                if "." not in item and len(nodes) > 1:
-                    for value, node in zip(values, nodes, strict=False):
-                        self._set_value(node[1], value)
-                else:
-                    for node in nodes:
-                        self._set_value(node[1], values)
-        return tools.recursive_dd_to_dict(self._workflow)
-
-
-def find_parallel_execution_levels(G: nx.DiGraph) -> list[list[str]]:
-    """
-    Find levels of parallel execution in a directed acyclic graph (DAG).
-
-    Args:
-        G (nx.DiGraph): The directed graph representing the function.
-
-    Returns:
-        list[list[str]]: A list of lists, where each inner list contains nodes
-            that can be executed in parallel.
-
-    Comment:
-        This function only gives you a list of nodes that can be executed in
-        parallel, but does not tell you which processes can be executed in
-        case there is a process that takes longer at a higher level.
-    """
-    in_degree = dict(cast(Iterable[tuple[Any, int]], G.in_degree()))
-    queue = deque([node for node in G.nodes if in_degree[node] == 0])
-    levels = []
-
-    while queue:
-        current_level = list(queue)
-        if "input" not in current_level and "output" not in current_level:
-            levels.append(current_level)
-
-        next_queue: deque = deque()
-        for node in current_level:
-            for neighbor in G.successors(node):
-                in_degree[neighbor] -= 1
-                if in_degree[neighbor] == 0:
-                    next_queue.append(neighbor)
-
-        queue = next_queue
-
-    return levels
-
-
 def workflow(func: Callable) -> FunctionWithWorkflow:
     """
     Decorator to convert a function into a workflow with metadata.
@@ -1213,3 +1064,151 @@ def _get_function_keywords(function: Callable) -> list[str | int]:
         else:
             items.append(name)
     return items
+
+
+def wf_dict_to_graph(wf_dict: dict, prefix: str | None = None) -> nx.DiGraph:
+    """
+    Convert a workflow dictionary into a directed graph representation.
+
+    Args:
+        wf_dict (dict): The dictionary representation of the workflow.
+        prefix (str | None): An optional prefix to add to node names.
+
+    Returns:
+        nx.DiGraph: A directed graph representing the workflow.
+    """
+    G = nx.DiGraph()
+    for edge in _get_missing_edges(wf_dict["edges"]):
+        if prefix is not None:
+            edge = [f"{prefix}.{e}" for e in edge]
+        G.add_edge(*edge)
+    for node, data in wf_dict["nodes"].items():
+        full_node = node
+        if prefix is not None:
+            full_node = f"{prefix}.{node}"
+        if data["type"] != "Function":
+            G.remove_node(full_node)
+            G.update(wf_dict_to_graph(data, prefix=full_node))
+            continue
+        else:
+            G.add_node(
+                full_node,
+                **{
+                    key: value
+                    for key, value in data.items()
+                    if key not in ["inputs", "outputs"]
+                },
+            )
+        for io in ["inputs", "outputs"]:
+            for ii, (tag, content) in enumerate(
+                wf_dict["nodes"][node].get(io, {}).items()
+            ):
+                tag = f"{full_node}.{io}.{tag}"
+                if io == "outputs" and len(wf_dict["nodes"][node][io]) > 1:
+                    content["position"] = content.get("position", ii)
+                G.add_node(tag, **content)
+    for io in ["inputs", "outputs"]:
+        for tag, content in wf_dict.get(io, {}).items():
+            tag = f"{io}.{tag}"
+            if prefix is not None:
+                tag = f"{prefix}.{tag}"
+            G.add_node(tag, **content)
+    G.graph["" if prefix is None else prefix] = {
+        key: value
+        for key, value in wf_dict.items()
+        if key not in ["nodes", "edges", "inputs", "outputs"]
+    }
+    return G
+
+
+def simple_run(G: nx.DiGraph) -> nx.DiGraph:
+    for node in nx.topological_sort(G):
+        data = G.nodes[node]
+        if data.get("type") == "Function":
+            if all("value" in G.nodes[succ] for succ in G.successors(node)):
+                continue
+            kwargs = {}
+            for inp in G.predecessors(node):
+                kwargs[inp.split(".")[-1]] = G.nodes[inp]["value"]
+            outputs = data["function"](**kwargs)
+            successors = list(G.successors(node))
+            if len(successors) == 1:
+                G.nodes[successors[0]]["value"] = outputs
+            else:
+                for succ in successors:
+                    G.nodes[succ]["value"] = outputs[
+                        int(G.nodes[succ].get("position", succ.split(".")[-1]))
+                    ]
+            continue
+        if "default" in data and "value" not in data:
+            data["value"] = data["default"]
+        if G.in_degree(node) == 0 and "value" not in data:
+            raise ValueError("Input values not entirely set")
+        assert "value" in data
+        for succ in G.successors(node):
+            if G.nodes[succ].get("type") != "Function":
+                G.nodes[succ]["value"] = data["value"]
+    return G
+
+
+def graph_to_wf_dict(G: nx.DiGraph) -> dict:
+    """
+    Convert a directed graph representation of a workflow into a workflow
+    dictionary.
+
+    Args:
+        G (nx.DiGraph): A directed graph representing the workflow.
+
+    Returns:
+        dict: The dictionary representation of the workflow.
+    """
+    wf_dict = tools.dict_to_recursive_dd({})
+
+    for node, metadata in list(G.nodes.data()):
+        for io in ["inputs", "outputs"]:
+            if "." in node and node.split(".")[-2] == io:
+                d = wf_dict
+                for n in node.split(".")[:-2]:
+                    d = d["nodes"][n]
+                d[io][node.split(".")[-1]] = metadata
+                break
+        else:
+            d = wf_dict
+            for n in node.split("."):
+                d = d["nodes"][n]
+            d.update(metadata)
+
+    for edge in G.edges:
+        if any(
+            "." not in e or e.split(".")[-2] not in ["inputs", "outputs"] for e in edge
+        ):
+            continue
+        if len(edge[0].split(".")) == len(edge[1].split(".")):
+            nodes = edge[0].split(".")[:-3]
+            edge = tuple([".".join(e.split(".")[-3:]) for e in edge])
+        elif len(edge[0].split(".")) > len(edge[1].split(".")):
+            nodes = edge[1].split(".")[:-2]
+            edge = (
+                ".".join(edge[0].split(".")[-3:]),
+                ".".join(edge[1].split(".")[-2:]),
+            )
+        else:
+            nodes = edge[0].split(".")[:-2]
+            edge = (
+                ".".join(edge[0].split(".")[-2:]),
+                ".".join(edge[1].split(".")[-3:]),
+            )
+        d = wf_dict
+        for node in nodes:
+            d = d["nodes"][node]
+        if not isinstance(d["edges"], list):
+            d["edges"] = []
+        d["edges"].append(edge)
+    for key, value in G.graph.items():
+        d = wf_dict
+        if key != "":
+            for n in key.split("."):
+                d = d["nodes"][n]
+        for k, v in value.items():
+            d[k] = v
+    return tools.recursive_dd_to_dict(wf_dict)
