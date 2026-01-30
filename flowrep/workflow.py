@@ -928,7 +928,9 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
         assert node["type"] in ["Function", "Workflow"]
         if node["type"] == "Workflow":
             child_G = get_workflow_graph(node)
-            child_G.graph[key] = child_G.graph.pop("")
+            for child_key in list(child_G.graph.keys()):
+                new_key = f"{key}.{child_key}" if child_key != "" else key
+                child_G.graph[new_key] = child_G.graph[child_key]
             mapping = {n: key + "." + n for n in child_G.nodes()}
             G = nx.union(nx.relabel_nodes(child_G, mapping), G)
             nodes_to_delete.append(key)
