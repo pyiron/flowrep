@@ -718,6 +718,9 @@ class TestWorkflow(unittest.TestCase):
         wf_dict = example_workflow.serialize_workflow()
         G = fwf.wf_dict_to_graph(wf_dict)
         self.assertIsInstance(G, nx.DiGraph)
+        with self.assertRaises(ValueError):
+            G = fwf.wf_dict_to_graph(wf_dict)
+            _ = fwf.simple_run(G)
         wf_dict["inputs"] = {"a": {"value": 1}, "b": {"value": 2}}
         G = fwf.wf_dict_to_graph(wf_dict)
         G = fwf.simple_run(G)
