@@ -1114,7 +1114,7 @@ def simple_run(G: nx.DiGraph) -> nx.DiGraph:
     return G
 
 
-def graph_to_wf_dict(G: nx.DiGraph) -> dict:
+def graph_to_wf_dict(G: nx.DiGraph, flatten: bool = False) -> dict:
     """
     Convert a directed graph representation of a workflow into a workflow
     dictionary.
@@ -1126,26 +1126,52 @@ def graph_to_wf_dict(G: nx.DiGraph) -> dict:
         dict: The dictionary representation of the workflow.
     """
     wf_dict = tools.dict_to_recursive_dd({})
+    if flatten:
+        G = flatten_graph(G)
 
     for node, metadata in list(G.nodes.data()):
         t = metadata["step"]
         if t in ["input", "output"]:
-            d = wf_dict
-            for n in node.split(".")[:-2]:
-                d = d["nodes"][n]
-            d[f"{t}s"][node.split(".")[-1]] = {
-                key: value for key, value in metadata.items() if key != "step"
-            }
+            if flatten:
+                if node.startswith(t):
+                    for key, value in metadata.items():
+                        if key == "step":
+                            continue
+                        wf_dict[f"{t}s"][node.split(".")[-1]][key] = value
+                else:
+                    for key, value in metadata.items():
+                        if key == "step":
+                            continue
+                        wf_dict["nodes"][node.rsplit(".", 2)[0]][f"{t}s"][node.split(".")[-1]][key] = value
+            else:
+                d = wf_dict
+                for n in node.split(".")[:-2]:
+                    d = d["nodes"][n]
+                for key, value in metadata.items():
+                    if key == "step":
+                        continue
+                    d[f"{t}s"][node.split(".")[-1]][key] = value
         else:
-            d = wf_dict
-            for n in node.split("."):
-                d = d["nodes"][n]
-            d.update({key: value for key, value in metadata.items() if key != "step"})
+            if flatten:
+                for key, value in metadata.items():
+                    if key == "step":
+                        continue
+                    wf_dict["nodes"][node][key] = value
+            else:
+                d = wf_dict
+                for n in node.split("."):
+                    d = d["nodes"][n]
+                d.update({key: value for key, value in metadata.items() if key != "step"})
 
     for edge in G.edges:
         if any(
             "." not in e or e.split(".")[-2] not in ["inputs", "outputs"] for e in edge
         ):
+            continue
+        if flatten:
+            if not isinstance(wf_dict["edges"], list):
+                wf_dict["edges"] = []
+            wf_dict["edges"].append(edge)
             continue
         if len(edge[0].split(".")) == len(edge[1].split(".")):
             nodes = edge[0].split(".")[:-3]
