@@ -849,10 +849,14 @@ def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]
         for tag in edge:
             if len(tag.split(".")) < 3:
                 continue
-            if tag.split(".")[1] == "inputs":
-                new_edge = (tag, tag.split(".")[0])
-            elif tag.split(".")[1] == "outputs":
-                new_edge = (tag.split(".")[0], tag)
+            assert tag.split(".")[-2] in ["inputs", "outputs"], (
+                f"Edge tag {tag} not recognized. "
+                "Expected format: <function>.(inputs|outputs).<variable>"
+            )
+            if tag.split(".")[-2] == "inputs":
+                new_edge = (tag, tag.rsplit(".", 2)[0])
+            elif tag.split(".")[-2] == "outputs":
+                new_edge = (tag.rsplit(".", 2)[0], tag)
             if new_edge not in extra_edges:
                 extra_edges.append(new_edge)
     return edge_list + extra_edges
@@ -1142,7 +1146,9 @@ def graph_to_wf_dict(G: nx.DiGraph, flatten: bool = False) -> dict:
                     for key, value in metadata.items():
                         if key == "step":
                             continue
-                        wf_dict["nodes"][node.rsplit(".", 2)[0]][f"{t}s"][node.split(".")[-1]][key] = value
+                        wf_dict["nodes"][node.rsplit(".", 2)[0]][f"{t}s"][
+                            node.split(".")[-1]
+                        ][key] = value
             else:
                 d = wf_dict
                 for n in node.split(".")[:-2]:
@@ -1161,7 +1167,9 @@ def graph_to_wf_dict(G: nx.DiGraph, flatten: bool = False) -> dict:
                 d = wf_dict
                 for n in node.split("."):
                     d = d["nodes"][n]
-                d.update({key: value for key, value in metadata.items() if key != "step"})
+                d.update(
+                    {key: value for key, value in metadata.items() if key != "step"}
+                )
 
     for edge in G.edges:
         if any(
@@ -1194,13 +1202,14 @@ def graph_to_wf_dict(G: nx.DiGraph, flatten: bool = False) -> dict:
         if not isinstance(d["edges"], list):
             d["edges"] = []
         d["edges"].append(edge)
-    for key, value in G.graph.items():
-        d = wf_dict
-        if key != "":
-            for n in key.split("."):
-                d = d["nodes"][n]
-        for k, v in value.items():
-            d[k] = v
+    if not flatten:
+        for key, value in G.graph.items():
+            d = wf_dict
+            if key != "":
+                for n in key.split("."):
+                    d = d["nodes"][n]
+            for k, v in value.items():
+                d[k] = v
     return tools.recursive_dd_to_dict(wf_dict)
 
 
@@ -1229,4 +1238,5 @@ def flatten_graph(G: nx.DiGraph) -> nx.DiGraph:
             if k not in G.nodes[main_node]:
                 H.nodes[main_node][k] = val
         H = nx.contracted_nodes(H, main_node, node, self_loops=False)
+        del H.nodes[main_node]["contraction"]
     return H

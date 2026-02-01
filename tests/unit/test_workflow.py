@@ -729,6 +729,16 @@ class TestWorkflow(unittest.TestCase):
             sorted(wf_dict["nodes"]["example_macro_0"]["edges"]),
         )
 
+    def test_flattening(self):
+        wf_dict = example_workflow.serialize_workflow()
+        wf_dict["inputs"] = {"a": {"value": 1}, "b": {"default": 2}}
+        G = fwf.get_workflow_graph(wf_dict)
+        result = fwf.simple_run(G)
+        wf_dict_flat = fwf.graph_to_wf_dict(G, flatten=True)
+        G_flat = fwf.get_workflow_graph(wf_dict_flat)
+        result_flat = fwf.simple_run(G_flat)
+        self.assertEqual(result_flat.nodes["outputs.z"]["value"], result.nodes["outputs.z"]["value"])
+
 
 if __name__ == "__main__":
     unittest.main()
