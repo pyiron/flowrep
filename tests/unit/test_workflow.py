@@ -737,7 +737,9 @@ class TestWorkflow(unittest.TestCase):
         wf_dict_flat = fwf.graph_to_wf_dict(G, flatten=True)
         G_flat = fwf.get_workflow_graph(wf_dict_flat)
         result_flat = fwf.simple_run(G_flat)
-        self.assertEqual(result_flat.nodes["outputs.z"]["value"], result.nodes["outputs.z"]["value"])
+        self.assertEqual(
+            result_flat.nodes["outputs.z"]["value"], result.nodes["outputs.z"]["value"]
+        )
 
 
 if __name__ == "__main__":
