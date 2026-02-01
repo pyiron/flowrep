@@ -1176,3 +1176,31 @@ def graph_to_wf_dict(G: nx.DiGraph) -> dict:
         for k, v in value.items():
             d[k] = v
     return tools.recursive_dd_to_dict(wf_dict)
+
+
+def flatten_graph(G: nx.DiGraph) -> nx.DiGraph:
+    H = G.copy()
+    nodes = [node for node, data in G.nodes.data() if data["step"] == "node"]
+    ios = [
+        io
+        for n in nodes
+        for neighbors in [G.predecessors(n), G.successors(n)]
+        for io in neighbors
+    ]
+    for node, data in G.nodes.data():
+        if (
+            data["step"] == "node"
+            or node in ios
+            or node.split(".")[0] in ["inputs", "outputs"]
+        ):
+            continue
+        assert data["step"] in ["input", "output"]
+        if data["step"] == "input":
+            main_node = list(G.successors(node))[0]
+        else:
+            main_node = list(G.predecessors(node))[0]
+        for k, val in G.nodes[node].items():
+            if k not in G.nodes[main_node]:
+                H.nodes[main_node][k] = val
+        H = nx.contracted_nodes(H, main_node, node, self_loops=False)
+    return H
