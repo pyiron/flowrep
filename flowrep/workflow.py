@@ -921,6 +921,10 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
     Returns:
         nx.DiGraph: A directed graph representing the workflow.
     """
+
+    def _get_items(d: dict[str, dict]) -> dict[str, dict]:
+        return {k: v for k, v in d.items() if k not in ["inputs", "outputs"]}
+
     G = nx.DiGraph()
     for inp, data in workflow_dict.get("inputs", {}).items():
         G.add_node(f"inputs.{inp}", step="input", **data)
@@ -929,9 +933,9 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
 
     nodes_to_delete = []
     if "test" in workflow_dict:
-        G.add_node("test", step="node", function=workflow_dict["test"]["function"])
+        G.add_node("test", step="node", **_get_items(workflow_dict["test"]))
     if "iter" in workflow_dict:
-        G.add_node("iter", step="node", function=workflow_dict["iter"]["function"])
+        G.add_node("iter", step="node", **_get_items(workflow_dict["iter"]))
     for key, node in workflow_dict["nodes"].items():
         if node["type"] != "Function":
             child_G = get_workflow_graph(node)
@@ -942,11 +946,7 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
             G = nx.union(nx.relabel_nodes(child_G, mapping), G)
             nodes_to_delete.append(key)
         else:
-            G.add_node(
-                key,
-                step="node",
-                **{k: v for k, v in node.items() if k not in ["inputs", "outputs"]},
-            )
+            G.add_node(key, step="node", **_get_items(node))
         for ii, (inp, data) in enumerate(node.get("inputs", {}).items()):
             G.add_node(f"{key}.inputs.{inp}", step="input", **({"position": ii} | data))
         for ii, (out, data) in enumerate(node.get("outputs", {}).items()):
