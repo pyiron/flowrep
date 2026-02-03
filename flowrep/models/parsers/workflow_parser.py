@@ -15,26 +15,20 @@ def workflow(
     /,
     *output_labels: str,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
-    parsed_labels: tuple[str, ...]
-    if isinstance(func, FunctionType):
-        # Direct decoration: @workflow
-        parsed_labels = ()
-        target_func = func
-    elif func is not None and not isinstance(func, str):
-        raise TypeError(
-            f"@workflow can only decorate functions, got {type(func).__name__}"
-        )
-    else:
-        # Called with args: @workflow(...) or @workflow("label", ...)
-        parsed_labels = (func,) + output_labels if func is not None else output_labels
-        target_func = None
+    """
+    Decorator that attaches a flowrep.model.WorkflowNode to the `flowrep_recipe`
+    attribute of a function, under constraints that the function is parseable as a
+    workflow recipe.
 
-    def decorator(f: FunctionType) -> FunctionType:
-        parser_helpers.ensure_function(f, "@workflow")
-        f.flowrep_recipe = parse_workflow(f, *parsed_labels)  # type: ignore[attr-defined]
-        return f
-
-    return decorator(target_func) if target_func else decorator
+    Can be used as with or without args (to specify output labels) -- @workflow or
+    @workflow(...)
+    """
+    return parser_helpers.parser2decorator(
+        func,
+        output_labels,
+        parser=parse_workflow,
+        decorator_name="@workflow",
+    )
 
 
 def parse_workflow(

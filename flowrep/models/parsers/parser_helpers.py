@@ -1,10 +1,42 @@
 import ast
 import inspect
 import textwrap
+from collections.abc import Callable
 from types import FunctionType
 from typing import Any, cast
 
 from flowrep import workflow
+
+
+def parser2decorator(
+    func: FunctionType | str | None,
+    output_labels: tuple[str, ...],
+    *,
+    parser: Callable[..., Any],
+    decorator_name: str,
+    parser_kwargs: dict[str, Any] | None = None,
+) -> FunctionType | Callable[[FunctionType], FunctionType]:
+    parser_kwargs = parser_kwargs or {}
+
+    if isinstance(func, FunctionType):
+        # Direct decoration: @workflow / @atomic
+        parsed_labels: tuple[str, ...] = ()
+        target_func = func
+    elif func is not None and not isinstance(func, str):
+        raise TypeError(
+            f"{decorator_name} can only decorate functions, got {type(func).__name__}"
+        )
+    else:
+        # Called with args: @decorator(...) or @decorator("label", ...)
+        parsed_labels = (func,) + output_labels if func is not None else output_labels
+        target_func = None
+
+    def decorator(f: FunctionType) -> FunctionType:
+        ensure_function(f, decorator_name)
+        f.flowrep_recipe = parser(f, *parsed_labels, **parser_kwargs)  # type: ignore[attr-defined]
+        return f
+
+    return decorator(target_func) if target_func else decorator
 
 
 def ensure_function(f: Any, decorator_name: str) -> None:

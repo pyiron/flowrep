@@ -20,28 +20,16 @@ def atomic(
     Decorator that attaches a flowrep.model.AtomicNode to the `recipe` attribute of a
     function.
 
-    Can be used as with or without kwargs -- @atomic or @atomic(unpack_mode=...)
+    Can be used as with or without args (to specify output labels) and/or kwargs --
+    @atomic or @atomic(..., unpack_mode=...)
     """
-    parsed_labels: tuple[str, ...]
-    if isinstance(func, FunctionType):
-        # Direct decoration: @atomic
-        parsed_labels = ()
-        target_func = func
-    elif func is not None and not isinstance(func, str):
-        raise TypeError(
-            f"@atomic can only decorate functions, got {type(func).__name__}"
-        )
-    else:
-        # Called with args: @atomic(...) or @atomic("label", ...)
-        parsed_labels = (func,) + output_labels if func is not None else output_labels
-        target_func = None
-
-    def decorator(f: FunctionType) -> FunctionType:
-        parser_helpers.ensure_function(f, "@atomic")
-        f.flowrep_recipe = parse_atomic(f, *parsed_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
-        return f
-
-    return decorator(target_func) if target_func else decorator
+    return parser_helpers.parser2decorator(
+        func,
+        output_labels,
+        parser=parse_atomic,
+        decorator_name="@atomic",
+        parser_kwargs={"unpack_mode": unpack_mode},
+    )
 
 
 def parse_atomic(
