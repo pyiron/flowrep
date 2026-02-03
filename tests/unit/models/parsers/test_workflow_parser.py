@@ -3,7 +3,7 @@ import unittest
 from typing import Annotated, Any
 
 from flowrep.models import edge_models
-from flowrep.models.nodes import atomic_model, workflow_model
+from flowrep.models.nodes import atomic_model, helper_models, workflow_model
 from flowrep.models.parsers import atomic_parser, workflow_parser
 
 
@@ -643,6 +643,170 @@ class TestWorkflowWithAtomicRecipes(unittest.TestCase):
             },
             recipe.output_edges,
         )
+
+
+class TestYieldSymbolsPassedToInputPorts(unittest.TestCase):
+    """Tests for yield_symbols_passed_to_input_ports function."""
+
+    def _make_labeled_node(
+        self, label: str, inputs: list[str], outputs: list[str] | None = None
+    ) -> helper_models.LabeledNode:
+        """Helper to create a LabeledNode with an AtomicNode."""
+        outputs = outputs or ["output_0"]
+        return helper_models.LabeledNode(
+            label=label,
+            node=atomic_model.AtomicNode(
+                fully_qualified_name="test.module.func",
+                inputs=inputs,
+                outputs=outputs,
+            ),
+        )
+
+    def _parse_call(self, call_str: str) -> ast.Call:
+        """Parse a call expression string into an ast.Call node."""
+        return ast.parse(call_str, mode="eval").body
+
+    def test_single_positional_arg(self):
+        call = self._parse_call("func(x)")
+        node = self._make_labeled_node("func_0", inputs=["a"])
+
+        result = list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertEqual(result, [("x", "a")])
+
+    def test_multiple_positional_args(self):
+        call = self._parse_call("func(x, y, z)")
+        node = self._make_labeled_node("func_0", inputs=["a", "b", "c"])
+
+        result = list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertEqual(result, [("x", "a"), ("y", "b"), ("z", "c")])
+
+    def test_single_keyword_arg(self):
+        call = self._parse_call("func(a=x)")
+        node = self._make_labeled_node("func_0", inputs=["a"])
+
+        result = list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertEqual(result, [("x", "a")])
+
+    def test_multiple_keyword_args(self):
+        call = self._parse_call("func(a=x, b=y)")
+        node = self._make_labeled_node("func_0", inputs=["a", "b"])
+
+        result = list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertEqual(result, [("x", "a"), ("y", "b")])
+
+    def test_mixed_positional_and_keyword(self):
+        call = self._parse_call("func(x, b=y)")
+        node = self._make_labeled_node("func_0", inputs=["a", "b"])
+
+        result = list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertEqual(result, [("x", "a"), ("y", "b")])
+
+    def test_keyword_args_out_of_order(self):
+        call = self._parse_call("func(b=y, a=x)")
+        node = self._make_labeled_node("func_0", inputs=["a", "b"])
+
+        result = list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        # Keywords yield in call order, not definition order
+        self.assertEqual(result, [("y", "b"), ("x", "a")])
+
+    def test_no_args(self):
+        call = self._parse_call("func()")
+        node = self._make_labeled_node("func_0", inputs=[])
+
+        result = list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertEqual(result, [])
+
+    def test_literal_positional_raises_type_error(self):
+        call = self._parse_call("func(42)")
+        node = self._make_labeled_node("func_0", inputs=["a"])
+
+        with self.assertRaises(TypeError) as ctx:
+            list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertIn("symbolic input", str(ctx.exception))
+        self.assertIn("func_0", str(ctx.exception))
+
+    def test_literal_keyword_raises_type_error(self):
+        call = self._parse_call("func(a=42)")
+        node = self._make_labeled_node("func_0", inputs=["a"])
+
+        with self.assertRaises(TypeError) as ctx:
+            list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertIn("symbolic input", str(ctx.exception))
+
+    def test_expression_positional_raises_type_error(self):
+        call = self._parse_call("func(x + y)")
+        node = self._make_labeled_node("func_0", inputs=["a"])
+
+        with self.assertRaises(TypeError) as ctx:
+            list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertIn("symbolic input", str(ctx.exception))
+
+    def test_nested_call_raises_type_error(self):
+        call = self._parse_call("func(other_func(x))")
+        node = self._make_labeled_node("func_0", inputs=["a"])
+
+        with self.assertRaises(TypeError) as ctx:
+            list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertIn("symbolic input", str(ctx.exception))
+
+    def test_attribute_access_raises_type_error(self):
+        call = self._parse_call("func(obj.attr)")
+        node = self._make_labeled_node("func_0", inputs=["a"])
+
+        with self.assertRaises(TypeError) as ctx:
+            list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertIn("symbolic input", str(ctx.exception))
+
+    def test_subscript_raises_type_error(self):
+        call = self._parse_call("func(arr[0])")
+        node = self._make_labeled_node("func_0", inputs=["a"])
+
+        with self.assertRaises(TypeError) as ctx:
+            list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertIn("symbolic input", str(ctx.exception))
+
+    def test_string_literal_keyword_raises_type_error(self):
+        call = self._parse_call("func(a='hello')")
+        node = self._make_labeled_node("func_0", inputs=["a"])
+
+        with self.assertRaises(TypeError) as ctx:
+            list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertIn("symbolic input", str(ctx.exception))
+
+    def test_mixed_valid_and_invalid_stops_at_invalid(self):
+        """Generator yields valid items before hitting invalid one."""
+        call = self._parse_call("func(x, 42)")
+        node = self._make_labeled_node("func_0", inputs=["a", "b"])
+
+        gen = workflow_parser.yield_symbols_passed_to_input_ports(call, node)
+
+        # First yield succeeds
+        self.assertEqual(next(gen), ("x", "a"))
+        # Second yield raises
+        with self.assertRaises(TypeError):
+            next(gen)
+
+    def test_preserves_underscore_names(self):
+        call = self._parse_call("func(_private, __dunder__)")
+        node = self._make_labeled_node("func_0", inputs=["a", "b"])
+
+        result = list(workflow_parser.yield_symbols_passed_to_input_ports(call, node))
+
+        self.assertEqual(result, [("_private", "a"), ("__dunder__", "b")])
 
 
 if __name__ == "__main__":
