@@ -1,5 +1,6 @@
 import ast
 import inspect
+from collections.abc import Collection
 from types import FunctionType
 from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
 
@@ -113,6 +114,25 @@ def get_annotated_output_labels(func: FunctionType) -> list[str | None] | None:
     if label is not None:
         return [label]
     return None
+
+
+def merge_labels(
+    first_choice: Collection[str | None] | None,
+    fallback: Collection[str],
+    message_prefix: str = "",
+) -> list[str]:
+    if first_choice is None:
+        return list(fallback)
+    else:
+        if len(first_choice) != len(fallback):
+            raise ValueError(
+                message_prefix + f"Cannot merge {first_choice} and {fallback} because "
+                f"number of elements differ."
+            )
+        return list(
+            first if first is not None else fall
+            for first, fall in zip(first_choice, fallback, strict=True)
+        )
 
 
 def get_input_labels(func: FunctionType) -> list[str]:

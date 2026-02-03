@@ -127,19 +127,11 @@ def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
 
     # Override with annotation-based labels where available
     annotated = label_helpers.get_annotated_output_labels(func)
-    if annotated is not None:
-        if len(annotated) != len(scraped):
-            raise ValueError(
-                f"Annotated return type has {len(annotated)} elements but function "
-                f"returns {len(scraped)} values"
-            )
-        # Merge: annotation takes precedence, fall back to scraped
-        return [
-            ann if ann is not None else scr
-            for ann, scr in zip(annotated, scraped, strict=True)
-        ]
-
-    return scraped
+    return label_helpers.merge_labels(
+        first_choice=annotated,
+        fallback=scraped,
+        message_prefix="Annotations and scraped return labels mis-match. ",
+    )
 
 
 def _extract_return_labels(func_node: ast.FunctionDef) -> list[tuple[str, ...]]:

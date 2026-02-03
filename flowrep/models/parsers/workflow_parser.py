@@ -231,19 +231,11 @@ class _WorkflowParserState:
         )
 
         annotated_returns = label_helpers.get_annotated_output_labels(func)
-        if annotated_returns is None:
-            scraped_labels = returned_symbols
-        else:
-            if len(annotated_returns) != len(returned_symbols):
-                raise ValueError(
-                    f"Annotation labels ({annotated_returns}), and returned symbols "
-                    f"({returned_symbols}) must have the same length."
-                )
-
-            scraped_labels = list(
-                ann if ann is not None else ret
-                for ann, ret in zip(annotated_returns, returned_symbols, strict=True)
-            )
+        scraped_labels = label_helpers.merge_labels(
+            first_choice=annotated_returns,
+            fallback=returned_symbols,
+            message_prefix="Annotation labels and returned symbols mis-match. ",
+        )
 
         if output_labels and len(output_labels) != len(returned_symbols):
             raise ValueError(
