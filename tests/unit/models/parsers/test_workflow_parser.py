@@ -351,6 +351,16 @@ class TestParseWorkflowErrors(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("unique", str(ctx.exception).lower())
 
+    def test_unrecognized_node_raises(self):
+        def wf(x):
+            print("This is not allowed")
+            y = add(x)
+            return y, y
+
+        with self.assertRaises(TypeError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("but ast found", str(ctx.exception))
+
 
 class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
     """Control flow is not yet implemented; verify NotImplementedError is raised."""
