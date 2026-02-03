@@ -9,7 +9,7 @@ from flowrep.models.parsers import (
     atomic_parser,
     label_helpers,
     parser_helpers,
-    scope_helper,
+    scope_helpers,
 )
 
 
@@ -108,7 +108,7 @@ class _WorkflowParserState:
         if isinstance(rhs, ast.Call):
             # Make a new node from the rhs
             # Modifies state: nodes, input_edges, edges, symbol_to_source_map
-            self.handle_assign_call(rhs, new_symbols, scope_helper.get_scope(func))
+            self.handle_assign_call(rhs, new_symbols, scope_helpers.get_scope(func))
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
             raise NotImplementedError(
                 "Assigning empty will probably be lists will probably be used for "
@@ -125,7 +125,7 @@ class _WorkflowParserState:
         self,
         rhs: ast.Call,
         new_symbols: list[str],
-        scope: scope_helper.ScopeProxy,
+        scope: scope_helpers.ScopeProxy,
     ) -> None:
         child = self._get_labeled_recipe(
             ast_call=rhs, existing_names=self.nodes.keys(), scope=scope
@@ -145,10 +145,10 @@ class _WorkflowParserState:
     def _get_labeled_recipe(
         ast_call: ast.Call,
         existing_names: Iterable[str],
-        scope: scope_helper.ScopeProxy,
+        scope: scope_helpers.ScopeProxy,
     ) -> helper_models.LabeledNode:
         child_call = cast(
-            FunctionType, scope_helper.resolve_symbol_to_object(ast_call.func, scope)
+            FunctionType, scope_helpers.resolve_symbol_to_object(ast_call.func, scope)
         )
         # Since it is the .func attribute of an ast.Call,
         # the retrieved object had better be a function
