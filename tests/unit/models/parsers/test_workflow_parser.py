@@ -443,52 +443,6 @@ class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
         self.assertIn("list", str(ctx.exception).lower())
 
 
-class TestScopeProxy(unittest.TestCase):
-    def test_basic_access(self):
-        d = {"foo": 1, "bar": 2}
-        proxy = workflow_parser.ScopeProxy(d)
-        self.assertEqual(proxy.foo, 1)
-        self.assertEqual(proxy.bar, 2)
-
-    def test_missing_key_raises_attribute_error(self):
-        proxy = workflow_parser.ScopeProxy({})
-        with self.assertRaises(AttributeError):
-            _ = proxy.nonexistent
-
-
-class TestResolveSymbolToObject(unittest.TestCase):
-    def test_simple_name(self):
-        scope = workflow_parser.ScopeProxy({"add": add})
-
-        node = ast.Name(id="add")
-        result = workflow_parser.resolve_symbol_to_object(node, scope)
-        self.assertIs(result, add)
-
-    def test_attribute_chain(self):
-        scope = workflow_parser.ScopeProxy({"Outer": Outer})
-
-        # Outer.Inner.nested_func
-        node = ast.Attribute(
-            value=ast.Attribute(value=ast.Name(id="Outer"), attr="Inner"),
-            attr="nested_func",
-        )
-        result = workflow_parser.resolve_symbol_to_object(node, scope)
-        self.assertIs(result, Outer.Inner.nested_func)
-
-    def test_missing_attribute_raises(self):
-        scope = workflow_parser.ScopeProxy({"Outer": Outer})
-
-        node = ast.Attribute(value=ast.Name(id="Outer"), attr="NonExistent")
-        with self.assertRaises(ValueError):
-            workflow_parser.resolve_symbol_to_object(node, scope)
-
-    def test_unrecognized_node_raises(self):
-        scope = workflow_parser.ScopeProxy({})
-        node = ast.Constant(value=42)
-        with self.assertRaises(TypeError):
-            workflow_parser.resolve_symbol_to_object(node, scope)
-
-
 class TestWorkflowParserStateEnforceUniqueSymbols(unittest.TestCase):
     def test_allows_new_symbols(self):
         state = workflow_parser._WorkflowParserState(inputs=["x"])

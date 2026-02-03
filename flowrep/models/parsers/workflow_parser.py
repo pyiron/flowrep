@@ -1,13 +1,16 @@
 import ast
-import builtins
-import inspect
 from collections.abc import Callable, Collection, Iterable, Iterator
 from types import FunctionType
 from typing import cast
 
 from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import helper_models, union, workflow_model
-from flowrep.models.parsers import atomic_parser, label_helpers, parser_helpers
+from flowrep.models.parsers import (
+    atomic_parser,
+    label_helpers,
+    parser_helpers,
+    scope_helper,
+)
 
 
 def workflow(
@@ -35,7 +38,7 @@ def parse_workflow(
     func: FunctionType,
     *output_labels: str,
 ):
-    scope = get_scope(func)
+    scope = scope_helper.get_scope(func)
     state = _WorkflowParserState(inputs=label_helpers.get_input_labels(func))
 
     tree = parser_helpers.get_ast_function_node(func)
@@ -95,22 +98,6 @@ def parse_workflow(
     )
 
 
-class ScopeProxy:
-    """
-    Make the __dict__-like scope dot-accessible without duplicating the dictionary
-    like types.SimpleNamespace would.
-    """
-
-    def __init__(self, d: dict):
-        self._d = d
-
-    def __getattr__(self, name: str):
-        try:
-            return self._d[name]
-        except KeyError:
-            raise AttributeError(name) from None
-
-
 class _WorkflowParserState:
     outputs: list[str]
     output_edges: edge_models.OutputEdges
@@ -136,7 +123,7 @@ class _WorkflowParserState:
         self,
         rhs: ast.Call,
         new_symbols: list[str],
-        scope: ScopeProxy,
+        scope: scope_helper.ScopeProxy,
     ) -> None:
         child = self._get_labeled_recipe(
             ast_call=rhs, existing_names=self.nodes.keys(), scope=scope
@@ -154,9 +141,13 @@ class _WorkflowParserState:
 
     @staticmethod
     def _get_labeled_recipe(
-        ast_call: ast.Call, existing_names: Iterable[str], scope: ScopeProxy
+        ast_call: ast.Call,
+        existing_names: Iterable[str],
+        scope: scope_helper.ScopeProxy,
     ) -> helper_models.LabeledNode:
-        child_call = cast(FunctionType, resolve_symbol_to_object(ast_call.func, scope))
+        child_call = cast(
+            FunctionType, scope_helper.resolve_symbol_to_object(ast_call.func, scope)
+        )
         # Since it is the .func attribute of an ast.Call,
         # the retrieved object had better be a function
         child_recipe = (
@@ -257,37 +248,6 @@ class _WorkflowParserState:
                     f"workflow inputs."
                 )
             self.output_edges[edge_models.OutputTarget(port=port)] = source
-
-
-def get_scope(func: FunctionType) -> ScopeProxy:
-    return ScopeProxy(inspect.getmodule(func).__dict__ | vars(builtins))
-
-
-def resolve_symbol_to_object(
-    node: ast.expr,  # Expecting a Name or Attribute here, and will otherwise TypeError
-    scope: ScopeProxy | object,
-    _chain: list[str] | None = None,
-) -> object:
-    """ """
-    _chain = _chain or []
-    error_suffix = f" while attempting to resolve the symbol chain '{'.'.join(_chain)}'"
-    if isinstance(node, ast.Name):
-        attr = node.id
-        try:
-            obj = getattr(scope, attr)
-            for attr in _chain:
-                obj = getattr(obj, attr)
-            return obj
-        except AttributeError as e:
-            raise ValueError(f"Could not find attribute '{attr}' {error_suffix}") from e
-    elif isinstance(node, ast.Attribute):
-        return resolve_symbol_to_object(node.value, scope, [node.attr] + _chain)
-    else:
-        raise TypeError(
-            f"Cannot resolve symbol {node} {error_suffix}. "
-            f"Expected an ast.Name or chain of ast.Attribute and ast.Name, but got "
-            f"{node}."
-        )
 
 
 def yield_symbols_passed_to_input_ports(
