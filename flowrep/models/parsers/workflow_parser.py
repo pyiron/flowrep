@@ -108,7 +108,7 @@ class _WorkflowParserState:
         if isinstance(rhs, ast.Call):
             # Make a new node from the rhs
             # Modifies state: nodes, input_edges, edges, symbol_to_source_map
-            self.handle_call_assignment(rhs, new_symbols, scope_helper.get_scope(func))
+            self.handle_assign_call(rhs, new_symbols, scope_helper.get_scope(func))
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
             raise NotImplementedError(
                 "Assigning empty will probably be lists will probably be used for "
@@ -121,7 +121,7 @@ class _WorkflowParserState:
                 f"a call on the right-hand-side, but ast found {type(rhs)}"
             )
 
-    def handle_call_assignment(
+    def handle_assign_call(
         self,
         rhs: ast.Call,
         new_symbols: list[str],
