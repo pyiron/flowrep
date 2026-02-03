@@ -297,13 +297,12 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
     def test_multiple_returns_raises(self):
         def wf(x, flag):
-            if flag:
-                return add(x)
-            return multiply(x)
+            y = add(x)
+            z = multiply(x)
+            return y
+            return z
 
-        with self.assertRaises((ValueError, NotImplementedError)):
-            # Will fail either on if-statement or multiple returns
-            # once if-parsing is implemented, this should be only a ValueError
+        with self.assertRaises(ValueError):
             workflow_parser.parse_workflow(wf)
 
     def test_reused_symbol_raises(self):
