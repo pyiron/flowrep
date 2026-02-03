@@ -110,11 +110,7 @@ class _WorkflowParserState:
             # Modifies state: nodes, input_edges, edges, symbol_to_source_map
             self.handle_assign_call(rhs, new_symbols, scope_helpers.get_scope(func))
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
-            raise NotImplementedError(
-                "Assigning empty will probably be lists will probably be used for "
-                "coordinating loop aggregators in the future, but is not yet "
-                "supported."
-            )
+            self.handle_assign_empty_list()
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
@@ -203,6 +199,13 @@ class _WorkflowParserState:
                     f"Unexpected edge source: {type(source)}. This state should be "
                     f"unreachable; please raise a GitHub issue."
                 )
+
+    def handle_assign_empty_list(self) -> None:
+        raise NotImplementedError(
+            "Assigning empty will probably be lists will probably be used for "
+            "coordinating loop aggregators in the future, but is not yet "
+            "supported."
+        )
 
     def handle_return(
         self,
