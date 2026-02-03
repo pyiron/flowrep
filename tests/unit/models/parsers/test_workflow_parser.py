@@ -378,6 +378,15 @@ class TestParseWorkflowErrors(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("Cannot map node outputs for 'operation_0'", str(ctx.exception))
 
+    def test_unrecognized_return_raises(self):
+        def wf(x):
+            y = add(x)  # noqa: F841
+            return z  # noqa: F821
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("Return symbol 'z' is not defined", str(ctx.exception))
+
 
 class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
     """Control flow is not yet implemented; verify NotImplementedError is raised."""
