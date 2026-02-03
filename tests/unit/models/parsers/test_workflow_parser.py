@@ -360,6 +360,24 @@ class TestParseWorkflowErrors(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("but ast found", str(ctx.exception))
 
+    def test_too_many_symbols_raises(self):
+        def wf(x):
+            y, z = add(x)
+            return y, z
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("Cannot map node outputs for 'add_0'", str(ctx.exception))
+
+    def test_too_few_symbols_raises(self):
+        def wf(x, y):
+            z = operation(x, y)
+            return z
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("Cannot map node outputs for 'operation_0'", str(ctx.exception))
+
 
 class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
     """Control flow is not yet implemented; verify NotImplementedError is raised."""
