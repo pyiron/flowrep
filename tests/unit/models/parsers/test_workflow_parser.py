@@ -281,7 +281,7 @@ class TestParseWorkflowOutputLabels(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf, "only_one")
-        self.assertIn("same length", str(ctx.exception))
+        self.assertIn("number of elements differ", str(ctx.exception))
         self.assertIn("['result', None]", str(ctx.exception))
         self.assertIn("['y']", str(ctx.exception))
 
@@ -441,83 +441,6 @@ class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
         with self.assertRaises(NotImplementedError) as ctx:
             workflow_parser.parse_workflow(wf)
         self.assertIn("list", str(ctx.exception).lower())
-
-
-class TestScopeProxy(unittest.TestCase):
-    def test_basic_access(self):
-        d = {"foo": 1, "bar": 2}
-        proxy = workflow_parser.ScopeProxy(d)
-        self.assertEqual(proxy.foo, 1)
-        self.assertEqual(proxy.bar, 2)
-
-    def test_missing_key_raises_attribute_error(self):
-        proxy = workflow_parser.ScopeProxy({})
-        with self.assertRaises(AttributeError):
-            _ = proxy.nonexistent
-
-
-class TestUniqueSuffix(unittest.TestCase):
-    def test_first_suffix(self):
-        result = workflow_parser.unique_suffix("foo", [])
-        self.assertEqual(result, "foo_0")
-
-    def test_increments_on_collision(self):
-        result = workflow_parser.unique_suffix("foo", ["foo_0", "foo_1"])
-        self.assertEqual(result, "foo_2")
-
-    def test_handles_gaps(self):
-        result = workflow_parser.unique_suffix("foo", ["foo_0", "foo_2"])
-        self.assertEqual(result, "foo_1")
-
-
-class TestResolveSymbolToObject(unittest.TestCase):
-    def test_simple_name(self):
-        scope = workflow_parser.ScopeProxy({"add": add})
-
-        node = ast.Name(id="add")
-        result = workflow_parser.resolve_symbol_to_object(node, scope)
-        self.assertIs(result, add)
-
-    def test_attribute_chain(self):
-        scope = workflow_parser.ScopeProxy({"Outer": Outer})
-
-        # Outer.Inner.nested_func
-        node = ast.Attribute(
-            value=ast.Attribute(value=ast.Name(id="Outer"), attr="Inner"),
-            attr="nested_func",
-        )
-        result = workflow_parser.resolve_symbol_to_object(node, scope)
-        self.assertIs(result, Outer.Inner.nested_func)
-
-    def test_missing_attribute_raises(self):
-        scope = workflow_parser.ScopeProxy({"Outer": Outer})
-
-        node = ast.Attribute(value=ast.Name(id="Outer"), attr="NonExistent")
-        with self.assertRaises(ValueError):
-            workflow_parser.resolve_symbol_to_object(node, scope)
-
-    def test_unrecognized_node_raises(self):
-        scope = workflow_parser.ScopeProxy({})
-        node = ast.Constant(value=42)
-        with self.assertRaises(TypeError):
-            workflow_parser.resolve_symbol_to_object(node, scope)
-
-
-class TestResolveSymbolsToStrings(unittest.TestCase):
-    def test_single_name(self):
-        node = ast.Name(id="foo")
-        result = workflow_parser.resolve_symbols_to_strings(node)
-        self.assertEqual(result, ["foo"])
-
-    def test_tuple_of_names(self):
-        node = ast.Tuple(elts=[ast.Name(id="a"), ast.Name(id="b")])
-        result = workflow_parser.resolve_symbols_to_strings(node)
-        self.assertEqual(result, ["a", "b"])
-
-    def test_non_name_raises(self):
-        node = ast.Constant(value=42)
-        with self.assertRaises(TypeError):
-            workflow_parser.resolve_symbols_to_strings(node)
 
 
 class TestWorkflowParserStateEnforceUniqueSymbols(unittest.TestCase):

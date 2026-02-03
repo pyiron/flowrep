@@ -1,5 +1,5 @@
-import ast
 import inspect
+from collections.abc import Collection, Iterable
 from types import FunctionType
 from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
 
@@ -115,6 +115,25 @@ def get_annotated_output_labels(func: FunctionType) -> list[str | None] | None:
     return None
 
 
+def merge_labels(
+    first_choice: Collection[str | None] | None,
+    fallback: Collection[str],
+    message_prefix: str = "",
+) -> list[str]:
+    if first_choice is None:
+        return list(fallback)
+    else:
+        if len(first_choice) != len(fallback):
+            raise ValueError(
+                message_prefix + f"Cannot merge {first_choice} and {fallback} because "
+                f"number of elements differ."
+            )
+        return list(
+            first if first is not None else fall
+            for first, fall in zip(first_choice, fallback, strict=True)
+        )
+
+
 def get_input_labels(func: FunctionType) -> list[str]:
     sig = inspect.signature(func)
     for param in sig.parameters.values():
@@ -133,18 +152,11 @@ def default_output_label(i: int) -> str:
     return f"output_{i}"
 
 
-def extract_return_labels(ret: ast.Return) -> tuple[str, ...]:
-    if ret.value is None:
-        return_labels: tuple[str, ...] = ()
-        return return_labels
-    elif isinstance(ret.value, ast.Tuple):
-        return tuple(
-            elt.id if isinstance(elt, ast.Name) else default_output_label(i)
-            for i, elt in enumerate(ret.value.elts)
-        )
-    else:
-        return (
-            (ret.value.id,)
-            if isinstance(ret.value, ast.Name)
-            else (default_output_label(0),)
-        )
+def unique_suffix(name: str, references: Iterable[str]) -> str:
+    # This is obviously horribly inefficient, but fix that later
+    i = 0
+    new_name = f"{name}_{i}"
+    while new_name in references:
+        i += 1
+        new_name = f"{name}_{i}"
+    return new_name

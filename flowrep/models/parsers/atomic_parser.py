@@ -7,6 +7,7 @@ from typing import Annotated, get_args, get_origin, get_type_hints
 
 from flowrep.models.nodes import atomic_model
 from flowrep.models.parsers import label_helpers, parser_helpers
+from flowrep.models.parsers.label_helpers import default_output_label
 
 
 def atomic(
@@ -19,28 +20,16 @@ def atomic(
     Decorator that attaches a flowrep.model.AtomicNode to the `recipe` attribute of a
     function.
 
-    Can be used as with or without kwargs -- @atomic or @atomic(unpack_mode=...)
+    Can be used as with or without args (to specify output labels) and/or kwargs --
+    @atomic or @atomic(..., unpack_mode=...)
     """
-    parsed_labels: tuple[str, ...]
-    if isinstance(func, FunctionType):
-        # Direct decoration: @atomic
-        parsed_labels = ()
-        target_func = func
-    elif func is not None and not isinstance(func, str):
-        raise TypeError(
-            f"@atomic can only decorate functions, got {type(func).__name__}"
-        )
-    else:
-        # Called with args: @atomic(...) or @atomic("label", ...)
-        parsed_labels = (func,) + output_labels if func is not None else output_labels
-        target_func = None
-
-    def decorator(f: FunctionType) -> FunctionType:
-        parser_helpers.ensure_function(f, "@atomic")
-        f.flowrep_recipe = parse_atomic(f, *parsed_labels, unpack_mode=unpack_mode)  # type: ignore[attr-defined]
-        return f
-
-    return decorator(target_func) if target_func else decorator
+    return parser_helpers.parser2decorator(
+        func,
+        output_labels,
+        parser=parse_atomic,
+        decorator_name="@atomic",
+        parser_kwargs={"unpack_mode": unpack_mode},
+    )
 
 
 def parse_atomic(
@@ -108,7 +97,7 @@ def _parse_return_label_without_unpacking(func: FunctionType) -> list[str]:
 
 def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
     func_node = parser_helpers.get_ast_function_node(func)
-    return_labels = _extract_return_labels(func_node)
+    return_labels = _extract_combined_return_labels(func_node)
     if not all(len(ret) == len(return_labels[0]) for ret in return_labels):
         raise ValueError(
             f"All return statements must have the same number of elements, got "
@@ -127,27 +116,38 @@ def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
 
     # Override with annotation-based labels where available
     annotated = label_helpers.get_annotated_output_labels(func)
-    if annotated is not None:
-        if len(annotated) != len(scraped):
-            raise ValueError(
-                f"Annotated return type has {len(annotated)} elements but function "
-                f"returns {len(scraped)} values"
-            )
-        # Merge: annotation takes precedence, fall back to scraped
-        return [
-            ann if ann is not None else scr
-            for ann, scr in zip(annotated, scraped, strict=True)
-        ]
-
-    return scraped
+    return label_helpers.merge_labels(
+        first_choice=annotated,
+        fallback=scraped,
+        message_prefix="Annotations and scraped return labels mis-match. ",
+    )
 
 
-def _extract_return_labels(func_node: ast.FunctionDef) -> list[tuple[str, ...]]:
+def _extract_combined_return_labels(
+    func_node: ast.FunctionDef,
+) -> list[tuple[str, ...]]:
     return_stmts = [n for n in ast.walk(func_node) if isinstance(n, ast.Return)]
     return_labels: list[tuple[str, ...]] = [()] if len(return_stmts) == 0 else []
     for ret in return_stmts:
-        return_labels.append(label_helpers.extract_return_labels(ret))
+        return_labels.append(_extract_return_labels(ret))
     return return_labels
+
+
+def _extract_return_labels(ret: ast.Return) -> tuple[str, ...]:
+    if ret.value is None:
+        return_labels: tuple[str, ...] = ()
+        return return_labels
+    elif isinstance(ret.value, ast.Tuple):
+        return tuple(
+            elt.id if isinstance(elt, ast.Name) else default_output_label(i)
+            for i, elt in enumerate(ret.value.elts)
+        )
+    else:
+        return (
+            (ret.value.id,)
+            if isinstance(ret.value, ast.Name)
+            else (default_output_label(0),)
+        )
 
 
 def _parse_dataclass_return_labels(func: FunctionType) -> list[str]:

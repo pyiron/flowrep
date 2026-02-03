@@ -136,5 +136,22 @@ class TestGetAstFunctionNode(unittest.TestCase):
         self.assertIn("source code unavailable", str(ctx.exception))
 
 
+class TestResolveSymbolsToStrings(unittest.TestCase):
+    def test_single_name(self):
+        node = ast.Name(id="foo")
+        result = parser_helpers.resolve_symbols_to_strings(node)
+        self.assertEqual(result, ["foo"])
+
+    def test_tuple_of_names(self):
+        node = ast.Tuple(elts=[ast.Name(id="a"), ast.Name(id="b")])
+        result = parser_helpers.resolve_symbols_to_strings(node)
+        self.assertEqual(result, ["a", "b"])
+
+    def test_non_name_raises(self):
+        node = ast.Constant(value=42)
+        with self.assertRaises(TypeError):
+            parser_helpers.resolve_symbols_to_strings(node)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,3 @@
-import ast
 import unittest
 from typing import Annotated
 
@@ -332,68 +331,56 @@ class TestGetAnnotatedOutputLabels(unittest.TestCase):
         self.assertIsNone(labels)
 
 
-class TestExtractReturnLabels(unittest.TestCase):
-    """Tests for extract_return_labels which processes a single ast.Return node."""
+class TestMergeLabels(unittest.TestCase):
+    def test_none_first_choice_returns_fallback(self):
+        result = label_helpers.merge_labels(None, ["a", "b", "c"])
+        self.assertEqual(["a", "b", "c"], result)
 
-    def _parse_return(self, code: str) -> ast.Return:
-        """Helper to parse a return statement from code."""
-        tree = ast.parse(code)
-        func = tree.body[0]
-        for node in ast.walk(func):
-            if isinstance(node, ast.Return):
-                return node
-        raise ValueError("No return statement found")
+    def test_full_first_choice_ignores_fallback(self):
+        result = label_helpers.merge_labels(["x", "y"], ["a", "b"])
+        self.assertEqual(["x", "y"], result)
 
-    def test_return_none_implicit(self):
-        ret = self._parse_return("def f(): return")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ())
+    def test_partial_first_choice_merges(self):
+        result = label_helpers.merge_labels(["x", None, "z"], ["a", "b", "c"])
+        self.assertEqual(["x", "b", "z"], result)
 
-    def test_return_none_explicit(self):
-        ret = self._parse_return("def f(): return None")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("output_0",))
+    def test_all_none_first_choice_returns_fallback(self):
+        result = label_helpers.merge_labels([None, None], ["a", "b"])
+        self.assertEqual(["a", "b"], result)
 
-    def test_return_single_name(self):
-        ret = self._parse_return("def f():\n  x = 1\n  return x")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("x",))
+    def test_length_mismatch_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            label_helpers.merge_labels(["x", "y"], ["a", "b", "c"])
+        self.assertIn("number of elements differ", str(ctx.exception))
 
-    def test_return_single_literal(self):
-        ret = self._parse_return("def f(): return 42")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("output_0",))
+    def test_message_prefix_included_in_error(self):
+        with self.assertRaises(ValueError) as ctx:
+            label_helpers.merge_labels(["x"], ["a", "b"], message_prefix="Custom: ")
+        self.assertIn("Custom: ", str(ctx.exception))
 
-    def test_return_tuple_all_names(self):
-        ret = self._parse_return("def f():\n  a, b = 1, 2\n  return a, b")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("a", "b"))
-
-    def test_return_tuple_mixed(self):
-        ret = self._parse_return("def f():\n  x = 1\n  return x, 2, 'literal'")
-        self.assertEqual(
-            label_helpers.extract_return_labels(ret), ("x", "output_1", "output_2")
-        )
-
-    def test_return_tuple_all_literals(self):
-        ret = self._parse_return("def f(): return 1, 2, 3")
-        self.assertEqual(
-            label_helpers.extract_return_labels(ret),
-            ("output_0", "output_1", "output_2"),
-        )
-
-    def test_return_expression(self):
-        ret = self._parse_return("def f(): return x + y")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("output_0",))
-
-    def test_return_call(self):
-        ret = self._parse_return("def f(): return foo()")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("output_0",))
-
-    def test_return_tuple_with_call(self):
-        ret = self._parse_return("def f():\n  a = 1\n  return a, foo()")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("a", "output_1"))
+    def test_empty_collections(self):
+        result = label_helpers.merge_labels([], [])
+        self.assertEqual([], result)
 
 
 class TestDefaultOutputLabel(unittest.TestCase):
     def test_label_format(self):
         self.assertEqual(label_helpers.default_output_label(0), "output_0")
         self.assertEqual(label_helpers.default_output_label(5), "output_5")
+
+
+class TestUniqueSuffix(unittest.TestCase):
+    def test_first_suffix(self):
+        result = label_helpers.unique_suffix("foo", [])
+        self.assertEqual(result, "foo_0")
+
+    def test_increments_on_collision(self):
+        result = label_helpers.unique_suffix("foo", ["foo_0", "foo_1"])
+        self.assertEqual(result, "foo_2")
+
+    def test_handles_gaps(self):
+        result = label_helpers.unique_suffix("foo", ["foo_0", "foo_2"])
+        self.assertEqual(result, "foo_1")
 
 
 if __name__ == "__main__":
