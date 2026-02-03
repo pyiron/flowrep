@@ -170,7 +170,7 @@ class _WorkflowParserState:
             if hasattr(child_call, "flowrep_recipe")
             else atomic_parser.parse_atomic(child_call)
         )
-        child_name = unique_suffix(child_call.__name__, existing_names)
+        child_name = label_helpers.unique_suffix(child_call.__name__, existing_names)
         return helper_models.LabeledNode(label=child_name, node=child_recipe)
 
     @staticmethod
@@ -263,16 +263,6 @@ class _WorkflowParserState:
                     f"workflow inputs."
                 )
             self.output_edges[edge_models.OutputTarget(port=port)] = source
-
-
-def unique_suffix(name: str, references: Iterable[str]) -> str:
-    # This is obviously horribly inefficient, but fix that later
-    i = 0
-    new_name = f"{name}_{i}"
-    while new_name in references:
-        i += 1
-        new_name = f"{name}_{i}"
-    return new_name
 
 
 def get_scope(func: FunctionType) -> ScopeProxy:

@@ -281,7 +281,7 @@ class TestParseWorkflowOutputLabels(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf, "only_one")
-        self.assertIn("same length", str(ctx.exception))
+        self.assertIn("number of elements differ", str(ctx.exception))
         self.assertIn("['result', None]", str(ctx.exception))
         self.assertIn("['y']", str(ctx.exception))
 
@@ -454,20 +454,6 @@ class TestScopeProxy(unittest.TestCase):
         proxy = workflow_parser.ScopeProxy({})
         with self.assertRaises(AttributeError):
             _ = proxy.nonexistent
-
-
-class TestUniqueSuffix(unittest.TestCase):
-    def test_first_suffix(self):
-        result = workflow_parser.unique_suffix("foo", [])
-        self.assertEqual(result, "foo_0")
-
-    def test_increments_on_collision(self):
-        result = workflow_parser.unique_suffix("foo", ["foo_0", "foo_1"])
-        self.assertEqual(result, "foo_2")
-
-    def test_handles_gaps(self):
-        result = workflow_parser.unique_suffix("foo", ["foo_0", "foo_2"])
-        self.assertEqual(result, "foo_1")
 
 
 class TestResolveSymbolToObject(unittest.TestCase):

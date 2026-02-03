@@ -1,6 +1,6 @@
 import ast
 import inspect
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from types import FunctionType
 from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
 
@@ -151,6 +151,16 @@ def get_input_labels(func: FunctionType) -> list[str]:
 
 def default_output_label(i: int) -> str:
     return f"output_{i}"
+
+
+def unique_suffix(name: str, references: Iterable[str]) -> str:
+    # This is obviously horribly inefficient, but fix that later
+    i = 0
+    new_name = f"{name}_{i}"
+    while new_name in references:
+        i += 1
+        new_name = f"{name}_{i}"
+    return new_name
 
 
 def extract_return_labels(ret: ast.Return) -> tuple[str, ...]:

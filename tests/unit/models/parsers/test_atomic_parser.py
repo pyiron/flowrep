@@ -595,8 +595,7 @@ class TestParseTupleReturnLabelsWithAnnotations(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             atomic_parser._parse_tuple_return_labels(func)
-        self.assertIn("3 elements", str(ctx.exception))
-        self.assertIn("2 values", str(ctx.exception))
+        self.assertIn("number of elements differ", str(ctx.exception))
 
     def test_no_annotation_falls_back_to_scraped(self):
         def func():

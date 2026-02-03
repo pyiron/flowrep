@@ -428,5 +428,19 @@ class TestDefaultOutputLabel(unittest.TestCase):
         self.assertEqual(label_helpers.default_output_label(5), "output_5")
 
 
+class TestUniqueSuffix(unittest.TestCase):
+    def test_first_suffix(self):
+        result = label_helpers.unique_suffix("foo", [])
+        self.assertEqual(result, "foo_0")
+
+    def test_increments_on_collision(self):
+        result = label_helpers.unique_suffix("foo", ["foo_0", "foo_1"])
+        self.assertEqual(result, "foo_2")
+
+    def test_handles_gaps(self):
+        result = label_helpers.unique_suffix("foo", ["foo_0", "foo_2"])
+        self.assertEqual(result, "foo_1")
+
+
 if __name__ == "__main__":
     unittest.main()
