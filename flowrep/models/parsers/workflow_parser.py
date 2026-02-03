@@ -38,34 +38,13 @@ def parse_workflow(
     func: FunctionType,
     *output_labels: str,
 ):
-    scope = scope_helper.get_scope(func)
     state = _WorkflowParserState(inputs=label_helpers.get_input_labels(func))
 
     tree = parser_helpers.get_ast_function_node(func)
     found_return = False
     for body in tree.body:
         if isinstance(body, ast.Assign | ast.AnnAssign):
-            # Get returned symbols from the left-hand side
-            lhs = body.targets[0] if isinstance(body, ast.Assign) else body.target
-            new_symbols = parser_helpers.resolve_symbols_to_strings(lhs)
-            state.enforce_unique_symbols(new_symbols)
-
-            rhs = body.value
-            if isinstance(rhs, ast.Call):
-                # Make a new node from the rhs
-                # Modifies state: nodes, input_edges, edges, symbol_to_source_map
-                state.handle_call_assignment(rhs, new_symbols, scope)
-            elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
-                raise NotImplementedError(
-                    "Assigning empty will probably be lists will probably be used for "
-                    "coordinating loop aggregators in the future, but is not yet "
-                    "supported."
-                )
-            else:
-                raise ValueError(
-                    f"Workflow python definitions can only interpret assignments with "
-                    f"a call on the right-hand-side, but ast found {type(rhs)}"
-                )
+            state.handle_assign(func, body)
         elif isinstance(body, ast.Return):
             if found_return:
                 raise ValueError(
@@ -117,6 +96,29 @@ class _WorkflowParserState:
             raise ValueError(
                 f"Workflow python definitions must not re-use symbols, but found "
                 f"duplicate(s) {overshadow}"
+            )
+
+    def handle_assign(self, func: FunctionType, body: ast.Assign | ast.AnnAssign):
+        # Get returned symbols from the left-hand side
+        lhs = body.targets[0] if isinstance(body, ast.Assign) else body.target
+        new_symbols = parser_helpers.resolve_symbols_to_strings(lhs)
+        self.enforce_unique_symbols(new_symbols)
+
+        rhs = body.value
+        if isinstance(rhs, ast.Call):
+            # Make a new node from the rhs
+            # Modifies state: nodes, input_edges, edges, symbol_to_source_map
+            self.handle_call_assignment(rhs, new_symbols, scope_helper.get_scope(func))
+        elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
+            raise NotImplementedError(
+                "Assigning empty will probably be lists will probably be used for "
+                "coordinating loop aggregators in the future, but is not yet "
+                "supported."
+            )
+        else:
+            raise ValueError(
+                f"Workflow python definitions can only interpret assignments with "
+                f"a call on the right-hand-side, but ast found {type(rhs)}"
             )
 
     def handle_call_assignment(
