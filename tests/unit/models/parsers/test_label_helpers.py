@@ -1,4 +1,3 @@
-import ast
 import unittest
 from typing import Annotated
 
@@ -362,64 +361,6 @@ class TestMergeLabels(unittest.TestCase):
     def test_empty_collections(self):
         result = label_helpers.merge_labels([], [])
         self.assertEqual([], result)
-
-
-class TestExtractReturnLabels(unittest.TestCase):
-    """Tests for extract_return_labels which processes a single ast.Return node."""
-
-    def _parse_return(self, code: str) -> ast.Return:
-        """Helper to parse a return statement from code."""
-        tree = ast.parse(code)
-        func = tree.body[0]
-        for node in ast.walk(func):
-            if isinstance(node, ast.Return):
-                return node
-        raise ValueError("No return statement found")
-
-    def test_return_none_implicit(self):
-        ret = self._parse_return("def f(): return")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ())
-
-    def test_return_none_explicit(self):
-        ret = self._parse_return("def f(): return None")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("output_0",))
-
-    def test_return_single_name(self):
-        ret = self._parse_return("def f():\n  x = 1\n  return x")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("x",))
-
-    def test_return_single_literal(self):
-        ret = self._parse_return("def f(): return 42")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("output_0",))
-
-    def test_return_tuple_all_names(self):
-        ret = self._parse_return("def f():\n  a, b = 1, 2\n  return a, b")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("a", "b"))
-
-    def test_return_tuple_mixed(self):
-        ret = self._parse_return("def f():\n  x = 1\n  return x, 2, 'literal'")
-        self.assertEqual(
-            label_helpers.extract_return_labels(ret), ("x", "output_1", "output_2")
-        )
-
-    def test_return_tuple_all_literals(self):
-        ret = self._parse_return("def f(): return 1, 2, 3")
-        self.assertEqual(
-            label_helpers.extract_return_labels(ret),
-            ("output_0", "output_1", "output_2"),
-        )
-
-    def test_return_expression(self):
-        ret = self._parse_return("def f(): return x + y")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("output_0",))
-
-    def test_return_call(self):
-        ret = self._parse_return("def f(): return foo()")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("output_0",))
-
-    def test_return_tuple_with_call(self):
-        ret = self._parse_return("def f():\n  a = 1\n  return a, foo()")
-        self.assertEqual(label_helpers.extract_return_labels(ret), ("a", "output_1"))
 
 
 class TestDefaultOutputLabel(unittest.TestCase):

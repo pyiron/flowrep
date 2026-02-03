@@ -7,6 +7,7 @@ from typing import Annotated, get_args, get_origin, get_type_hints
 
 from flowrep.models.nodes import atomic_model
 from flowrep.models.parsers import label_helpers, parser_helpers
+from flowrep.models.parsers.label_helpers import default_output_label
 
 
 def atomic(
@@ -108,7 +109,7 @@ def _parse_return_label_without_unpacking(func: FunctionType) -> list[str]:
 
 def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
     func_node = parser_helpers.get_ast_function_node(func)
-    return_labels = _extract_return_labels(func_node)
+    return_labels = _extract_combined_return_labels(func_node)
     if not all(len(ret) == len(return_labels[0]) for ret in return_labels):
         raise ValueError(
             f"All return statements must have the same number of elements, got "
@@ -134,12 +135,31 @@ def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
     )
 
 
-def _extract_return_labels(func_node: ast.FunctionDef) -> list[tuple[str, ...]]:
+def _extract_combined_return_labels(
+    func_node: ast.FunctionDef,
+) -> list[tuple[str, ...]]:
     return_stmts = [n for n in ast.walk(func_node) if isinstance(n, ast.Return)]
     return_labels: list[tuple[str, ...]] = [()] if len(return_stmts) == 0 else []
     for ret in return_stmts:
-        return_labels.append(label_helpers.extract_return_labels(ret))
+        return_labels.append(_extract_return_labels(ret))
     return return_labels
+
+
+def _extract_return_labels(ret: ast.Return) -> tuple[str, ...]:
+    if ret.value is None:
+        return_labels: tuple[str, ...] = ()
+        return return_labels
+    elif isinstance(ret.value, ast.Tuple):
+        return tuple(
+            elt.id if isinstance(elt, ast.Name) else default_output_label(i)
+            for i, elt in enumerate(ret.value.elts)
+        )
+    else:
+        return (
+            (ret.value.id,)
+            if isinstance(ret.value, ast.Name)
+            else (default_output_label(0),)
+        )
 
 
 def _parse_dataclass_return_labels(func: FunctionType) -> list[str]:

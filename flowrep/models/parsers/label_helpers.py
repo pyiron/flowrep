@@ -1,4 +1,3 @@
-import ast
 import inspect
 from collections.abc import Collection, Iterable
 from types import FunctionType
@@ -161,20 +160,3 @@ def unique_suffix(name: str, references: Iterable[str]) -> str:
         i += 1
         new_name = f"{name}_{i}"
     return new_name
-
-
-def extract_return_labels(ret: ast.Return) -> tuple[str, ...]:
-    if ret.value is None:
-        return_labels: tuple[str, ...] = ()
-        return return_labels
-    elif isinstance(ret.value, ast.Tuple):
-        return tuple(
-            elt.id if isinstance(elt, ast.Name) else default_output_label(i)
-            for i, elt in enumerate(ret.value.elts)
-        )
-    else:
-        return (
-            (ret.value.id,)
-            if isinstance(ret.value, ast.Name)
-            else (default_output_label(0),)
-        )
