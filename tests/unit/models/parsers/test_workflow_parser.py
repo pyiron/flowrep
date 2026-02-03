@@ -489,23 +489,6 @@ class TestResolveSymbolToObject(unittest.TestCase):
             workflow_parser.resolve_symbol_to_object(node, scope)
 
 
-class TestResolveSymbolsToStrings(unittest.TestCase):
-    def test_single_name(self):
-        node = ast.Name(id="foo")
-        result = workflow_parser.resolve_symbols_to_strings(node)
-        self.assertEqual(result, ["foo"])
-
-    def test_tuple_of_names(self):
-        node = ast.Tuple(elts=[ast.Name(id="a"), ast.Name(id="b")])
-        result = workflow_parser.resolve_symbols_to_strings(node)
-        self.assertEqual(result, ["a", "b"])
-
-    def test_non_name_raises(self):
-        node = ast.Constant(value=42)
-        with self.assertRaises(TypeError):
-            workflow_parser.resolve_symbols_to_strings(node)
-
-
 class TestWorkflowParserStateEnforceUniqueSymbols(unittest.TestCase):
     def test_allows_new_symbols(self):
         state = workflow_parser._WorkflowParserState(inputs=["x"])

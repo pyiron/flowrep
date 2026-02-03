@@ -2,7 +2,7 @@ import ast
 import inspect
 import textwrap
 from types import FunctionType
-from typing import Any
+from typing import Any, cast
 
 from flowrep import workflow
 
@@ -43,3 +43,21 @@ def get_source_code(func: FunctionType) -> str:
 
 def get_ast_function_node(func: FunctionType) -> ast.FunctionDef:
     return get_function_definition(ast.parse(get_source_code(func)))
+
+
+def resolve_symbols_to_strings(
+    node: (
+        ast.expr | None
+    ),  # Expecting a Name or Tuple[Name], and will otherwise TypeError
+) -> list[str]:
+    if isinstance(node, ast.Name):
+        return [node.id]
+    elif isinstance(node, ast.Tuple) and all(
+        isinstance(elt, ast.Name) for elt in node.elts
+    ):
+        return [cast(ast.Name, elt).id for elt in node.elts]
+    else:
+        raise TypeError(
+            f"Expected to receive a symbol or tuple of symbols from ast.Name or "
+            f"ast.Tuple, but could not parse this from {type(node)}."
+        )
