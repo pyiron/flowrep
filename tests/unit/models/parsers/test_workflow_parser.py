@@ -496,6 +496,12 @@ class TestResolveSymbolToObject(unittest.TestCase):
         with self.assertRaises(ValueError):
             workflow_parser.resolve_symbol_to_object(node, scope)
 
+    def test_unrecognized_node_raises(self):
+        scope = workflow_parser.ScopeProxy({})
+        node = ast.Constant(value=42)
+        with self.assertRaises(TypeError):
+            workflow_parser.resolve_symbol_to_object(node, scope)
+
 
 class TestResolveSymbolsToStrings(unittest.TestCase):
     def test_single_name(self):
