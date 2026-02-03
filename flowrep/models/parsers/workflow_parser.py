@@ -211,8 +211,11 @@ class _WorkflowParserState:
                 self.edges[target] = source  # In-place mutation
             elif isinstance(source, edge_models.InputSource):
                 self.input_edges[target] = source  # In-place mutation
-            else:
-                raise TypeError(f"Unexpected edge source: {type(source)}")
+            else:  # pragma: no cover
+                raise TypeError(
+                    f"Unexpected edge source: {type(source)}. This state should be "
+                    f"unreachable; please raise a GitHub issue."
+                )
 
     def handle_return(
         self,
