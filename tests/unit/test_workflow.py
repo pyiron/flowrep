@@ -239,7 +239,7 @@ class TestWorkflow(unittest.TestCase):
             node_dict,
             {
                 "function": add,
-                "type": "Function",
+                "type": "atomic",
             },
         )
 
@@ -252,7 +252,7 @@ class TestWorkflow(unittest.TestCase):
                         "qualname": operation.__qualname__,
                         "version": "not_defined",
                     },
-                    "type": "Function",
+                    "type": "atomic",
                 },
                 "add_0": {
                     "function": {
@@ -260,7 +260,7 @@ class TestWorkflow(unittest.TestCase):
                         "qualname": add.__qualname__,
                         "version": "not_defined",
                     },
-                    "type": "Function",
+                    "type": "atomic",
                 },
                 "multiply_0": {
                     "function": {
@@ -268,7 +268,7 @@ class TestWorkflow(unittest.TestCase):
                         "qualname": multiply.__qualname__,
                         "version": "not_defined",
                     },
-                    "type": "Function",
+                    "type": "atomic",
                 },
             },
             "edges": [
@@ -280,7 +280,7 @@ class TestWorkflow(unittest.TestCase):
                 ("multiply_0.outputs.output", "outputs.f"),
             ],
             "label": "example_macro",
-            "type": "Workflow",
+            "type": "workflow",
         }
         self.assertEqual(
             tools.serialize_functions(example_macro.serialize_workflow()), ref_data
@@ -298,7 +298,7 @@ class TestWorkflow(unittest.TestCase):
                                 "qualname": operation.__qualname__,
                                 "version": "not_defined",
                             },
-                            "type": "Function",
+                            "type": "atomic",
                         },
                         "add_0": {
                             "function": {
@@ -306,7 +306,7 @@ class TestWorkflow(unittest.TestCase):
                                 "qualname": add.__qualname__,
                                 "version": "not_defined",
                             },
-                            "type": "Function",
+                            "type": "atomic",
                         },
                         "multiply_0": {
                             "function": {
@@ -314,7 +314,7 @@ class TestWorkflow(unittest.TestCase):
                                 "qualname": multiply.__qualname__,
                                 "version": "not_defined",
                             },
-                            "type": "Function",
+                            "type": "atomic",
                         },
                     },
                     "edges": [
@@ -326,7 +326,7 @@ class TestWorkflow(unittest.TestCase):
                         ("multiply_0.outputs.output", "outputs.f"),
                     ],
                     "label": "example_macro_0",
-                    "type": "Workflow",
+                    "type": "workflow",
                 },
                 "add_0": {
                     "function": {
@@ -334,7 +334,7 @@ class TestWorkflow(unittest.TestCase):
                         "qualname": add.__qualname__,
                         "version": "not_defined",
                     },
-                    "type": "Function",
+                    "type": "atomic",
                 },
             },
             "edges": [
@@ -345,7 +345,7 @@ class TestWorkflow(unittest.TestCase):
                 ("add_0.outputs.output", "outputs.z"),
             ],
             "label": "example_workflow",
-            "type": "Workflow",
+            "type": "workflow",
         }
         self.assertEqual(tools.serialize_functions(result), ref_data, msg=result)
         results = fwf.get_workflow_dict(example_workflow, with_io=True)
