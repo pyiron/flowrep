@@ -353,7 +353,7 @@ def yield_symbols_passed_to_input_ports(
         yield name_arg.id, call_node.node.inputs[i]
     for kw in ast_call.keywords:
         name_value = _validate_is_ast_name(kw.value)
-        if not isinstance(kw.arg, str):
+        if not isinstance(kw.arg, str):  # pragma: no cover
             raise TypeError(
                 "How did you get here? A `None` value should be possible for "
                 "**kwargs, but variadics should have been excluded before "
