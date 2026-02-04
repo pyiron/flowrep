@@ -1125,6 +1125,11 @@ def _graph_to_flat_wf_dict(G: nx.DiGraph) -> dict:
             "edges": [],
         }
     )
+    for edge in _get_edges_in_order(G):
+        wf_dict["edges"].append(edge)
+        for e in edge:
+            if G.nodes[e].get("type") == "test":
+                print(e, nx.descendants(G, e))
     for node, metadata in list(G.nodes.data()):
         t = metadata["step"]
         if t in ["input", "output"]:
@@ -1138,8 +1143,6 @@ def _graph_to_flat_wf_dict(G: nx.DiGraph) -> dict:
                     continue
                 wf_dict["nodes"][node][key] = value
 
-    for edge in _get_edges_in_order(G):
-        wf_dict["edges"].append(edge)
     return tools.recursive_dd_to_dict(wf_dict)
 
 
