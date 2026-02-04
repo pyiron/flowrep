@@ -78,14 +78,14 @@ def parse_workflow(
 
 
 class WorkflowParser:
-    outputs: list[str]
-    output_edges: edge_models.OutputEdges
 
     def __init__(self, inputs: list[str]):
         self.inputs = inputs
         self.nodes: union.Nodes = {}
         self.input_edges: edge_models.InputEdges = {}
         self.edges: edge_models.Edges = {}
+        self.output_edges: edge_models.OutputEdges = {}
+        self.outputs: list[str] = []
 
         self._symbol_to_source_map: dict[
             str, edge_models.InputSource | edge_models.SourceHandle
@@ -236,7 +236,7 @@ class WorkflowParser:
 
         self.outputs = list(output_labels) or scraped_labels
 
-        self.output_edges: edge_models.OutputEdges = {}
+        self.output_edges = {}
         for symbol, port in zip(returned_symbols, self.outputs, strict=True):
             try:
                 source = self._symbol_to_source_map[symbol]
