@@ -38,7 +38,7 @@ def parse_workflow(
     func: FunctionType,
     *output_labels: str,
 ):
-    state = _WorkflowParserState(inputs=label_helpers.get_input_labels(func))
+    state = WorkflowParser(inputs=label_helpers.get_input_labels(func))
 
     tree = parser_helpers.get_ast_function_node(func)
     found_return = False
@@ -77,7 +77,7 @@ def parse_workflow(
     )
 
 
-class _WorkflowParserState:
+class WorkflowParser:
     outputs: list[str]
     output_edges: edge_models.OutputEdges
 
