@@ -418,6 +418,7 @@ class TestWorkflow(unittest.TestCase):
     def test_workflow_with_while(self):
         wf = fwf.workflow(workflow_with_while).serialize_workflow()
         self.assertIn("while_0", wf["nodes"])
+        self.assertEqual(wf["nodes"]["while_0"]["test"]["type"], "test")
         self.assertEqual(
             sorted(wf["nodes"]["while_0"]["edges"]),
             sorted(
@@ -489,6 +490,7 @@ class TestWorkflow(unittest.TestCase):
         data = fwf.get_workflow_dict(workflow_with_for)
         self.assertIn("for_0", data["nodes"])
         self.assertIn("iter", data["nodes"]["for_0"])
+        self.assertEqual(data["nodes"]["for_0"]["iter"]["type"], "iter")
         self.assertEqual(
             sorted(data["edges"]),
             sorted(
