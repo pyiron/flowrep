@@ -44,6 +44,9 @@ def parse_workflow(
     return state.build_model()
 
 
+SymbolSourceMapType = dict[str, edge_models.InputSource | edge_models.SourceHandle]
+
+
 class WorkflowParser:
 
     def __init__(self, inputs: list[str]):
@@ -54,9 +57,9 @@ class WorkflowParser:
         self.output_edges: edge_models.OutputEdges = {}
         self.outputs: list[str] = []
 
-        self.symbol_to_source_map: dict[
-            str, edge_models.InputSource | edge_models.SourceHandle
-        ] = {p: edge_models.InputSource(port=p) for p in inputs}
+        self.symbol_to_source_map: SymbolSourceMapType = {
+            p: edge_models.InputSource(port=p) for p in inputs
+        }
 
     def build_model(self) -> workflow_model.WorkflowNode:
         return workflow_model.WorkflowNode(
