@@ -74,10 +74,12 @@ class WorkflowParser:
     def walk_func_def(
         self, tree: ast.FunctionDef, func: FunctionType, output_labels: Collection[str]
     ) -> None:
+        scope = scope_helpers.get_scope(func)
+
         found_return = False
         for body in tree.body:
             if isinstance(body, ast.Assign | ast.AnnAssign):
-                self.handle_assign(func, body)
+                self.handle_assign(body, scope)
             elif isinstance(body, ast.For | ast.While | ast.If | ast.Try):
                 raise NotImplementedError(
                     f"Support for control flow statement {type(body)} is forthcoming."
@@ -109,7 +111,9 @@ class WorkflowParser:
                 f"duplicate(s) {overshadow}"
             )
 
-    def handle_assign(self, func: FunctionType, body: ast.Assign | ast.AnnAssign):
+    def handle_assign(
+        self, body: ast.Assign | ast.AnnAssign, scope: scope_helpers.ScopeProxy
+    ):
         # Get returned symbols from the left-hand side
         lhs = body.targets[0] if isinstance(body, ast.Assign) else body.target
         new_symbols = parser_helpers.resolve_symbols_to_strings(lhs)
@@ -119,7 +123,7 @@ class WorkflowParser:
         if isinstance(rhs, ast.Call):
             # Make a new node from the rhs
             # Modifies state: nodes, input_edges, edges, symbol_to_source_map
-            self.handle_assign_call(rhs, new_symbols, scope_helpers.get_scope(func))
+            self.handle_assign_call(rhs, new_symbols, scope)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
             self.handle_assign_empty_list()
         else:
