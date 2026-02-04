@@ -920,8 +920,11 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
     if "iter" in workflow_dict:
         G.add_node("iter", step="node", **_get_items(workflow_dict["iter"]))
     for key, node in workflow_dict["nodes"].items():
-        assert node["type"] in ["atomic", "workflow"]
-        if node["type"] == "workflow":
+        assert node["type"] in ["atomic", "workflow", "iter", "test", "while", "for"], (
+            f"Node {key} has unrecognized type {node['type']}. "
+            "Expected types are 'atomic', 'workflow', 'iter', 'test', 'while', or 'for'."
+        )
+        if node["type"] in ["workflow", "for", "while"]:
             child_G = get_workflow_graph(node)
             for child_key in list(child_G.graph.keys()):
                 new_key = f"{key}.{child_key}" if child_key != "" else key
@@ -1102,6 +1105,34 @@ def simple_run(G: nx.DiGraph) -> nx.DiGraph:
     return G
 
 
+def _graph_to_flat_wf_dict(G: nx.DiGraph) -> dict:
+    G = flatten_graph(G)
+    wf_dict = tools.dict_to_recursive_dd(
+        {
+            "inputs": tools.dict_to_recursive_dd({}),
+            "outputs": tools.dict_to_recursive_dd({}),
+            "nodes": tools.dict_to_recursive_dd({}),
+            "edges": [],
+        }
+    )
+    for node, metadata in list(G.nodes.data()):
+        t = metadata["step"]
+        if t in ["input", "output"]:
+            for key, value in metadata.items():
+                if key == "step":
+                    continue
+                wf_dict[f"{t}s"][node.split(".")[-1]][key] = value
+        else:
+            for key, value in metadata.items():
+                if key == "step":
+                    continue
+                wf_dict["nodes"][node][key] = value
+
+    for edge in _get_edges_in_order(G):
+        wf_dict["edges"].append(edge)
+    return tools.recursive_dd_to_dict(wf_dict)
+
+
 def graph_to_wf_dict(G: nx.DiGraph, flatten: bool = False) -> dict:
     """
     Convert a directed graph representation of a workflow into a workflow
@@ -1115,55 +1146,30 @@ def graph_to_wf_dict(G: nx.DiGraph, flatten: bool = False) -> dict:
     """
     wf_dict = tools.dict_to_recursive_dd({})
     if flatten:
-        G = flatten_graph(G)
+        return _graph_to_flat_wf_dict(G)
 
     for node, metadata in list(G.nodes.data()):
         t = metadata["step"]
         if t in ["input", "output"]:
-            if flatten:
-                if node.startswith(t):
-                    for key, value in metadata.items():
-                        if key == "step":
-                            continue
-                        wf_dict[f"{t}s"][node.split(".")[-1]][key] = value
-                else:
-                    for key, value in metadata.items():
-                        if key == "step":
-                            continue
-                        wf_dict["nodes"][node.rsplit(".", 2)[0]][f"{t}s"][
-                            node.split(".")[-1]
-                        ][key] = value
-            else:
-                d = wf_dict
-                for n in node.split(".")[:-2]:
-                    d = d["nodes"][n]
-                for key, value in metadata.items():
-                    if key == "step":
-                        continue
-                    d[f"{t}s"][node.split(".")[-1]][key] = value
+            d = wf_dict
+            for n in node.split(".")[:-2]:
+                d = d["nodes"][n]
+            for key, value in metadata.items():
+                if key == "step":
+                    continue
+                d[f"{t}s"][node.split(".")[-1]][key] = value
         else:
-            if flatten:
-                for key, value in metadata.items():
-                    if key == "step":
-                        continue
-                    wf_dict["nodes"][node][key] = value
-            else:
-                d = wf_dict
-                for n in node.split("."):
-                    d = d["nodes"][n]
-                d.update(
-                    {key: value for key, value in metadata.items() if key != "step"}
-                )
+            d = wf_dict
+            for n in node.split("."):
+                d = d["nodes"][n]
+            d.update(
+                {key: value for key, value in metadata.items() if key != "step"}
+            )
 
     for edge in G.edges:
         if any(
             "." not in e or e.split(".")[-2] not in ["inputs", "outputs"] for e in edge
         ):
-            continue
-        if flatten:
-            if not isinstance(wf_dict["edges"], list):
-                wf_dict["edges"] = []
-            wf_dict["edges"].append(edge)
             continue
         if len(edge[0].split(".")) == len(edge[1].split(".")):
             nodes = edge[0].split(".")[:-3]
@@ -1186,14 +1192,13 @@ def graph_to_wf_dict(G: nx.DiGraph, flatten: bool = False) -> dict:
         if not isinstance(d["edges"], list):
             d["edges"] = []
         d["edges"].append(edge)
-    if not flatten:
-        for key, value in G.graph.items():
-            d = wf_dict
-            if key != "":
-                for n in key.split("."):
-                    d = d["nodes"][n]
-            for k, v in value.items():
-                d[k] = v
+    for key, value in G.graph.items():
+        d = wf_dict
+        if key != "":
+            for n in key.split("."):
+                d = d["nodes"][n]
+        for k, v in value.items():
+            d[k] = v
     return tools.recursive_dd_to_dict(wf_dict)
 
 
