@@ -54,7 +54,7 @@ class WorkflowParser:
         self.output_edges: edge_models.OutputEdges = {}
         self.outputs: list[str] = []
 
-        self._symbol_to_source_map: dict[
+        self.symbol_to_source_map: dict[
             str, edge_models.InputSource | edge_models.SourceHandle
         ] = {p: edge_models.InputSource(port=p) for p in inputs}
 
@@ -100,7 +100,7 @@ class WorkflowParser:
             )
 
     def enforce_unique_symbols(self, new_symbols: Iterable[str]) -> None:
-        if overshadow := set(self._symbol_to_source_map).intersection(new_symbols):
+        if overshadow := set(self.symbol_to_source_map).intersection(new_symbols):
             raise ValueError(
                 f"Workflow python definitions must not re-use symbols, but found "
                 f"duplicate(s) {overshadow}"
@@ -136,7 +136,7 @@ class WorkflowParser:
         )
         self.nodes[child.label] = child.node  # In-place mutation
 
-        self._symbol_to_source_map.update(
+        self.symbol_to_source_map.update(
             self._get_symbol_sources_from_child_output(
                 new_symbols=new_symbols,
                 child=child,
@@ -189,12 +189,12 @@ class WorkflowParser:
             ast_call=ast_call, call_node=child
         ):
             try:
-                source = self._symbol_to_source_map[input_symbol]
+                source = self.symbol_to_source_map[input_symbol]
             except KeyError as e:
                 raise KeyError(
                     f"Workflow python definitions require node input to be "
                     f"known symbols, but got '{input_symbol}'. available symbols: "
-                    f"{self._symbol_to_source_map}"
+                    f"{self.symbol_to_source_map}"
                 ) from e
 
             target = edge_models.TargetHandle(node=child.label, port=input_port)
@@ -247,11 +247,11 @@ class WorkflowParser:
         self.output_edges = {}
         for symbol, port in zip(returned_symbols, self.outputs, strict=True):
             try:
-                source = self._symbol_to_source_map[symbol]
+                source = self.symbol_to_source_map[symbol]
             except KeyError as e:
                 raise ValueError(
                     f"Return symbol '{symbol}' is not defined. "
-                    f"Available: {list(self._symbol_to_source_map)}"
+                    f"Available: {list(self.symbol_to_source_map)}"
                 ) from e
 
             if isinstance(source, edge_models.InputSource):
