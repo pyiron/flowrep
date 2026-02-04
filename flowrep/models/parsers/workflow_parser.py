@@ -78,6 +78,10 @@ class WorkflowParser:
         for body in tree.body:
             if isinstance(body, ast.Assign | ast.AnnAssign):
                 self.handle_assign(func, body)
+            elif isinstance(body, ast.For | ast.While | ast.If | ast.Try):
+                raise NotImplementedError(
+                    f"Support for control flow statement {type(body)} is forthcoming."
+                )
             elif isinstance(body, ast.Return):
                 if found_return:
                     raise ValueError(
@@ -86,10 +90,6 @@ class WorkflowParser:
                 found_return = True
                 # Sets state: outputs, output_edges
                 self.handle_return(func, body, output_labels)
-            elif isinstance(body, ast.For | ast.While | ast.If | ast.Try):
-                raise NotImplementedError(
-                    f"Support for control flow statement {type(body)} is forthcoming."
-                )
             else:
                 raise TypeError(
                     f"Workflow python definitions can only interpret assignments, a subset "
