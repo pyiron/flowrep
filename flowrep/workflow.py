@@ -1105,6 +1105,16 @@ def simple_run(G: nx.DiGraph) -> nx.DiGraph:
     return G
 
 
+def _get_edges_in_order(G: nx.DiGraph) -> list[tuple[str, str]]:
+    node_order = list(nx.topological_sort(G))
+    pos = {n: i for i, n in enumerate(node_order)}
+
+    return sorted(
+        G.edges(),
+        key=lambda e: (pos[e[0]], pos[e[1]])
+    )
+
+
 def _graph_to_flat_wf_dict(G: nx.DiGraph) -> dict:
     G = flatten_graph(G)
     wf_dict = tools.dict_to_recursive_dd(
