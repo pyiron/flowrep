@@ -39,33 +39,8 @@ def parse_workflow(
     *output_labels: str,
 ):
     state = WorkflowParser(inputs=label_helpers.get_input_labels(func))
-
     tree = parser_helpers.get_ast_function_node(func)
-    found_return = False
-    for body in tree.body:
-        if isinstance(body, ast.Assign | ast.AnnAssign):
-            state.handle_assign(func, body)
-        elif isinstance(body, ast.Return):
-            if found_return:
-                raise ValueError(
-                    "Workflow python definitions must have exactly one return."
-                )
-            found_return = True
-            # Sets state: outputs, output_edges
-            state.handle_return(func, body, output_labels)
-        elif isinstance(body, ast.For | ast.While | ast.If | ast.Try):
-            raise NotImplementedError(
-                f"Support for control flow statement {type(body)} is forthcoming."
-            )
-        else:
-            raise TypeError(
-                f"Workflow python definitions can only interpret assignments, a subset "
-                f"of flow control (for/while/if/try) and a return, but ast found "
-                f"{type(body)}"
-            )
-
-    if not found_return:
-        raise ValueError("Workflow python definitions must have a return statement.")
+    state.walk_func_def(tree, func, output_labels)
 
     return workflow_model.WorkflowNode(
         inputs=state.inputs,
@@ -90,6 +65,37 @@ class WorkflowParser:
         self._symbol_to_source_map: dict[
             str, edge_models.InputSource | edge_models.SourceHandle
         ] = {p: edge_models.InputSource(port=p) for p in inputs}
+
+    def walk_func_def(
+        self, tree: ast.FunctionDef, func: FunctionType, output_labels: Collection[str]
+    ) -> None:
+        found_return = False
+        for body in tree.body:
+            if isinstance(body, ast.Assign | ast.AnnAssign):
+                self.handle_assign(func, body)
+            elif isinstance(body, ast.Return):
+                if found_return:
+                    raise ValueError(
+                        "Workflow python definitions must have exactly one return."
+                    )
+                found_return = True
+                # Sets state: outputs, output_edges
+                self.handle_return(func, body, output_labels)
+            elif isinstance(body, ast.For | ast.While | ast.If | ast.Try):
+                raise NotImplementedError(
+                    f"Support for control flow statement {type(body)} is forthcoming."
+                )
+            else:
+                raise TypeError(
+                    f"Workflow python definitions can only interpret assignments, a subset "
+                    f"of flow control (for/while/if/try) and a return, but ast found "
+                    f"{type(body)}"
+                )
+
+        if not found_return:
+            raise ValueError(
+                "Workflow python definitions must have a return statement."
+            )
 
     def enforce_unique_symbols(self, new_symbols: Iterable[str]) -> None:
         if overshadow := set(self._symbol_to_source_map).intersection(new_symbols):
