@@ -233,16 +233,6 @@ class TestWorkflow(unittest.TestCase):
             sorted(all_data),
         )
 
-    def test_get_node_dict(self):
-        node_dict = fwf.get_node_dict(add)
-        self.assertEqual(
-            node_dict,
-            {
-                "function": add,
-                "type": "atomic",
-            },
-        )
-
     def test_get_workflow_dict(self):
         ref_data = {
             "nodes": {

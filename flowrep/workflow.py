@@ -584,7 +584,9 @@ def _get_nodes(
             if with_function:
                 result[label]["function"] = function["function"].func
         else:
-            result[label] = get_node_dict(function=function["function"])
+            t = function.get("control_flow", "atomic").split("-", 1)[-1]
+            t = {"body": "atomic"}.get(t, t)
+            result[label] = {"function": function["function"], "type": t}
     return result
 
 
@@ -674,25 +676,6 @@ def _get_edges(
             nodes_to_remove.append(edge[1])
     new_graph = _remove_and_reconnect_nodes(nx.DiGraph(edges), nodes_to_remove)
     return [tuple(e.split("/")[-1] for e in edge) for edge in new_graph.edges]
-
-
-def get_node_dict(
-    function: Callable,
-) -> dict:
-    """
-    Get a dictionary representation of the function node.
-
-    Args:
-        func (Callable): The function to be analyzed.
-
-    Returns:
-        (dict) A dictionary representation of the function node.
-    """
-    data = {
-        "function": function,
-        "type": "atomic",
-    }
-    return data
 
 
 def _to_workflow_dict_entry(
