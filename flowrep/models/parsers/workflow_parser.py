@@ -38,67 +38,82 @@ def parse_workflow(
     func: FunctionType,
     *output_labels: str,
 ):
-    state = _WorkflowParserState(inputs=label_helpers.get_input_labels(func))
-
+    state = WorkflowParser(inputs=label_helpers.get_input_labels(func))
     tree = parser_helpers.get_ast_function_node(func)
-    found_return = False
-    for body in tree.body:
-        if isinstance(body, ast.Assign | ast.AnnAssign):
-            state.handle_assign(func, body)
-        elif isinstance(body, ast.Return):
-            if found_return:
-                raise ValueError(
-                    "Workflow python definitions must have exactly one return."
-                )
-            found_return = True
-            # Sets state: outputs, output_edges
-            state.handle_return(func, body, output_labels)
-        elif isinstance(body, ast.For | ast.While | ast.If | ast.Try):
-            raise NotImplementedError(
-                f"Support for control flow statement {type(body)} is forthcoming."
-            )
-        else:
-            raise TypeError(
-                f"Workflow python definitions can only interpret assignments, a subset "
-                f"of flow control (for/while/if/try) and a return, but ast found "
-                f"{type(body)}"
-            )
-
-    if not found_return:
-        raise ValueError("Workflow python definitions must have a return statement.")
-
-    return workflow_model.WorkflowNode(
-        inputs=state.inputs,
-        outputs=state.outputs,
-        nodes=state.nodes,
-        input_edges=state.input_edges,
-        edges=state.edges,
-        output_edges=state.output_edges,
-    )
+    state.walk_func_def(tree, func, output_labels)
+    return state.build_model()
 
 
-class _WorkflowParserState:
-    outputs: list[str]
-    output_edges: edge_models.OutputEdges
+SymbolSourceMapType = dict[str, edge_models.InputSource | edge_models.SourceHandle]
+
+
+class WorkflowParser:
 
     def __init__(self, inputs: list[str]):
         self.inputs = inputs
         self.nodes: union.Nodes = {}
         self.input_edges: edge_models.InputEdges = {}
         self.edges: edge_models.Edges = {}
+        self.output_edges: edge_models.OutputEdges = {}
+        self.outputs: list[str] = []
 
-        self._symbol_to_source_map: dict[
-            str, edge_models.InputSource | edge_models.SourceHandle
-        ] = {p: edge_models.InputSource(port=p) for p in inputs}
+        self.symbol_to_source_map: SymbolSourceMapType = {
+            p: edge_models.InputSource(port=p) for p in inputs
+        }
+
+    def build_model(self) -> workflow_model.WorkflowNode:
+        return workflow_model.WorkflowNode(
+            inputs=self.inputs,
+            outputs=self.outputs,
+            nodes=self.nodes,
+            input_edges=self.input_edges,
+            edges=self.edges,
+            output_edges=self.output_edges,
+        )
+
+    def walk_func_def(
+        self, tree: ast.FunctionDef, func: FunctionType, output_labels: Collection[str]
+    ) -> None:
+        scope = scope_helpers.get_scope(func)
+
+        found_return = False
+        for body in tree.body:
+            if isinstance(body, ast.Assign | ast.AnnAssign):
+                self.handle_assign(body, scope)
+            elif isinstance(body, ast.For | ast.While | ast.If | ast.Try):
+                raise NotImplementedError(
+                    f"Support for control flow statement {type(body)} is forthcoming."
+                )
+            elif isinstance(body, ast.Return):
+                if found_return:
+                    raise ValueError(
+                        "Workflow python definitions must have exactly one return."
+                    )
+                found_return = True
+                # Sets state: outputs, output_edges
+                self.handle_return(func, body, output_labels)
+            else:
+                raise TypeError(
+                    f"Workflow python definitions can only interpret assignments, a subset "
+                    f"of flow control (for/while/if/try) and a return, but ast found "
+                    f"{type(body)}"
+                )
+
+        if not found_return:
+            raise ValueError(
+                "Workflow python definitions must have a return statement."
+            )
 
     def enforce_unique_symbols(self, new_symbols: Iterable[str]) -> None:
-        if overshadow := set(self._symbol_to_source_map).intersection(new_symbols):
+        if overshadow := set(self.symbol_to_source_map).intersection(new_symbols):
             raise ValueError(
                 f"Workflow python definitions must not re-use symbols, but found "
                 f"duplicate(s) {overshadow}"
             )
 
-    def handle_assign(self, func: FunctionType, body: ast.Assign | ast.AnnAssign):
+    def handle_assign(
+        self, body: ast.Assign | ast.AnnAssign, scope: scope_helpers.ScopeProxy
+    ):
         # Get returned symbols from the left-hand side
         lhs = body.targets[0] if isinstance(body, ast.Assign) else body.target
         new_symbols = parser_helpers.resolve_symbols_to_strings(lhs)
@@ -108,7 +123,7 @@ class _WorkflowParserState:
         if isinstance(rhs, ast.Call):
             # Make a new node from the rhs
             # Modifies state: nodes, input_edges, edges, symbol_to_source_map
-            self.handle_assign_call(rhs, new_symbols, scope_helpers.get_scope(func))
+            self.handle_assign_call(rhs, new_symbols, scope)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
             self.handle_assign_empty_list()
         else:
@@ -128,7 +143,7 @@ class _WorkflowParserState:
         )
         self.nodes[child.label] = child.node  # In-place mutation
 
-        self._symbol_to_source_map.update(
+        self.symbol_to_source_map.update(
             self._get_symbol_sources_from_child_output(
                 new_symbols=new_symbols,
                 child=child,
@@ -181,12 +196,12 @@ class _WorkflowParserState:
             ast_call=ast_call, call_node=child
         ):
             try:
-                source = self._symbol_to_source_map[input_symbol]
+                source = self.symbol_to_source_map[input_symbol]
             except KeyError as e:
                 raise KeyError(
                     f"Workflow python definitions require node input to be "
                     f"known symbols, but got '{input_symbol}'. available symbols: "
-                    f"{self._symbol_to_source_map}"
+                    f"{self.symbol_to_source_map}"
                 ) from e
 
             target = edge_models.TargetHandle(node=child.label, port=input_port)
@@ -236,14 +251,14 @@ class _WorkflowParserState:
 
         self.outputs = list(output_labels) or scraped_labels
 
-        self.output_edges: edge_models.OutputEdges = {}
+        self.output_edges = {}
         for symbol, port in zip(returned_symbols, self.outputs, strict=True):
             try:
-                source = self._symbol_to_source_map[symbol]
+                source = self.symbol_to_source_map[symbol]
             except KeyError as e:
                 raise ValueError(
                     f"Return symbol '{symbol}' is not defined. "
-                    f"Available: {list(self._symbol_to_source_map)}"
+                    f"Available: {list(self.symbol_to_source_map)}"
                 ) from e
 
             if isinstance(source, edge_models.InputSource):

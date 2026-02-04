@@ -445,12 +445,12 @@ class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
 
 class TestWorkflowParserStateEnforceUniqueSymbols(unittest.TestCase):
     def test_allows_new_symbols(self):
-        state = workflow_parser._WorkflowParserState(inputs=["x"])
+        state = workflow_parser.WorkflowParser(inputs=["x"])
         # Should not raise
         state.enforce_unique_symbols(["y", "z"])
 
     def test_rejects_duplicate_of_input(self):
-        state = workflow_parser._WorkflowParserState(inputs=["x"])
+        state = workflow_parser.WorkflowParser(inputs=["x"])
         with self.assertRaises(ValueError):
             state.enforce_unique_symbols(["x"])
 
