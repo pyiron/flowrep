@@ -41,15 +41,7 @@ def parse_workflow(
     state = WorkflowParser(inputs=label_helpers.get_input_labels(func))
     tree = parser_helpers.get_ast_function_node(func)
     state.walk_func_def(tree, func, output_labels)
-
-    return workflow_model.WorkflowNode(
-        inputs=state.inputs,
-        outputs=state.outputs,
-        nodes=state.nodes,
-        input_edges=state.input_edges,
-        edges=state.edges,
-        output_edges=state.output_edges,
-    )
+    return state.build_model()
 
 
 class WorkflowParser:
@@ -65,6 +57,16 @@ class WorkflowParser:
         self._symbol_to_source_map: dict[
             str, edge_models.InputSource | edge_models.SourceHandle
         ] = {p: edge_models.InputSource(port=p) for p in inputs}
+
+    def build_model(self) -> workflow_model.WorkflowNode:
+        return workflow_model.WorkflowNode(
+            inputs=self.inputs,
+            outputs=self.outputs,
+            nodes=self.nodes,
+            input_edges=self.input_edges,
+            edges=self.edges,
+            output_edges=self.output_edges,
+        )
 
     def walk_func_def(
         self, tree: ast.FunctionDef, func: FunctionType, output_labels: Collection[str]
