@@ -77,6 +77,19 @@ def get_ast_function_node(func: FunctionType) -> ast.FunctionDef:
     return get_function_definition(ast.parse(get_source_code(func)))
 
 
+def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
+    return (
+        body[1:]
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        )
+        else body
+    )
+
+
 def resolve_symbols_to_strings(
     node: (
         ast.expr | None
