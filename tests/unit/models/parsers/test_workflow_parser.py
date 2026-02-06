@@ -391,16 +391,6 @@ class TestParseWorkflowErrors(unittest.TestCase):
 class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
     """Control flow is not yet implemented; verify NotImplementedError is raised."""
 
-    def test_for_loop_raises(self):
-        def wf(x):
-            for i in range(x):
-                y = add(i)
-            return y
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("for", str(ctx.exception).lower())
-
     def test_while_loop_raises(self):
         def wf(x):
             while x > 0:
@@ -433,24 +423,19 @@ class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("try", str(ctx.exception).lower())
 
-    def test_empty_list_assignment_raises(self):
-        def wf(x):
-            y = []  # noqa: F841
-            return x
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("list", str(ctx.exception).lower())
-
 
 class TestWorkflowParserStateEnforceUniqueSymbols(unittest.TestCase):
     def test_allows_new_symbols(self):
-        state = workflow_parser._WorkflowParserState(inputs=["x"])
+        state = workflow_parser.WorkflowParser(
+            symbol_to_source_map={"x": edge_models.InputSource(port="placeholder")}
+        )
         # Should not raise
         state.enforce_unique_symbols(["y", "z"])
 
     def test_rejects_duplicate_of_input(self):
-        state = workflow_parser._WorkflowParserState(inputs=["x"])
+        state = workflow_parser.WorkflowParser(
+            symbol_to_source_map={"x": edge_models.InputSource(port="placeholder")}
+        )
         with self.assertRaises(ValueError):
             state.enforce_unique_symbols(["x"])
 
