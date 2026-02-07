@@ -105,11 +105,12 @@ def hash_function(fn: Callable) -> str:
     """
 
     # ---- Primary path: semantic hash ----
+    name = getattr(fn, "__name__", "unkonwn")
     try:
         payload = json.dumps(
             get_ast_dict(fn), sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode("utf-8")
-        return "ast:" + hashlib.sha256(payload).hexdigest()
+        return f"{name}-ast:{hashlib.sha256(payload).hexdigest()}"
     except (OSError, TypeError):
         pass
 
@@ -117,7 +118,7 @@ def hash_function(fn: Callable) -> str:
     if hasattr(fn, "__module__") and hasattr(fn, "__qualname__"):
         version = _get_version_from_module(fn.__module__)
         identity = f"{fn.__module__}:{fn.__qualname__}:{version}"
-        return "id:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()
+        return f"{name}-id:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()
 
     raise TypeError(f"{fn!r} is not hashable - wrap it in another function")
 
