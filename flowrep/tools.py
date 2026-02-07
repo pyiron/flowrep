@@ -3,7 +3,6 @@ import copy
 import hashlib
 import inspect
 import textwrap
-import json
 from collections import defaultdict
 from collections.abc import Callable
 from importlib import import_module
@@ -111,7 +110,7 @@ class CanonicalASTDumper(ast.NodeVisitor):
             raise TypeError(f"Unsupported AST value: {type(value)!r}")
 
 
-def function_hash(fn: Callable) -> str:
+def hash_function(fn: Callable) -> str:
     """
     Returns a stable hash for a Python callable.
 

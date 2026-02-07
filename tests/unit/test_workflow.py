@@ -729,23 +729,23 @@ class TestWorkflow(unittest.TestCase):
             sorted(wf_dict["nodes"]["example_macro_0"]["edges"]),
         )
 
-    def test_function_hash(self):
+    def test_hash_function(self):
         def function_with_list():
             return [1, 2, 3]
 
         self.assertEqual(
-            tools.function_hash(function_with_list),
+            tools.hash_function(function_with_list),
             "ast:3655ea86940164b32b89e0b21de6864144607fb7f7ae48e9b820cc30db45faec",
             msg="AST based hash should be OS and Python version independent",
         )
         self.assertEqual(
-            tools.function_hash(operation),
+            tools.hash_function(operation),
             "ast:f131a3edded2ef484eb570a329b44e3293e734f8f54ebf39242677f018bebaa2",
             msg="AST based hash should be OS and Python version independent",
         )
         import math
 
-        self.assertEqual(tools.function_hash(math.sin)[:3], "id:")
+        self.assertEqual(tools.hash_function(math.sin)[:3], "id:")
 
 
 if __name__ == "__main__":
