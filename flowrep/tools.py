@@ -107,7 +107,7 @@ def hash_function(fn: Callable) -> str:
     # ---- Primary path: semantic hash ----
     try:
         payload = json.dumps(
-            get_ast_dict(fn), sort_keys=True, separators=(",", ":")
+            get_ast_dict(fn), sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode("utf-8")
         return "ast:" + hashlib.sha256(payload).hexdigest()
     except (OSError, TypeError):
