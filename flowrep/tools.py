@@ -2,6 +2,7 @@ import ast
 import copy
 import hashlib
 import inspect
+import json
 import textwrap
 from collections import defaultdict
 from collections.abc import Callable
@@ -70,44 +71,23 @@ def get_function_metadata(
     return data
 
 
-class RemoveDocstrings(ast.NodeTransformer):
-    def visit_FunctionDef(self, node):
-        self.generic_visit(node)
-        if (
-            node.body
-            and isinstance(node.body[0], ast.Expr)
-            and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.value, str)
-        ):
-            node.body = node.body[1:]
+def _function_to_ast_dict(node):
+    if isinstance(node, ast.AST):
+        result = {"_type": type(node).__name__}
+        for field, value in ast.iter_fields(node):
+            result[field] = _function_to_ast_dict(value)
+        return result
+    elif isinstance(node, list):
+        return [_function_to_ast_dict(item) for item in node]
+    else:
         return node
 
-    def visit_AsyncFunctionDef(self, node):
-        return self.visit_FunctionDef(node)
 
-
-class CanonicalASTDumper(ast.NodeVisitor):
-    def __init__(self):
-        self.parts = []
-
-    def generic_visit(self, node):
-        self.parts.append(type(node).__name__)
-        for field, value in ast.iter_fields(node):
-            self.parts.append(field)
-            self._visit_value(value)
-
-    def _visit_value(self, value):
-        if isinstance(value, ast.AST):
-            self.visit(value)
-        elif isinstance(value, list):
-            self.parts.append("[")
-            for item in value:
-                self._visit_value(item)
-            self.parts.append("]")
-        elif isinstance(value, (str, int, float, complex, bool, type(None))):
-            self.parts.append(repr(value))
-        else:
-            raise TypeError(f"Unsupported AST value: {type(value)!r}")
+def get_ast_dict(func: Callable) -> dict:
+    """Get the AST dictionary representation of a function."""
+    source_code = textwrap.dedent(inspect.getsource(func))
+    tree = ast.parse(source_code)
+    return _function_to_ast_dict(tree)
 
 
 def hash_function(fn: Callable) -> str:
@@ -126,22 +106,12 @@ def hash_function(fn: Callable) -> str:
 
     # ---- Primary path: semantic hash ----
     try:
-        source = inspect.getsource(fn)
-    except (OSError, TypeError):
-        source = None
-
-    if source is not None:
-        source = textwrap.dedent(source)
-        tree = ast.parse(source)
-
-        tree = RemoveDocstrings().visit(tree)
-        ast.fix_missing_locations(tree)
-
-        dumper = CanonicalASTDumper()
-        dumper.visit(tree)
-
-        payload = "\n".join(dumper.parts).encode("utf-8")
+        payload = json.dumps(
+            get_ast_dict(fn), sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
         return "ast:" + hashlib.sha256(payload).hexdigest()
+    except (OSError, TypeError):
+        pass
 
     # ---- Fallback path: identity hash ----
     if hasattr(fn, "__module__") and hasattr(fn, "__qualname__"):

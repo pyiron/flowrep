@@ -735,12 +735,12 @@ class TestWorkflow(unittest.TestCase):
 
         self.assertEqual(
             tools.hash_function(function_with_list),
-            "ast:3655ea86940164b32b89e0b21de6864144607fb7f7ae48e9b820cc30db45faec",
+            "ast:13d68aec47bcec8ef6a4240f0ea48a45adf8a99de3dec37143f0c44e36e57300",
             msg="AST based hash should be OS and Python version independent",
         )
         self.assertEqual(
             tools.hash_function(operation),
-            "ast:f131a3edded2ef484eb570a329b44e3293e734f8f54ebf39242677f018bebaa2",
+            "ast:139dd27d032b718a805ee12b957bef8b26370497f25aa3d037dd5d54ac764acb",
             msg="AST based hash should be OS and Python version independent",
         )
         import math
