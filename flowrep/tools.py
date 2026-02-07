@@ -1,8 +1,12 @@
+import ast
 import copy
 import hashlib
+import inspect
 import json
+import textwrap
 from collections import defaultdict
 from collections.abc import Callable
+from importlib import import_module
 from typing import Any
 
 
@@ -31,6 +35,12 @@ def serialize_functions(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def _get_version_from_module(module_name: str) -> str:
+    base_module_name = module_name.split(".")[0]
+    base_module = import_module(base_module_name)
+    return getattr(base_module, "__version__", "not_defined")
+
+
 def get_function_metadata(
     cls: Callable | dict[str, str], full_metadata: bool = False
 ) -> dict[str, str]:
@@ -51,14 +61,8 @@ def get_function_metadata(
         "module": cls.__module__,
         "qualname": cls.__qualname__,
     }
-    from importlib import import_module
 
-    base_module = import_module(data["module"].split(".")[0])
-    data["version"] = (
-        base_module.__version__
-        if hasattr(base_module, "__version__")
-        else "not_defined"
-    )
+    data["version"] = _get_version_from_module(data["module"])
     if not full_metadata:
         return data
     data["hash"] = hash_function(cls)
@@ -67,44 +71,55 @@ def get_function_metadata(
     return data
 
 
+def _function_to_ast_dict(node):
+    if isinstance(node, ast.AST):
+        result = {"_type": type(node).__name__}
+        for field, value in ast.iter_fields(node):
+            result[field] = _function_to_ast_dict(value)
+        return result
+    elif isinstance(node, list):
+        return [_function_to_ast_dict(item) for item in node]
+    else:
+        return node
+
+
+def get_ast_dict(func: Callable) -> dict:
+    """Get the AST dictionary representation of a function."""
+    source_code = textwrap.dedent(inspect.getsource(func))
+    tree = ast.parse(source_code)
+    return _function_to_ast_dict(tree)
+
+
 def hash_function(fn: Callable) -> str:
     """
-    Generate a SHA-256 hash for a given function based on its bytecode and
-    metadata.
+    Returns a stable hash for a Python callable.
+
+    - Uses AST-based semantic hashing when source is available
+    - Falls back to identity hashing (module + qualname) otherwise
 
     Args:
-        fn (Callable): The function to be hashed.
+        fn (Callable): The function to hash.
 
     Returns:
-        str: A SHA-256 hash of the function's bytecode and metadata.
+        str: A stable hash string representing the function.
     """
-    h = hashlib.sha256()
 
-    code = fn.__code__
+    # ---- Primary path: semantic hash ----
+    try:
+        payload = json.dumps(
+            get_ast_dict(fn), sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        return "ast:" + hashlib.sha256(payload).hexdigest()
+    except (OSError, TypeError):
+        pass
 
-    # include bytecode
-    h.update(code.co_code)
+    # ---- Fallback path: identity hash ----
+    if hasattr(fn, "__module__") and hasattr(fn, "__qualname__"):
+        version = _get_version_from_module(fn.__module__)
+        identity = f"{fn.__module__}:{fn.__qualname__}:{version}"
+        return "id:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()
 
-    # include metadata
-    fields_dict = {
-        "co_argcount": code.co_argcount,
-        "co_posonlyargcount": code.co_posonlyargcount,
-        "co_kwonlyargcount": code.co_kwonlyargcount,
-        "co_nlocals": code.co_nlocals,
-        "co_stacksize": code.co_stacksize,
-        "co_flags": code.co_flags,
-        "co_consts": code.co_consts,
-        "co_names": code.co_names,
-        "co_varnames": code.co_varnames,
-        "co_freevars": code.co_freevars,
-        "co_cellvars": code.co_cellvars,
-        "defaults": fn.__defaults__,
-        "kwdefaults": fn.__kwdefaults__,
-    }
-
-    h.update(json.dumps(fields_dict, sort_keys=True, default=str).encode("utf-8"))
-
-    return h.hexdigest()
+    raise TypeError(f"{fn!r} is not hashable - wrap it in another function")
 
 
 def recursive_defaultdict() -> defaultdict:
