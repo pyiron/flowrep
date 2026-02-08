@@ -563,7 +563,9 @@ def _get_nodes(
             if with_function:
                 result[label]["function"] = function["function"].func
         else:
-            result[label] = get_node_dict(function=function["function"])
+            t = function.get("control_flow", "atomic").split("-", 1)[-1]
+            t = {"body": "atomic"}.get(t, t)
+            result[label] = {"function": function["function"], "type": t}
     return result
 
 
@@ -655,25 +657,6 @@ def _get_edges(
     return [tuple(e.split("/")[-1] for e in edge) for edge in new_graph.edges]
 
 
-def get_node_dict(
-    function: Callable,
-) -> dict:
-    """
-    Get a dictionary representation of the function node.
-
-    Args:
-        func (Callable): The function to be analyzed.
-
-    Returns:
-        (dict) A dictionary representation of the function node.
-    """
-    data = {
-        "function": function,
-        "type": "Function",
-    }
-    return data
-
-
 def _to_workflow_dict_entry(
     inputs: dict[str, dict],
     outputs: list[str] | dict[str, dict],
@@ -693,7 +676,7 @@ def _to_workflow_dict_entry(
         "nodes": nodes,
         "edges": edges,
         "label": label,
-        "type": "Workflow",
+        "type": "workflow",
     } | kwargs
 
 
@@ -753,7 +736,7 @@ def _nest_nodes(
             "nodes": current_nodes,
             "edges": _get_edges(graph=subgraph, output_mapping=output_mapping),
             "label": new_key.split("/")[-1],
-            "type": cf_key.split("/")[-1].split("_")[0] if cf_key != "" else "Workflow",
+            "type": cf_key.split("/")[-1].split("_")[0] if cf_key != "" else "workflow",
         }
         for tag in ["test", "iter"]:
             if tag in injected_nodes[new_key]["nodes"]:
@@ -904,8 +887,8 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
 
     nodes_to_delete = []
     for key, node in workflow_dict["nodes"].items():
-        assert node["type"] in ["Function", "Workflow"]
-        if node["type"] == "Workflow":
+        assert node["type"] in ["atomic", "workflow"]
+        if node["type"] == "workflow":
             child_G = get_workflow_graph(node)
             for child_key in list(child_G.graph.keys()):
                 new_key = f"{key}.{child_key}" if child_key != "" else key
@@ -1085,7 +1068,7 @@ def simple_run(G: nx.DiGraph) -> nx.DiGraph:
             raise ValueError("Input values not entirely set")
         assert "value" in data
         for succ in G.successors(node):
-            if G.nodes[succ].get("type") != "Function":
+            if G.nodes[succ].get("type") != "atomic":
                 G.nodes[succ]["value"] = data["value"]
     return G
 
