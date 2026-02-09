@@ -77,9 +77,7 @@ class ForNode(base_models.NodeModel):
     output_edges: edge_models.OutputEdges
     nested_ports: base_models.Labels = pydantic.Field(default_factory=list)
     zipped_ports: base_models.Labels = pydantic.Field(default_factory=list)
-    transfer_edges: dict[edge_models.OutputTarget, edge_models.InputSource] = (
-        pydantic.Field(default_factory=dict)
-    )
+    transfer_edges: edge_models.TransferEdges = pydantic.Field(default_factory=dict)
 
     @property
     def prospective_nodes(self) -> Nodes:
