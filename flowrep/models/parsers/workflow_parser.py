@@ -91,7 +91,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
-            child = self._get_labeled_recipe(rhs, self.nodes.keys(), scope)
+            child = get_labeled_recipe(rhs, self.nodes.keys(), scope)
             self.nodes[child.label] = child.node
             consume_call_arguments(self.symbol_to_source_map, rhs, child)
             self.symbol_to_source_map.register(new_symbols, child)
@@ -107,25 +107,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"Workflow python definitions can only interpret assignments with "
                 f"a call on the right-hand-side, but ast found {type(rhs)}"
             )
-
-    @staticmethod
-    def _get_labeled_recipe(
-        ast_call: ast.Call,
-        existing_names: Iterable[str],
-        scope: scope_helpers.ScopeProxy,
-    ) -> helper_models.LabeledNode:
-        child_call = cast(
-            FunctionType, scope_helpers.resolve_symbol_to_object(ast_call.func, scope)
-        )
-        # Since it is the .func attribute of an ast.Call,
-        # the retrieved object had better be a function
-        child_recipe = (
-            child_call.flowrep_recipe
-            if hasattr(child_call, "flowrep_recipe")
-            else atomic_parser.parse_atomic(child_call)
-        )
-        child_name = label_helpers.unique_suffix(child_call.__name__, existing_names)
-        return helper_models.LabeledNode(label=child_name, node=child_recipe)
 
     def handle_for(
         self,
@@ -247,6 +228,25 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"accumulator symbol. Instead, got a body value {append_stmt.value}."
                 f"Currently known accumulators: {accumulators}."
             )
+
+
+def get_labeled_recipe(
+    ast_call: ast.Call,
+    existing_names: Iterable[str],
+    scope: scope_helpers.ScopeProxy,
+) -> helper_models.LabeledNode:
+    child_call = cast(
+        FunctionType, scope_helpers.resolve_symbol_to_object(ast_call.func, scope)
+    )
+    # Since it is the .func attribute of an ast.Call,
+    # the retrieved object had better be a function
+    child_recipe = (
+        child_call.flowrep_recipe
+        if hasattr(child_call, "flowrep_recipe")
+        else atomic_parser.parse_atomic(child_call)
+    )
+    child_name = label_helpers.unique_suffix(child_call.__name__, existing_names)
+    return helper_models.LabeledNode(label=child_name, node=child_recipe)
 
 
 def consume_call_arguments(
