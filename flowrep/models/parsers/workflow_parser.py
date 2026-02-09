@@ -47,7 +47,7 @@ def parse_workflow(
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs})
     )
     tree = parser_helpers.get_ast_function_node(func)
-    func_def_parser.walk_func_def(state, tree, func, inputs, output_labels)
+    func_def_parser.walk_func_def(state, tree, func, output_labels)
     return state.build_model()
 
 

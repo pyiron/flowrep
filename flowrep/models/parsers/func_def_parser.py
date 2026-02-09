@@ -11,10 +11,8 @@ def walk_func_def(
     body_walker: parser_protocol.BodyWalker,
     tree: ast.FunctionDef,
     func: FunctionType,
-    inputs: list[str],
     output_labels: Collection[str],
 ):
-    # body_walker.inputs = inputs
     scope = scope_helpers.get_scope(func)
 
     found_return = False
