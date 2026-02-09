@@ -10,6 +10,7 @@ from flowrep.models.parsers import (
     label_helpers,
     parser_helpers,
     scope_helpers,
+    symbol_scope,
 )
 
 
@@ -39,22 +40,18 @@ def parse_workflow(
     *output_labels: str,
 ):
     inputs = label_helpers.get_input_labels(func)
-    symbol_to_source_map: SymbolSourceMapType = {
-        p: edge_models.InputSource(port=p) for p in inputs
-    }
-    state = WorkflowParser(symbol_to_source_map)
+    state = WorkflowParser(
+        symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs})
+    )
     state.inputs = inputs
     tree = parser_helpers.get_ast_function_node(func)
     state.walk_func_def(tree, func, output_labels)
     return state.build_model()
 
 
-SymbolSourceMapType = dict[str, edge_models.InputSource | edge_models.SourceHandle]
-
-
 class WorkflowParser:
 
-    def __init__(self, symbol_to_source_map: SymbolSourceMapType):
+    def __init__(self, symbol_to_source_map: symbol_scope.SymbolScope):
         # When these are all filled, we are ready to `build_model`
         self.inputs: list[str] = []
         self.nodes: union.Nodes = {}
@@ -150,20 +147,12 @@ class WorkflowParser:
 
         return used_accumulator_source_map
 
-    def enforce_unique_symbols(self, new_symbols: Iterable[str]) -> None:
-        if overshadow := set(self.symbol_to_source_map).intersection(new_symbols):
-            raise ValueError(
-                f"Workflow python definitions must not re-use symbols, but found "
-                f"duplicate(s) {overshadow}"
-            )
-
     def handle_assign(
         self, body: ast.Assign | ast.AnnAssign, scope: scope_helpers.ScopeProxy
     ):
         # Get returned symbols from the left-hand side
         lhs = body.targets[0] if isinstance(body, ast.Assign) else body.target
         new_symbols = parser_helpers.resolve_symbols_to_strings(lhs)
-        self.enforce_unique_symbols(new_symbols)
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
@@ -189,12 +178,7 @@ class WorkflowParser:
         )
         self.nodes[child.label] = child.node  # In-place mutation
 
-        self.symbol_to_source_map.update(
-            self._get_symbol_sources_from_child_output(
-                new_symbols=new_symbols,
-                child=child,
-            )
-        )
+        self.symbol_to_source_map.register(new_symbols, child)
 
         self._add_edges_for_child_inputs(ast_call=rhs, child=child)
 
@@ -283,9 +267,7 @@ class WorkflowParser:
         all_iters = nested_iters + zipped_iters
 
         body_parser = WorkflowParser(
-            symbol_to_source_map=remap_to_iterating_symbols(
-                self.symbol_to_source_map, all_iters
-            )
+            self.symbol_to_source_map.fork_scope({src: var for var, src in all_iters})
         )
         used_accumulator_symbol_map = body_parser.walk_for(
             for_tree, scope, self._for_loop_accumulators
@@ -345,12 +327,9 @@ class WorkflowParser:
         self.nodes[for_label] = for_node
         self._for_loop_accumulators -= set(used_accumulator_symbol_map)
 
-        labeled_for = helper_models.LabeledNode(label=for_label, node=for_node)
-        self.symbol_to_source_map.update(
-            self._get_symbol_sources_from_child_output(
-                new_symbols=list(used_accumulator_symbol_map),
-                child=labeled_for,
-            )
+        self.symbol_to_source_map.register(
+            list(used_accumulator_symbol_map),
+            helper_models.LabeledNode(label=for_label, node=for_node),
         )
 
         for broadcast_symbol in broadcast_body_input_symbols:
@@ -573,14 +552,3 @@ def is_append_call(node: ast.expr | ast.Expr, accumulators: set[str]) -> bool:
         and isinstance(node.func.value, ast.Name)
         and node.func.value.id in accumulators
     )
-
-
-def remap_to_iterating_symbols(
-    symbol_to_source_map, iterated_ports: list[tuple[str, str]]
-) -> SymbolSourceMapType:
-    """Where a symbol is iterated over, update the map to use the iterating symbol"""
-    source_to_loop_var = {src: var for var, src in iterated_ports}
-    return {
-        (k := source_to_loop_var.get(key, key)): edge_models.InputSource(port=k)
-        for key in symbol_to_source_map
-    }

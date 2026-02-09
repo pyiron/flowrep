@@ -313,7 +313,7 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("re-use", str(ctx.exception).lower())
+        self.assertIn("already in scope", str(ctx.exception).lower())
 
     def test_unknown_symbol_raises(self):
         def wf(x):
@@ -367,7 +367,10 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("Cannot map node outputs for 'add_0'", str(ctx.exception))
+        self.assertIn("Cannot map", str(ctx.exception))
+        self.assertIn("output_0", str(ctx.exception))
+        self.assertIn("y", str(ctx.exception))
+        self.assertIn("z", str(ctx.exception))
 
     def test_too_few_symbols_raises(self):
         def wf(x, y):
@@ -376,7 +379,10 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("Cannot map node outputs for 'operation_0'", str(ctx.exception))
+        self.assertIn("Cannot map", str(ctx.exception))
+        self.assertIn("output_0", str(ctx.exception))
+        self.assertIn("output_1", str(ctx.exception))
+        self.assertIn("z", str(ctx.exception))
 
     def test_unrecognized_return_raises(self):
         def wf(x):
@@ -422,22 +428,6 @@ class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
         with self.assertRaises(NotImplementedError) as ctx:
             workflow_parser.parse_workflow(wf)
         self.assertIn("try", str(ctx.exception).lower())
-
-
-class TestWorkflowParserStateEnforceUniqueSymbols(unittest.TestCase):
-    def test_allows_new_symbols(self):
-        state = workflow_parser.WorkflowParser(
-            symbol_to_source_map={"x": edge_models.InputSource(port="placeholder")}
-        )
-        # Should not raise
-        state.enforce_unique_symbols(["y", "z"])
-
-    def test_rejects_duplicate_of_input(self):
-        state = workflow_parser.WorkflowParser(
-            symbol_to_source_map={"x": edge_models.InputSource(port="placeholder")}
-        )
-        with self.assertRaises(ValueError):
-            state.enforce_unique_symbols(["x"])
 
 
 class TestNestedAttributeResolution(unittest.TestCase):
