@@ -55,6 +55,7 @@ SymbolSourceMapType = dict[str, edge_models.InputSource | edge_models.SourceHand
 class WorkflowParser:
 
     def __init__(self, symbol_to_source_map: SymbolSourceMapType):
+        # When these are all filled, we are ready to `build_model`
         self.inputs: list[str] = []
         self.nodes: union.Nodes = {}
         self.input_edges: edge_models.InputEdges = {}
@@ -62,6 +63,7 @@ class WorkflowParser:
         self.output_edges: edge_models.OutputEdges = {}
         self.outputs: list[str] = []
 
+        # These are internal state that doesn't translate to the final model
         self.symbol_to_source_map = symbol_to_source_map
         self._for_loop_accumulators: set[str] = set()
 
