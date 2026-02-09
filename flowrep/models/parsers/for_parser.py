@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-import dataclasses
+from collections.abc import Iterable
 from typing import ClassVar
 
 from flowrep.models import base_models, edge_models
@@ -51,15 +51,6 @@ def walk_ast_for(
     return used_accumulator_source_map
 
 
-@dataclasses.dataclass
-class ForBuildResult:
-    """What the parent WorkflowParser needs back after build_body."""
-
-    used_accumulators: dict[str, str]  # accumulator_symbol -> appended_symbol
-    broadcast_symbols: list[str]
-    scattered_symbols: list[str]
-
-
 class ForParser:
     body_label: ClassVar[str] = "body"
 
@@ -107,7 +98,7 @@ class ForParser:
         scope: scope_helpers.ScopeProxy,
         nested_iters: list[tuple[str, str]],
         zipped_iters: list[tuple[str, str]],
-    ) -> ForBuildResult:
+    ) -> Iterable[str]:
         all_iters = nested_iters + zipped_iters
 
         used_accumulator_symbol_map = walk_ast_for(
@@ -153,11 +144,8 @@ class ForParser:
                     edge_models.TargetHandle(node=self.body_label, port=appended_symbol)
                 ]
 
-        return ForBuildResult(
-            used_accumulators=used_accumulator_symbol_map,
-            broadcast_symbols=broadcast_symbols,
-            scattered_symbols=scattered_symbols,
-        )
+        used_accumulators = used_accumulator_symbol_map.keys()
+        return used_accumulators
 
 
 def parse_for_iterations(

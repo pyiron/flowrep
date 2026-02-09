@@ -152,7 +152,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
             body_walker=body_walker,
             accumulators=self._for_loop_accumulators,
         )
-        result = fp.build_body(
+        used_accumulators = fp.build_body(
             body_tree,
             scope=scope,
             nested_iters=nested_iters,
@@ -164,7 +164,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.nodes[for_label] = for_node
 
         # 6. Consume accumulators that the for-loop fulfilled
-        self._for_loop_accumulators -= set(result.used_accumulators)
+        self._for_loop_accumulators -= set(used_accumulators)
 
         # 7. Log all symbols used inside the for-node as consumed
         for port in for_node.inputs:
@@ -173,7 +173,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         # 8. Register the for-node's outputs as symbols in *this* scope
         labeled_for = helper_models.LabeledNode(label=for_label, node=for_node)
         self.symbol_to_source_map.register(
-            new_symbols=list(result.used_accumulators),
+            new_symbols=list(used_accumulators),
             child=labeled_for,
         )
 
