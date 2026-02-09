@@ -1,4 +1,6 @@
 import ast
+from collections.abc import Collection
+from types import FunctionType
 from typing import Protocol, runtime_checkable
 
 from flowrep.models import edge_models
@@ -29,5 +31,12 @@ class BodyWalker(Protocol):
     def handle_appending_to_accumulator(
         self, stmt: ast.Expr, accumulators: set[str]
     ) -> tuple[str, str]: ...
+
+    def handle_return(
+        self,
+        body: ast.Return,
+        func: FunctionType,
+        output_labels: Collection[str],
+    ) -> None: ...
 
     def build_model(self) -> workflow_model.WorkflowNode: ...

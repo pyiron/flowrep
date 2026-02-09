@@ -8,6 +8,7 @@ from flowrep.models.nodes import helper_models, union, workflow_model
 from flowrep.models.parsers import (
     atomic_parser,
     for_parser,
+    func_def_parser,
     label_helpers,
     parser_helpers,
     parser_protocol,
@@ -45,9 +46,8 @@ def parse_workflow(
     state = WorkflowParser(
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs})
     )
-    state.inputs = inputs
     tree = parser_helpers.get_ast_function_node(func)
-    state.walk_func_def(tree, func, output_labels)
+    func_def_parser.walk_func_def(state, tree, func, inputs, output_labels)
     return state.build_model()
 
 
@@ -75,41 +75,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
             edges=self.edges,
             output_edges=self.output_edges,
         )
-
-    def walk_func_def(
-        self, tree: ast.FunctionDef, func: FunctionType, output_labels: Collection[str]
-    ) -> None:
-        scope = scope_helpers.get_scope(func)
-
-        found_return = False
-        for body in parser_helpers.skip_docstring(tree.body):
-            if isinstance(body, ast.Assign | ast.AnnAssign):
-                self.handle_assign(body, scope)
-            elif isinstance(body, ast.For):
-                self.handle_for(body, scope, parsing_function_def=True)
-            elif isinstance(body, ast.While | ast.If | ast.Try):
-                raise NotImplementedError(
-                    f"Support for control flow statement {type(body)} is forthcoming."
-                )
-            elif isinstance(body, ast.Return):
-                if found_return:
-                    raise ValueError(
-                        "Workflow python definitions must have exactly one return."
-                    )
-                found_return = True
-                # Sets state: outputs, output_edges
-                self.handle_return(func, body, output_labels)
-            else:
-                raise TypeError(
-                    f"Workflow python definitions can only interpret assignments, a subset "
-                    f"of flow control (for/while/if/try) and a return, but ast found "
-                    f"{type(body)} {body.value if hasattr(body, 'value') else ''}"
-                )
-
-        if not found_return:
-            raise ValueError(
-                "Workflow python definitions must have a return statement."
-            )
 
     def handle_assign(
         self, body: ast.Assign | ast.AnnAssign, scope: scope_helpers.ScopeProxy
@@ -306,8 +271,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
     def handle_return(
         self,
-        func: FunctionType,
         body: ast.Return,
+        func: FunctionType,
         output_labels: Collection[str],
     ) -> None:
         returned_symbols = parser_helpers.resolve_symbols_to_strings(body.value)
