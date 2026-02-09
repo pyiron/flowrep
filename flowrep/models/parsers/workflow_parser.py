@@ -54,17 +54,23 @@ def parse_workflow(
 class WorkflowParser(parser_protocol.BodyWalker):
 
     def __init__(self, symbol_to_source_map: symbol_scope.SymbolScope):
-        # When these are all filled, we are ready to `build_model`
-        self.inputs: list[str] = []
+        self.symbol_to_source_map = symbol_to_source_map
         self.nodes: union.Nodes = {}
-        self.input_edges: edge_models.InputEdges = {}
-        self.edges: edge_models.Edges = {}
         self.output_edges: edge_models.OutputEdges = {}
         self.outputs: list[str] = []
-
-        # These are internal state that doesn't translate to the final model
-        self.symbol_to_source_map = symbol_to_source_map
         self._for_loop_accumulators: set[str] = set()
+
+    @property
+    def inputs(self) -> list[str]:
+        return self.symbol_to_source_map.consumed_input_names
+
+    @property
+    def input_edges(self) -> edge_models.InputEdges:
+        return self.symbol_to_source_map.input_edges
+
+    @property
+    def edges(self) -> edge_models.Edges:
+        return self.symbol_to_source_map.edges
 
     def build_model(self) -> workflow_model.WorkflowNode:
         return workflow_model.WorkflowNode(
@@ -85,31 +91,22 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
-            # Make a new node from the rhs
-            # Modifies state: nodes, input_edges, edges, symbol_to_source_map
-            self._handle_assign_call(rhs, new_symbols, scope)
+            child = self._get_labeled_recipe(rhs, self.nodes.keys(), scope)
+            self.nodes[child.label] = child.node
+            consume_call_arguments(self.symbol_to_source_map, rhs, child)
+            self.symbol_to_source_map.register(new_symbols, child)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
-            self._handle_assign_empty_list(new_symbols)
+            if len(new_symbols) != 1:
+                raise ValueError(
+                    f"Empty list assignment must target exactly one symbol, "
+                    f"got {new_symbols}"
+                )
+            self._for_loop_accumulators.add(new_symbols[0])
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
                 f"a call on the right-hand-side, but ast found {type(rhs)}"
             )
-
-    def _handle_assign_call(
-        self,
-        rhs: ast.Call,
-        new_symbols: list[str],
-        scope: scope_helpers.ScopeProxy,
-    ) -> None:
-        child = self._get_labeled_recipe(
-            ast_call=rhs, existing_names=self.nodes.keys(), scope=scope
-        )
-        self.nodes[child.label] = child.node  # In-place mutation
-
-        self.symbol_to_source_map.register(new_symbols, child)
-
-        self._add_edges_for_child_inputs(ast_call=rhs, child=child)
 
     @staticmethod
     def _get_labeled_recipe(
@@ -129,46 +126,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
         )
         child_name = label_helpers.unique_suffix(child_call.__name__, existing_names)
         return helper_models.LabeledNode(label=child_name, node=child_recipe)
-
-    def _add_edges_for_child_inputs(
-        self,
-        ast_call: ast.Call,
-        child: helper_models.LabeledNode,
-    ) -> None:
-        for input_symbol, input_port in yield_symbols_passed_to_input_ports(
-            ast_call=ast_call, call_node=child
-        ):
-            try:
-                source = self.symbol_to_source_map[input_symbol]
-            except KeyError as e:
-                raise KeyError(
-                    f"Workflow python definitions require node input to be "
-                    f"known symbols, but got '{input_symbol}'. available symbols: "
-                    f"{self.symbol_to_source_map}"
-                ) from e
-
-            target = edge_models.TargetHandle(node=child.label, port=input_port)
-            if input_symbol not in self.inputs and isinstance(
-                self.symbol_to_source_map[input_symbol], edge_models.InputSource
-            ):
-                self.inputs.append(input_symbol)
-            if isinstance(source, edge_models.SourceHandle):
-                self.edges[target] = source  # In-place mutation
-            elif isinstance(source, edge_models.InputSource):
-                self.input_edges[target] = source  # In-place mutation
-            else:  # pragma: no cover
-                raise TypeError(
-                    f"Unexpected edge source: {type(source)}. This state should be "
-                    f"unreachable; please raise a GitHub issue."
-                )
-
-    def _handle_assign_empty_list(self, new_symbols: list[str]) -> None:
-        if len(new_symbols) != 1:
-            raise ValueError(
-                f"Empty list assignment must target exactly one symbol, "
-                f"got {new_symbols}"
-            )
-        self._for_loop_accumulators.add(new_symbols[0])
 
     def handle_for(
         self,
@@ -209,16 +166,9 @@ class WorkflowParser(parser_protocol.BodyWalker):
         # 6. Consume accumulators that the for-loop fulfilled
         self._for_loop_accumulators -= set(result.used_accumulators)
 
-        # 7. If input is not specified by a function definition, extend it based on
-        # symbols consumed in the loop
-        for broadcast_symbol in result.broadcast_symbols:
-            if broadcast_symbol not in self.inputs:
-                if parsing_function_def:
-                    raise ValueError(
-                        f"A for-loop broadcast the symbol {broadcast_symbol}, but it "
-                        f"is not available in the inputs: {self.inputs}"
-                    )
-                self.inputs.append(broadcast_symbol)
+        # 7. Log all symbols used inside the for-node as consumed
+        for port in for_node.inputs:
+            self.symbol_to_source_map.consume(port, for_label, port)
 
         # 8. Register the for-node's outputs as symbols in *this* scope
         labeled_for = helper_models.LabeledNode(label=for_label, node=for_node)
@@ -226,32 +176,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
             new_symbols=list(result.used_accumulators),
             child=labeled_for,
         )
-
-        # 9. Wire the for-node's inputs back to this parser's edges
-        self._connect_child_inputs(
-            child_label=for_label,
-            broadcast_symbols=result.broadcast_symbols,
-            scattered_symbols=result.scattered_symbols,
-        )
-
-    def _connect_child_inputs(
-        self,
-        child_label: str,
-        broadcast_symbols: list[str],
-        scattered_symbols: list[str],
-    ) -> None:
-        for broadcast_symbol in broadcast_symbols:
-            self.input_edges[
-                edge_models.TargetHandle(node=child_label, port=broadcast_symbol)
-            ] = edge_models.InputSource(port=broadcast_symbol)
-
-        for source_symbol in scattered_symbols:
-            target = edge_models.TargetHandle(node=child_label, port=source_symbol)
-            source = self.symbol_to_source_map[source_symbol]
-            if isinstance(source, edge_models.InputSource):
-                self.input_edges[target] = source
-            else:
-                self.edges[target] = source
 
     def handle_return(
         self,
@@ -323,6 +247,37 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"accumulator symbol. Instead, got a body value {append_stmt.value}."
                 f"Currently known accumulators: {accumulators}."
             )
+
+
+def consume_call_arguments(
+    scope: symbol_scope.SymbolScope,
+    ast_call: ast.Call,
+    child: helper_models.LabeledNode,
+) -> None:
+    """Record all argument->port consumptions for a node-creating call."""
+
+    def _validate_is_ast_name(node: ast.expr) -> ast.Name:
+        if not isinstance(node, ast.Name):
+            raise TypeError(
+                f"Workflow python definitions can only interpret function "
+                f"calls with symbolic input, and thus expected to find an "
+                f"ast.Name, but when parsing input for {child.label}, found a "
+                f"type {type(node)}"
+            )
+        return node
+
+    for i, arg in enumerate(ast_call.args):
+        name_arg = _validate_is_ast_name(arg)
+        scope.consume(name_arg.id, child.label, child.node.inputs[i])
+    for kw in ast_call.keywords:
+        name_arg = _validate_is_ast_name(kw.value)
+        if not isinstance(kw.arg, str):  # pragma: no cover
+            raise TypeError(
+                "How did you get here? A `None` value should be possible for "
+                "**kwargs, but variadics should have been excluded before "
+                "this. Please raise a GitHub issue."
+            )
+        scope.consume(name_arg.id, child.label, kw.arg)
 
 
 def yield_symbols_passed_to_input_ports(

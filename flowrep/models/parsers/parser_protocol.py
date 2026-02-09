@@ -13,12 +13,18 @@ class BodyWalker(Protocol):
     """What control flow parsers need to walk a sub-body."""
 
     symbol_to_source_map: symbol_scope.SymbolScope
-    inputs: list[str]
     outputs: list[str]
     nodes: union.Nodes
-    input_edges: edge_models.InputEdges
-    edges: edge_models.Edges
     output_edges: edge_models.OutputEdges
+
+    @property
+    def inputs(self) -> list[str]: ...
+
+    @property
+    def input_edges(self) -> edge_models.InputEdges: ...
+
+    @property
+    def edges(self) -> edge_models.Edges: ...
 
     def handle_assign(
         self, body: ast.Assign | ast.AnnAssign, scope: scope_helpers.ScopeProxy

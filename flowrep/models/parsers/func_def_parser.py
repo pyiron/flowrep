@@ -14,7 +14,7 @@ def walk_func_def(
     inputs: list[str],
     output_labels: Collection[str],
 ):
-    body_walker.inputs = inputs
+    # body_walker.inputs = inputs
     scope = scope_helpers.get_scope(func)
 
     found_return = False
