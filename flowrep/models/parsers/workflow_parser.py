@@ -9,6 +9,7 @@ from flowrep.models.parsers import (
     atomic_parser,
     label_helpers,
     parser_helpers,
+    parser_protocol,
     scope_helpers,
     symbol_scope,
 )
@@ -49,7 +50,7 @@ def parse_workflow(
     return state.build_model()
 
 
-class WorkflowParser:
+class WorkflowParser(parser_protocol.BodyWalker):
 
     def __init__(self, symbol_to_source_map: symbol_scope.SymbolScope):
         # When these are all filled, we are ready to `build_model`

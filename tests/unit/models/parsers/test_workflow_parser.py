@@ -4,7 +4,12 @@ from typing import Annotated, Any
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import atomic_model, helper_models, workflow_model
-from flowrep.models.parsers import atomic_parser, workflow_parser
+from flowrep.models.parsers import (
+    atomic_parser,
+    parser_protocol,
+    symbol_scope,
+    workflow_parser,
+)
 
 
 def add(x: float = 2.0, y: float = 1) -> float:
@@ -129,6 +134,12 @@ class TestWorkflowDecoratorTypeValidation(unittest.TestCase):
 
 
 class TestParseWorkflowBasic(unittest.TestCase):
+    def test_protocol_fulfillment(self):
+        self.assertIsInstance(
+            workflow_parser.WorkflowParser(symbol_scope.SymbolScope({})),
+            parser_protocol.BodyWalker,
+        )
+
     def test_single_node_workflow(self):
         def wf(x):
             y = add(x)
