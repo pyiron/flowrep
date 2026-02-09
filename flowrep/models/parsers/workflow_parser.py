@@ -1,5 +1,5 @@
 import ast
-from collections.abc import Callable, Collection, Iterable, Iterator
+from collections.abc import Callable, Collection, Iterable
 from types import FunctionType
 from typing import cast
 
@@ -278,36 +278,6 @@ def consume_call_arguments(
                 "this. Please raise a GitHub issue."
             )
         scope.consume(name_arg.id, child.label, kw.arg)
-
-
-def yield_symbols_passed_to_input_ports(
-    ast_call: ast.Call,
-    call_node: helper_models.LabeledNode,
-) -> Iterator[tuple[str, str]]:
-    """Get (argument name, symbol) pairs passed to a node-creating call"""
-
-    def _validate_is_ast_name(node: ast.expr) -> ast.Name:
-        if not isinstance(node, ast.Name):
-            raise TypeError(
-                f"Workflow python definitions can only interpret function "
-                f"calls with symbolic input, and thus expected to find an "
-                f"ast.Name, but when parsing input for {call_node.label}, found a "
-                f"type {type(node)}"
-            )
-        return node
-
-    for i, arg in enumerate(ast_call.args):
-        name_arg = _validate_is_ast_name(arg)
-        yield name_arg.id, call_node.node.inputs[i]
-    for kw in ast_call.keywords:
-        name_value = _validate_is_ast_name(kw.value)
-        if not isinstance(kw.arg, str):  # pragma: no cover
-            raise TypeError(
-                "How did you get here? A `None` value should be possible for "
-                "**kwargs, but variadics should have been excluded before "
-                "this. Please raise a GitHub issue."
-            )
-        yield name_value.id, kw.arg
 
 
 def is_append_call(node: ast.expr | ast.Expr, accumulators: set[str]) -> bool:
