@@ -4,11 +4,7 @@ import ast
 from collections.abc import Collection
 from types import FunctionType
 
-from flowrep.models.parsers import (
-    parser_helpers,
-    parser_protocol,
-    scope_helpers,
-)
+from flowrep.models.parsers import parser_protocol, scope_helpers
 
 
 def walk_func_def(
@@ -22,7 +18,7 @@ def walk_func_def(
     scope = scope_helpers.get_scope(func)
 
     found_return = False
-    for body in parser_helpers.skip_docstring(tree.body):
+    for body in skip_docstring(tree.body):
         if isinstance(body, ast.Assign | ast.AnnAssign):
             body_walker.handle_assign(body, scope)
         elif isinstance(body, ast.For):
@@ -48,3 +44,16 @@ def walk_func_def(
 
     if not found_return:
         raise ValueError("Workflow python definitions must have a return statement.")
+
+
+def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
+    return (
+        body[1:]
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        )
+        else body
+    )
