@@ -130,22 +130,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
         child_name = label_helpers.unique_suffix(child_call.__name__, existing_names)
         return helper_models.LabeledNode(label=child_name, node=child_recipe)
 
-    @staticmethod
-    def _get_symbol_sources_from_child_output(
-        new_symbols: list[str], child: helper_models.LabeledNode
-    ) -> dict[str, edge_models.SourceHandle]:
-        """Map new symbols 1:1 to the outputs of a recipe"""
-        if len(new_symbols) != len(child.node.outputs):
-            raise ValueError(
-                f"Cannot map node outputs for '{child.label}', "
-                f"{child.node.outputs}, to available symbols: {new_symbols}"
-            )
-
-        return {
-            symbol: edge_models.SourceHandle(node=child.label, port=port)
-            for symbol, port in zip(new_symbols, child.node.outputs, strict=True)
-        }
-
     def _add_edges_for_child_inputs(
         self,
         ast_call: ast.Call,
