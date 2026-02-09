@@ -87,16 +87,16 @@ class WorkflowParser(parser_protocol.BodyWalker):
         if isinstance(rhs, ast.Call):
             # Make a new node from the rhs
             # Modifies state: nodes, input_edges, edges, symbol_to_source_map
-            self.handle_assign_call(rhs, new_symbols, scope)
+            self._handle_assign_call(rhs, new_symbols, scope)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
-            self.handle_assign_empty_list(new_symbols)
+            self._handle_assign_empty_list(new_symbols)
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
                 f"a call on the right-hand-side, but ast found {type(rhs)}"
             )
 
-    def handle_assign_call(
+    def _handle_assign_call(
         self,
         rhs: ast.Call,
         new_symbols: list[str],
@@ -162,7 +162,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
                     f"unreachable; please raise a GitHub issue."
                 )
 
-    def handle_assign_empty_list(self, new_symbols: list[str]) -> None:
+    def _handle_assign_empty_list(self, new_symbols: list[str]) -> None:
         if len(new_symbols) != 1:
             raise ValueError(
                 f"Empty list assignment must target exactly one symbol, "
