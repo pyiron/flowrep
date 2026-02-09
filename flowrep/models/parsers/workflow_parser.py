@@ -4,9 +4,10 @@ from types import FunctionType
 from typing import cast
 
 from flowrep.models import base_models, edge_models
-from flowrep.models.nodes import for_model, helper_models, union, workflow_model
+from flowrep.models.nodes import helper_models, union, workflow_model
 from flowrep.models.parsers import (
     atomic_parser,
+    for_parser,
     label_helpers,
     parser_helpers,
     parser_protocol,
@@ -109,44 +110,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
             raise ValueError(
                 "Workflow python definitions must have a return statement."
             )
-
-    def walk_for(
-        self, tree: ast.For, scope: scope_helpers.ScopeProxy, accumulators: set[str]
-    ) -> dict[str, str]:
-        used_accumulators: list[str] = []
-        used_accumulator_source_map: dict[str, str] = {}
-
-        for body in tree.body:
-            if isinstance(body, ast.Assign | ast.AnnAssign):
-                self.handle_assign(body, scope)
-            elif isinstance(body, ast.For):
-                self.handle_for(body, scope)
-            elif isinstance(body, ast.While | ast.If | ast.Try):
-                raise NotImplementedError(
-                    f"Support for control flow statement {type(body)} is forthcoming."
-                )
-            elif isinstance(body, ast.Expr):
-                used_accumulator, appended_symbol = (
-                    self.handle_appending_to_accumulator(body, accumulators)
-                )
-                used_accumulators.append(used_accumulator)
-                used_accumulator_source_map[used_accumulator] = appended_symbol
-            else:
-                raise TypeError(
-                    f"Workflow python definitions can only interpret assignments, a subset "
-                    f"of flow control (for/while/if/try) and a return, but ast found "
-                    f"{type(body)}"
-                )
-
-        if len(used_accumulators) == 0:
-            raise ValueError("For loops must use up at least one accumulator symbol.")
-        base_models.validate_unique(
-            used_accumulators,
-            f"Each accumulator may be appended to at most once, but appended "
-            f"to: {used_accumulators}",
-        )
-
-        return used_accumulator_source_map
 
     def handle_assign(
         self, body: ast.Assign | ast.AnnAssign, scope: scope_helpers.ScopeProxy
@@ -264,79 +227,42 @@ class WorkflowParser(parser_protocol.BodyWalker):
         scope: scope_helpers.ScopeProxy,
         parsing_function_def: bool = False,
     ) -> None:
-        nested_iters, zipped_iters, for_tree = parse_for_iterations(tree)
+        # 1. Parse the iteration header — pure AST, no parser state needed
+        nested_iters, zipped_iters, body_tree = for_parser.parse_for_iterations(tree)
         all_iters = nested_iters + zipped_iters
 
-        body_parser = WorkflowParser(
-            self.symbol_to_source_map.fork_scope({src: var for var, src in all_iters})
+        # 2. Fork the scope: replaces iterated-over symbols with loop variables,
+        #    all as InputSources from the body's perspective
+        child_scope = self.symbol_to_source_map.fork_scope(
+            {src: var for var, src in all_iters}
         )
-        used_accumulator_symbol_map = body_parser.walk_for(
-            for_tree, scope, self._for_loop_accumulators
-        )
-        broadcast_body_input_symbols = [
-            s
-            for s in body_parser.inputs
-            if s not in set(used_accumulator_symbol_map.values())
-            and s not in {iterating_symbol for iterating_symbol, _ in all_iters}
-        ]  # Need to keep it consistently ordered, so don't use a simple set op
 
-        body_label = "body"
-        for_body_node = helper_models.LabeledNode(
-            label=body_label, node=body_parser.build_model()
-        )
-        for_inputs = broadcast_body_input_symbols + [pair[1] for pair in all_iters]
-        for_outputs = list(used_accumulator_symbol_map)
-        broadcast_inputs = {
-            edge_models.TargetHandle(node=body_label, port=port): (
-                edge_models.InputSource(port=port)
-            )
-            for port in broadcast_body_input_symbols
-        }
-        scattered_inputs = {
-            edge_models.TargetHandle(
-                node=body_label, port=body_port
-            ): edge_models.InputSource(port=for_port)
-            for body_port, for_port in all_iters
-        }
-        for_input_edges = broadcast_inputs | scattered_inputs
-        nested_ports = [iterated for iterated, _ in nested_iters]
-        zipped_ports = [iterated for iterated, _ in zipped_iters]
+        # 3. Fresh body walker with the forked scope
+        body_walker = WorkflowParser(symbol_to_source_map=child_scope)
 
-        for_output_edges = {}
-        for_transfer_edges = {}
-        for accumulator_symbol, appended_symbol in used_accumulator_symbol_map.items():
-            target = edge_models.OutputTarget(port=accumulator_symbol)
-            if appended_symbol in body_parser.outputs:
-                for_output_edges[target] = edge_models.SourceHandle(
-                    node=body_label, port=appended_symbol
-                )
-            else:
-                for_transfer_edges[target] = for_input_edges[
-                    edge_models.TargetHandle(node=body_label, port=appended_symbol)
-                ]
-        for_node = for_model.ForNode(
-            body_node=for_body_node,
-            inputs=for_inputs,
-            outputs=for_outputs,
-            input_edges=for_input_edges,
-            output_edges=for_output_edges,
-            nested_ports=nested_ports,
-            zipped_ports=zipped_ports,
-            transfer_edges=for_transfer_edges,
+        # 4. ForParser owns the for-specific wiring; body_walker owns the
+        #    general statement dispatch inside the loop body
+        fp = for_parser.ForParser(
+            body_walker=body_walker,
+            accumulators=self._for_loop_accumulators,
         )
+        result = fp.build_body(
+            body_tree,
+            scope=scope,
+            nested_iters=nested_iters,
+            zipped_iters=zipped_iters,
+        )
+        # 5. Build the ForNode and integrate it into *this* parser's state
+        for_node = fp.build_model()
         for_label = label_helpers.unique_suffix("for", self.nodes)
         self.nodes[for_label] = for_node
-        self._for_loop_accumulators -= set(used_accumulator_symbol_map)
 
-        self.symbol_to_source_map.register(
-            list(used_accumulator_symbol_map),
-            helper_models.LabeledNode(label=for_label, node=for_node),
-        )
+        # 6. Consume accumulators that the for-loop fulfilled
+        self._for_loop_accumulators -= set(result.used_accumulators)
 
-        for broadcast_symbol in broadcast_body_input_symbols:
-            self.input_edges[
-                edge_models.TargetHandle(node=for_label, port=broadcast_symbol)
-            ] = edge_models.InputSource(port=broadcast_symbol)
+        # 7. If input is not specified by a function definition, extend it based on
+        # symbols consumed in the loop
+        for broadcast_symbol in result.broadcast_symbols:
             if broadcast_symbol not in self.inputs:
                 if parsing_function_def:
                     raise ValueError(
@@ -344,16 +270,39 @@ class WorkflowParser(parser_protocol.BodyWalker):
                         f"is not available in the inputs: {self.inputs}"
                     )
                 self.inputs.append(broadcast_symbol)
-        for _, iterated_symbol in all_iters:
-            source = self.symbol_to_source_map[iterated_symbol]
+
+        # 8. Register the for-node's outputs as symbols in *this* scope
+        labeled_for = helper_models.LabeledNode(label=for_label, node=for_node)
+        self.symbol_to_source_map.register(
+            new_symbols=list(result.used_accumulators),
+            child=labeled_for,
+        )
+
+        # 9. Wire the for-node's inputs back to this parser's edges
+        self._connect_child_inputs(
+            child_label=for_label,
+            broadcast_symbols=result.broadcast_symbols,
+            scattered_symbols=result.scattered_symbols,
+        )
+
+    def _connect_child_inputs(
+        self,
+        child_label: str,
+        broadcast_symbols: list[str],
+        scattered_symbols: list[str],
+    ) -> None:
+        for broadcast_symbol in broadcast_symbols:
+            self.input_edges[
+                edge_models.TargetHandle(node=child_label, port=broadcast_symbol)
+            ] = edge_models.InputSource(port=broadcast_symbol)
+
+        for source_symbol in scattered_symbols:
+            target = edge_models.TargetHandle(node=child_label, port=source_symbol)
+            source = self.symbol_to_source_map[source_symbol]
             if isinstance(source, edge_models.InputSource):
-                self.input_edges[
-                    edge_models.TargetHandle(node=for_label, port=iterated_symbol)
-                ] = source
-            elif isinstance(source, edge_models.SourceHandle):
-                self.edges[
-                    edge_models.TargetHandle(node=for_label, port=iterated_symbol)
-                ] = source
+                self.input_edges[target] = source
+            else:
+                self.edges[target] = source
 
     def handle_return(
         self,
@@ -455,93 +404,6 @@ def yield_symbols_passed_to_input_ports(
                 "this. Please raise a GitHub issue."
             )
         yield name_value.id, kw.arg
-
-
-def parse_for_iterations(
-    for_stmt: ast.For,
-) -> tuple[list[tuple[str, str]], list[tuple[str, str]], ast.For]:
-    """
-    Parse for loop iteration structure, handling zip and immediately nested loops.
-
-    Returns (nested_iterations, zipped_iterations) where each is a list of
-    (variable_name, source_symbol) tuples.
-    """
-    nested: list[tuple[str, str]] = []
-    zipped: list[tuple[str, str]] = []
-
-    current = for_stmt
-    while isinstance(current, ast.For):
-        is_zip, pairs = _parse_single_for_header(current)
-
-        if is_zip:
-            zipped.extend(pairs)
-        else:
-            nested.extend(pairs)
-
-        # Check for nested for loop (single statement that's another For)
-        if len(current.body) >= 1 and isinstance(current.body[0], ast.For):
-            current = current.body[0]
-        else:
-            break
-
-    return nested, zipped, current
-
-
-def _parse_single_for_header(
-    for_stmt: ast.For,
-) -> tuple[bool, list[tuple[str, str]]]:
-    """
-    Parse a single for loop header.
-
-    Returns (is_zipped, [(var, source), ...]).
-    """
-    iter_expr = for_stmt.iter
-    target = for_stmt.target
-
-    # Check for zip()
-    if isinstance(iter_expr, ast.Call) and _is_zip_call(iter_expr):
-        if not isinstance(target, ast.Tuple):
-            raise ValueError("zip() iteration requires tuple unpacking")
-
-        vars_list = [elt.id for elt in target.elts if isinstance(elt, ast.Name)]
-        if len(vars_list) != len(target.elts):
-            raise ValueError("zip() iteration targets must be simple names")
-
-        sources = []
-        for arg in iter_expr.args:
-            if not isinstance(arg, ast.Name):
-                raise ValueError("zip() arguments must be simple symbols")
-            sources.append(arg.id)
-
-        if len(vars_list) != len(sources):
-            raise ValueError(
-                f"zip() variable count ({len(vars_list)}) must match "
-                f"argument count ({len(sources)})"
-            )
-
-        return True, list(zip(vars_list, sources, strict=True))
-
-    # Simple iteration: for x in xs
-    if not isinstance(iter_expr, ast.Name):
-        raise ValueError(
-            "For loop must iterate over a symbol (not an inline expression)"
-        )
-
-    if isinstance(target, ast.Name):
-        return False, [(target.id, iter_expr.id)]
-    elif isinstance(target, ast.Tuple):
-        # for a, b in items (tuple unpacking without zip)
-        raise ValueError(
-            "Tuple unpacking in for loops requires zip(). "
-            "Use 'for a, b in zip(as, bs):' instead of 'for a, b in items:'"
-        )
-    else:
-        raise ValueError(f"Unsupported for loop target: {type(target)}")
-
-
-def _is_zip_call(node: ast.Call) -> bool:
-    """Check if a Call node is a call to zip()."""
-    return isinstance(node.func, ast.Name) and node.func.id == "zip"
 
 
 def is_append_call(node: ast.expr | ast.Expr, accumulators: set[str]) -> bool:
