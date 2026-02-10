@@ -183,6 +183,13 @@ class TestParseForIterations(unittest.TestCase):
         self.assertEqual(nested, [("x", "xs")])
         self.assertEqual(zipped, [("a", "as_"), ("b", "bs")])
 
+    def test_zipped_then_nested(self):
+        code = "for a, b in zip(as_, bs):\n    for x in xs:\n      pass"
+        stmt = _parse_for_stmt(code)
+        nested, zipped, body = for_parser.parse_for_iterations(stmt)
+        self.assertEqual(nested, [("x", "xs")])
+        self.assertEqual(zipped, [("a", "as_"), ("b", "bs")])
+
     def test_body_tree_is_innermost_for(self):
         code = "for x in xs:\n  for y in ys:\n    z = 1"
         stmt = _parse_for_stmt(code)
@@ -292,6 +299,18 @@ class TestWalkAstForErrors(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
         self.assertIn("at most once", str(ctx.exception))
+
+    def test_assigning_non_empty_list_raises(self):
+        def wf(xs):
+            results = [0]
+            for x in xs:
+                y = identity(x)
+                results.append(y)
+            return results
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("or empty list", str(ctx.exception))
 
 
 class TestWalkAstForHeaderErrorsViaParseWorkflow(unittest.TestCase):
@@ -456,6 +475,8 @@ class TestForParserEdgeWiring(unittest.TestCase):
                     t = pair(y, z)
                     # x must be consumed or we get an unused-iterator error
                     u = identity(x)  # noqa: F841
+                    # But there is no necessity for everything in the body to be
+                    # captured and passed back out to the for-loop output
                     results.append(t)
             return results
 
@@ -566,6 +587,7 @@ class TestForParserStructure(unittest.TestCase):
         target = edge_models.TargetHandle(node="for_0", port="xs")
         self.assertIn(target, node.edges)
         self.assertEqual(node.edges[target].node, "my_range_0")
+        self.assertEqual(node.edges[target].port, "output_0")
 
     def test_nested_for_inside_body(self):
         def wf(xs):
@@ -611,7 +633,7 @@ class TestForParserStructure(unittest.TestCase):
 
 
 class TestForNodeRoundTrip(unittest.TestCase):
-    def test_json_round_trip(self):
+    def test_for_node_round_trip(self):
         def wf(xs):
             results = []
             for x in xs:
@@ -620,9 +642,11 @@ class TestForNodeRoundTrip(unittest.TestCase):
             return results
 
         fn = workflow_parser.parse_workflow(wf).nodes["for_0"]
-        dumped = fn.model_dump(mode="json")
-        restored = for_model.ForNode.model_validate(dumped)
-        self.assertEqual(fn, restored)
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                dumped = fn.model_dump(mode=mode)
+                restored = for_model.ForNode.model_validate(dumped)
+                self.assertEqual(fn, restored)
 
     def test_workflow_round_trip(self):
         """The whole workflow containing a for-node survives round-trip."""
@@ -637,9 +661,11 @@ class TestForNodeRoundTrip(unittest.TestCase):
             return collected, results
 
         node = workflow_parser.parse_workflow(wf)
-        dumped = node.model_dump(mode="json")
-        restored = workflow_model.WorkflowNode.model_validate(dumped)
-        self.assertEqual(node, restored)
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                dumped = node.model_dump(mode=mode)
+                restored = workflow_model.WorkflowNode.model_validate(dumped)
+                self.assertEqual(node, restored)
 
 
 # ===================================================================
