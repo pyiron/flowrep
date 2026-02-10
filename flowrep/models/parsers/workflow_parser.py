@@ -116,7 +116,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
-                f"a call on the right-hand-side, but ast found {type(rhs)}"
+                f"a call or empty list on the right-hand-side, but ast found "
+                f"{type(rhs)}"
             )
 
     def handle_for(
