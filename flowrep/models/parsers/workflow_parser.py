@@ -10,9 +10,9 @@ from flowrep.models.parsers import (
     for_parser,
     func_def_parser,
     label_helpers,
+    object_scope,
     parser_helpers,
     parser_protocol,
-    scope_helpers,
     symbol_scope,
 )
 
@@ -83,7 +83,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         )
 
     def handle_assign(
-        self, body: ast.Assign | ast.AnnAssign, scope: scope_helpers.ScopeProxy
+        self, body: ast.Assign | ast.AnnAssign, scope: object_scope.ScopeProxy
     ):
         # Get returned symbols from the left-hand side
         lhs = body.targets[0] if isinstance(body, ast.Assign) else body.target
@@ -111,7 +111,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
     def handle_for(
         self,
         tree: ast.For,
-        scope: scope_helpers.ScopeProxy,
+        scope: object_scope.ScopeProxy,
         parsing_function_def: bool = False,
     ) -> None:
         # 1. Parse the iteration header — pure AST, no parser state needed
@@ -233,10 +233,10 @@ class WorkflowParser(parser_protocol.BodyWalker):
 def get_labeled_recipe(
     ast_call: ast.Call,
     existing_names: Iterable[str],
-    scope: scope_helpers.ScopeProxy,
+    scope: object_scope.ScopeProxy,
 ) -> helper_models.LabeledNode:
     child_call = cast(
-        FunctionType, scope_helpers.resolve_symbol_to_object(ast_call.func, scope)
+        FunctionType, object_scope.resolve_symbol_to_object(ast_call.func, scope)
     )
     # Since it is the .func attribute of an ast.Call,
     # the retrieved object had better be a function
