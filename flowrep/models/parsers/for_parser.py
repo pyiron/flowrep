@@ -6,13 +6,13 @@ from typing import ClassVar
 
 from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import for_model, helper_models
-from flowrep.models.parsers import parser_protocol, scope_helpers
+from flowrep.models.parsers import object_scope, parser_protocol
 
 
 def walk_ast_for(
     body_walker: parser_protocol.BodyWalker,
     tree: ast.For,
-    scope: scope_helpers.ScopeProxy,
+    scope: object_scope.ScopeProxy,
     accumulators: set[str],
 ) -> dict[str, str]:
     used_accumulators: list[str] = []
@@ -95,7 +95,7 @@ class ForParser:
     def build_body(
         self,
         tree: ast.For,
-        scope: scope_helpers.ScopeProxy,
+        scope: object_scope.ScopeProxy,
         nested_iters: list[tuple[str, str]],
         zipped_iters: list[tuple[str, str]],
     ) -> Iterable[str]:

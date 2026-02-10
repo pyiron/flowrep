@@ -4,7 +4,7 @@ import ast
 from collections.abc import Collection
 from types import FunctionType
 
-from flowrep.models.parsers import parser_protocol, scope_helpers
+from flowrep.models.parsers import object_scope, parser_protocol
 
 
 def walk_func_def(
@@ -13,7 +13,7 @@ def walk_func_def(
     func: FunctionType,
     output_labels: Collection[str],
 ):
-    scope = scope_helpers.get_scope(func)
+    scope = object_scope.get_scope(func)
 
     found_return = False
     for body in skip_docstring(tree.body):

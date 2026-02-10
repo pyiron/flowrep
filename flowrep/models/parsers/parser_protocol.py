@@ -5,14 +5,14 @@ from typing import Protocol, runtime_checkable
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import union, workflow_model
-from flowrep.models.parsers import scope_helpers, symbol_scope
+from flowrep.models.parsers import object_scope, symbol_scope
 
 
 @runtime_checkable
 class BodyWalker(Protocol):
     """What control flow parsers need to walk a sub-body."""
 
-    symbol_to_source_map: symbol_scope.SymbolScope
+    symbol_scope: symbol_scope.SymbolScope
     outputs: list[str]
     nodes: union.Nodes
     output_edges: edge_models.OutputEdges
@@ -27,11 +27,11 @@ class BodyWalker(Protocol):
     def edges(self) -> edge_models.Edges: ...
 
     def handle_assign(
-        self, body: ast.Assign | ast.AnnAssign, scope: scope_helpers.ScopeProxy
+        self, body: ast.Assign | ast.AnnAssign, scope: object_scope.ScopeProxy
     ) -> None: ...
 
     def handle_for(
-        self, tree: ast.For, scope: scope_helpers.ScopeProxy, parsing_function_def: bool
+        self, tree: ast.For, scope: object_scope.ScopeProxy, parsing_function_def: bool
     ) -> None: ...
 
     def handle_appending_to_accumulator(
