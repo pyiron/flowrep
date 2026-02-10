@@ -52,4 +52,6 @@ class OutputTarget(HandleModel):
 
 Edges = dict[TargetHandle, SourceHandle]  # Communicate between siblings
 InputEdges = dict[TargetHandle, InputSource]  # Pass data into a subgraph
-OutputEdges = dict[OutputTarget, SourceHandle]  # Extract data from a subgraph
+OutputEdges = dict[OutputTarget, SourceHandle | InputSource]
+# Extract data from a subgraph, or allow it to pass through
+TransferEdges = dict[OutputTarget, InputSource]  # Data passing through a macro
