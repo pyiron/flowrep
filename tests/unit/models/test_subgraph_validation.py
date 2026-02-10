@@ -114,20 +114,34 @@ class TestValidateOutputEdgeSources(unittest.TestCase):
     def test_valid_output_sources(self):
         nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
         sources = [edge_models.SourceHandle(node="a", port="out")]
-        subgraph_validation.validate_output_edge_sources(sources, nodes)
+        subgraph_validation.validate_output_edge_sources(sources, nodes, [])
+
+    def test_valid_pass_through_output_source(self):
+        nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
+        inputs = ["wf_inp"]
+        sources = [edge_models.InputSource(port="wf_inp")]
+        subgraph_validation.validate_output_edge_sources(sources, nodes, inputs)
 
     def test_invalid_source_node(self):
         nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
         sources = [edge_models.SourceHandle(node="nonexistent", port="out")]
         with self.assertRaises(ValueError) as ctx:
-            subgraph_validation.validate_output_edge_sources(sources, nodes)
+            subgraph_validation.validate_output_edge_sources(sources, nodes, [])
         self.assertIn("nonexistent", str(ctx.exception))
+
+    def test_invalid_pass_through_output_source(self):
+        nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
+        inputs = ["wf_inp"]
+        sources = [edge_models.InputSource(port="not_an_input")]
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_validation.validate_output_edge_sources(sources, nodes, inputs)
+        self.assertIn("not_an_input", str(ctx.exception))
 
     def test_invalid_source_port(self):
         nodes = {"a": MockNode(inputs=["inp"], outputs=["out"])}
         sources = [edge_models.SourceHandle(node="a", port="wrong_port")]
         with self.assertRaises(ValueError) as ctx:
-            subgraph_validation.validate_output_edge_sources(sources, nodes)
+            subgraph_validation.validate_output_edge_sources(sources, nodes, [])
         self.assertIn("wrong_port", str(ctx.exception))
 
     def test_multiple_sources(self):
@@ -139,11 +153,11 @@ class TestValidateOutputEdgeSources(unittest.TestCase):
             edge_models.SourceHandle(node="a", port="out1"),
             edge_models.SourceHandle(node="b", port="out"),
         ]
-        subgraph_validation.validate_output_edge_sources(sources, nodes)
+        subgraph_validation.validate_output_edge_sources(sources, nodes, [])
 
     def test_empty_sources(self):
         nodes = {"a": MockNode(inputs=[], outputs=["out"])}
-        subgraph_validation.validate_output_edge_sources([], nodes)
+        subgraph_validation.validate_output_edge_sources([], nodes, [])
 
 
 class TestValidateProspectiveSources(unittest.TestCase):

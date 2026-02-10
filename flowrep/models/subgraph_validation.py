@@ -94,13 +94,23 @@ def validate_output_edge_targets(
 
 
 def validate_output_edge_sources(
-    sources: Collection[edge_models.SourceHandle],
+    sources: Collection[edge_models.SourceHandle | edge_models.InputSource],
     source_nodes: NodesAlias,
+    inputs: base_models.Labels,
 ) -> None:
-    if invalid_nodes := {s.serialize() for s in sources if s.node not in source_nodes}:
+    if invalid_nodes := {
+        s.serialize()
+        for s in sources
+        if s.node is not None and s.node not in source_nodes
+    }:
         raise ValueError(f"Invalid output source nodes: {invalid_nodes}")
     if invalid_ports := {
-        s.serialize() for s in sources if s.port not in source_nodes[s.node].outputs
+        s.serialize()
+        for s in sources
+        if (
+            (s.node is None and s.port not in inputs)
+            or (s.node is not None and s.port not in source_nodes[s.node].outputs)
+        )
     }:
         raise ValueError(f"Invalid output source ports: {invalid_ports}")
 
