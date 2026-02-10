@@ -44,7 +44,7 @@ class WorkflowNode(base_models.NodeModel):
         subgraph_validation.validate_input_edge_sources(self.input_edges, self.inputs)
         subgraph_validation.validate_input_edge_targets(self.input_edges, self.nodes)
         subgraph_validation.validate_output_edge_sources(
-            self.output_edges.values(), self.nodes
+            self.output_edges.values(), self.nodes, self.inputs
         )
         subgraph_validation.validate_output_edge_targets(
             self.output_edges, self.outputs

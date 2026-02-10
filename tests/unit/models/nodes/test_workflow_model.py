@@ -155,6 +155,20 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
         )
         self.assertEqual(len(wf.output_edges), 1)
 
+    def test_pass_through_output_edge(self):
+        """Output edge from input directly to output."""
+        wf = workflow_model.WorkflowNode(
+            inputs=["x"],
+            outputs=["y"],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={
+                edge_models.OutputTarget(port="y"): edge_models.InputSource(port="x"),
+            },
+        )
+        self.assertEqual(len(wf.output_edges), 1)
+
     def test_output_edge_invalid_workflow_output(self):
         """Output edge referencing nonexistent workflow output."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
