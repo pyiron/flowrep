@@ -90,6 +90,7 @@ class TryNode(base_models.NodeModel):
             subgraph_validation.validate_output_edge_sources(
                 prospective_sources,
                 self.prospective_nodes,
+                self.inputs,
             )
         subgraph_validation.validate_output_edge_targets(
             self.prospective_output_edges, self.outputs
