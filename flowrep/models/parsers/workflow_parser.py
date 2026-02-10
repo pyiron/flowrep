@@ -52,6 +52,17 @@ def parse_workflow(
 
 
 class WorkflowParser(parser_protocol.BodyWalker):
+    """
+    Aggregates state until there is enough data to successfully build the pydantic
+    data model.
+
+    Treatment for different ast nodes is under `handle_*` methods, and aim to keep all
+    state mutation of _this object_ directly in those methods.
+
+    Other callers reference the handle methods as they walk through some ast tree,
+    e.g. to build a top-level workflow from a function definition (`ast.FunctionDef`),
+    or to dynamically build a workflow from the body of some control flow.
+    """
 
     def __init__(self, symbol_scope: symbol_scope.SymbolScope):
         self.symbol_scope = symbol_scope
