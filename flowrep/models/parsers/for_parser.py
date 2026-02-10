@@ -104,6 +104,22 @@ class ForParser:
         used_accumulator_symbol_map = walk_ast_for(
             self.body_walker, tree, scope, self.accumulators
         )
+
+        # Every iteration variable must actually be consumed inside the body.
+        # An unused iterator likely indicates a bug; if the user only needs the
+        # structural effect (e.g. repetition count), they should make the
+        # dependency explicit.
+        iterating_symbols = {var for var, _ in all_iters}
+        consumed_symbols = set(self.body_walker.inputs) | set(
+            used_accumulator_symbol_map.values()
+        )
+        if unused := iterating_symbols - consumed_symbols:
+            raise ValueError(
+                f"For-loop iteration variable(s) {sorted(unused)} are never "
+                f"used inside the loop body. Either use them or remove them "
+                f"from the iteration header."
+            )
+
         broadcast_symbols = [
             s
             for s in self.body_walker.inputs
