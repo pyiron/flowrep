@@ -99,14 +99,6 @@ class WhileNode(base_models.NodeModel):
             if target.node == target_label and source.port in output_to_body_port
         }
 
-    @pydantic.field_validator("case")
-    @classmethod
-    def validate_prospective_nodes_have_unique_labels(
-        cls, v: helper_models.ConditionalCase
-    ):
-        base_models.validate_unique([v.condition.label, v.body.label])
-        return v
-
     @pydantic.model_validator(mode="after")
     def validate_output_is_subset_of_inputs(self):
         if not set(self.outputs).issubset(self.inputs):
