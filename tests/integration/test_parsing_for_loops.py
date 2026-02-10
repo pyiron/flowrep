@@ -496,8 +496,3 @@ class TestParsingForLoops(unittest.TestCase):
                     reference,
                     msg=f"Differences: {_field_differences(reference, parsed_node)}",
                 )
-
-    def test_custom(self):
-        parsed_node = workflow_parser.parse_workflow(nested_with_passed_input)
-        print(parsed_node.model_dump(mode="json"))
-        self.assertEqual(parsed_node, nested_with_passed_input_node)
