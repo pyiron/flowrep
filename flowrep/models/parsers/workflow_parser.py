@@ -53,8 +53,8 @@ def parse_workflow(
 
 class WorkflowParser(parser_protocol.BodyWalker):
 
-    def __init__(self, symbol_to_source_map: symbol_scope.SymbolScope):
-        self.symbol_to_source_map = symbol_to_source_map
+    def __init__(self, symbol_scope: symbol_scope.SymbolScope):
+        self.symbol_scope = symbol_scope
         self.nodes: union.Nodes = {}
         self.output_edges: edge_models.OutputEdges = {}
         self.outputs: list[str] = []
@@ -62,15 +62,15 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
     @property
     def inputs(self) -> list[str]:
-        return self.symbol_to_source_map.consumed_input_names
+        return self.symbol_scope.consumed_input_names
 
     @property
     def input_edges(self) -> edge_models.InputEdges:
-        return self.symbol_to_source_map.input_edges
+        return self.symbol_scope.input_edges
 
     @property
     def edges(self) -> edge_models.Edges:
-        return self.symbol_to_source_map.edges
+        return self.symbol_scope.edges
 
     def build_model(self) -> workflow_model.WorkflowNode:
         return workflow_model.WorkflowNode(
@@ -93,8 +93,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
         if isinstance(rhs, ast.Call):
             child = get_labeled_recipe(rhs, self.nodes.keys(), scope)
             self.nodes[child.label] = child.node
-            consume_call_arguments(self.symbol_to_source_map, rhs, child)
-            self.symbol_to_source_map.register(new_symbols, child)
+            consume_call_arguments(self.symbol_scope, rhs, child)
+            self.symbol_scope.register(new_symbols, child)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
             if len(new_symbols) != 1:
                 raise ValueError(
@@ -120,12 +120,10 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
         # 2. Fork the scope: replaces iterated-over symbols with loop variables,
         #    all as InputSources from the body's perspective
-        child_scope = self.symbol_to_source_map.fork_scope(
-            {src: var for var, src in all_iters}
-        )
+        child_scope = self.symbol_scope.fork_scope({src: var for var, src in all_iters})
 
         # 3. Fresh body walker with the forked scope
-        body_walker = WorkflowParser(symbol_to_source_map=child_scope)
+        body_walker = WorkflowParser(symbol_scope=child_scope)
 
         # 4. ForParser owns the for-specific wiring; body_walker owns the
         #    general statement dispatch inside the loop body
@@ -149,11 +147,11 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
         # 7. Log all symbols used inside the for-node as consumed
         for port in for_node.inputs:
-            self.symbol_to_source_map.consume(port, for_label, port)
+            self.symbol_scope.consume(port, for_label, port)
 
         # 8. Register the for-node's outputs as symbols in *this* scope
         labeled_for = helper_models.LabeledNode(label=for_label, node=for_node)
-        self.symbol_to_source_map.register(
+        self.symbol_scope.register(
             new_symbols=list(used_accumulators),
             child=labeled_for,
         )
@@ -190,11 +188,11 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.output_edges = {}
         for symbol, port in zip(returned_symbols, self.outputs, strict=True):
             try:
-                source = self.symbol_to_source_map[symbol]
+                source = self.symbol_scope[symbol]
             except KeyError as e:
                 raise ValueError(
                     f"Return symbol '{symbol}' is not defined. "
-                    f"Available: {list(self.symbol_to_source_map)}"
+                    f"Available: {list(self.symbol_scope)}"
                 ) from e
 
             if isinstance(source, edge_models.InputSource):
@@ -214,7 +212,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 ast.Name, cast(ast.Attribute, append_call.func).value
             ).id
             appended_symbol = cast(ast.Name, append_call.args[0]).id
-            appended_source = self.symbol_to_source_map[appended_symbol]
+            appended_source = self.symbol_scope[appended_symbol]
             if isinstance(appended_source, edge_models.SourceHandle):
                 self.outputs.append(appended_symbol)
                 self.output_edges[edge_models.OutputTarget(port=appended_symbol)] = (

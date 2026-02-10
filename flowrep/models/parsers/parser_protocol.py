@@ -12,7 +12,7 @@ from flowrep.models.parsers import object_scope, symbol_scope
 class BodyWalker(Protocol):
     """What control flow parsers need to walk a sub-body."""
 
-    symbol_to_source_map: symbol_scope.SymbolScope
+    symbol_scope: symbol_scope.SymbolScope
     outputs: list[str]
     nodes: union.Nodes
     output_edges: edge_models.OutputEdges
