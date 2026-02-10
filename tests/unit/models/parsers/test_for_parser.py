@@ -394,7 +394,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
 
     # --- transfer edges (forwarding an iteration variable) ---
 
-    def test_transfer_edge_for_forwarded_loop_var(self):
+    def test_forwarded_loop_var_is_input_source_in_output_edges(self):
         def wf(xs):
             collected_xs = []
             results = []
@@ -405,18 +405,16 @@ class TestForParserEdgeWiring(unittest.TestCase):
             return collected_xs, results
 
         fn = self._get_for_node(wf)
-        transfer_target = edge_models.OutputTarget(port="collected_xs")
-        self.assertIn(transfer_target, fn.transfer_edges)
-        # Transfer source should reference the for-node input that feeds
-        # the loop variable
-        self.assertIsInstance(
-            fn.transfer_edges[transfer_target], edge_models.InputSource
-        )
 
-        # The computed result should still be an output edge
-        output_target = edge_models.OutputTarget(port="results")
-        self.assertIn(output_target, fn.output_edges)
-        self.assertNotIn(output_target, fn.transfer_edges)
+        # Forwarded iteration variable → InputSource in output_edges
+        fwd_target = edge_models.OutputTarget(port="collected_xs")
+        self.assertIn(fwd_target, fn.output_edges)
+        self.assertIsInstance(fn.output_edges[fwd_target], edge_models.InputSource)
+
+        # Computed body result → SourceHandle in output_edges
+        body_target = edge_models.OutputTarget(port="results")
+        self.assertIn(body_target, fn.output_edges)
+        self.assertIsInstance(fn.output_edges[body_target], edge_models.SourceHandle)
 
     # --- broadcast vs scattered inputs ---
 

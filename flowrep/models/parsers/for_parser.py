@@ -70,7 +70,6 @@ class ForParser:
         self._outputs: list[str] = []
         self._nested_ports: list[str] = []
         self._zipped_ports: list[str] = []
-        self._transfer_edges: edge_models.TransferEdges = {}
 
         # These are internal state that doesn't translate directly to the final model
 
@@ -89,7 +88,6 @@ class ForParser:
             output_edges=self._output_edges,
             nested_ports=self._nested_ports,
             zipped_ports=self._zipped_ports,
-            transfer_edges=self._transfer_edges,
         )
 
     def build_body(
@@ -148,7 +146,6 @@ class ForParser:
         self._input_edges = broadcast_inputs | scattered_inputs
 
         self._output_edges = {}
-        self._transfer_edges = {}
         for accumulator_symbol, appended_symbol in used_accumulator_symbol_map.items():
             target = edge_models.OutputTarget(port=accumulator_symbol)
             if appended_symbol in self.body_walker.outputs:
@@ -156,7 +153,7 @@ class ForParser:
                     node=self.body_label, port=appended_symbol
                 )
             else:
-                self._transfer_edges[target] = self._input_edges[
+                self._output_edges[target] = self._input_edges[
                     edge_models.TargetHandle(node=self.body_label, port=appended_symbol)
                 ]
 

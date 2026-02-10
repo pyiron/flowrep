@@ -439,13 +439,13 @@ class TestForNodeTransferEdges(unittest.TestCase):
     def test_valid_transfer_edge(self):
         """Transfer edges should forward looped inputs to outputs."""
         for_node = for_model.ForNode(
-            inputs=["items"],
-            outputs=["results", "original_items"],
+            inputs=["items", "broadcast"],
+            outputs=["results", "original_items", "non_list_output"],
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
                     fully_qualified_name="mod.func",
-                    inputs=["item"],
+                    inputs=["item", "static"],
                     outputs=["result"],
                 ),
             ),
@@ -458,15 +458,16 @@ class TestForNodeTransferEdges(unittest.TestCase):
                 edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                     node="body", port="result"
                 ),
-            },
-            nested_ports=["item"],
-            transfer_edges={
                 edge_models.OutputTarget(
                     port="original_items"
                 ): edge_models.InputSource(port="items"),
+                edge_models.OutputTarget(
+                    port="non_list_output"
+                ): edge_models.InputSource(port="broadcast"),
             },
+            nested_ports=["item"],
         )
-        self.assertEqual(len(for_node.transfer_edges), 1)
+        self.assertEqual(len(for_node.output_edges), 3)
 
     def test_transfer_source_not_in_inputs_rejected(self):
         """Transfer edge sources must be ForNode inputs."""
@@ -491,13 +492,11 @@ class TestForNodeTransferEdges(unittest.TestCase):
                     edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
-                },
-                nested_ports=["item"],
-                transfer_edges={
                     edge_models.OutputTarget(port="forwarded"): edge_models.InputSource(
                         port="nonexistent"
                     ),
                 },
+                nested_ports=["item"],
             )
         self.assertIn("nonexistent", str(ctx.exception))
         self.assertIn("inputs", str(ctx.exception).lower())
@@ -525,86 +524,14 @@ class TestForNodeTransferEdges(unittest.TestCase):
                     edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                         node="body", port="result"
                     ),
-                },
-                nested_ports=["item"],
-                transfer_edges={
                     edge_models.OutputTarget(
                         port="nonexistent"
                     ): edge_models.InputSource(port="items"),
                 },
+                nested_ports=["item"],
             )
         self.assertIn("Invalid output target ports", str(ctx.exception))
         self.assertIn("nonexistent", str(ctx.exception).lower())
-
-    def test_transfer_source_not_looped_rejected(self):
-        """Transfer edge sources must be looped (in nested_ports or zipped_ports)."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
-                inputs=["items", "static_value"],
-                outputs=["results", "forwarded"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
-                        inputs=["item", "static"],
-                        outputs=["result"],
-                    ),
-                ),
-                input_edges={
-                    edge_models.TargetHandle(
-                        node="body", port="item"
-                    ): edge_models.InputSource(port="items"),
-                    edge_models.TargetHandle(
-                        node="body", port="static"
-                    ): edge_models.InputSource(port="static_value"),
-                },
-                output_edges={
-                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
-                        node="body", port="result"
-                    ),
-                },
-                nested_ports=["item"],
-                transfer_edges={
-                    edge_models.OutputTarget(port="forwarded"): edge_models.InputSource(
-                        port="static_value"
-                    ),
-                },
-            )
-        self.assertIn("static_value", str(ctx.exception))
-        self.assertIn("looped", str(ctx.exception).lower())
-
-    def test_transfer_target_collides_with_output_edge_rejected(self):
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
-                inputs=["items"],
-                outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
-                ),
-                input_edges={
-                    edge_models.TargetHandle(
-                        node="body", port="item"
-                    ): edge_models.InputSource(port="items"),
-                },
-                output_edges={
-                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
-                        node="body", port="result"
-                    ),
-                },
-                nested_ports=["item"],
-                transfer_edges={
-                    edge_models.OutputTarget(port="results"): edge_models.InputSource(
-                        port="items"
-                    ),
-                },
-            )
-        self.assertIn("results", str(ctx.exception))
-        self.assertIn("conflict", str(ctx.exception).lower())
 
 
 class TestForNodeSerialization(unittest.TestCase):
@@ -632,13 +559,11 @@ class TestForNodeSerialization(unittest.TestCase):
                 edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
                     node="body", port="result"
                 ),
-            },
-            nested_ports=["item"],
-            transfer_edges={
                 edge_models.OutputTarget(
                     port="original_items"
                 ): edge_models.InputSource(port="items"),
             },
+            nested_ports=["item"],
         )
         for mode in ["python", "json"]:
             with self.subTest(mode=mode):
@@ -652,7 +577,6 @@ class TestForNodeSerialization(unittest.TestCase):
                 self.assertEqual(original.body_node.label, restored.body_node.label)
                 self.assertEqual(original.input_edges, restored.input_edges)
                 self.assertEqual(original.output_edges, restored.output_edges)
-                self.assertEqual(original.transfer_edges, restored.transfer_edges)
 
 
 class TestForNodeComposition(unittest.TestCase):

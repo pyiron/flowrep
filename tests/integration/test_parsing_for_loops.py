@@ -77,7 +77,6 @@ for_node = for_model.ForNode.model_validate(
         "output_edges": {"vecs": "body.rs"},
         "nested_ports": ["n"],
         "zipped_ports": [],
-        "transfer_edges": {},
     }
 )
 
@@ -178,14 +177,14 @@ zbat_for_node = for_model.ForNode.model_validate(
             "body.c": "cs",
             "body.d": "ds",
         },
-        "output_edges": {"sums": "body.t"},
-        "nested_ports": ["b"],
-        "zipped_ports": ["c", "d"],
-        "transfer_edges": {
+        "output_edges": {
+            "sums": "body.t",
             "b_accumulator": "bs",
             "c_accumulator": "cs",
             "d_accumulator": "ds",
         },
+        "nested_ports": ["b"],
+        "zipped_ports": ["c", "d"],
     }
 )
 
@@ -303,7 +302,6 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                                 "output_edges": {"squares": "body.sq"},
                                 "nested_ports": ["r"],
                                 "zipped_ports": [],
-                                "transfer_edges": {},
                             },
                             "sum_elements_0": sum_node,
                         },
@@ -319,7 +317,6 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                 "output_edges": {"sq_sums": "body.summed"},
                 "nested_ports": ["n"],
                 "zipped_ports": [],
-                "transfer_edges": {},
             }
         },
         "input_edges": {"for_0.ns": "ns"},
@@ -426,7 +423,6 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
                                 "output_edges": {"squares": "body.sq"},
                                 "nested_ports": ["r"],
                                 "zipped_ports": [],
-                                "transfer_edges": {},
                             },
                             "sum_elements_0": sum_node,
                         },
@@ -450,7 +446,6 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
                 "output_edges": {"sq_sums": "body.summed"},
                 "nested_ports": ["n"],
                 "zipped_ports": [],
-                "transfer_edges": {},
             }
         },
         "input_edges": {
