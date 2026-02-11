@@ -416,6 +416,24 @@ class TestForParserEdgeWiring(unittest.TestCase):
         self.assertIn(body_target, fn.output_edges)
         self.assertIsInstance(fn.output_edges[body_target], edge_models.SourceHandle)
 
+    def test_forwarded_loop_var_classified_as_transferred(self):
+        """Forwarded looped input should appear in transferred_outputs."""
+
+        def wf(xs):
+            collected_xs = []
+            results = []
+            for x in xs:
+                y = identity(x)
+                collected_xs.append(x)
+                results.append(y)
+            return collected_xs, results
+
+        fn = self._get_for_node(wf)
+        self.assertEqual(len(fn.transferred_outputs), 1)
+        self.assertIn(
+            edge_models.OutputTarget(port="collected_xs"), fn.transferred_outputs
+        )
+
     # --- broadcast vs scattered inputs ---
 
     def test_broadcast_symbol_appears_as_input(self):

@@ -79,6 +79,35 @@ class ForNode(base_models.NodeModel):
     def prospective_nodes(self) -> Nodes:
         return {self.body_node.label: self.body_node.node}
 
+    @property
+    def looped_inputs(self) -> base_models.Labels:
+        return self.nested_ports + self.zipped_ports
+
+    @property
+    def transferred_outputs(self) -> edge_models.OutputEdges:
+        """
+        Output edges sourced from looped (nested/zipped) inputs.
+
+        These inputs are scattered across body executions, so the WfMS must
+        collect them back into lists correlated with body node outputs. This is a
+        helper property for the WfMS to more easily find these.
+        """
+        return {
+            target: source
+            for target, source in self.output_edges.items()
+            if isinstance(source, edge_models.InputSource)
+            and source.port in self._looped_input_ports
+        }
+
+    @property
+    def _looped_input_ports(self) -> set[str]:
+        """For-node input ports that feed into looped (nested/zipped) body ports."""
+        return {
+            source.port
+            for target, source in self.input_edges.items()
+            if target.port in self.looped_inputs
+        }
+
     @pydantic.model_validator(mode="after")
     def validate_io_edges(self):
         subgraph_validation.validate_input_edge_sources(self.input_edges, self.inputs)
@@ -94,6 +123,19 @@ class ForNode(base_models.NodeModel):
             self.prospective_nodes,
             self.inputs,
         )
+
+        # Disallow passthrough outputs -- there is no way to generate these at this
+        # scope from python, so simply disallow them for simplicity and consistency
+        if passthrough := {
+            source.serialize()
+            for source in self.output_edges.values()
+            if isinstance(source, edge_models.InputSource)
+            and source.port not in self._looped_input_ports
+        }:
+            raise ValueError(
+                f"Output edges from input sources are only allowed if the input is "
+                f"being looped on, but got: {passthrough}"
+            )
         return self
 
     @pydantic.model_validator(mode="after")

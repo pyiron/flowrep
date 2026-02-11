@@ -440,7 +440,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
         """Transfer edges should forward looped inputs to outputs."""
         for_node = for_model.ForNode(
             inputs=["items", "broadcast"],
-            outputs=["results", "original_items", "non_list_output"],
+            outputs=["results", "original_items"],
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
@@ -453,6 +453,9 @@ class TestForNodeTransferEdges(unittest.TestCase):
                 edge_models.TargetHandle(
                     node="body", port="item"
                 ): edge_models.InputSource(port="items"),
+                edge_models.TargetHandle(
+                    node="body", port="static"
+                ): edge_models.InputSource(port="broadcast"),
             },
             output_edges={
                 edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
@@ -461,13 +464,10 @@ class TestForNodeTransferEdges(unittest.TestCase):
                 edge_models.OutputTarget(
                     port="original_items"
                 ): edge_models.InputSource(port="items"),
-                edge_models.OutputTarget(
-                    port="non_list_output"
-                ): edge_models.InputSource(port="broadcast"),
             },
             nested_ports=["item"],
         )
-        self.assertEqual(len(for_node.output_edges), 3)
+        self.assertEqual(len(for_node.output_edges), 2)
 
     def test_transfer_source_not_in_inputs_rejected(self):
         """Transfer edge sources must be ForNode inputs."""
@@ -736,3 +736,103 @@ class TestForNodeComposition(unittest.TestCase):
         self.assertIsInstance(workflow.nodes["loop"], for_model.ForNode)
         self.assertIsInstance(workflow.nodes["preprocess"], atomic_model.AtomicNode)
         self.assertIsInstance(workflow.nodes["postprocess"], atomic_model.AtomicNode)
+
+
+class TestForNodeOutputProperties(unittest.TestCase):
+    """Tests for outputs from input sources."""
+
+    def _make_body(self, inputs, outputs):
+        return {
+            "label": "body",
+            "node": {
+                "type": "atomic",
+                "inputs": inputs,
+                "outputs": outputs,
+                "fully_qualified_name": "mod.func",
+            },
+        }
+
+    def test_body_outputs_appear_in_neither(self):
+        """SourceHandle outputs are neither pass-through nor transferred."""
+        node = for_model.ForNode.model_validate(
+            {
+                "type": "for",
+                "inputs": ["xs"],
+                "outputs": ["results"],
+                "body_node": self._make_body(["x"], ["y"]),
+                "input_edges": {"body.x": "xs"},
+                "output_edges": {"results": "body.y"},
+                "nested_ports": ["x"],
+            }
+        )
+        self.assertEqual(node.transferred_outputs, {})
+
+    def test_transferred_from_nested_port(self):
+        node = for_model.ForNode.model_validate(
+            {
+                "type": "for",
+                "inputs": ["xs"],
+                "outputs": ["results", "collected_xs"],
+                "body_node": self._make_body(["x"], ["y"]),
+                "input_edges": {"body.x": "xs"},
+                "output_edges": {
+                    "results": "body.y",
+                    "collected_xs": "xs",
+                },
+                "nested_ports": ["x"],
+            }
+        )
+        self.assertEqual(len(node.transferred_outputs), 1)
+        target = edge_models.OutputTarget(port="collected_xs")
+        self.assertIn(target, node.transferred_outputs)
+
+    def test_transferred_from_zipped_port(self):
+        node = for_model.ForNode.model_validate(
+            {
+                "type": "for",
+                "inputs": ["xs", "ys"],
+                "outputs": ["results", "fwd_xs", "fwd_ys"],
+                "body_node": self._make_body(["x", "y"], ["z"]),
+                "input_edges": {"body.x": "xs", "body.y": "ys"},
+                "output_edges": {
+                    "results": "body.z",
+                    "fwd_xs": "xs",
+                    "fwd_ys": "ys",
+                },
+                "zipped_ports": ["x", "y"],
+            }
+        )
+        self.assertEqual(len(node.transferred_outputs), 2)
+
+    def test_pass_through_from_broadcast_input_raises(self):
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            for_model.ForNode.model_validate(
+                {
+                    "type": "for",
+                    "inputs": ["c", "xs"],
+                    "outputs": ["results", "fwd_c"],
+                    "body_node": self._make_body(["x", "c"], ["y"]),
+                    "input_edges": {"body.x": "xs", "body.c": "c"},
+                    "output_edges": {
+                        "results": "body.y",
+                        "fwd_c": "c",
+                    },
+                    "nested_ports": ["x"],
+                }
+            )
+        self.assertIn("input sources are only allowed if", str(ctx.exception))
+
+    def test_no_input_source_outputs(self):
+        """All outputs from body → both properties empty."""
+        node = for_model.ForNode.model_validate(
+            {
+                "type": "for",
+                "inputs": ["xs"],
+                "outputs": ["a", "b"],
+                "body_node": self._make_body(["x"], ["p", "q"]),
+                "input_edges": {"body.x": "xs"},
+                "output_edges": {"a": "body.p", "b": "body.q"},
+                "nested_ports": ["x"],
+            }
+        )
+        self.assertEqual(node.transferred_outputs, {})
