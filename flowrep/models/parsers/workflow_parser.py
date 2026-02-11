@@ -106,7 +106,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         if isinstance(rhs, ast.Call):
             child = get_labeled_recipe(rhs, self.nodes.keys(), scope)
             self.nodes[child.label] = child.node
-            consume_call_arguments(self.symbol_scope, rhs, child)
+            parser_helpers.consume_call_arguments(self.symbol_scope, rhs, child)
             self.symbol_scope.register(new_symbols, child)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
             if len(new_symbols) != 1:
@@ -259,37 +259,6 @@ def get_labeled_recipe(
     )
     child_name = label_helpers.unique_suffix(child_call.__name__, existing_names)
     return helper_models.LabeledNode(label=child_name, node=child_recipe)
-
-
-def consume_call_arguments(
-    scope: symbol_scope.SymbolScope,
-    ast_call: ast.Call,
-    child: helper_models.LabeledNode,
-) -> None:
-    """Record all argument->port consumptions for a node-creating call."""
-
-    def _validate_is_ast_name(node: ast.expr) -> ast.Name:
-        if not isinstance(node, ast.Name):
-            raise TypeError(
-                f"Workflow python definitions can only interpret function "
-                f"calls with symbolic input, and thus expected to find an "
-                f"ast.Name, but when parsing input for {child.label}, found a "
-                f"type {type(node)}"
-            )
-        return node
-
-    for i, arg in enumerate(ast_call.args):
-        name_arg = _validate_is_ast_name(arg)
-        scope.consume(name_arg.id, child.label, child.node.inputs[i])
-    for kw in ast_call.keywords:
-        name_arg = _validate_is_ast_name(kw.value)
-        if not isinstance(kw.arg, str):  # pragma: no cover
-            raise TypeError(
-                "How did you get here? A `None` value should be possible for "
-                "**kwargs, but variadics should have been excluded before "
-                "this. Please raise a GitHub issue."
-            )
-        scope.consume(name_arg.id, child.label, kw.arg)
 
 
 def is_append_call(node: ast.expr | ast.Expr, accumulators: set[str]) -> bool:

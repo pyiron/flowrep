@@ -6,6 +6,8 @@ from types import FunctionType
 from typing import Any, cast
 
 from flowrep import workflow
+from flowrep.models.nodes import helper_models
+from flowrep.models.parsers import symbol_scope
 
 
 def parser2decorator(
@@ -93,3 +95,34 @@ def resolve_symbols_to_strings(
             f"Expected to receive a symbol or tuple of symbols from ast.Name or "
             f"ast.Tuple, but could not parse this from {type(node)}."
         )
+
+
+def consume_call_arguments(
+    scope: symbol_scope.SymbolScope,
+    ast_call: ast.Call,
+    child: helper_models.LabeledNode,
+) -> None:
+    """Record all argument->port consumptions for a node-creating call."""
+
+    def _validate_is_ast_name(node: ast.expr) -> ast.Name:
+        if not isinstance(node, ast.Name):
+            raise TypeError(
+                f"Workflow python definitions can only interpret function "
+                f"calls with symbolic input, and thus expected to find an "
+                f"ast.Name, but when parsing input for {child.label}, found a "
+                f"type {type(node)}"
+            )
+        return node
+
+    for i, arg in enumerate(ast_call.args):
+        name_arg = _validate_is_ast_name(arg)
+        scope.consume(name_arg.id, child.label, child.node.inputs[i])
+    for kw in ast_call.keywords:
+        name_arg = _validate_is_ast_name(kw.value)
+        if not isinstance(kw.arg, str):  # pragma: no cover
+            raise TypeError(
+                "How did you get here? A `None` value should be possible for "
+                "**kwargs, but variadics should have been excluded before "
+                "this. Please raise a GitHub issue."
+            )
+        scope.consume(name_arg.id, child.label, kw.arg)
