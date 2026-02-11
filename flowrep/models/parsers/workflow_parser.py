@@ -14,6 +14,7 @@ from flowrep.models.parsers import (
     parser_helpers,
     parser_protocol,
     symbol_scope,
+    while_parser,
 )
 
 
@@ -168,6 +169,45 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.symbol_scope.register(
             new_symbols=list(used_accumulators),
             child=labeled_for,
+        )
+
+    def handle_while(
+        self,
+        tree: ast.While,
+        scope: object_scope.ScopeProxy,
+    ):
+        # 1. Parse the loop header — pure AST, no parser state needed
+        labeled_condition_node, condition_inputs = while_parser.parse_while_condition(
+            tree, scope, self.symbol_scope
+        )
+
+        # 2. Build a fresh body walker with the forked scope
+        body_symbol_scope = self.symbol_scope.fork_scope({})
+        body_walker = WorkflowParser(symbol_scope=body_symbol_scope)
+
+        # 3. WhileParser owns the while-specific wiring; body_walker owns the
+        #    general statement dispatch inside the while-body
+        wp = while_parser.WhileParser(
+            body_walker=body_walker,
+            labeled_condition=labeled_condition_node,
+            condition_inputs=condition_inputs,
+        )
+        wp.build_body(tree, scope=scope)
+
+        # 4. Build the WhileNode and integrate it into *this* parser's state
+        while_node = wp.build_model()
+        while_label = label_helpers.unique_suffix("while", self.nodes)
+        self.nodes[while_label] = while_node
+
+        # 5. Log all symbols used inside the while-node as consumed
+        for port in while_node.inputs:
+            self.symbol_scope.consume(port, while_label, port)
+
+        # 8. Register the while-node's outputs as symbols in *this* scope
+        labeled_while = helper_models.LabeledNode(label=while_label, node=while_node)
+        self.symbol_scope.register(
+            new_symbols=while_node.outputs,
+            child=labeled_while,
         )
 
     def handle_return(
