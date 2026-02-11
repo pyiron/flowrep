@@ -404,6 +404,21 @@ class TestParseWorkflowErrors(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("Return symbol 'z' is not defined", str(ctx.exception))
 
+    def test_too_many_symbols_for_list_raises(self):
+        """
+        A bit silly since the python interpreter would error it too, but in case we
+        parse the code before the interpreter does, it's here for completeness.
+        """
+
+        def wf(x):
+            y = add(x)
+            accumulator, too_much = []  # noqa: F841
+            return y
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("must target exactly one symbol", str(ctx.exception))
+
 
 class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
     """Control flow is not yet implemented; verify NotImplementedError is raised."""
