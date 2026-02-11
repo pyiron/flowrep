@@ -19,8 +19,8 @@ class ForNode(base_models.NodeModel):
     Loops can be done with a combination of nested iteration and zipping values.
     Output edges whose source is an `InputSource` indicate data forwarded directly from
     the for-node's own inputs. In the even that these are inputs that are scattered to
-    body nodes fro the iteration, it is the responsibility of the WfMS to collect these
-    into lists alongside the body node outputs. This allows outputs to be linked
+    body nodes from, the iteration, it is the responsibility of the WfMS to collect
+    these into lists alongside the body node outputs. This allows outputs to be linked
     directly to the input that generated them.
 
     Intended recipe realization:
@@ -43,7 +43,7 @@ class ForNode(base_models.NodeModel):
             WfMS is responsible
     6. For output edges sourced from InputSource (rather than body SourceHandle),
         collect the corresponding input values used for each iteration and connect
-        to output accordingly, or pass the broadcast inputs trivially through.
+        to output accordingly.
 
     Attributes:
         type: The node type -- always "for".
