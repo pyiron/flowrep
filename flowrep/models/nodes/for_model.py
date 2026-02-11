@@ -157,7 +157,7 @@ class ForNode(base_models.NodeModel):
     def validate_iterated_ports_exist(self):
         if invalid := {
             port
-            for port in self.nested_ports + self.zipped_ports
+            for port in self.iterated_ports
             if port not in self.body_node.node.inputs
         }:
             raise ValueError(
