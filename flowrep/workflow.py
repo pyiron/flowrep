@@ -584,9 +584,7 @@ def _get_nodes(
             if with_function:
                 result[label]["function"] = function["function"].func
         else:
-            t = function.get("control_flow", "atomic").split("-", 1)[-1]
-            t = {"body": "atomic"}.get(t, t)
-            result[label] = {"function": function["function"], "type": t}
+            result[label] = {"function": function["function"], "type": "atomic"}
     return result
 
 
