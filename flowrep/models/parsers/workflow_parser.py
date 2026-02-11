@@ -48,7 +48,7 @@ def parse_workflow(
     )
     tree = parser_helpers.get_ast_function_node(func)
     func_def_parser.walk_func_def(state, tree, func, output_labels)
-    return state.build_model()
+    return state.build_model(inputs_override=inputs)
 
 
 class WorkflowParser(parser_protocol.BodyWalker):
@@ -83,9 +83,11 @@ class WorkflowParser(parser_protocol.BodyWalker):
     def edges(self) -> edge_models.Edges:
         return self.symbol_scope.edges
 
-    def build_model(self) -> workflow_model.WorkflowNode:
+    def build_model(
+        self, inputs_override: list[str] | None = None
+    ) -> workflow_model.WorkflowNode:
         return workflow_model.WorkflowNode(
-            inputs=self.inputs,
+            inputs=self.inputs if inputs_override is None else inputs_override,
             outputs=self.outputs,
             nodes=self.nodes,
             input_edges=self.input_edges,
