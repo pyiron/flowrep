@@ -57,3 +57,8 @@ def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
         )
         else body
     )
+
+
+# Note: There is no FuncDefParser class, because if we are parsing a function
+# definition, the state object is already a WorkflowParser -- unlike parsing a control
+# flow, no new _additional_ state builder is required.
