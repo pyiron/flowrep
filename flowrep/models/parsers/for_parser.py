@@ -71,8 +71,6 @@ class ForParser:
         self._nested_ports: list[str] = []
         self._zipped_ports: list[str] = []
 
-        # These are internal state that doesn't translate directly to the final model
-
     @property
     def _body_node(self) -> helper_models.LabeledNode:
         return helper_models.LabeledNode(
