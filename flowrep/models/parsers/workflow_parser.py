@@ -1,5 +1,5 @@
 import ast
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection
 from types import FunctionType
 from typing import cast
 
@@ -104,7 +104,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
-            child = get_labeled_recipe(rhs, self.nodes.keys(), scope)
+            child = atomic_parser.get_labeled_recipe(rhs, self.nodes.keys(), scope)
             self.nodes[child.label] = child.node
             parser_helpers.consume_call_arguments(self.symbol_scope, rhs, child)
             self.symbol_scope.register(new_symbols, child)
@@ -240,25 +240,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"accumulator symbol. Instead, got a body value {append_stmt.value}."
                 f"Currently known accumulators: {accumulators}."
             )
-
-
-def get_labeled_recipe(
-    ast_call: ast.Call,
-    existing_names: Iterable[str],
-    scope: object_scope.ScopeProxy,
-) -> helper_models.LabeledNode:
-    child_call = cast(
-        FunctionType, object_scope.resolve_symbol_to_object(ast_call.func, scope)
-    )
-    # Since it is the .func attribute of an ast.Call,
-    # the retrieved object had better be a function
-    child_recipe = (
-        child_call.flowrep_recipe
-        if hasattr(child_call, "flowrep_recipe")
-        else atomic_parser.parse_atomic(child_call)
-    )
-    child_name = label_helpers.unique_suffix(child_call.__name__, existing_names)
-    return helper_models.LabeledNode(label=child_name, node=child_recipe)
 
 
 def is_append_call(node: ast.expr | ast.Expr, accumulators: set[str]) -> bool:

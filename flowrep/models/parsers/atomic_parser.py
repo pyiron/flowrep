@@ -1,12 +1,12 @@
 import ast
 import dataclasses
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from types import FunctionType
-from typing import Annotated, get_args, get_origin, get_type_hints
+from typing import Annotated, cast, get_args, get_origin, get_type_hints
 
-from flowrep.models.nodes import atomic_model
-from flowrep.models.parsers import label_helpers, parser_helpers
+from flowrep.models.nodes import atomic_model, helper_models
+from flowrep.models.parsers import label_helpers, object_scope, parser_helpers
 from flowrep.models.parsers.label_helpers import default_output_label
 
 
@@ -173,3 +173,22 @@ def _parse_dataclass_return_labels(func: FunctionType) -> list[str]:
         f"Dataclass unpack mode requires a return type annotation that is a "
         f"(perhaps Annotated) dataclass, but got {ann}"
     )
+
+
+def get_labeled_recipe(
+    ast_call: ast.Call,
+    existing_names: Iterable[str],
+    scope: object_scope.ScopeProxy,
+) -> helper_models.LabeledNode:
+    child_call = cast(
+        FunctionType, object_scope.resolve_symbol_to_object(ast_call.func, scope)
+    )
+    # Since it is the .func attribute of an ast.Call,
+    # the retrieved object had better be a function
+    child_recipe = (
+        child_call.flowrep_recipe
+        if hasattr(child_call, "flowrep_recipe")
+        else parse_atomic(child_call)
+    )
+    child_name = label_helpers.unique_suffix(child_call.__name__, existing_names)
+    return helper_models.LabeledNode(label=child_name, node=child_recipe)
