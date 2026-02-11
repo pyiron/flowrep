@@ -80,13 +80,13 @@ class ForNode(base_models.NodeModel):
         return {self.body_node.label: self.body_node.node}
 
     @property
-    def looped_inputs(self) -> base_models.Labels:
+    def iterated_inputs(self) -> base_models.Labels:
         return self.nested_ports + self.zipped_ports
 
     @property
     def transferred_outputs(self) -> edge_models.OutputEdges:
         """
-        Output edges sourced from looped (nested/zipped) inputs.
+        Output edges sourced from iterated (nested/zipped) inputs.
 
         These inputs are scattered across body executions, so the WfMS must
         collect them back into lists correlated with body node outputs. This is a
@@ -96,16 +96,16 @@ class ForNode(base_models.NodeModel):
             target: source
             for target, source in self.output_edges.items()
             if isinstance(source, edge_models.InputSource)
-            and source.port in self._looped_input_ports
+            and source.port in self._iterated_input_ports
         }
 
     @property
-    def _looped_input_ports(self) -> set[str]:
-        """For-node input ports that feed into looped (nested/zipped) body ports."""
+    def _iterated_input_ports(self) -> set[str]:
+        """For-node input ports that feed into iterated (nested/zipped) body ports."""
         return {
             source.port
             for target, source in self.input_edges.items()
-            if target.port in self.looped_inputs
+            if target.port in self.iterated_inputs
         }
 
     @pydantic.model_validator(mode="after")
@@ -130,22 +130,22 @@ class ForNode(base_models.NodeModel):
             source.serialize()
             for source in self.output_edges.values()
             if isinstance(source, edge_models.InputSource)
-            and source.port not in self._looped_input_ports
+            and source.port not in self._iterated_input_ports
         }:
             raise ValueError(
                 f"Output edges from input sources are only allowed if the input is "
-                f"being looped on, but got: {passthrough}"
+                f"being iterated on, but got: {passthrough}"
             )
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_some_loop(self):
+    def validate_some_iteration(self):
         if not (self.nested_ports or self.zipped_ports):
-            raise ValueError("For loop must have at least one nested or zipped port")
+            raise ValueError("For node must have at least one nested or zipped port")
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_non_overlapping_loops(self):
+    def validate_non_overlapping_iterators(self):
         if not set(self.nested_ports).isdisjoint(self.zipped_ports):
             raise ValueError(
                 f"Loop values in nested_ports or zipped_ports must not overlap, but "
@@ -154,14 +154,14 @@ class ForNode(base_models.NodeModel):
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_loop_ports_exist(self):
+    def validate_iterated_ports_exist(self):
         if invalid := {
             port
             for port in self.nested_ports + self.zipped_ports
             if port not in self.body_node.node.inputs
         }:
             raise ValueError(
-                f"For loop must loop on body node ports ({self.body_node.node.inputs}) "
-                f"but got: {invalid}"
+                f"For node must iterate on body node ports "
+                f"({self.body_node.node.inputs}) but got: {invalid}"
             )
         return self

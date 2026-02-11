@@ -158,19 +158,19 @@ class TestParseSingleForHeader(unittest.TestCase):
 class TestParseForIterations(unittest.TestCase):
     """Tests for the iteration-header unwrapping logic."""
 
-    def test_single_simple_loop(self):
+    def test_single_simple_iteration(self):
         stmt = _parse_for_stmt("for x in xs:\n  pass")
         nested, zipped, body = for_parser.parse_for_iterations(stmt)
         self.assertEqual(nested, [("x", "xs")])
         self.assertEqual(zipped, [])
 
-    def test_single_zip_loop(self):
+    def test_single_zip_iteration(self):
         stmt = _parse_for_stmt("for a, b in zip(xs, ys):\n  pass")
         nested, zipped, body = for_parser.parse_for_iterations(stmt)
         self.assertEqual(nested, [])
         self.assertEqual(zipped, [("a", "xs"), ("b", "ys")])
 
-    def test_two_nested_simple_loops(self):
+    def test_two_nested_simple_iterations(self):
         stmt = _parse_for_stmt("for x in xs:\n  for y in ys:\n    pass")
         nested, zipped, body = for_parser.parse_for_iterations(stmt)
         self.assertEqual(nested, [("x", "xs"), ("y", "ys")])
@@ -394,7 +394,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
 
     # --- transfer edges (forwarding an iteration variable) ---
 
-    def test_forwarded_loop_var_is_input_source_in_output_edges(self):
+    def test_forwarded_iteration_var_is_input_source_in_output_edges(self):
         def wf(xs):
             collected_xs = []
             results = []
@@ -416,8 +416,8 @@ class TestForParserEdgeWiring(unittest.TestCase):
         self.assertIn(body_target, fn.output_edges)
         self.assertIsInstance(fn.output_edges[body_target], edge_models.SourceHandle)
 
-    def test_forwarded_loop_var_classified_as_transferred(self):
-        """Forwarded looped input should appear in transferred_outputs."""
+    def test_forwarded_iteration_var_classified_as_transferred(self):
+        """Forwarded iterated input should appear in transferred_outputs."""
 
         def wf(xs):
             collected_xs = []
@@ -492,7 +492,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
                     # x must be consumed or we get an unused-iterator error
                     u = identity(x)  # noqa: F841
                     # But there is no necessity for everything in the body to be
-                    # captured and passed back out to the for-loop output
+                    # captured and passed back out to the for-node output
                     results.append(t)
             return results
 
@@ -624,7 +624,7 @@ class TestForParserStructure(unittest.TestCase):
         self.assertIsInstance(body.nodes["for_0"], for_model.ForNode)
 
     def test_accumulator_cleanup_allows_second_for(self):
-        """After a for-loop consumes accumulators, new ones can be defined."""
+        """After a for-node consumes accumulators, new ones can be defined."""
 
         def wf(xs, ys):
             first = []

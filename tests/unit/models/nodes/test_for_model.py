@@ -129,7 +129,7 @@ class TestForNodeBasic(unittest.TestCase):
 
 
 class TestForNodeLoopPortValidation(unittest.TestCase):
-    def test_no_loop_ports_rejected(self):
+    def test_no_iteration_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             for_model.ForNode(
                 inputs=["x"],
@@ -240,7 +240,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
         self.assertIn("overlap", str(ctx.exception).lower())
         self.assertIn("item", str(ctx.exception))
 
-    def test_loop_port_not_on_body_node_rejected(self):
+    def test_iteration_port_not_on_body_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             for_model.ForNode(
                 inputs=["items"],
@@ -437,7 +437,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
 
 class TestForNodeTransferEdges(unittest.TestCase):
     def test_valid_transfer_edge(self):
-        """Transfer edges should forward looped inputs to outputs."""
+        """Transfer edges should forward iterated inputs to outputs."""
         for_node = for_model.ForNode(
             inputs=["items", "broadcast"],
             outputs=["results", "original_items"],
@@ -653,21 +653,21 @@ class TestForNodeComposition(unittest.TestCase):
         workflow = workflow_model.WorkflowNode(
             inputs=["data"],
             outputs=["processed"],
-            nodes={"loop": for_node},
+            nodes={"for_node": for_node},
             input_edges={
                 edge_models.TargetHandle(
-                    node="loop", port="items"
+                    node="for_node", port="items"
                 ): edge_models.InputSource(port="data"),
             },
             edges={},
             output_edges={
                 edge_models.OutputTarget(port="processed"): edge_models.SourceHandle(
-                    node="loop", port="results"
+                    node="for_node", port="results"
                 ),
             },
         )
 
-        self.assertIsInstance(workflow.nodes["loop"], for_model.ForNode)
+        self.assertIsInstance(workflow.nodes["for_node"], for_model.ForNode)
         self.assertEqual(workflow.inputs, ["data"])
         self.assertEqual(workflow.outputs, ["processed"])
 
@@ -705,7 +705,7 @@ class TestForNodeComposition(unittest.TestCase):
                     inputs=["data"],
                     outputs=["items"],
                 ),
-                "loop": for_node,
+                "for_node": for_node,
                 "postprocess": atomic_model.AtomicNode(
                     fully_qualified_name="mod.postprocess",
                     inputs=["results"],
@@ -719,11 +719,11 @@ class TestForNodeComposition(unittest.TestCase):
             },
             edges={
                 edge_models.TargetHandle(
-                    node="loop", port="items"
+                    node="for_node", port="items"
                 ): edge_models.SourceHandle(node="preprocess", port="items"),
                 edge_models.TargetHandle(
                     node="postprocess", port="results"
-                ): edge_models.SourceHandle(node="loop", port="results"),
+                ): edge_models.SourceHandle(node="for_node", port="results"),
             },
             output_edges={
                 edge_models.OutputTarget(port="final"): edge_models.SourceHandle(
@@ -733,7 +733,7 @@ class TestForNodeComposition(unittest.TestCase):
         )
 
         self.assertEqual(len(workflow.nodes), 3)
-        self.assertIsInstance(workflow.nodes["loop"], for_model.ForNode)
+        self.assertIsInstance(workflow.nodes["for_node"], for_model.ForNode)
         self.assertIsInstance(workflow.nodes["preprocess"], atomic_model.AtomicNode)
         self.assertIsInstance(workflow.nodes["postprocess"], atomic_model.AtomicNode)
 

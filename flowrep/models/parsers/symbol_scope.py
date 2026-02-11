@@ -17,7 +17,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     """
     Tracks which symbols are in scope and where their data comes from.
 
-    Immutable-ish: forking for child scopes (e.g. for-loop bodies) returns a new
+    Immutable-ish: forking for child scopes (e.g. for-node bodies) returns a new
     instance with remapped symbols.
     """
 

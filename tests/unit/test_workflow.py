@@ -486,7 +486,7 @@ class TestWorkflow(unittest.TestCase):
             "for",
         )
 
-    def test_for_loop(self):
+    def test_for_node(self):
         data = fwf.get_workflow_dict(workflow_with_for)
         self.assertIn("for_0", data["nodes"])
         self.assertIn("iter", data["nodes"]["for_0"])
