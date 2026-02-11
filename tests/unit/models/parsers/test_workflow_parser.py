@@ -234,6 +234,32 @@ class TestParseWorkflowEdges(unittest.TestCase):
         self.assertEqual(source.node, "add_0")
         self.assertEqual(source.port, "output_0")
 
+    def test_reused_symbols(self):
+        """Symbol reuse should create edges using the most recent definition"""
+
+        def wf(x):
+            y = add(x)
+            y = multiply(y)
+            return y
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(
+            node.edges,
+            {
+                edge_models.TargetHandle(
+                    node="multiply_0", port="x"
+                ): edge_models.SourceHandle(node="add_0", port="output_0")
+            },
+        )
+        self.assertEqual(
+            node.output_edges,
+            {
+                edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
+                    node="multiply_0", port="output_0"
+                )
+            },
+        )
+
 
 class TestParseWorkflowNested(unittest.TestCase):
     def test_nested_workflow_detected(self):
@@ -315,16 +341,6 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             workflow_parser.parse_workflow(wf)
-
-    def test_reused_symbol_raises(self):
-        def wf(x):
-            y = add(x)
-            y = multiply(y)
-            return y
-
-        with self.assertRaises(ValueError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("already in scope", str(ctx.exception).lower())
 
     def test_unknown_symbol_raises(self):
         def wf(x):

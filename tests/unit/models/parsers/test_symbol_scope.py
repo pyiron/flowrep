@@ -63,12 +63,11 @@ class TestSymbolScopeRegister(unittest.TestCase):
         self.assertEqual(scope["p"], _make_source("node_0", "x"))
         self.assertEqual(scope["q"], _make_source("node_0", "y"))
 
-    def test_register_overshadow_raises(self):
+    def test_register_reassignment(self):
         scope = SymbolScope({"a": _make_input("a")})
         child = _make_labeled_node("node_0", ["out"])
-        with self.assertRaises(ValueError) as ctx:
-            scope.register(["a"], child)
-        self.assertIn("already in scope", str(ctx.exception))
+        scope.register(["a"], child)
+        self.assertIn("a", scope.reassigned_symbols)
 
     def test_register_length_mismatch_raises(self):
         scope = SymbolScope({})
