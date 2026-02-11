@@ -15,41 +15,52 @@ class WhileNode(base_models.NodeModel):
     """
     A loop node that repeatedly executes a body while a condition is true.
     This is a dynamic node, which must actualize the body of its subgraph at runtime.
+    Output labels must be a subset of input labels to facilitate unambiguous looping
+    and guarantee output availability even if the body never executes.
+    Output edges _must_ come from the case's body node, not its condition node.
+    It is the responsibility of the WfMS to repeat execution, inferring from the
+    outputs (and their correspondence with input labels) which data needs to looped on
+    such that body instance outputs get passed to the next set of condition and body
+    instances.
+    It is also the responsibility of the WfMS to leverage loop inputs as fallbacks in
+    case the body never executes, in this way we are a little cheeky about the recipe
+    having static outputs -- the actual sourcing is runtime dependent, but you are
+    guaranteed to have data there at the end of the day.
 
     Intended recipe realization:
         1. The case condition recipe is used to instantiate a condition node
         2. Input edges are routed to the condition
         3. The condition is executed and evaluated
             a) The evaluation port is specified in the case
-        4. If the condition evaluates `False`, terminate
-            b) Node outputs will remain in a state of not having data
+        4. If the condition evaluates `False`, terminate; route while-loop inputs to
+            outputs of matching label to guarantee data availability.
         5. Else, the case body recipe is used to instantiate a body node
-        6. Input edges are routed to the body
-        7. The body is executed
-        8. Another condition recipe is evaluated
-        9. Input and/xor body-condition edges are routed to it, prioritizing b-c edges
-        10.The new condition is executed and evaluated
-        11. If the condition evaluates `False`, terminate and use output edges to route
-            data from the most recent body node to the output
-        12. Else, repeat steps 7-11
-            a) In step 6, use body-body edges to connect data output from the last body
-                node instance, taking precedence over input edges
+        6. Input edges are routed to the body, and it is executed
+        7. Another condition node is instantiated, and the correspondence of loop
+            output labels and input labels is leveraged to infer what inputs need to
+            come from the loop input, and what from the most recent body node instance
+        8. If the condition evaluates `False`, terminate and route the most recent
+            body node output to the loop output
+        9. Else, instantiate another body node and follow the same output-input label
+            comparison to infer which input data is still coming from the loop vs.
+            which is coming from the last body node instance
+        10. Repeat steps 7-9 until the condition evaluates False.
 
     Attributes:
         type: The node type -- always "while".
         inputs: The available input port names.
-        outputs: The available output port names.
+        outputs: The available output port names. For while-nodes these _must_ be a
+            subset of the input port names.
         case: The condition-body pair to be looped over by repeated instantiation.
             The condition node must produce a boolean output (specified by
             condition_output or inferred if the condition has exactly one output).
         input_edges: Edges from workflow inputs to the initial condition/body nodes.
             Keys are targets on condition/body, values are workflow input ports.
-        output_edges: Edges from final condition/body outputs to workflow outputs.
-            Keys are workflow output ports, values are sources on condition/body.
-        body_body_edges: Edges carrying data between body iterations. Maps body
-            outputs to body inputs for the next iteration.
-        body_condition_edges: Edges from body outputs to condition inputs for
-            re-evaluation after each iteration.
+        output_edges: Edges from the body of the conditional case to the outputs.
+            The actual runtime output edges are dependent on whether the condition
+            ever evaluated to be true, so these output edges are constrained (no
+            coming from the condition node) and pseudo-prospective (pass-through input
+            may be leveraged at runtime in a fixed way).
     """
 
     type: Literal[base_models.RecipeElementType.WHILE] = pydantic.Field(
@@ -58,8 +69,6 @@ class WhileNode(base_models.NodeModel):
     case: helper_models.ConditionalCase
     input_edges: edge_models.InputEdges
     output_edges: edge_models.OutputEdges
-    body_body_edges: edge_models.Edges
-    body_condition_edges: edge_models.Edges
 
     @property
     def prospective_nodes(self) -> Nodes:
@@ -68,13 +77,36 @@ class WhileNode(base_models.NodeModel):
             self.case.body.label: self.case.body.node,
         }
 
-    @pydantic.field_validator("case")
-    @classmethod
-    def validate_prospective_nodes_have_unique_labels(
-        cls, v: helper_models.ConditionalCase
-    ):
-        base_models.validate_unique([v.condition.label, v.body.label])
-        return v
+    @property
+    def body_body_edges(self) -> edge_models.Edges:
+        """Inferred edges for passing body output to next body iteration."""
+        return self._inferred_iteration_edges(self.case.body.label)
+
+    @property
+    def body_condition_edges(self) -> edge_models.Edges:
+        """Inferred edges for passing body output to next condition evaluation."""
+        return self._inferred_iteration_edges(self.case.condition.label)
+
+    def _inferred_iteration_edges(
+        self, target_label: base_models.Label
+    ) -> edge_models.Edges:
+        output_to_body_port = {t.port: s.port for t, s in self.output_edges.items()}
+        return {
+            target: edge_models.SourceHandle(
+                node=self.case.body.label, port=output_to_body_port[source.port]
+            )
+            for target, source in self.input_edges.items()
+            if target.node == target_label and source.port in output_to_body_port
+        }
+
+    @pydantic.model_validator(mode="after")
+    def validate_output_is_subset_of_inputs(self):
+        if not set(self.outputs).issubset(self.inputs):
+            raise ValueError(
+                f"While-loop outputs must be a subset of inputs, got: "
+                f"{self.outputs} vs. {self.inputs}"
+            )
+        return self
 
     @pydantic.model_validator(mode="after")
     def validate_io_edges(self):
@@ -91,18 +123,16 @@ class WhileNode(base_models.NodeModel):
             self.prospective_nodes,
             self.inputs,
         )
-        return self
 
-    @pydantic.model_validator(mode="after")
-    def validate_internal_edges(self):
-        """Validate sibling edges between condition and body nodes."""
-        subgraph_validation.validate_sibling_edges(
-            self.body_body_edges,
-            {self.case.body.label: self.case.body.node},
-        )
-        subgraph_validation.validate_sibling_edges(
-            self.body_condition_edges,
-            target_nodes={self.case.condition.label: self.case.condition.node},
-            source_nodes={self.case.body.label: self.case.body.node},
-        )
+        # Finally, do the stricter validation that the output edges only come from the
+        # body node
+        if invalid_nodes := {
+            f"{t.serialize()}: {s.serialize()}"
+            for t, s in self.output_edges.items()
+            if s.node != self.case.body.label
+        }:
+            raise ValueError(
+                f"Output edges may only be specified from the body node, but found: "
+                f"{invalid_nodes}"
+            )
         return self

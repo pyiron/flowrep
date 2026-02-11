@@ -4,7 +4,7 @@ import unittest
 
 import pydantic
 
-from flowrep.models import base_models, subgraph_validation
+from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import (
     atomic_model,
     helper_models,
@@ -32,8 +32,6 @@ def make_valid_while_node(
     body_label: str = "body",
     input_edges: dict | None = None,
     output_edges: dict | None = None,
-    body_body_edges: dict | None = None,
-    body_condition_edges: dict | None = None,
 ) -> while_model.WhileNode:
     inputs = inputs if inputs is not None else ["x"]
     outputs = outputs if outputs is not None else []
@@ -59,10 +57,6 @@ def make_valid_while_node(
         ),
         input_edges=input_edges if input_edges is not None else {},
         output_edges=output_edges if output_edges is not None else {},
-        body_body_edges=body_body_edges if body_body_edges is not None else {},
-        body_condition_edges=(
-            body_condition_edges if body_condition_edges is not None else {}
-        ),
     )
 
 
@@ -77,25 +71,19 @@ class TestWhileNodeBasic(unittest.TestCase):
         self.assertIsInstance(node, subgraph_validation.DynamicSubgraphStaticOutput)
 
     def test_valid_minimal(self):
-        """
-        Minimal valid WhileNode with empty edges.
-
-        Subject to change -- do we want to allow a trivial while node at all?
-        """
+        """Minimal valid WhileNode with empty edges."""
         wn = make_valid_while_node()
         self.assertEqual(wn.type, base_models.RecipeElementType.WHILE)
         self.assertEqual(wn.inputs, ["x"])
         self.assertEqual(wn.outputs, [])
         self.assertEqual(wn.input_edges, {})
         self.assertEqual(wn.output_edges, {})
-        self.assertEqual(wn.body_body_edges, {})
-        self.assertEqual(wn.body_condition_edges, {})
 
     def test_valid_fully_wired(self):
         """WhileNode with all edge types populated."""
         wn = while_model.WhileNode(
             inputs=["n", "acc"],
-            outputs=["result"],
+            outputs=["acc"],
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="check",
@@ -111,17 +99,10 @@ class TestWhileNodeBasic(unittest.TestCase):
                 "decrement.current": "n",
                 "decrement.total": "acc",
             },
-            output_edges={"result": "decrement.next_total"},
-            body_body_edges={
-                "decrement.current": "decrement.next_val",
-                "decrement.total": "decrement.next_total",
-            },
-            body_condition_edges={"check.val": "decrement.next_val"},
+            output_edges={"acc": "decrement.next_total"},
         )
         self.assertEqual(len(wn.input_edges), 3)
         self.assertEqual(len(wn.output_edges), 1)
-        self.assertEqual(len(wn.body_body_edges), 2)
-        self.assertEqual(len(wn.body_condition_edges), 1)
 
 
 class TestWhileNodeIOValidation(unittest.TestCase):
@@ -135,7 +116,7 @@ class TestWhileNodeIOValidation(unittest.TestCase):
     def test_duplicate_outputs_rejected(self):
         """Duplicate outputs are rejected."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(outputs=["a", "b", "a"])
+            make_valid_while_node(inputs=["a", "b"], outputs=["a", "b", "a"])
         self.assertIn("unique", str(ctx.exception).lower())
         self.assertIn("a", str(ctx.exception))
 
@@ -155,7 +136,37 @@ class TestWhileNodeIOValidation(unittest.TestCase):
                 self.subTest(label=invalid),
                 self.assertRaises(pydantic.ValidationError),
             ):
-                make_valid_while_node(outputs=[invalid])
+                make_valid_while_node(inputs=[invalid], outputs=[invalid])
+
+    def test_outputs_must_be_subset_of_inputs(self):
+        """Output labels must all appear among input labels."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            make_valid_while_node(inputs=["x"], outputs=["y"])
+        self.assertIn("subset", str(ctx.exception).lower())
+
+    def test_outputs_strict_subset_ok(self):
+        """Strict subset of inputs is fine."""
+        wn = make_valid_while_node(
+            inputs=["a", "b", "c"],
+            outputs=["a"],
+            body_inputs=["inp"],
+            body_outputs=["out"],
+            input_edges={"body.inp": "a"},
+            output_edges={"a": "body.out"},
+        )
+        self.assertEqual(wn.outputs, ["a"])
+
+    def test_outputs_equal_to_inputs_ok(self):
+        """Outputs identical to inputs is fine."""
+        wn = make_valid_while_node(
+            inputs=["a"],
+            outputs=["a"],
+            body_inputs=["inp"],
+            body_outputs=["out"],
+            input_edges={"body.inp": "a"},
+            output_edges={"a": "body.out"},
+        )
+        self.assertEqual(wn.outputs, ["a"])
 
 
 class TestWhileNodeInputEdges(unittest.TestCase):
@@ -234,38 +245,42 @@ class TestWhileNodeInputEdges(unittest.TestCase):
 
 
 class TestWhileNodeOutputEdges(unittest.TestCase):
-    def test_valid_output_edge_from_condition(self):
-        """Output edge from condition node."""
-        wn = make_valid_while_node(
-            outputs=["y"],
-            condition_outputs=["result"],
-            output_edges={"y": "cond.result"},
-        )
-        self.assertEqual(len(wn.output_edges), 1)
-
     def test_valid_output_edge_from_body(self):
         """Output edge from body node."""
         wn = make_valid_while_node(
+            inputs=["y"],
             outputs=["y"],
             body_outputs=["out"],
             output_edges={"y": "body.out"},
         )
         self.assertEqual(len(wn.output_edges), 1)
 
-    def test_valid_output_edges_from_both(self):
-        """Output edges from both condition and body."""
-        wn = make_valid_while_node(
-            outputs=["a", "b"],
-            condition_outputs=["flag"],
-            body_outputs=["result"],
-            output_edges={"a": "cond.flag", "b": "body.result"},
-        )
-        self.assertEqual(len(wn.output_edges), 2)
+    def test_output_edge_from_condition_rejected(self):
+        """Output edges must come from the body node, not the condition."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            make_valid_while_node(
+                inputs=["y"],
+                outputs=["y"],
+                condition_outputs=["result"],
+                output_edges={"y": "cond.result"},
+            )
+        self.assertIn("body node", str(ctx.exception).lower())
+
+    def test_output_edge_passthrough_rejected(self):
+        """Output edges must come from the body node, not pass-through input."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            make_valid_while_node(
+                inputs=["y"],
+                outputs=["y"],
+                output_edges={"y": "y"},
+            )
+        self.assertIn("body node", str(ctx.exception).lower())
 
     def test_invalid_workflow_output(self):
         """Output edge target must be a workflow output."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             make_valid_while_node(
+                inputs=["y"],
                 outputs=["y"],
                 body_outputs=["out"],
                 output_edges={"nonexistent": "body.out"},
@@ -277,6 +292,7 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
         """Output edge source node must be condition or body label."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             make_valid_while_node(
+                inputs=["y"],
                 outputs=["y"],
                 output_edges={"y": "unknown.port"},
             )
@@ -284,21 +300,11 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
         self.assertIn("Invalid output source nodes", exc_str)
         self.assertIn("unknown.port", exc_str)
 
-    def test_invalid_source_port_on_condition(self):
-        """Output edge source port must exist on condition node."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                outputs=["y"],
-                condition_outputs=["result"],
-                output_edges={"y": "cond.wrong"},
-            )
-        self.assertIn("Invalid output source ports", str(ctx.exception))
-        self.assertIn("wrong", str(ctx.exception))
-
     def test_invalid_source_port_on_body(self):
         """Output edge source port must exist on body node."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             make_valid_while_node(
+                inputs=["y"],
                 outputs=["y"],
                 body_outputs=["out"],
                 output_edges={"y": "body.missing"},
@@ -307,189 +313,129 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
         self.assertIn("missing", str(ctx.exception))
 
 
-class TestWhileNodeBodyBodyEdges(unittest.TestCase):
-    def test_valid_body_body_edge(self):
-        """Valid edge from body output to body input."""
-        wn = make_valid_while_node(
-            body_inputs=["current"],
-            body_outputs=["next_val"],
-            body_label="loop",
-            body_body_edges={"loop.current": "loop.next_val"},
+class TestWhileNodeInferredIterationEdges(unittest.TestCase):
+    """Tests for the derived body_body_edges and body_condition_edges properties."""
+
+    def test_body_body_edges_inferred(self):
+        """body→body edges are inferred from output_edges ∘ input_edges."""
+        wn = while_model.WhileNode(
+            inputs=["n", "acc"],
+            outputs=["n", "acc"],
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="check",
+                    node=make_atomic(["val"], ["flag"]),
+                ),
+                body=helper_models.LabeledNode(
+                    label="step",
+                    node=make_atomic(["x", "y"], ["a", "b"]),
+                ),
+            ),
+            input_edges={
+                "check.val": "n",
+                "step.x": "n",
+                "step.y": "acc",
+            },
+            output_edges={"n": "step.a", "acc": "step.b"},
         )
+        bb = wn.body_body_edges
+        self.assertEqual(len(bb), 2)
+        self.assertEqual(
+            bb[edge_models.TargetHandle(node="step", port="x")],
+            edge_models.SourceHandle(node="step", port="a"),
+        )
+        self.assertEqual(
+            bb[edge_models.TargetHandle(node="step", port="y")],
+            edge_models.SourceHandle(node="step", port="b"),
+        )
+
+    def test_body_condition_edges_inferred(self):
+        """body→condition edges are inferred from output_edges ∘ input_edges."""
+        wn = while_model.WhileNode(
+            inputs=["n", "acc"],
+            outputs=["n"],
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="check",
+                    node=make_atomic(["val"], ["flag"]),
+                ),
+                body=helper_models.LabeledNode(
+                    label="step",
+                    node=make_atomic(["x", "y"], ["a", "b"]),
+                ),
+            ),
+            input_edges={
+                "check.val": "n",
+                "step.x": "n",
+                "step.y": "acc",
+            },
+            output_edges={"n": "step.a"},
+        )
+        bc = wn.body_condition_edges
+        self.assertEqual(len(bc), 1)
+        self.assertEqual(
+            bc[edge_models.TargetHandle(node="check", port="val")],
+            edge_models.SourceHandle(node="step", port="a"),
+        )
+
+    def test_no_inferred_edges_when_no_output_overlap(self):
+        """No iteration edges when input_edges don't reference output labels."""
+        wn = make_valid_while_node(
+            inputs=["x", "y"],
+            outputs=["x"],
+            body_inputs=["inp"],
+            body_outputs=["out"],
+            condition_inputs=["val"],
+            input_edges={"body.inp": "x", "cond.val": "y"},
+            output_edges={"x": "body.out"},
+        )
+        # cond.val comes from "y" which is not an output, so no body→condition edge
+        self.assertEqual(len(wn.body_condition_edges), 0)
+        # body.inp comes from "x" which IS an output, so body→body edge exists
         self.assertEqual(len(wn.body_body_edges), 1)
 
-    def test_valid_multiple_body_body_edges(self):
-        """Multiple body-body edges for loop-carried state."""
-        wn = make_valid_while_node(
-            body_inputs=["a", "b"],
-            body_outputs=["x", "y"],
-            body_label="iter",
-            body_body_edges={
-                "iter.a": "iter.x",
-                "iter.b": "iter.y",
-            },
+    def test_empty_inferred_edges_for_minimal_node(self):
+        """Minimal node with no output edges produces no inferred edges."""
+        wn = make_valid_while_node()
+        self.assertEqual(wn.body_body_edges, {})
+        self.assertEqual(wn.body_condition_edges, {})
+
+    def test_inferred_edges_only_for_matching_target(self):
+        """body_body_edges excludes condition targets and vice versa."""
+        wn = while_model.WhileNode(
+            inputs=["a"],
+            outputs=["a"],
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="cond",
+                    node=make_atomic(["v"], ["ok"]),
+                ),
+                body=helper_models.LabeledNode(
+                    label="body",
+                    node=make_atomic(["p"], ["q"]),
+                ),
+            ),
+            input_edges={"cond.v": "a", "body.p": "a"},
+            output_edges={"a": "body.q"},
         )
-        self.assertEqual(len(wn.body_body_edges), 2)
-
-    def test_invalid_source_node(self):
-        """Body-body edge source must be body label."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                body_inputs=["inp"],
-                body_outputs=["out"],
-                body_label="body",
-                body_body_edges={"body.inp": "wrong.out"},
-            )
-        self.assertIn("Invalid edge source node", str(ctx.exception))
-        self.assertIn("wrong", str(ctx.exception))
-
-    def test_invalid_source_port(self):
-        """Body-body edge source port must be body output."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                body_inputs=["inp"],
-                body_outputs=["out"],
-                body_label="body",
-                body_body_edges={"body.inp": "body.missing"},
-            )
-        self.assertIn("Invalid edge source port", str(ctx.exception))
-        self.assertIn("missing", str(ctx.exception))
-
-    def test_invalid_target_node(self):
-        """Body-body edge target must be body label."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                body_inputs=["inp"],
-                body_outputs=["out"],
-                body_label="body",
-                body_body_edges={"wrong.inp": "body.out"},
-            )
-        self.assertIn("Invalid edge target node", str(ctx.exception))
-        self.assertIn("wrong", str(ctx.exception))
-
-    def test_invalid_target_port(self):
-        """Body-body edge target port must be body input."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                body_inputs=["inp"],
-                body_outputs=["out"],
-                body_label="body",
-                body_body_edges={"body.missing": "body.out"},
-            )
-        self.assertIn("Invalid edge target port", str(ctx.exception))
-        self.assertIn("missing", str(ctx.exception))
-
-
-class TestWhileNodeBodyConditionEdges(unittest.TestCase):
-    def test_valid_body_condition_edge(self):
-        """Valid edge from body output to condition input."""
-        wn = make_valid_while_node(
-            condition_inputs=["val"],
-            body_outputs=["next_val"],
-            condition_label="check",
-            body_label="step",
-            body_condition_edges={"check.val": "step.next_val"},
-        )
+        # body.p ← a is in output_edges, so body→body edge
+        self.assertEqual(len(wn.body_body_edges), 1)
+        # cond.v ← a is also in output_edges, so body→condition edge
         self.assertEqual(len(wn.body_condition_edges), 1)
-
-    def test_valid_multiple_body_condition_edges(self):
-        """Multiple edges from body to condition."""
-        wn = make_valid_while_node(
-            condition_inputs=["a", "b"],
-            body_outputs=["x", "y"],
-            condition_label="cond",
-            body_label="body",
-            body_condition_edges={
-                "cond.a": "body.x",
-                "cond.b": "body.y",
-            },
+        # But they don't leak into each other
+        self.assertNotIn(
+            edge_models.TargetHandle(node="cond", port="v"),
+            wn.body_body_edges,
         )
-        self.assertEqual(len(wn.body_condition_edges), 2)
-
-    def test_invalid_source_node(self):
-        """Body-condition edge source must be body label."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                condition_inputs=["val"],
-                body_outputs=["out"],
-                condition_label="cond",
-                body_label="body",
-                body_condition_edges={"cond.val": "wrong.out"},
-            )
-        self.assertIn("Invalid edge source node", str(ctx.exception))
-        self.assertIn("wrong", str(ctx.exception))
-
-    def test_condition_cannot_be_source(self):
-        """Body-body edge source cannot be the condition node."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                body_inputs=["inp"],
-                body_outputs=["out"],
-                body_label="body",
-                body_condition_edges={"cond.val": "cond.result"},
-            )
-        self.assertIn("Invalid edge source node", str(ctx.exception))
-        self.assertIn("cond", str(ctx.exception))
-
-    def test_body_cannot_be_target(self):
-        """Body-body edge source cannot be the condition node."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                body_inputs=["inp"],
-                body_outputs=["out"],
-                body_label="body",
-                body_condition_edges={"body.inp": "body.out"},
-            )
-        self.assertIn("Invalid edge target node", str(ctx.exception))
-        self.assertIn("body", str(ctx.exception))
-
-    def test_invalid_source_port(self):
-        """Body-condition edge source port must be body output."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                condition_inputs=["val"],
-                body_outputs=["out"],
-                condition_label="cond",
-                body_label="body",
-                body_condition_edges={"cond.val": "body.missing"},
-            )
-        self.assertIn("Invalid edge source port", str(ctx.exception))
-        self.assertIn("missing", str(ctx.exception))
-
-    def test_invalid_target_node(self):
-        """Body-condition edge target must be condition label."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                condition_inputs=["val"],
-                body_outputs=["out"],
-                condition_label="cond",
-                body_label="body",
-                body_condition_edges={"wrong.val": "body.out"},
-            )
-        self.assertIn("Invalid edge target node", str(ctx.exception))
-        self.assertIn("wrong", str(ctx.exception))
-
-    def test_invalid_target_port(self):
-        """Body-condition edge target port must be condition input."""
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            make_valid_while_node(
-                condition_inputs=["val"],
-                body_outputs=["out"],
-                condition_label="cond",
-                body_label="body",
-                body_condition_edges={"cond.missing": "body.out"},
-            )
-        self.assertIn("Invalid edge target port", str(ctx.exception))
-        self.assertIn("missing", str(ctx.exception))
+        self.assertNotIn(
+            edge_models.TargetHandle(node="body", port="p"),
+            wn.body_condition_edges,
+        )
 
 
 class TestWhileNodeSerialization(unittest.TestCase):
     def test_minimal_roundtrip(self):
-        """
-        Minimal WhileNode roundtrip.
-
-        Subject to change if we disallow trivial while loops
-        """
+        """Minimal WhileNode roundtrip."""
         original = make_valid_while_node()
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
@@ -506,7 +452,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
         """Fully wired WhileNode roundtrip."""
         original = while_model.WhileNode(
             inputs=["n", "acc"],
-            outputs=["result", "count"],
+            outputs=["n", "acc"],
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="check",
@@ -518,9 +464,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
                 ),
             ),
             input_edges={"check.val": "n", "step.x": "n", "step.y": "acc"},
-            output_edges={"result": "step.a", "count": "check.flag"},
-            body_body_edges={"step.x": "step.a", "step.y": "step.b"},
-            body_condition_edges={"check.val": "step.a"},
+            output_edges={"n": "step.a", "acc": "step.b"},
         )
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
@@ -531,16 +475,39 @@ class TestWhileNodeSerialization(unittest.TestCase):
                 self.assertEqual(original.outputs, restored.outputs)
                 self.assertEqual(original.input_edges, restored.input_edges)
                 self.assertEqual(original.output_edges, restored.output_edges)
+                # Derived properties should also match
                 self.assertEqual(original.body_body_edges, restored.body_body_edges)
                 self.assertEqual(
                     original.body_condition_edges, restored.body_condition_edges
                 )
 
+    def test_inferred_edges_not_serialized(self):
+        """body_body_edges and body_condition_edges should not appear in dump."""
+        wn = while_model.WhileNode(
+            inputs=["a"],
+            outputs=["a"],
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="cond",
+                    node=make_atomic(["v"], ["ok"]),
+                ),
+                body=helper_models.LabeledNode(
+                    label="body",
+                    node=make_atomic(["p"], ["q"]),
+                ),
+            ),
+            input_edges={"cond.v": "a", "body.p": "a"},
+            output_edges={"a": "body.q"},
+        )
+        data = wn.model_dump(mode="json")
+        self.assertNotIn("body_body_edges", data)
+        self.assertNotIn("body_condition_edges", data)
+
     def test_edge_serialization_format(self):
         """Edges serialize to dot-notation strings."""
         wn = while_model.WhileNode(
             inputs=["x"],
-            outputs=["y"],
+            outputs=["x"],
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="cond",
@@ -552,9 +519,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
                 ),
             ),
             input_edges={"cond.inp": "x", "body.a": "x"},
-            output_edges={"y": "body.b"},
-            body_body_edges={"body.a": "body.b"},
-            body_condition_edges={"cond.inp": "body.b"},
+            output_edges={"x": "body.b"},
         )
         data = wn.model_dump(mode="json")
 
@@ -563,16 +528,8 @@ class TestWhileNodeSerialization(unittest.TestCase):
         self.assertEqual(data["input_edges"]["cond.inp"], "x")
 
         # output_edges: target is "port", source is "node.port"
-        self.assertIn("y", data["output_edges"])
-        self.assertEqual(data["output_edges"]["y"], "body.b")
-
-        # body_body_edges: both are "node.port"
-        self.assertIn("body.a", data["body_body_edges"])
-        self.assertEqual(data["body_body_edges"]["body.a"], "body.b")
-
-        # body_condition_edges: both are "node.port"
-        self.assertIn("cond.inp", data["body_condition_edges"])
-        self.assertEqual(data["body_condition_edges"]["cond.inp"], "body.b")
+        self.assertIn("x", data["output_edges"])
+        self.assertEqual(data["output_edges"]["x"], "body.b")
 
     def test_nested_workflow_in_body(self):
         """WhileNode can contain WorkflowNode in body."""
@@ -586,7 +543,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
         )
         wn = while_model.WhileNode(
             inputs=["start"],
-            outputs=["end"],
+            outputs=["start"],
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="check",
@@ -595,9 +552,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
                 body=helper_models.LabeledNode(label="process", node=inner),
             ),
             input_edges={"process.a": "start"},
-            output_edges={"end": "process.b"},
-            body_body_edges={},
-            body_condition_edges={},
+            output_edges={"start": "process.b"},
         )
         data = wn.model_dump(mode="json")
         restored = while_model.WhileNode.model_validate(data)
@@ -606,12 +561,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
 
 class TestWhileNodeEdgeCases(unittest.TestCase):
     def test_empty_inputs_outputs(self):
-        """
-        WhileNode with no inputs or outputs.
-
-        More subject to change than anything else -- if this fails it's probably because
-        it got outlawed
-        """
+        """WhileNode with no inputs or outputs."""
         wn = while_model.WhileNode(
             inputs=[],
             outputs=[],
@@ -627,8 +577,6 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
             ),
             input_edges={},
             output_edges={},
-            body_body_edges={},
-            body_condition_edges={},
         )
         self.assertEqual(wn.inputs, [])
         self.assertEqual(wn.outputs, [])
@@ -648,19 +596,15 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
             )
         self.assertIn("exactly one output", str(ctx.exception))
 
-    def test_same_port_in_multiple_edge_types(self):
+    def test_same_input_feeds_both_condition_and_body(self):
         """
-        Same target port can appear in different edge dicts.
+        Same input can feed both condition and body via input_edges.
 
-        This is not only valid, it is the point. On the first iteration the only data
-        available is the input. At subsequent iterations, the other edges allow
-        inter-iteration dataflow. It is the responsibility of the WfMS to resolve this
-        behavior at runtime. Here, we only specify the loop flow.
+        This is normal — on the first iteration both get data from the loop input.
         """
-
         wn = while_model.WhileNode(
             inputs=["x"],
-            outputs=["y"],
+            outputs=["x"],
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="cond",
@@ -671,13 +615,13 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
                     node=make_atomic(["inp"], ["out"]),
                 ),
             ),
-            input_edges={"body.inp": "x"},
-            output_edges={"y": "body.out"},
-            body_body_edges={"body.inp": "body.out"},
-            body_condition_edges={},
+            input_edges={"body.inp": "x", "cond.val": "x"},
+            output_edges={"x": "body.out"},
         )
-        self.assertEqual(len(wn.input_edges), 1)
+        self.assertEqual(len(wn.input_edges), 2)
+        # Both inferred edge types should pick up the "x" correspondence
         self.assertEqual(len(wn.body_body_edges), 1)
+        self.assertEqual(len(wn.body_condition_edges), 1)
 
 
 if __name__ == "__main__":
