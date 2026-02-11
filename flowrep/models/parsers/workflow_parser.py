@@ -69,7 +69,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.nodes: union.Nodes = {}
         self.output_edges: edge_models.OutputEdges = {}
         self.outputs: list[str] = []
-        self._for_loop_accumulators: set[str] = set()
+        self._for_node_accumulators: set[str] = set()
 
     @property
     def inputs(self) -> list[str]:
@@ -112,7 +112,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
                     f"Empty list assignment must target exactly one symbol, "
                     f"got {new_symbols}"
                 )
-            self._for_loop_accumulators.add(new_symbols[0])
+            self._for_node_accumulators.add(new_symbols[0])
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
@@ -130,7 +130,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         nested_iters, zipped_iters, body_tree = for_parser.parse_for_iterations(tree)
         all_iters = nested_iters + zipped_iters
 
-        # 2. Fork the scope: replaces iterated-over symbols with loop variables,
+        # 2. Fork the scope: replaces iterated-over symbols with iteration variables,
         #    all as InputSources from the body's perspective
         child_scope = self.symbol_scope.fork_scope({src: var for var, src in all_iters})
 
@@ -138,10 +138,10 @@ class WorkflowParser(parser_protocol.BodyWalker):
         body_walker = WorkflowParser(symbol_scope=child_scope)
 
         # 4. ForParser owns the for-specific wiring; body_walker owns the
-        #    general statement dispatch inside the loop body
+        #    general statement dispatch inside the for-body
         fp = for_parser.ForParser(
             body_walker=body_walker,
-            accumulators=self._for_loop_accumulators,
+            accumulators=self._for_node_accumulators,
         )
         used_accumulators = fp.build_body(
             body_tree,
@@ -154,8 +154,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
         for_label = label_helpers.unique_suffix("for", self.nodes)
         self.nodes[for_label] = for_node
 
-        # 6. Consume accumulators that the for-loop fulfilled
-        self._for_loop_accumulators -= set(used_accumulators)
+        # 6. Consume accumulators that the for-node fulfilled
+        self._for_node_accumulators -= set(used_accumulators)
 
         # 7. Log all symbols used inside the for-node as consumed
         for port in for_node.inputs:

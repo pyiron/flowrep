@@ -17,10 +17,7 @@ def how_many(lst: list) -> int:
     return length
 
 
-def single_loop(ns):
-    """
-    Here, we achieve the same result by decomposing into two legitimate loops
-    """
+def single_iteration(ns):
     vecs = []
 
     pass_through = my_unity(ns)
@@ -77,7 +74,6 @@ for_node = for_model.ForNode.model_validate(
         "output_edges": {"vecs": "body.rs"},
         "nested_ports": ["n"],
         "zipped_ports": [],
-        "transfer_edges": {},
     }
 )
 
@@ -90,7 +86,7 @@ how_node = atomic_model.AtomicNode.model_validate(
     }
 )
 
-single_loop_node = workflow_model.WorkflowNode.model_validate(
+single_iteration_node = workflow_model.WorkflowNode.model_validate(
     {
         "type": "workflow",
         "inputs": ["ns"],
@@ -178,14 +174,14 @@ zbat_for_node = for_model.ForNode.model_validate(
             "body.c": "cs",
             "body.d": "ds",
         },
-        "output_edges": {"sums": "body.t"},
-        "nested_ports": ["b"],
-        "zipped_ports": ["c", "d"],
-        "transfer_edges": {
+        "output_edges": {
+            "sums": "body.t",
             "b_accumulator": "bs",
             "c_accumulator": "cs",
             "d_accumulator": "ds",
         },
+        "nested_ports": ["b"],
+        "zipped_ports": ["c", "d"],
     }
 )
 
@@ -224,7 +220,7 @@ def my_square(n: int) -> int:
 
 def nested(ns):
     """
-    And here is an example of where we actually use a nested loop.
+    And here is an example of where we actually use a nested iteration.
     Note that each references an accumulator from the same scope and
     appends to it in the body.
     """
@@ -303,7 +299,6 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                                 "output_edges": {"squares": "body.sq"},
                                 "nested_ports": ["r"],
                                 "zipped_ports": [],
-                                "transfer_edges": {},
                             },
                             "sum_elements_0": sum_node,
                         },
@@ -319,7 +314,6 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                 "output_edges": {"sq_sums": "body.summed"},
                 "nested_ports": ["n"],
                 "zipped_ports": [],
-                "transfer_edges": {},
             }
         },
         "input_edges": {"for_0.ns": "ns"},
@@ -426,7 +420,6 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
                                 "output_edges": {"squares": "body.sq"},
                                 "nested_ports": ["r"],
                                 "zipped_ports": [],
-                                "transfer_edges": {},
                             },
                             "sum_elements_0": sum_node,
                         },
@@ -450,7 +443,6 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
                 "output_edges": {"sq_sums": "body.summed"},
                 "nested_ports": ["n"],
                 "zipped_ports": [],
-                "transfer_edges": {},
             }
         },
         "input_edges": {
@@ -484,7 +476,7 @@ class TestParsingForLoops(unittest.TestCase):
 
     def test_against_static_recipes(self):
         for function, reference in (
-            (single_loop, single_loop_node),
+            (single_iteration, single_iteration_node),
             (zipped_broadcast_and_transferred, zbat_wf_node),
             (nested, nested_node),
             (nested_with_passed_input, nested_with_passed_input_node),

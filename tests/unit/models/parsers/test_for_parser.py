@@ -158,19 +158,19 @@ class TestParseSingleForHeader(unittest.TestCase):
 class TestParseForIterations(unittest.TestCase):
     """Tests for the iteration-header unwrapping logic."""
 
-    def test_single_simple_loop(self):
+    def test_single_simple_iteration(self):
         stmt = _parse_for_stmt("for x in xs:\n  pass")
         nested, zipped, body = for_parser.parse_for_iterations(stmt)
         self.assertEqual(nested, [("x", "xs")])
         self.assertEqual(zipped, [])
 
-    def test_single_zip_loop(self):
+    def test_single_zip_iteration(self):
         stmt = _parse_for_stmt("for a, b in zip(xs, ys):\n  pass")
         nested, zipped, body = for_parser.parse_for_iterations(stmt)
         self.assertEqual(nested, [])
         self.assertEqual(zipped, [("a", "xs"), ("b", "ys")])
 
-    def test_two_nested_simple_loops(self):
+    def test_two_nested_simple_iterations(self):
         stmt = _parse_for_stmt("for x in xs:\n  for y in ys:\n    pass")
         nested, zipped, body = for_parser.parse_for_iterations(stmt)
         self.assertEqual(nested, [("x", "xs"), ("y", "ys")])
@@ -394,7 +394,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
 
     # --- transfer edges (forwarding an iteration variable) ---
 
-    def test_transfer_edge_for_forwarded_loop_var(self):
+    def test_forwarded_iteration_var_is_input_source_in_output_edges(self):
         def wf(xs):
             collected_xs = []
             results = []
@@ -405,18 +405,34 @@ class TestForParserEdgeWiring(unittest.TestCase):
             return collected_xs, results
 
         fn = self._get_for_node(wf)
-        transfer_target = edge_models.OutputTarget(port="collected_xs")
-        self.assertIn(transfer_target, fn.transfer_edges)
-        # Transfer source should reference the for-node input that feeds
-        # the loop variable
-        self.assertIsInstance(
-            fn.transfer_edges[transfer_target], edge_models.InputSource
-        )
 
-        # The computed result should still be an output edge
-        output_target = edge_models.OutputTarget(port="results")
-        self.assertIn(output_target, fn.output_edges)
-        self.assertNotIn(output_target, fn.transfer_edges)
+        # Forwarded iteration variable → InputSource in output_edges
+        fwd_target = edge_models.OutputTarget(port="collected_xs")
+        self.assertIn(fwd_target, fn.output_edges)
+        self.assertIsInstance(fn.output_edges[fwd_target], edge_models.InputSource)
+
+        # Computed body result → SourceHandle in output_edges
+        body_target = edge_models.OutputTarget(port="results")
+        self.assertIn(body_target, fn.output_edges)
+        self.assertIsInstance(fn.output_edges[body_target], edge_models.SourceHandle)
+
+    def test_forwarded_iteration_var_classified_as_transferred(self):
+        """Forwarded iterated input should appear in transferred_outputs."""
+
+        def wf(xs):
+            collected_xs = []
+            results = []
+            for x in xs:
+                y = identity(x)
+                collected_xs.append(x)
+                results.append(y)
+            return collected_xs, results
+
+        fn = self._get_for_node(wf)
+        self.assertEqual(len(fn.transferred_outputs), 1)
+        self.assertIn(
+            edge_models.OutputTarget(port="collected_xs"), fn.transferred_outputs
+        )
 
     # --- broadcast vs scattered inputs ---
 
@@ -476,7 +492,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
                     # x must be consumed or we get an unused-iterator error
                     u = identity(x)  # noqa: F841
                     # But there is no necessity for everything in the body to be
-                    # captured and passed back out to the for-loop output
+                    # captured and passed back out to the for-node output
                     results.append(t)
             return results
 
@@ -608,7 +624,7 @@ class TestForParserStructure(unittest.TestCase):
         self.assertIsInstance(body.nodes["for_0"], for_model.ForNode)
 
     def test_accumulator_cleanup_allows_second_for(self):
-        """After a for-loop consumes accumulators, new ones can be defined."""
+        """After a for-node consumes accumulators, new ones can be defined."""
 
         def wf(xs, ys):
             first = []

@@ -41,7 +41,7 @@ def walk_ast_for(
             )
 
     if len(used_accumulators) == 0:
-        raise ValueError("For loops must use up at least one accumulator symbol.")
+        raise ValueError("For nodes must use up at least one accumulator symbol.")
     base_models.validate_unique(
         used_accumulators,
         f"Each accumulator may be appended to at most once, but appended "
@@ -70,7 +70,6 @@ class ForParser:
         self._outputs: list[str] = []
         self._nested_ports: list[str] = []
         self._zipped_ports: list[str] = []
-        self._transfer_edges: edge_models.TransferEdges = {}
 
         # These are internal state that doesn't translate directly to the final model
 
@@ -89,7 +88,6 @@ class ForParser:
             output_edges=self._output_edges,
             nested_ports=self._nested_ports,
             zipped_ports=self._zipped_ports,
-            transfer_edges=self._transfer_edges,
         )
 
     def build_body(
@@ -115,8 +113,8 @@ class ForParser:
         )
         if unused := iterating_symbols - consumed_symbols:
             raise ValueError(
-                f"For-loop iteration variable(s) {sorted(unused)} are never "
-                f"used inside the loop body. Either use them or remove them "
+                f"For-node iteration variable(s) {sorted(unused)} are never "
+                f"used inside the node body. Either use them or remove them "
                 f"from the iteration header."
             )
 
@@ -148,7 +146,6 @@ class ForParser:
         self._input_edges = broadcast_inputs | scattered_inputs
 
         self._output_edges = {}
-        self._transfer_edges = {}
         for accumulator_symbol, appended_symbol in used_accumulator_symbol_map.items():
             target = edge_models.OutputTarget(port=accumulator_symbol)
             if appended_symbol in self.body_walker.outputs:
@@ -156,7 +153,7 @@ class ForParser:
                     node=self.body_label, port=appended_symbol
                 )
             else:
-                self._transfer_edges[target] = self._input_edges[
+                self._output_edges[target] = self._input_edges[
                     edge_models.TargetHandle(node=self.body_label, port=appended_symbol)
                 ]
 
@@ -168,7 +165,7 @@ def parse_for_iterations(
     for_stmt: ast.For,
 ) -> tuple[list[tuple[str, str]], list[tuple[str, str]], ast.For]:
     """
-    Parse for loop iteration structure, handling zip and immediately nested loops.
+    Parse for-node iteration structure, handling zip and immediately nested iterations.
 
     Returns (nested_iterations, zipped_iterations) where each is a list of
     (variable_name, source_symbol) tuples.
@@ -185,7 +182,7 @@ def parse_for_iterations(
         else:
             nested.extend(pairs)
 
-        # Check for nested for loop (single statement that's another For)
+        # Check for nested for-declaration (single statement that's another For)
         if len(current.body) >= 1 and isinstance(current.body[0], ast.For):
             current = current.body[0]
         else:
@@ -198,7 +195,7 @@ def _parse_single_for_header(
     for_stmt: ast.For,
 ) -> tuple[bool, list[tuple[str, str]]]:
     """
-    Parse a single for loop header.
+    Parse a single for-header.
 
     Returns (is_zipped, [(var, source), ...]).
     """
@@ -231,7 +228,7 @@ def _parse_single_for_header(
     # Simple iteration: for x in xs
     if not isinstance(iter_expr, ast.Name):
         raise ValueError(
-            "For loop must iterate over a symbol (not an inline expression)"
+            "For iteration must iterate over a symbol (not an inline expression)"
         )
 
     if isinstance(target, ast.Name):
@@ -239,11 +236,11 @@ def _parse_single_for_header(
     elif isinstance(target, ast.Tuple):
         # for a, b in items (tuple unpacking without zip)
         raise ValueError(
-            "Tuple unpacking in for loops requires zip(). "
+            "Tuple unpacking in for-nodes requires zip(). "
             "Use 'for a, b in zip(as, bs):' instead of 'for a, b in items:'"
         )
     else:
-        raise ValueError(f"Unsupported for loop target: {type(target)}")
+        raise ValueError(f"Unsupported for iteration target: {type(target)}")
 
 
 def _is_zip_call(node: ast.Call) -> bool:
