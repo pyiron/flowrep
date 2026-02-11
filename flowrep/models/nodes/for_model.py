@@ -80,7 +80,7 @@ class ForNode(base_models.NodeModel):
         return {self.body_node.label: self.body_node.node}
 
     @property
-    def iterated_inputs(self) -> base_models.Labels:
+    def iterated_ports(self) -> base_models.Labels:
         return self.nested_ports + self.zipped_ports
 
     @property
@@ -105,7 +105,7 @@ class ForNode(base_models.NodeModel):
         return {
             source.port
             for target, source in self.input_edges.items()
-            if target.port in self.iterated_inputs
+            if target.port in self.iterated_ports
         }
 
     @pydantic.model_validator(mode="after")
