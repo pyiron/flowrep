@@ -17,9 +17,11 @@ class ForNode(base_models.NodeModel):
     This is a dynamic node, which must actualize the body of its subgraph at runtime.
 
     Loops can be done with a combination of nested iteration and zipping values.
-    The `transfer_edges` field allows you to optionally indicate which looping values
-    should be returned listed alongside the lists of body node outputs, so that outputs
-    can be linked directly to the input that generated them.
+    Output edges whose source is an `InputSource` indicate data forwarded directly from
+    the for-node's own inputs. In the even that these are inputs that are scattered to
+    body nodes from, the iteration, it is the responsibility of the WfMS to collect
+    these into lists alongside the body node outputs. This allows outputs to be linked
+    directly to the input that generated them.
 
     Intended recipe realization:
     1. Assess the number of body executions necessary by examining the lengths of
@@ -39,34 +41,29 @@ class ForNode(base_models.NodeModel):
         according to the output edges.
         a) The manner of this collection is an implementation detail for which the
             WfMS is responsible
-    6. Collect the looped inputs used for each child as indicated in the transfer edges
-        and connect these to output according to the transfer edges
-        a) The manner of this collection is an implementation detail for which the
-            WfMS is responsible
+    6. For output edges sourced from InputSource (rather than body SourceHandle),
+        collect the corresponding input values used for each iteration and connect
+        to output accordingly.
 
     Attributes:
         type: The node type -- always "for".
         inputs: The available input port names.
         outputs: The available output port names.
+        body_node: The labeled node to execute for each iteration.
         input_edges: Edges from workflow inputs to inputs of body node instances.
-        output_edges: Edges from final condition/body outputs to workflow outputs.
-            Keys are workflow output ports, values are sources on condition/body.
+        output_edges: Edges from body node outputs or for-node inputs to workflow
+            outputs. Sources that are InputSource values indicate forwarded input data
+            (collected per-iteration); SourceHandle values indicate body node outputs.
         nested_ports: The body node ports over which to do nested iteration. Input
             edges will map parent input elements to each child node accordingly.
         zipped_ports: The body node ports over which to do zipped iteration. Input
             edges will map parent input elements to each child node accordingly.
-        transfer_edges: Any inputs that are used to forward data to the nested or
-            zipped ports which you wish to have as outputs. This is to (optionally)
-            provide a direct map between each output element and the input used to
-            produce it (output _not_ looped on is static and presumed to be available
-            from another source; it does not need to be synchronized with the output).
 
     Note:
-        In this way, all output -- whether it is collected output of child executions
-        of the specified body node, or whether it is forwarded input data specified by
-        transfer edges, should have the same length. Thus, in the event that transfer
-        edges are specified, they should empower the node output to precisely provide
-        which input was used to produce each output element.
+        All iterated output — whether collected from body executions or forwarded from
+        scattered inputs — should have the same length. Thus, forwarded inputs empower
+        the node output to precisely provide which input was used to produce each
+        output element.
     """
 
     type: Literal[base_models.RecipeElementType.FOR] = pydantic.Field(
@@ -77,13 +74,39 @@ class ForNode(base_models.NodeModel):
     output_edges: edge_models.OutputEdges
     nested_ports: base_models.Labels = pydantic.Field(default_factory=list)
     zipped_ports: base_models.Labels = pydantic.Field(default_factory=list)
-    transfer_edges: dict[edge_models.OutputTarget, edge_models.InputSource] = (
-        pydantic.Field(default_factory=dict)
-    )
 
     @property
     def prospective_nodes(self) -> Nodes:
         return {self.body_node.label: self.body_node.node}
+
+    @property
+    def iterated_ports(self) -> base_models.Labels:
+        return self.nested_ports + self.zipped_ports
+
+    @property
+    def transferred_outputs(self) -> edge_models.OutputEdges:
+        """
+        Output edges sourced from iterated (nested/zipped) inputs.
+
+        These inputs are scattered across body executions, so the WfMS must
+        collect them back into lists correlated with body node outputs. This is a
+        helper property for the WfMS to more easily find these.
+        """
+        return {
+            target: source
+            for target, source in self.output_edges.items()
+            if isinstance(source, edge_models.InputSource)
+            and source.port in self._iterated_input_ports
+        }
+
+    @property
+    def _iterated_input_ports(self) -> set[str]:
+        """For-node input ports that feed into iterated (nested/zipped) body ports."""
+        return {
+            source.port
+            for target, source in self.input_edges.items()
+            if target.port in self.iterated_ports
+        }
 
     @pydantic.model_validator(mode="after")
     def validate_io_edges(self):
@@ -93,24 +116,36 @@ class ForNode(base_models.NodeModel):
             self.prospective_nodes,
         )
         subgraph_validation.validate_output_edge_targets(
-            list(self.output_edges.keys()) + list(self.transfer_edges.keys()),
-            self.outputs,
+            self.output_edges, self.outputs
         )
         subgraph_validation.validate_output_edge_sources(
             self.output_edges.values(),
             self.prospective_nodes,
             self.inputs,
         )
+
+        # Disallow passthrough outputs -- there is no way to generate these at this
+        # scope from python, so simply disallow them for simplicity and consistency
+        if passthrough := {
+            source.serialize()
+            for source in self.output_edges.values()
+            if isinstance(source, edge_models.InputSource)
+            and source.port not in self._iterated_input_ports
+        }:
+            raise ValueError(
+                f"Output edges from input sources are only allowed if the input is "
+                f"being iterated on, but got: {passthrough}"
+            )
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_some_loop(self):
+    def validate_some_iteration(self):
         if not (self.nested_ports or self.zipped_ports):
-            raise ValueError("For loop must have at least one nested or zipped port")
+            raise ValueError("For node must have at least one nested or zipped port")
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_non_overlapping_loops(self):
+    def validate_non_overlapping_iterators(self):
         if not set(self.nested_ports).isdisjoint(self.zipped_ports):
             raise ValueError(
                 f"Loop values in nested_ports or zipped_ports must not overlap, but "
@@ -119,71 +154,14 @@ class ForNode(base_models.NodeModel):
         return self
 
     @pydantic.model_validator(mode="after")
-    def validate_loop_ports_exist(self):
+    def validate_iterated_ports_exist(self):
         if invalid := {
             port
-            for port in self.nested_ports + self.zipped_ports
+            for port in self.iterated_ports
             if port not in self.body_node.node.inputs
         }:
             raise ValueError(
-                f"For loop must loop on body node ports ({self.body_node.node.inputs}) "
-                f"but got: {invalid}"
-            )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_transfer_edges_exist(self):
-        invalid = [
-            source.port
-            for source in self.transfer_edges.values()
-            if source.port not in self.inputs
-        ]
-        for node_collection, handel_type, io_name, io_panel in [
-            (self.transfer_edges.values(), "source", "inputs", self.inputs),
-            (self.transfer_edges, "target", "outputs", self.outputs),
-        ]:
-            if {node.port for node in node_collection if node.port not in io_panel}:
-                raise ValueError(
-                    f"Transfer edge {handel_type} must be ForNode {io_name}. "
-                    f"Unknown {io_name}: {invalid}. Available: {io_panel}"
-                )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_transfer_sources_are_looped(self):
-        """
-        Looped ports are scoped on the body node itself, so here we need to follow the
-        data flow to check what for-node inputs feed through to these.
-        """
-        looped_ports = set(self.nested_ports) | set(self.zipped_ports)
-
-        input_to_body_port = {
-            source.port: target.port for target, source in self.input_edges.items()
-        }
-
-        non_looped = [
-            source.port
-            for source in self.transfer_edges.values()
-            if input_to_body_port.get(source.port) not in looped_ports
-        ]
-        if non_looped:
-            raise ValueError(
-                f"Transfer edges can only forward inputs that feed looped body ports. "
-                f"Non-looped inputs: {non_looped}. Looped body ports: {sorted(looped_ports)}"
-            )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_transfer_targets_not_in_output_edges(self):
-        output_edge_ports = {target.port for target in self.output_edges}
-        collision = [
-            target.port
-            for target in self.transfer_edges
-            if target.port in output_edge_ports
-        ]
-        if collision:
-            raise ValueError(
-                f"Transfer edges cannot target outputs already used by output_edges. "
-                f"Conflicting outputs: {collision}"
+                f"For node must iterate on body node ports "
+                f"({self.body_node.node.inputs}) but got: {invalid}"
             )
         return self

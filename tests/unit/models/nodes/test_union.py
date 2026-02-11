@@ -402,7 +402,7 @@ class TestNestedUnionResolution(unittest.TestCase):
             "inputs": ["data"],
             "outputs": ["results"],
             "nodes": {
-                "loop": {
+                "for_node": {
                     "type": "for",
                     "inputs": ["items"],
                     "outputs": ["out"],
@@ -422,15 +422,17 @@ class TestNestedUnionResolution(unittest.TestCase):
                     "transfer_edges": {},
                 },
             },
-            "input_edges": {"loop.items": "data"},
+            "input_edges": {"for_node.items": "data"},
             "edges": {},
-            "output_edges": {"results": "loop.out"},
+            "output_edges": {"results": "for_node.out"},
         }
         adapter = pydantic.TypeAdapter(union.NodeType)
         wf = adapter.validate_python(data)
         self.assertIsInstance(wf, workflow_model.WorkflowNode)
-        self.assertIsInstance(wf.nodes["loop"], for_model.ForNode)
-        self.assertIsInstance(wf.nodes["loop"].body_node.node, atomic_model.AtomicNode)
+        self.assertIsInstance(wf.nodes["for_node"], for_model.ForNode)
+        self.assertIsInstance(
+            wf.nodes["for_node"].body_node.node, atomic_model.AtomicNode
+        )
 
     def test_deeply_nested_workflows(self):
         """Three levels of workflow nesting."""
