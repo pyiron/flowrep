@@ -37,7 +37,7 @@ def _valid_label(label: str) -> bool:
 
 
 def _validate_label(v: str) -> str:
-    if not _valid_label(v):
+    if not isinstance(v, str) or not _valid_label(v):
         raise ValueError(
             f"Label must be a valid Python identifier and not in "
             f"reserved labels {RESERVED_NAMES}. Got '{v}'"
