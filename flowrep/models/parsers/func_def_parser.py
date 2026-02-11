@@ -21,7 +21,9 @@ def walk_func_def(
             body_walker.handle_assign(body, scope)
         elif isinstance(body, ast.For):
             body_walker.handle_for(body, scope, parsing_function_def=True)
-        elif isinstance(body, ast.While | ast.If | ast.Try):
+        elif isinstance(body, ast.While):
+            body_walker.handle_while(body, scope)
+        elif isinstance(body, ast.If | ast.Try):
             raise NotImplementedError(
                 f"Support for control flow statement {type(body)} is forthcoming."
             )
