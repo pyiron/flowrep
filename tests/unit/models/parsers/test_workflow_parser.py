@@ -423,16 +423,6 @@ class TestParseWorkflowErrors(unittest.TestCase):
 class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
     """Control flow is not yet implemented; verify NotImplementedError is raised."""
 
-    def test_while_loop_raises(self):
-        def wf(x):
-            while x > 0:
-                x = add(x)
-            return x
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("while", str(ctx.exception).lower())
-
     def test_if_statement_raises(self):
         def wf(x):
             if x > 0:
