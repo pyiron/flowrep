@@ -90,6 +90,116 @@ simple_while_node = workflow_model.WorkflowNode.model_validate(
 )
 
 
+def nested_while(x, m, n, a):
+    y = my_unity(x)  # Initial value for y must be available
+    # since we return it from a while node
+    while my_condition(x, m):
+        x = my_add(x, a)
+        while my_condition(y, n):
+            y = my_add(y, x)
+    return x, y
+
+
+nest_while_node = workflow_model.WorkflowNode.model_validate(
+    {
+        "type": "workflow",
+        "inputs": ["x", "m", "n", "a"],
+        "outputs": ["x", "y"],
+        "nodes": {
+            "my_unity_0": my_unity.flowrep_recipe,
+            "while_0": {
+                "type": "while",
+                "inputs": ["x", "m", "a", "y", "n"],
+                "outputs": ["x", "y"],
+                "case": {
+                    "condition": {
+                        "label": "condition",
+                        "node": my_condition.flowrep_recipe,
+                    },
+                    "body": {
+                        "label": "body",
+                        "node": {
+                            "type": "workflow",
+                            "inputs": ["x", "a", "y", "n"],
+                            "outputs": ["x", "y"],
+                            "nodes": {
+                                "my_add_0": my_add.flowrep_recipe,
+                                "while_0": {
+                                    "type": "while",
+                                    "inputs": ["y", "n", "x"],
+                                    "outputs": ["y"],
+                                    "case": {
+                                        "condition": {
+                                            "label": "condition",
+                                            "node": my_condition.flowrep_recipe,
+                                        },
+                                        "body": {
+                                            "label": "body",
+                                            "node": {
+                                                "type": "workflow",
+                                                "inputs": ["y", "x"],
+                                                "outputs": ["y"],
+                                                "nodes": {
+                                                    "my_add_0": my_add.flowrep_recipe,
+                                                },
+                                                "input_edges": {
+                                                    "my_add_0.a": "y",
+                                                    "my_add_0.b": "x",
+                                                },
+                                                "edges": {},
+                                                "output_edges": {
+                                                    "y": "my_add_0.output_0"
+                                                },
+                                            },
+                                        },
+                                    },
+                                    "input_edges": {
+                                        "condition.m": "y",
+                                        "condition.n": "n",
+                                        "body.y": "y",
+                                        "body.x": "x",
+                                    },
+                                    "output_edges": {"y": "body.y"},
+                                },
+                            },
+                            "input_edges": {
+                                "my_add_0.a": "x",
+                                "my_add_0.b": "a",
+                                "while_0.y": "y",
+                                "while_0.n": "n",
+                            },
+                            "edges": {"while_0.x": "my_add_0.output_0"},
+                            "output_edges": {
+                                "x": "my_add_0.output_0",
+                                "y": "while_0.y",
+                            },
+                        },
+                    },
+                },
+                "input_edges": {
+                    "condition.m": "x",
+                    "condition.n": "m",
+                    "body.x": "x",
+                    "body.a": "a",
+                    "body.y": "y",
+                    "body.n": "n",
+                },
+                "output_edges": {"x": "body.x", "y": "body.y"},
+            },
+        },
+        "input_edges": {
+            "my_unity_0.x": "x",
+            "while_0.x": "x",
+            "while_0.m": "m",
+            "while_0.a": "a",
+            "while_0.n": "n",
+        },
+        "edges": {"while_0.y": "my_unity_0.x"},
+        "output_edges": {"x": "while_0.x", "y": "while_0.y"},
+    }
+)
+
+
 class TestParsingWhileLoops(unittest.TestCase):
     """
     These are pretty brittle to source code changes, as the reference is using the
@@ -97,7 +207,10 @@ class TestParsingWhileLoops(unittest.TestCase):
     """
 
     def test_against_static_recipes(self):
-        for function, reference in ((simple_while, simple_while_node),):
+        for function, reference in (
+            (simple_while, simple_while_node),
+            (nested_while, nest_while_node),
+        ):
             with self.subTest(function=function.__name__):
                 parsed_node = workflow_parser.parse_workflow(function)
                 self.assertEqual(parsed_node, reference)
