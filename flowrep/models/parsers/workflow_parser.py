@@ -1,14 +1,13 @@
 import ast
 from collections.abc import Callable, Collection
 from types import FunctionType
-from typing import cast
+from typing import Any, cast
 
 from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import helper_models, union, workflow_model
 from flowrep.models.parsers import (
     atomic_parser,
     for_parser,
-    func_def_parser,
     label_helpers,
     object_scope,
     parser_helpers,
@@ -16,6 +15,8 @@ from flowrep.models.parsers import (
     symbol_scope,
     while_parser,
 )
+
+SpecialHandlers = dict[type[ast.stmt], Callable[[Any, object_scope.ScopeProxy], None]]
 
 
 def workflow(
@@ -48,8 +49,41 @@ def parse_workflow(
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs})
     )
     tree = parser_helpers.get_ast_function_node(func)
-    func_def_parser.walk_func_def(state, tree, func, output_labels)
+
+    found_return = False
+
+    def handle_return(stmt: ast.Return, scope: object_scope.ScopeProxy):
+        nonlocal found_return
+        if found_return:
+            raise ValueError(
+                "Workflow python definitions must have exactly one return."
+            )
+        found_return = True
+        state.handle_return(stmt, func, output_labels)
+
+    state.walk(
+        skip_docstring(tree.body),
+        object_scope.get_scope(func),
+        special_handlers={ast.Return: handle_return},
+    )
+
+    if not found_return:
+        raise ValueError("Workflow python definitions must have a return statement.")
+
     return state.build_model(inputs_override=inputs)
+
+
+def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
+    return (
+        body[1:]
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        )
+        else body
+    )
 
 
 class WorkflowParser(parser_protocol.BodyWalker):
@@ -115,9 +149,23 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"{type(stmt)}"
             )
 
-    def walk(self, statements: list[ast.stmt], scope: object_scope.ScopeProxy) -> None:
+    def walk(
+        self,
+        statements: list[ast.stmt],
+        scope: object_scope.ScopeProxy,
+        *,
+        special_handlers: SpecialHandlers | None = None,
+    ) -> None:
         for stmt in statements:
-            self.visit(stmt, scope)
+            if special_handlers:
+                for ast_type, handler in special_handlers.items():
+                    if isinstance(stmt, ast_type):
+                        handler(stmt, scope)
+                        break
+                else:
+                    self.visit(stmt, scope)
+            else:
+                self.visit(stmt, scope)
 
     def handle_assign(
         self, body: ast.Assign | ast.AnnAssign, scope: object_scope.ScopeProxy
