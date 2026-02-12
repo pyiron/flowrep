@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterable
 from typing import ClassVar
 
 from flowrep.models import edge_models
@@ -13,7 +12,7 @@ def walk_ast_for(
     body_walker: parser_protocol.BodyWalker,
     tree: ast.For,
     scope: object_scope.ScopeProxy,
-) -> dict[str, str]:
+) -> None:
     for body in tree.body:
         if isinstance(body, ast.Assign | ast.AnnAssign):
             body_walker.handle_assign(body, scope)
@@ -36,8 +35,6 @@ def walk_ast_for(
 
     if len(body_walker.symbol_scope.used_accumulator_map) == 0:
         raise ValueError("For nodes must use up at least one accumulator symbol.")
-
-    return body_walker.symbol_scope.used_accumulator_map
 
 
 class ForParser:
@@ -78,10 +75,11 @@ class ForParser:
         scope: object_scope.ScopeProxy,
         nested_iters: list[tuple[str, str]],
         zipped_iters: list[tuple[str, str]],
-    ) -> Iterable[str]:
+    ) -> None:
         all_iters = nested_iters + zipped_iters
 
-        used_accumulator_symbol_map = walk_ast_for(self.body_walker, tree, scope)
+        walk_ast_for(self.body_walker, tree, scope)
+        used_accumulator_symbol_map = self.body_walker.symbol_scope.used_accumulator_map
 
         # Every iteration variable must actually be consumed inside the body.
         # An unused iterator likely indicates a bug; if the user only needs the
@@ -137,8 +135,7 @@ class ForParser:
                     edge_models.TargetHandle(node=self.body_label, port=appended_symbol)
                 ]
 
-        used_accumulators = used_accumulator_symbol_map.keys()
-        return used_accumulators
+        return None
 
 
 def parse_for_iterations(

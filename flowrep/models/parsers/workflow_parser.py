@@ -142,7 +142,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         # 4. ForParser owns the for-specific wiring; body_walker owns the
         #    general statement dispatch inside the for-body
         fp = for_parser.ForParser(body_walker=body_walker)
-        used_accumulators = fp.build_body(
+        fp.build_body(
             body_tree,
             scope=scope,
             nested_iters=nested_iters,
@@ -154,7 +154,9 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.nodes[for_label] = for_node
 
         # 6. Log all accumulators used inside the for-node as no longer available
-        self.symbol_scope.accumulators -= set(used_accumulators)
+        self.symbol_scope.accumulators -= set(
+            body_walker.symbol_scope.used_accumulator_map
+        )
 
         # 7. Log all symbols used inside the for-node as consumed
         for port in for_node.inputs:
