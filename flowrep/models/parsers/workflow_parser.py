@@ -1,5 +1,5 @@
 import ast
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection
 from types import FunctionType
 from typing import cast
 
@@ -14,6 +14,7 @@ from flowrep.models.parsers import (
     parser_helpers,
     parser_protocol,
     symbol_scope,
+    while_parser,
 )
 
 
@@ -48,7 +49,7 @@ def parse_workflow(
     )
     tree = parser_helpers.get_ast_function_node(func)
     func_def_parser.walk_func_def(state, tree, func, output_labels)
-    return state.build_model()
+    return state.build_model(inputs_override=inputs)
 
 
 class WorkflowParser(parser_protocol.BodyWalker):
@@ -83,9 +84,11 @@ class WorkflowParser(parser_protocol.BodyWalker):
     def edges(self) -> edge_models.Edges:
         return self.symbol_scope.edges
 
-    def build_model(self) -> workflow_model.WorkflowNode:
+    def build_model(
+        self, inputs_override: list[str] | None = None
+    ) -> workflow_model.WorkflowNode:
         return workflow_model.WorkflowNode(
-            inputs=self.inputs,
+            inputs=self.inputs if inputs_override is None else inputs_override,
             outputs=self.outputs,
             nodes=self.nodes,
             input_edges=self.input_edges,
@@ -102,9 +105,9 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
-            child = get_labeled_recipe(rhs, self.nodes.keys(), scope)
+            child = atomic_parser.get_labeled_recipe(rhs, self.nodes.keys(), scope)
             self.nodes[child.label] = child.node
-            consume_call_arguments(self.symbol_scope, rhs, child)
+            parser_helpers.consume_call_arguments(self.symbol_scope, rhs, child)
             self.symbol_scope.register(new_symbols, child)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
             if len(new_symbols) != 1:
@@ -166,6 +169,51 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.symbol_scope.register(
             new_symbols=list(used_accumulators),
             child=labeled_for,
+        )
+
+    def handle_while(
+        self,
+        tree: ast.While,
+        scope: object_scope.ScopeProxy,
+    ):
+        # 0. Fail early for unsupported syntax
+        if tree.orelse:
+            raise NotImplementedError(
+                "While loops with else branches are not supported in our parsing "
+                "syntax."
+            )
+        # 1. Parse the loop header — pure AST, no parser state needed
+        labeled_condition_node, condition_inputs = while_parser.parse_while_condition(
+            tree, scope, self.symbol_scope
+        )
+
+        # 2. Build a fresh body walker with the forked scope
+        body_symbol_scope = self.symbol_scope.fork_scope({})
+        body_walker = WorkflowParser(symbol_scope=body_symbol_scope)
+
+        # 3. WhileParser owns the while-specific wiring; body_walker owns the
+        #    general statement dispatch inside the while-body
+        wp = while_parser.WhileParser(
+            body_walker=body_walker,
+            labeled_condition=labeled_condition_node,
+            condition_inputs=condition_inputs,
+        )
+        wp.build_body(tree, scope=scope)
+
+        # 4. Build the WhileNode and integrate it into *this* parser's state
+        while_node = wp.build_model()
+        while_label = label_helpers.unique_suffix("while", self.nodes)
+        self.nodes[while_label] = while_node
+
+        # 5. Log all symbols used inside the while-node as consumed
+        for port in while_node.inputs:
+            self.symbol_scope.consume(port, while_label, port)
+
+        # 8. Register the while-node's outputs as symbols in *this* scope
+        labeled_while = helper_models.LabeledNode(label=while_label, node=while_node)
+        self.symbol_scope.register(
+            new_symbols=while_node.outputs,
+            child=labeled_while,
         )
 
     def handle_return(
@@ -238,56 +286,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"accumulator symbol. Instead, got a body value {append_stmt.value}."
                 f"Currently known accumulators: {accumulators}."
             )
-
-
-def get_labeled_recipe(
-    ast_call: ast.Call,
-    existing_names: Iterable[str],
-    scope: object_scope.ScopeProxy,
-) -> helper_models.LabeledNode:
-    child_call = cast(
-        FunctionType, object_scope.resolve_symbol_to_object(ast_call.func, scope)
-    )
-    # Since it is the .func attribute of an ast.Call,
-    # the retrieved object had better be a function
-    child_recipe = (
-        child_call.flowrep_recipe
-        if hasattr(child_call, "flowrep_recipe")
-        else atomic_parser.parse_atomic(child_call)
-    )
-    child_name = label_helpers.unique_suffix(child_call.__name__, existing_names)
-    return helper_models.LabeledNode(label=child_name, node=child_recipe)
-
-
-def consume_call_arguments(
-    scope: symbol_scope.SymbolScope,
-    ast_call: ast.Call,
-    child: helper_models.LabeledNode,
-) -> None:
-    """Record all argument->port consumptions for a node-creating call."""
-
-    def _validate_is_ast_name(node: ast.expr) -> ast.Name:
-        if not isinstance(node, ast.Name):
-            raise TypeError(
-                f"Workflow python definitions can only interpret function "
-                f"calls with symbolic input, and thus expected to find an "
-                f"ast.Name, but when parsing input for {child.label}, found a "
-                f"type {type(node)}"
-            )
-        return node
-
-    for i, arg in enumerate(ast_call.args):
-        name_arg = _validate_is_ast_name(arg)
-        scope.consume(name_arg.id, child.label, child.node.inputs[i])
-    for kw in ast_call.keywords:
-        name_arg = _validate_is_ast_name(kw.value)
-        if not isinstance(kw.arg, str):  # pragma: no cover
-            raise TypeError(
-                "How did you get here? A `None` value should be possible for "
-                "**kwargs, but variadics should have been excluded before "
-                "this. Please raise a GitHub issue."
-            )
-        scope.consume(name_arg.id, child.label, kw.arg)
 
 
 def is_append_call(node: ast.expr | ast.Expr, accumulators: set[str]) -> bool:

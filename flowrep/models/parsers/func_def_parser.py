@@ -21,7 +21,9 @@ def walk_func_def(
             body_walker.handle_assign(body, scope)
         elif isinstance(body, ast.For):
             body_walker.handle_for(body, scope, parsing_function_def=True)
-        elif isinstance(body, ast.While | ast.If | ast.Try):
+        elif isinstance(body, ast.While):
+            body_walker.handle_while(body, scope)
+        elif isinstance(body, ast.If | ast.Try):
             raise NotImplementedError(
                 f"Support for control flow statement {type(body)} is forthcoming."
             )
@@ -55,3 +57,8 @@ def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
         )
         else body
     )
+
+
+# Note: There is no FuncDefParser class, because if we are parsing a function
+# definition, the state object is already a WorkflowParser -- unlike parsing a control
+# flow, no new _additional_ state builder is required.

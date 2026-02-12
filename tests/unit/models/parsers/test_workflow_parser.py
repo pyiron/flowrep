@@ -1,9 +1,8 @@
-import ast
 import unittest
 from typing import Annotated, Any
 
 from flowrep.models import edge_models
-from flowrep.models.nodes import atomic_model, helper_models, workflow_model
+from flowrep.models.nodes import atomic_model, workflow_model
 from flowrep.models.parsers import (
     atomic_parser,
     parser_protocol,
@@ -234,6 +233,32 @@ class TestParseWorkflowEdges(unittest.TestCase):
         self.assertEqual(source.node, "add_0")
         self.assertEqual(source.port, "output_0")
 
+    def test_reused_symbols(self):
+        """Symbol reuse should create edges using the most recent definition"""
+
+        def wf(x):
+            y = add(x)
+            y = multiply(y)
+            return y
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(
+            node.edges,
+            {
+                edge_models.TargetHandle(
+                    node="multiply_0", port="x"
+                ): edge_models.SourceHandle(node="add_0", port="output_0")
+            },
+        )
+        self.assertEqual(
+            node.output_edges,
+            {
+                edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
+                    node="multiply_0", port="output_0"
+                )
+            },
+        )
+
 
 class TestParseWorkflowNested(unittest.TestCase):
     def test_nested_workflow_detected(self):
@@ -315,16 +340,6 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             workflow_parser.parse_workflow(wf)
-
-    def test_reused_symbol_raises(self):
-        def wf(x):
-            y = add(x)
-            y = multiply(y)
-            return y
-
-        with self.assertRaises(ValueError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("already in scope", str(ctx.exception).lower())
 
     def test_unknown_symbol_raises(self):
         def wf(x):
@@ -422,16 +437,6 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
 class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
     """Control flow is not yet implemented; verify NotImplementedError is raised."""
-
-    def test_while_loop_raises(self):
-        def wf(x):
-            while x > 0:
-                x = add(x)
-            return x
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("while", str(ctx.exception).lower())
 
     def test_if_statement_raises(self):
         def wf(x):
@@ -566,249 +571,6 @@ class TestWorkflowWithAtomicRecipes(unittest.TestCase):
                 ),
             },
             recipe.output_edges,
-        )
-
-
-class TestConsumeCallArguments(unittest.TestCase):
-    """Tests for consume_call_arguments function."""
-
-    def _make_labeled_node(
-        self, label: str, inputs: list[str], outputs: list[str] | None = None
-    ) -> helper_models.LabeledNode:
-        outputs = outputs or ["output_0"]
-        return helper_models.LabeledNode(
-            label=label,
-            node=atomic_model.AtomicNode(
-                fully_qualified_name="test.module.func",
-                inputs=inputs,
-                outputs=outputs,
-            ),
-        )
-
-    def _parse_call(self, call_str: str) -> ast.Call:
-        return ast.parse(call_str, mode="eval").body
-
-    def _make_scope(self, symbols: list[str]) -> symbol_scope.SymbolScope:
-        return symbol_scope.SymbolScope(
-            {s: edge_models.InputSource(port=s) for s in symbols}
-        )
-
-    def _consumed_pairs(self, scope: symbol_scope.SymbolScope) -> list[tuple[str, str]]:
-        """Extract (symbol, consumer_port) pairs from scope consumptions."""
-        return [(c.symbol, c.consumer_port) for c in scope._consumptions]
-
-    def test_single_positional_arg(self):
-        scope = self._make_scope(["x"])
-        call = self._parse_call("func(x)")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertEqual(self._consumed_pairs(scope), [("x", "a")])
-
-    def test_multiple_positional_args(self):
-        scope = self._make_scope(["x", "y", "z"])
-        call = self._parse_call("func(x, y, z)")
-        node = self._make_labeled_node("func_0", inputs=["a", "b", "c"])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertEqual(
-            self._consumed_pairs(scope), [("x", "a"), ("y", "b"), ("z", "c")]
-        )
-
-    def test_single_keyword_arg(self):
-        scope = self._make_scope(["x"])
-        call = self._parse_call("func(a=x)")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertEqual(self._consumed_pairs(scope), [("x", "a")])
-
-    def test_multiple_keyword_args(self):
-        scope = self._make_scope(["x", "y"])
-        call = self._parse_call("func(a=x, b=y)")
-        node = self._make_labeled_node("func_0", inputs=["a", "b"])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertEqual(self._consumed_pairs(scope), [("x", "a"), ("y", "b")])
-
-    def test_mixed_positional_and_keyword(self):
-        scope = self._make_scope(["x", "y"])
-        call = self._parse_call("func(x, b=y)")
-        node = self._make_labeled_node("func_0", inputs=["a", "b"])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertEqual(self._consumed_pairs(scope), [("x", "a"), ("y", "b")])
-
-    def test_keyword_args_out_of_order(self):
-        scope = self._make_scope(["x", "y"])
-        call = self._parse_call("func(b=y, a=x)")
-        node = self._make_labeled_node("func_0", inputs=["a", "b"])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        # Keywords consumed in call order, not definition order
-        self.assertEqual(self._consumed_pairs(scope), [("y", "b"), ("x", "a")])
-
-    def test_no_args(self):
-        scope = self._make_scope([])
-        call = self._parse_call("func()")
-        node = self._make_labeled_node("func_0", inputs=[])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertEqual(self._consumed_pairs(scope), [])
-
-    def test_literal_positional_raises_type_error(self):
-        scope = self._make_scope([])
-        call = self._parse_call("func(42)")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        with self.assertRaises(TypeError) as ctx:
-            workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertIn("symbolic input", str(ctx.exception))
-        self.assertIn("func_0", str(ctx.exception))
-
-    def test_literal_keyword_raises_type_error(self):
-        scope = self._make_scope([])
-        call = self._parse_call("func(a=42)")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        with self.assertRaises(TypeError) as ctx:
-            workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertIn("symbolic input", str(ctx.exception))
-
-    def test_expression_positional_raises_type_error(self):
-        scope = self._make_scope(["x", "y"])
-        call = self._parse_call("func(x + y)")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        with self.assertRaises(TypeError) as ctx:
-            workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertIn("symbolic input", str(ctx.exception))
-
-    def test_nested_call_raises_type_error(self):
-        scope = self._make_scope(["x"])
-        call = self._parse_call("func(other_func(x))")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        with self.assertRaises(TypeError) as ctx:
-            workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertIn("symbolic input", str(ctx.exception))
-
-    def test_attribute_access_raises_type_error(self):
-        scope = self._make_scope([])
-        call = self._parse_call("func(obj.attr)")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        with self.assertRaises(TypeError) as ctx:
-            workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertIn("symbolic input", str(ctx.exception))
-
-    def test_subscript_raises_type_error(self):
-        scope = self._make_scope([])
-        call = self._parse_call("func(arr[0])")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        with self.assertRaises(TypeError) as ctx:
-            workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertIn("symbolic input", str(ctx.exception))
-
-    def test_string_literal_keyword_raises_type_error(self):
-        scope = self._make_scope([])
-        call = self._parse_call("func(a='hello')")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        with self.assertRaises(TypeError) as ctx:
-            workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertIn("symbolic input", str(ctx.exception))
-
-    def test_partial_consumption_before_error(self):
-        """Valid args are consumed before hitting an invalid one."""
-        scope = self._make_scope(["x"])
-        call = self._parse_call("func(x, 42)")
-        node = self._make_labeled_node("func_0", inputs=["a", "b"])
-
-        with self.assertRaises(TypeError):
-            workflow_parser.consume_call_arguments(scope, call, node)
-
-        # First arg was consumed before the error
-        self.assertEqual(self._consumed_pairs(scope), [("x", "a")])
-
-    def test_preserves_underscore_names(self):
-        scope = self._make_scope(["_private", "__dunder__"])
-        call = self._parse_call("func(_private, __dunder__)")
-        node = self._make_labeled_node("func_0", inputs=["a", "b"])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertEqual(
-            self._consumed_pairs(scope), [("_private", "a"), ("__dunder__", "b")]
-        )
-
-    def test_consumed_source_is_recorded(self):
-        """Verify the full SymbolConsumption, not just the symbol/port pair."""
-        scope = self._make_scope(["x"])
-        call = self._parse_call("func(x)")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        c = scope._consumptions[0]
-        self.assertEqual(c.symbol, "x")
-        self.assertEqual(c.consumer_node, "func_0")
-        self.assertEqual(c.consumer_port, "a")
-        self.assertEqual(c.source, edge_models.InputSource(port="x"))
-
-    def test_generates_input_edges(self):
-        """Consuming InputSource symbols produces correct input_edges."""
-        scope = self._make_scope(["x", "y"])
-        call = self._parse_call("func(x, b=y)")
-        node = self._make_labeled_node("func_0", inputs=["a", "b"])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertEqual(
-            scope.input_edges,
-            {
-                edge_models.TargetHandle(
-                    node="func_0", port="a"
-                ): edge_models.InputSource(port="x"),
-                edge_models.TargetHandle(
-                    node="func_0", port="b"
-                ): edge_models.InputSource(port="y"),
-            },
-        )
-
-    def test_generates_sibling_edges(self):
-        """Consuming SourceHandle symbols produces correct sibling edges."""
-        scope = symbol_scope.SymbolScope(
-            {"x": edge_models.SourceHandle(node="upstream_0", port="out")}
-        )
-        call = self._parse_call("func(x)")
-        node = self._make_labeled_node("func_0", inputs=["a"])
-
-        workflow_parser.consume_call_arguments(scope, call, node)
-
-        self.assertEqual(scope.input_edges, {})
-        self.assertEqual(
-            scope.edges,
-            {
-                edge_models.TargetHandle(
-                    node="func_0", port="a"
-                ): edge_models.SourceHandle(node="upstream_0", port="out"),
-            },
         )
 
 

@@ -220,19 +220,6 @@ class TestWalkAstForErrors(unittest.TestCase):
     so we test error paths by defining small invalid workflow functions.
     """
 
-    def test_while_in_for_body_raises(self):
-        def wf(xs):
-            results = []
-            for x in xs:
-                while True:
-                    pass
-                results.append(x)
-            return results
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("While", str(ctx.exception))
-
     def test_if_in_for_body_raises(self):
         def wf(xs):
             results = []

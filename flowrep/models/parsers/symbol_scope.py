@@ -26,6 +26,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     ):
         self._sources = dict(sources)
         self._consumptions: list[SymbolConsumption] = []
+        self.reassigned_symbols: list[str] = []
 
     @property
     def consumed_input_names(self) -> list[str]:
@@ -83,12 +84,14 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         child: helper_models.LabeledNode,
     ) -> None:
         """Map new symbols 1:1 to child node outputs. Enforces uniqueness."""
-        if overshadow := set(self._sources) & set(new_symbols):
-            raise ValueError(f"Symbol(s) already in scope: {overshadow}")
         if len(new_symbols) != len(child.node.outputs):
             raise ValueError(
                 f"Cannot map {child.node.outputs} to symbols {new_symbols}"
             )
+        reassigned = [s for s in new_symbols if s in self._sources]
+        for symbol in reassigned:
+            if symbol not in self.reassigned_symbols:
+                self.reassigned_symbols.append(symbol)
         self._sources.update(
             {
                 sym: edge_models.SourceHandle(node=child.label, port=port)

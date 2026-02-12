@@ -23,7 +23,9 @@ def walk_ast_for(
             body_walker.handle_assign(body, scope)
         elif isinstance(body, ast.For):
             body_walker.handle_for(body, scope, parsing_function_def=False)
-        elif isinstance(body, ast.While | ast.If | ast.Try):
+        elif isinstance(body, ast.While):
+            body_walker.handle_while(body, scope)
+        elif isinstance(body, ast.If | ast.Try):
             raise NotImplementedError(
                 f"Support for control flow statement {type(body)} is forthcoming."
             )
@@ -70,8 +72,6 @@ class ForParser:
         self._outputs: list[str] = []
         self._nested_ports: list[str] = []
         self._zipped_ports: list[str] = []
-
-        # These are internal state that doesn't translate directly to the final model
 
     @property
     def _body_node(self) -> helper_models.LabeledNode:
