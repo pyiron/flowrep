@@ -167,7 +167,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         # 8. Register the for-node's outputs as symbols in *this* scope
         labeled_for = helper_models.LabeledNode(label=for_label, node=for_node)
         self.symbol_scope.register(
-            new_symbols=list(used_accumulators),
+            new_symbols=for_node.outputs,
             child=labeled_for,
         )
 
