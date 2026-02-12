@@ -37,6 +37,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         self._consumptions: list[SymbolConsumption] = []
         self.reassigned_symbols: list[str] = []
         self.accumulators: set[str] = set() if accumulators is None else accumulators
+        self.used_accumulator_map: dict[str, str] = {}
 
     @property
     def consumed_input_names(self) -> list[str]:

@@ -14,9 +14,6 @@ def walk_ast_for(
     tree: ast.For,
     scope: object_scope.ScopeProxy,
 ) -> dict[str, str]:
-    used_accumulators: list[str] = []
-    used_accumulator_source_map: dict[str, str] = {}
-
     for body in tree.body:
         if isinstance(body, ast.Assign | ast.AnnAssign):
             body_walker.handle_assign(body, scope)
@@ -29,11 +26,7 @@ def walk_ast_for(
                 f"Support for control flow statement {type(body)} is forthcoming."
             )
         elif isinstance(body, ast.Expr):
-            used_accumulator, appended_symbol = (
-                body_walker.handle_appending_to_accumulator(body)
-            )
-            used_accumulators.append(used_accumulator)
-            used_accumulator_source_map[used_accumulator] = appended_symbol
+            body_walker.handle_appending_to_accumulator(body)
         else:
             raise TypeError(
                 f"Workflow python definitions can only interpret assignments, a subset "
@@ -41,10 +34,10 @@ def walk_ast_for(
                 f"{type(body)}"
             )
 
-    if len(used_accumulators) == 0:
+    if len(body_walker.symbol_scope.used_accumulator_map) == 0:
         raise ValueError("For nodes must use up at least one accumulator symbol.")
 
-    return used_accumulator_source_map
+    return body_walker.symbol_scope.used_accumulator_map
 
 
 class ForParser:

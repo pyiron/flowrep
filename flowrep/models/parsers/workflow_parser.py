@@ -259,7 +259,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 )
             self.output_edges[edge_models.OutputTarget(port=port)] = source
 
-    def handle_appending_to_accumulator(self, append_stmt: ast.Expr) -> tuple[str, str]:
+    def handle_appending_to_accumulator(self, append_stmt: ast.Expr) -> None:
         if is_append_call(append_stmt.value):
             append_call = cast(ast.Call, append_stmt.value)
             used_accumulator = cast(
@@ -273,13 +273,13 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 )
             self.symbol_scope.accumulators.remove(used_accumulator)
             appended_symbol = cast(ast.Name, append_call.args[0]).id
+            self.symbol_scope.used_accumulator_map[used_accumulator] = appended_symbol
             appended_source = self.symbol_scope[appended_symbol]
             if isinstance(appended_source, edge_models.SourceHandle):
                 self.outputs.append(appended_symbol)
                 self.output_edges[edge_models.OutputTarget(port=appended_symbol)] = (
                     appended_source
                 )
-            return used_accumulator, appended_symbol
         else:
             raise TypeError(
                 f"Inside the context of an ast.For node, the only expression "
