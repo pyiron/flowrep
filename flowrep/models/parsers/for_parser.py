@@ -16,9 +16,6 @@ def walk_ast_for(
     for body in tree.body:
         body_walker.visit(body, scope)
 
-    if len(body_walker.symbol_scope.used_accumulator_map) == 0:
-        raise ValueError("For nodes must use up at least one accumulator symbol.")
-
 
 class ForParser:
     body_label: ClassVar[str] = "body"
@@ -62,6 +59,8 @@ class ForParser:
         all_iters = nested_iters + zipped_iters
 
         walk_ast_for(self.body_walker, tree, scope)
+        if len(self.body_walker.symbol_scope.used_accumulator_map) == 0:
+            raise ValueError("For nodes must use up at least one accumulator symbol.")
         used_accumulator_symbol_map = self.body_walker.symbol_scope.used_accumulator_map
 
         # Every iteration variable must actually be consumed inside the body.
