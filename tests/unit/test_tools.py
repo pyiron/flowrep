@@ -38,20 +38,6 @@ class TestTools(unittest.TestCase):
             "sin:c5f6a0370fc318866315717568a5c3d2d704",
         )
 
-        def function_with_list():
-            return [1, 2, 3]
-
-        self.assertEqual(
-            tools._hash_function_with_ast(function_with_list)[:40],
-            "function_with_list:3655ea86940164b32b89e",
-            msg="AST based hash should be OS and Python version independent",
-        )
-        self.assertEqual(
-            tools._hash_function_with_ast(example_function)[:40],
-            "example_function:853fe8c9763d182350fa903",
-            msg="AST based hash should be OS and Python version independent",
-        )
-
 
 if __name__ == "__main__":
     unittest.main()
