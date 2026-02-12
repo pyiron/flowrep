@@ -22,11 +22,22 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     """
 
     def __init__(
-        self, sources: dict[str, edge_models.InputSource | edge_models.SourceHandle]
+        self,
+        sources: dict[str, edge_models.InputSource | edge_models.SourceHandle],
+        accumulators: set[str] | None = None,
     ):
+        if accumulators is not None and (
+            overshadow := accumulators.intersection(sources)
+        ):
+            raise ValueError(
+                f"Cannot register accumulators and sources with same name: "
+                f"{overshadow}."
+            )
         self._sources = dict(sources)
         self._consumptions: list[SymbolConsumption] = []
         self.reassigned_symbols: list[str] = []
+        self.accumulators: set[str] = set() if accumulators is None else accumulators
+        self.used_accumulator_map: dict[str, str] = {}
 
     @property
     def consumed_input_names(self) -> list[str]:
@@ -84,6 +95,10 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         child: helper_models.LabeledNode,
     ) -> None:
         """Map new symbols 1:1 to child node outputs. Enforces uniqueness."""
+        if overshadowed := set(new_symbols).intersection(self.accumulators):
+            raise ValueError(
+                f"Symbol(s) {overshadowed} already registered as accumulators."
+            )
         if len(new_symbols) != len(child.node.outputs):
             raise ValueError(
                 f"Cannot map {child.node.outputs} to symbols {new_symbols}"
@@ -99,6 +114,13 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             }
         )
 
+    def register_accumulator(self, new: str):
+        if new in self._sources:
+            raise ValueError(f"Accumulator symbol '{new}' already in symbol scope.")
+        if new in self.accumulators:
+            raise ValueError(f"Accumulator symbol '{new}' already registered.")
+        self.accumulators.add(new)
+
     def consume(self, symbol: str, consumer_node: str, consumer_port: str) -> None:
         """Record that `consumer_node.consumer_port` reads from `symbol`."""
         self._consumptions.append(
@@ -109,6 +131,10 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
                 source=self[symbol],
             )
         )
+
+    def use_accumulator(self, accumulator_symbol: str, appended_symbol: str) -> None:
+        self.accumulators.remove(accumulator_symbol)
+        self.used_accumulator_map[accumulator_symbol] = appended_symbol
 
     # --- Forking for child scopes ---
     def fork_scope(self, symbol_remap: dict[str, str]) -> "SymbolScope":
@@ -121,5 +147,6 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             {
                 (k := symbol_remap.get(key, key)): edge_models.InputSource(port=k)
                 for key in self._sources
-            }
+            },
+            self.accumulators.copy(),
         )

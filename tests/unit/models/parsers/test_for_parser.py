@@ -285,7 +285,8 @@ class TestWalkAstForErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("at most once", str(ctx.exception))
+        self.assertIn("not found among known accumulator symbols", str(ctx.exception))
+        self.assertIn("results", str(ctx.exception))
 
     def test_assigning_non_empty_list_raises(self):
         def wf(xs):
@@ -693,7 +694,7 @@ class TestAppendAccumulator(unittest.TestCase):
         # accumulator, so is_append_call returns False → TypeError
         with self.assertRaises(TypeError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("accumulator", str(ctx.exception).lower())
+        self.assertIn("but ast found", str(ctx.exception).lower())
 
     def test_append_to_unknown_symbol_raises(self):
         """Appending to a list that was never initialised as []."""
@@ -706,9 +707,13 @@ class TestAppendAccumulator(unittest.TestCase):
                 results.append(y)
             return results
 
-        with self.assertRaises(TypeError) as ctx:
+        with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("accumulator", str(ctx.exception).lower())
+        self.assertIn(
+            "not found among known accumulator symbols", str(ctx.exception).lower()
+        )
+        self.assertIn("other", str(ctx.exception).lower())
+        self.assertIn("results", str(ctx.exception).lower())
 
 
 if __name__ == "__main__":
