@@ -584,9 +584,7 @@ def _get_nodes(
             if with_function:
                 result[label]["function"] = function["function"].func
         else:
-            t = function.get("control_flow", "atomic").split("-", 1)[-1]
-            t = {"body": "atomic"}.get(t, t)
-            result[label] = {"function": function["function"], "type": t}
+            result[label] = {"function": function["function"], "type": "atomic"}
     return result
 
 
@@ -920,9 +918,9 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
     if "iter" in workflow_dict:
         G.add_node("iter", step="node", **_get_items(workflow_dict["iter"]))
     for key, node in workflow_dict["nodes"].items():
-        assert node["type"] in ["atomic", "workflow", "iter", "test", "while", "for"], (
+        assert node["type"] in ["atomic", "workflow", "while", "for"], (
             f"Node {key} has unrecognized type {node['type']}. "
-            "Expected types are 'atomic', 'workflow', 'iter', 'test', 'while', or 'for'."
+            "Expected types are 'atomic', 'workflow', 'while', or 'for'."
         )
         if node["type"] in ["workflow", "for", "while"]:
             child_G = get_workflow_graph(node)
