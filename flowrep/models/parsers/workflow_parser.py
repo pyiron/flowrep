@@ -70,7 +70,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.nodes: union.Nodes = {}
         self.output_edges: edge_models.OutputEdges = {}
         self.outputs: list[str] = []
-        self._for_node_accumulators: set[str] = set()
 
     @property
     def inputs(self) -> list[str]:
@@ -115,7 +114,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
                     f"Empty list assignment must target exactly one symbol, "
                     f"got {new_symbols}"
                 )
-            self._for_node_accumulators.add(new_symbols[0])
+            self.symbol_scope.register_accumulator(new_symbols[0])
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
@@ -142,10 +141,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
         # 4. ForParser owns the for-specific wiring; body_walker owns the
         #    general statement dispatch inside the for-body
-        fp = for_parser.ForParser(
-            body_walker=body_walker,
-            accumulators=self._for_node_accumulators,
-        )
+        fp = for_parser.ForParser(body_walker=body_walker)
         used_accumulators = fp.build_body(
             body_tree,
             scope=scope,
@@ -158,7 +154,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.nodes[for_label] = for_node
 
         # 6. Consume accumulators that the for-node fulfilled
-        self._for_node_accumulators -= set(used_accumulators)
+        self.symbol_scope.accumulators -= set(used_accumulators)
 
         # 7. Log all symbols used inside the for-node as consumed
         for port in for_node.inputs:
@@ -263,14 +259,19 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 )
             self.output_edges[edge_models.OutputTarget(port=port)] = source
 
-    def handle_appending_to_accumulator(
-        self, append_stmt: ast.Expr, accumulators: set[str]
-    ) -> tuple[str, str]:
-        if is_append_call(append_stmt.value, accumulators):
+    def handle_appending_to_accumulator(self, append_stmt: ast.Expr) -> tuple[str, str]:
+        if is_append_call(append_stmt.value):
             append_call = cast(ast.Call, append_stmt.value)
             used_accumulator = cast(
                 ast.Name, cast(ast.Attribute, append_call.func).value
             ).id
+            if used_accumulator not in self.symbol_scope.accumulators:
+                raise ValueError(
+                    f"Could not append to the symbol {used_accumulator}; it is not "
+                    f"found among known accumulator symbols: "
+                    f"{self.symbol_scope.accumulators}"
+                )
+            self.symbol_scope.accumulators.remove(used_accumulator)
             appended_symbol = cast(ast.Name, append_call.args[0]).id
             appended_source = self.symbol_scope[appended_symbol]
             if isinstance(appended_source, edge_models.SourceHandle):
@@ -284,16 +285,15 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"Inside the context of an ast.For node, the only expression "
                 f"currently parseable is an `.append` call to a known "
                 f"accumulator symbol. Instead, got a body value {append_stmt.value}."
-                f"Currently known accumulators: {accumulators}."
+                f"Currently known accumulators: {self.symbol_scope.accumulators}."
             )
 
 
-def is_append_call(node: ast.expr | ast.Expr, accumulators: set[str]) -> bool:
+def is_append_call(node: ast.expr | ast.Expr) -> bool:
     """Check if node is an append call to a known accumulator."""
     return (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "append"
         and isinstance(node.func.value, ast.Name)
-        and node.func.value.id in accumulators
     )

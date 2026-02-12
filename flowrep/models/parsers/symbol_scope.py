@@ -22,11 +22,21 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     """
 
     def __init__(
-        self, sources: dict[str, edge_models.InputSource | edge_models.SourceHandle]
+        self,
+        sources: dict[str, edge_models.InputSource | edge_models.SourceHandle],
+        accumulators: set[str] | None = None,
     ):
+        if accumulators is not None and (
+            overshadow := accumulators.intersection(sources)
+        ):
+            raise ValueError(
+                f"Cannot register accumulators and sources with same name: "
+                f"{overshadow}."
+            )
         self._sources = dict(sources)
         self._consumptions: list[SymbolConsumption] = []
         self.reassigned_symbols: list[str] = []
+        self.accumulators: set[str] = set() if accumulators is None else accumulators
 
     @property
     def consumed_input_names(self) -> list[str]:
@@ -84,6 +94,10 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         child: helper_models.LabeledNode,
     ) -> None:
         """Map new symbols 1:1 to child node outputs. Enforces uniqueness."""
+        if overshadowed := set(new_symbols).intersection(self.accumulators):
+            raise ValueError(
+                f"Symbol(s) {overshadowed} already registered as accumulators."
+            )
         if len(new_symbols) != len(child.node.outputs):
             raise ValueError(
                 f"Cannot map {child.node.outputs} to symbols {new_symbols}"
@@ -98,6 +112,13 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
                 for sym, port in zip(new_symbols, child.node.outputs, strict=True)
             }
         )
+
+    def register_accumulator(self, new: str):
+        if new in self._sources:
+            raise ValueError(f"Accumulator symbol '{new}' already in symbol scope.")
+        if new in self.accumulators:
+            raise ValueError(f"Accumulator symbol '{new}' already registered.")
+        self.accumulators.add(new)
 
     def consume(self, symbol: str, consumer_node: str, consumer_port: str) -> None:
         """Record that `consumer_node.consumer_port` reads from `symbol`."""
@@ -121,5 +142,6 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             {
                 (k := symbol_remap.get(key, key)): edge_models.InputSource(port=k)
                 for key in self._sources
-            }
+            },
+            self.accumulators.copy(),
         )

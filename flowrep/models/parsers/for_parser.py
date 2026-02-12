@@ -4,7 +4,7 @@ import ast
 from collections.abc import Iterable
 from typing import ClassVar
 
-from flowrep.models import base_models, edge_models
+from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, helper_models
 from flowrep.models.parsers import object_scope, parser_protocol
 
@@ -13,7 +13,6 @@ def walk_ast_for(
     body_walker: parser_protocol.BodyWalker,
     tree: ast.For,
     scope: object_scope.ScopeProxy,
-    accumulators: set[str],
 ) -> dict[str, str]:
     used_accumulators: list[str] = []
     used_accumulator_source_map: dict[str, str] = {}
@@ -31,7 +30,7 @@ def walk_ast_for(
             )
         elif isinstance(body, ast.Expr):
             used_accumulator, appended_symbol = (
-                body_walker.handle_appending_to_accumulator(body, accumulators)
+                body_walker.handle_appending_to_accumulator(body)
             )
             used_accumulators.append(used_accumulator)
             used_accumulator_source_map[used_accumulator] = appended_symbol
@@ -44,11 +43,6 @@ def walk_ast_for(
 
     if len(used_accumulators) == 0:
         raise ValueError("For nodes must use up at least one accumulator symbol.")
-    base_models.validate_unique(
-        used_accumulators,
-        f"Each accumulator may be appended to at most once, but appended "
-        f"to: {used_accumulators}",
-    )
 
     return used_accumulator_source_map
 
@@ -56,13 +50,8 @@ def walk_ast_for(
 class ForParser:
     body_label: ClassVar[str] = "body"
 
-    def __init__(
-        self,
-        body_walker: parser_protocol.BodyWalker,
-        accumulators: set[str],
-    ):
+    def __init__(self, body_walker: parser_protocol.BodyWalker):
         self.body_walker = body_walker
-        self.accumulators = accumulators
 
         # When these are all filled, we are ready to `build_model`
         self._inputs: list[str] = []
@@ -99,9 +88,7 @@ class ForParser:
     ) -> Iterable[str]:
         all_iters = nested_iters + zipped_iters
 
-        used_accumulator_symbol_map = walk_ast_for(
-            self.body_walker, tree, scope, self.accumulators
-        )
+        used_accumulator_symbol_map = walk_ast_for(self.body_walker, tree, scope)
 
         # Every iteration variable must actually be consumed inside the body.
         # An unused iterator likely indicates a bug; if the user only needs the

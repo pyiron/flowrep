@@ -36,9 +36,7 @@ class BodyWalker(Protocol):
 
     def handle_while(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None: ...
 
-    def handle_appending_to_accumulator(
-        self, stmt: ast.Expr, accumulators: set[str]
-    ) -> tuple[str, str]: ...
+    def handle_appending_to_accumulator(self, stmt: ast.Expr) -> tuple[str, str]: ...
 
     def handle_return(
         self,
