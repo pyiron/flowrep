@@ -830,10 +830,14 @@ def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]
         for tag in edge:
             if len(tag.split(".")) < 3:
                 continue
-            if tag.split(".")[1] == "inputs":
-                new_edge = (tag, tag.split(".")[0])
-            elif tag.split(".")[1] == "outputs":
-                new_edge = (tag.split(".")[0], tag)
+            assert tag.split(".")[-2] in ["inputs", "outputs"], (
+                f"Edge tag {tag} not recognized. "
+                "Expected format: <function>.(inputs|outputs).<variable>"
+            )
+            if tag.split(".")[-2] == "inputs":
+                new_edge = (tag, tag.rsplit(".", 2)[0])
+            elif tag.split(".")[-2] == "outputs":
+                new_edge = (tag.rsplit(".", 2)[0], tag)
             if new_edge not in extra_edges:
                 extra_edges.append(new_edge)
     return edge_list + extra_edges
@@ -905,6 +909,10 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
         G.add_node(f"outputs.{out}", step="output", **data)
 
     nodes_to_delete = []
+    if "test" in workflow_dict:
+        G.add_node("test", step="node", function=workflow_dict["test"]["function"])
+    if "iter" in workflow_dict:
+        G.add_node("iter", step="node", function=workflow_dict["iter"]["function"])
     for key, node in workflow_dict["nodes"].items():
         assert node["type"] in ["atomic", "workflow"]
         if node["type"] == "workflow":
@@ -1092,7 +1100,7 @@ def simple_run(G: nx.DiGraph) -> nx.DiGraph:
     return G
 
 
-def graph_to_wf_dict(G: nx.DiGraph) -> dict:
+def graph_to_wf_dict(G: nx.DiGraph, flatten: bool = False) -> dict:
     """
     Convert a directed graph representation of a workflow into a workflow
     dictionary.
@@ -1104,26 +1112,56 @@ def graph_to_wf_dict(G: nx.DiGraph) -> dict:
         dict: The dictionary representation of the workflow.
     """
     wf_dict = tools.dict_to_recursive_dd({})
+    if flatten:
+        G = flatten_graph(G)
 
     for node, metadata in list(G.nodes.data()):
         t = metadata["step"]
         if t in ["input", "output"]:
-            d = wf_dict
-            for n in node.split(".")[:-2]:
-                d = d["nodes"][n]
-            d[f"{t}s"][node.split(".")[-1]] = {
-                key: value for key, value in metadata.items() if key != "step"
-            }
+            if flatten:
+                if node.startswith(t):
+                    for key, value in metadata.items():
+                        if key == "step":
+                            continue
+                        wf_dict[f"{t}s"][node.split(".")[-1]][key] = value
+                else:
+                    for key, value in metadata.items():
+                        if key == "step":
+                            continue
+                        wf_dict["nodes"][node.rsplit(".", 2)[0]][f"{t}s"][
+                            node.split(".")[-1]
+                        ][key] = value
+            else:
+                d = wf_dict
+                for n in node.split(".")[:-2]:
+                    d = d["nodes"][n]
+                for key, value in metadata.items():
+                    if key == "step":
+                        continue
+                    d[f"{t}s"][node.split(".")[-1]][key] = value
         else:
-            d = wf_dict
-            for n in node.split("."):
-                d = d["nodes"][n]
-            d.update({key: value for key, value in metadata.items() if key != "step"})
+            if flatten:
+                for key, value in metadata.items():
+                    if key == "step":
+                        continue
+                    wf_dict["nodes"][node][key] = value
+            else:
+                d = wf_dict
+                for n in node.split("."):
+                    d = d["nodes"][n]
+                d.update(
+                    {key: value for key, value in metadata.items() if key != "step"}
+                )
 
     for edge in G.edges:
         if any(
             "." not in e or e.split(".")[-2] not in ["inputs", "outputs"] for e in edge
         ):
+            continue
+        if flatten:
+            if not isinstance(wf_dict["edges"], list):
+                wf_dict["edges"] = []
+            wf_dict["edges"].append(edge)
             continue
         if len(edge[0].split(".")) == len(edge[1].split(".")):
             nodes = edge[0].split(".")[:-3]
@@ -1146,11 +1184,41 @@ def graph_to_wf_dict(G: nx.DiGraph) -> dict:
         if not isinstance(d["edges"], list):
             d["edges"] = []
         d["edges"].append(edge)
-    for key, value in G.graph.items():
-        d = wf_dict
-        if key != "":
-            for n in key.split("."):
-                d = d["nodes"][n]
-        for k, v in value.items():
-            d[k] = v
+    if not flatten:
+        for key, value in G.graph.items():
+            d = wf_dict
+            if key != "":
+                for n in key.split("."):
+                    d = d["nodes"][n]
+            for k, v in value.items():
+                d[k] = v
     return tools.recursive_dd_to_dict(wf_dict)
+
+
+def flatten_graph(G: nx.DiGraph) -> nx.DiGraph:
+    H = G.copy()
+    nodes = [node for node, data in G.nodes.data() if data["step"] == "node"]
+    ios = [
+        io
+        for n in nodes
+        for neighbors in [G.predecessors(n), G.successors(n)]
+        for io in neighbors
+    ]
+    for node, data in G.nodes.data():
+        if (
+            data["step"] == "node"
+            or node in ios
+            or node.split(".")[0] in ["inputs", "outputs"]
+        ):
+            continue
+        assert data["step"] in ["input", "output"]
+        if data["step"] == "input":
+            main_node = list(G.successors(node))[0]
+        else:
+            main_node = list(G.predecessors(node))[0]
+        for k, val in G.nodes[node].items():
+            if k not in G.nodes[main_node]:
+                H.nodes[main_node][k] = val
+        H = nx.contracted_nodes(H, main_node, node, self_loops=False)
+        del H.nodes[main_node]["contraction"]
+    return H
