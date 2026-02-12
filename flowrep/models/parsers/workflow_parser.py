@@ -133,10 +133,12 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
         # 2. Fork the scope: replaces iterated-over symbols with iteration variables,
         #    all as InputSources from the body's perspective
-        child_scope = self.symbol_scope.fork_scope({src: var for var, src in all_iters})
+        body_symbol_scope = self.symbol_scope.fork_scope(
+            {src: var for var, src in all_iters}
+        )
 
         # 3. Fresh body walker with the forked scope
-        body_walker = WorkflowParser(symbol_scope=child_scope)
+        body_walker = WorkflowParser(symbol_scope=body_symbol_scope)
 
         # 4. ForParser owns the for-specific wiring; body_walker owns the
         #    general statement dispatch inside the for-body
