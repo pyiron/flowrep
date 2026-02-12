@@ -99,6 +99,7 @@ class ForNode(base_models.NodeModel):
         subgraph_validation.validate_output_edge_sources(
             self.output_edges.values(),
             self.prospective_nodes,
+            self.inputs,
         )
         return self
 
