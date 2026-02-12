@@ -110,21 +110,16 @@ class CanonicalASTDumper(ast.NodeVisitor):
             raise TypeError(f"Unsupported AST value: {type(value)!r}")
 
 
-def hash_function(fn: Callable) -> str:
+def _hash_function_with_ast(fn: Callable) -> str:
     """
-    Returns a stable hash for a Python callable.
-
-    - Uses AST-based semantic hashing when source is available
-    - Falls back to identity hashing (module + qualname) otherwise
+    Hash a function based on its AST structure, ignoring docstrings and formatting.
 
     Args:
         fn (Callable): The function to hash.
 
     Returns:
-        str: A stable hash string representing the function.
+        str: A hash string representing the function's AST structure.
     """
-
-    # ---- Primary path: semantic hash ----
     name = getattr(fn, "__name__", "unkonwn")
     try:
         source = inspect.getsource(fn)
@@ -142,13 +137,27 @@ def hash_function(fn: Callable) -> str:
         dumper.visit(tree)
 
         payload = "\n".join(dumper.parts).encode("utf-8")
-        return f"{name}-ast:" + hashlib.sha256(payload).hexdigest()
+        return name + ":" + hashlib.sha256(payload).hexdigest()
+    raise ValueError("Source code not available for AST hashing")
 
-    # ---- Fallback path: identity hash ----
+
+def hash_function(fn: Callable) -> str:
+    """
+    Hash a function based on its module, qualified name, and version. If the
+    function does not have a module or qualified name, it raises a TypeError.
+
+    Args:
+        fn (Callable): The function to hash.
+
+    Returns:
+        str: A stable hash string representing the function.
+    """
+
+    name = getattr(fn, "__name__", "unkonwn")
     if hasattr(fn, "__module__") and hasattr(fn, "__qualname__"):
         version = _get_version_from_module(fn.__module__)
         identity = f"{fn.__module__}:{fn.__qualname__}:{version}"
-        return f"{name}-id:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()
+        return name + ":" + hashlib.sha256(identity.encode("utf-8")).hexdigest()
 
     raise TypeError(f"{fn!r} is not hashable - wrap it in another function")
 

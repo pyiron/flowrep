@@ -722,22 +722,26 @@ class TestWorkflow(unittest.TestCase):
         )
 
     def test_hash_function(self):
+        import math
+
+        self.assertEqual(
+            tools.hash_function(math.sin)[:40],
+            "sin:c5f6a0370fc318866315717568a5c3d2d704",
+        )
+
         def function_with_list():
             return [1, 2, 3]
 
         self.assertEqual(
-            tools.hash_function(function_with_list),
-            "function_with_list-ast:3655ea86940164b32b89e0b21de6864144607fb7f7ae48e9b820cc30db45faec",
+            tools._hash_function_with_ast(function_with_list)[:40],
+            "function_with_list:3655ea86940164b32b89e",
             msg="AST based hash should be OS and Python version independent",
         )
         self.assertEqual(
-            tools.hash_function(operation),
-            "operation-ast:f131a3edded2ef484eb570a329b44e3293e734f8f54ebf39242677f018bebaa2",
+            tools._hash_function_with_ast(operation)[:40],
+            "operation:f131a3edded2ef484eb570a329b44e",
             msg="AST based hash should be OS and Python version independent",
         )
-        import math
-
-        self.assertEqual(tools.hash_function(math.sin)[:7], "sin-id:")
 
 
 if __name__ == "__main__":
