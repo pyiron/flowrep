@@ -176,6 +176,12 @@ class WorkflowParser(parser_protocol.BodyWalker):
         tree: ast.While,
         scope: object_scope.ScopeProxy,
     ):
+        # 0. Fail early for unsupported syntax
+        if tree.orelse:
+            raise NotImplementedError(
+                "While loops with else branches are not supported in our parsing "
+                "syntax."
+            )
         # 1. Parse the loop header — pure AST, no parser state needed
         labeled_condition_node, condition_inputs = while_parser.parse_while_condition(
             tree, scope, self.symbol_scope
