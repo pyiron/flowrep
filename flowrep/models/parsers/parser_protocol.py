@@ -28,6 +28,10 @@ class BodyWalker(Protocol):
 
     def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None: ...
 
+    def walk(
+        self, statements: list[ast.stmt], scope: object_scope.ScopeProxy
+    ) -> None: ...
+
     def handle_assign(
         self, body: ast.Assign | ast.AnnAssign, scope: object_scope.ScopeProxy
     ) -> None: ...

@@ -58,7 +58,7 @@ class ForParser:
     ) -> None:
         all_iters = nested_iters + zipped_iters
 
-        walk_ast_for(self.body_walker, tree, scope)
+        self.body_walker.walk(tree.body, scope)
         if len(self.body_walker.symbol_scope.used_accumulator_map) == 0:
             raise ValueError("For nodes must use up at least one accumulator symbol.")
         used_accumulator_symbol_map = self.body_walker.symbol_scope.used_accumulator_map

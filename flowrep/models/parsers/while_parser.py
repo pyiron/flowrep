@@ -14,15 +14,6 @@ from flowrep.models.parsers import (
 )
 
 
-def walk_ast_while(
-    body_walker: parser_protocol.BodyWalker,
-    tree: ast.While,
-    scope: object_scope.ScopeProxy,
-) -> None:
-    for body in tree.body:
-        body_walker.visit(body, scope)
-
-
 class WhileParser:
     condition_label: ClassVar[str] = "condition"
     body_label: ClassVar[str] = "body"
@@ -73,7 +64,7 @@ class WhileParser:
 
     def build_body(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None:
 
-        walk_ast_while(self.body_walker, tree, scope)
+        self.body_walker.walk(tree.body, scope)
         reassigned_symbols = self.body_walker.symbol_scope.reassigned_symbols
         if len(reassigned_symbols) == 0:
             raise ValueError(

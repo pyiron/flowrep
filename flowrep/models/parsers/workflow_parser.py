@@ -115,6 +115,10 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"{type(stmt)}"
             )
 
+    def walk(self, statements: list[ast.stmt], scope: object_scope.ScopeProxy) -> None:
+        for stmt in statements:
+            self.visit(stmt, scope)
+
     def handle_assign(
         self, body: ast.Assign | ast.AnnAssign, scope: object_scope.ScopeProxy
     ):
