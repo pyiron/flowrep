@@ -8,7 +8,7 @@ from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel
 
-from flowrep import tools, workflow
+from flowrep import tools
 from flowrep.models.nodes import atomic_model
 
 
