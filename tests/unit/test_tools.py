@@ -30,6 +30,14 @@ class TestTools(unittest.TestCase):
         meta = tools.get_function_metadata(example_function, full_metadata=False)
         self.assertNotIn("docstring", meta)
 
+    def test_hash_function(self):
+        import math
+
+        self.assertEqual(
+            tools.hash_function(math.sin)[:40],
+            "sin:c5f6a0370fc318866315717568a5c3d2d704",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
