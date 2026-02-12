@@ -8,7 +8,7 @@ from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel
 
-from flowrep import tools
+from flowrep import workflow
 from flowrep.models.nodes import atomic_model
 
 
@@ -126,7 +126,7 @@ def _get_function_definition(tree: ast.Module) -> ast.FunctionDef:
         return tree.body[0]
     raise ValueError(
         "Expected ast to receive a single function defintion, but got "
-        f"{tools._function_to_ast_dict(tree.body)}"
+        f"{workflow._function_to_ast_dict(tree.body)}"
     )
 
 
