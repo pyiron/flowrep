@@ -18,7 +18,7 @@ def walk_ast_while(
     body_walker: parser_protocol.BodyWalker,
     tree: ast.While,
     scope: object_scope.ScopeProxy,
-) -> list[str]:
+) -> None:
     for body in tree.body:
         if isinstance(body, ast.Assign | ast.AnnAssign):
             body_walker.handle_assign(body, scope)
@@ -37,7 +37,6 @@ def walk_ast_while(
                 f"of flow control (for/while/if/try) and a return, but ast found "
                 f"{type(body)}"
             )
-    return body_walker.symbol_scope.reassigned_symbols
 
 
 class WhileParser:
@@ -90,7 +89,8 @@ class WhileParser:
 
     def build_body(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None:
 
-        reassigned_symbols = walk_ast_while(self.body_walker, tree, scope)
+        walk_ast_while(self.body_walker, tree, scope)
+        reassigned_symbols = self.body_walker.symbol_scope.reassigned_symbols
         if len(reassigned_symbols) == 0:
             raise ValueError(
                 "While-loop body must reassign at least one symbol from the "
