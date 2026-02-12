@@ -200,6 +200,233 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
 )
 
 
+def multi_reassign(x, y, bound):
+    while my_condition(x, bound):
+        x = my_add(x, y)
+        y = my_add(y, x)  # Gets internal edge to first my_add
+    return x, y
+
+
+multi_reassign_body = workflow_model.WorkflowNode.model_validate(
+    {
+        "type": "workflow",
+        "inputs": ["x", "y"],
+        "outputs": ["x", "y"],
+        "nodes": {
+            "my_add_0": my_add.flowrep_recipe,
+            "my_add_1": my_add.flowrep_recipe,
+        },
+        "input_edges": {
+            "my_add_0.a": "x",
+            "my_add_0.b": "y",
+            "my_add_1.a": "y",
+        },
+        "edges": {
+            "my_add_1.b": "my_add_0.output_0",
+        },
+        "output_edges": {
+            "x": "my_add_0.output_0",
+            "y": "my_add_1.output_0",
+        },
+    }
+)
+
+multi_reassign_node = workflow_model.WorkflowNode.model_validate(
+    {
+        "type": "workflow",
+        "inputs": ["x", "y", "bound"],
+        "outputs": ["x", "y"],
+        "nodes": {
+            "while_0": {
+                "type": "while",
+                "inputs": ["x", "bound", "y"],
+                "outputs": ["x", "y"],
+                "case": {
+                    "condition": {
+                        "label": "condition",
+                        "node": my_condition.flowrep_recipe,
+                    },
+                    "body": {
+                        "label": "body",
+                        "node": multi_reassign_body,
+                    },
+                },
+                "input_edges": {
+                    "condition.m": "x",
+                    "condition.n": "bound",
+                    "body.x": "x",
+                    "body.y": "y",
+                },
+                "output_edges": {
+                    "x": "body.x",
+                    "y": "body.y",
+                },
+            },
+        },
+        "input_edges": {
+            "while_0.x": "x",
+            "while_0.bound": "bound",
+            "while_0.y": "y",
+        },
+        "edges": {},
+        "output_edges": {
+            "x": "while_0.x",
+            "y": "while_0.y",
+        },
+    }
+)
+
+
+def sequential_whiles(x, y, m, n):
+    while my_condition(x, m):
+        x = my_add(x, y)
+    while my_condition(x, n):  # Fully sequential -- gets a sibling edge to first while
+        x = my_add(x, y)
+    return x
+
+
+seq_while_body = workflow_model.WorkflowNode.model_validate(
+    {
+        "type": "workflow",
+        "inputs": ["x", "y"],
+        "outputs": ["x"],
+        "nodes": {"my_add_0": my_add.flowrep_recipe},
+        "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+        "edges": {},
+        "output_edges": {"x": "my_add_0.output_0"},
+    }
+)
+
+sequential_whiles_node = workflow_model.WorkflowNode.model_validate(
+    {
+        "type": "workflow",
+        "inputs": ["x", "y", "m", "n"],
+        "outputs": ["x"],
+        "nodes": {
+            "while_0": {
+                "type": "while",
+                "inputs": ["x", "m", "y"],
+                "outputs": ["x"],
+                "case": {
+                    "condition": {
+                        "label": "condition",
+                        "node": my_condition.flowrep_recipe,
+                    },
+                    "body": {"label": "body", "node": seq_while_body},
+                },
+                "input_edges": {
+                    "condition.m": "x",
+                    "condition.n": "m",
+                    "body.x": "x",
+                    "body.y": "y",
+                },
+                "output_edges": {"x": "body.x"},
+            },
+            "while_1": {
+                "type": "while",
+                "inputs": ["x", "n", "y"],
+                "outputs": ["x"],
+                "case": {
+                    "condition": {
+                        "label": "condition",
+                        "node": my_condition.flowrep_recipe,
+                    },
+                    "body": {"label": "body", "node": seq_while_body},
+                },
+                "input_edges": {
+                    "condition.m": "x",
+                    "condition.n": "n",
+                    "body.x": "x",
+                    "body.y": "y",
+                },
+                "output_edges": {"x": "body.x"},
+            },
+        },
+        "input_edges": {
+            "while_0.x": "x",
+            "while_0.m": "m",
+            "while_0.y": "y",
+            "while_1.n": "n",
+            "while_1.y": "y",
+        },
+        "edges": {
+            "while_1.x": "while_0.x",
+        },
+        "output_edges": {
+            "x": "while_1.x",
+        },
+    }
+)
+
+
+def chained_body(x, a, b, bound):
+    while my_condition(x, bound):
+        tmp = my_add(x, a)  # Internally created variable creates internal edge
+        x = my_add(tmp, b)
+    return x
+
+
+chained_body_node = workflow_model.WorkflowNode.model_validate(
+    {
+        "type": "workflow",
+        "inputs": ["x", "a", "b", "bound"],
+        "outputs": ["x"],
+        "nodes": {
+            "while_0": {
+                "type": "while",
+                "inputs": ["x", "bound", "a", "b"],
+                "outputs": ["x"],
+                "case": {
+                    "condition": {
+                        "label": "condition",
+                        "node": my_condition.flowrep_recipe,
+                    },
+                    "body": {
+                        "label": "body",
+                        "node": {
+                            "type": "workflow",
+                            "inputs": ["x", "a", "b"],
+                            "outputs": ["x"],
+                            "nodes": {
+                                "my_add_0": my_add.flowrep_recipe,
+                                "my_add_1": my_add.flowrep_recipe,
+                            },
+                            "input_edges": {
+                                "my_add_0.a": "x",
+                                "my_add_0.b": "a",
+                                "my_add_1.b": "b",
+                            },
+                            "edges": {
+                                "my_add_1.a": "my_add_0.output_0",
+                            },
+                            "output_edges": {
+                                "x": "my_add_1.output_0",
+                            },
+                        },
+                    },
+                },
+                "input_edges": {
+                    "condition.m": "x",
+                    "condition.n": "bound",
+                    "body.x": "x",
+                    "body.a": "a",
+                    "body.b": "b",
+                },
+                "output_edges": {"x": "body.x"},
+            },
+        },
+        "input_edges": {
+            "while_0.x": "x",
+            "while_0.bound": "bound",
+            "while_0.a": "a",
+            "while_0.b": "b",
+        },
+        "edges": {},
+        "output_edges": {"x": "while_0.x"},
+    }
+)
+
+
 class TestParsingWhileLoops(unittest.TestCase):
     """
     These are pretty brittle to source code changes, as the reference is using the
@@ -210,6 +437,9 @@ class TestParsingWhileLoops(unittest.TestCase):
         for function, reference in (
             (simple_while, simple_while_node),
             (nested_while, nest_while_node),
+            (multi_reassign, multi_reassign_node),
+            (sequential_whiles, sequential_whiles_node),
+            (chained_body, chained_body_node),
         ):
             with self.subTest(function=function.__name__):
                 parsed_node = workflow_parser.parse_workflow(function)
