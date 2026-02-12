@@ -23,7 +23,7 @@ def walk_ast_while(
         if isinstance(body, ast.Assign | ast.AnnAssign):
             body_walker.handle_assign(body, scope)
         elif isinstance(body, ast.For):
-            body_walker.handle_for(body, scope, parsing_function_def=False)
+            body_walker.handle_for(body, scope)
         elif isinstance(body, ast.While):
             body_walker.handle_while(body, scope)
         elif isinstance(body, ast.If | ast.Try):

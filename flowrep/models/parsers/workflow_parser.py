@@ -126,7 +126,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self,
         tree: ast.For,
         scope: object_scope.ScopeProxy,
-        parsing_function_def: bool = False,
     ) -> None:
         # 1. Parse the iteration header — pure AST, no parser state needed
         nested_iters, zipped_iters, body_tree = for_parser.parse_for_iterations(tree)
