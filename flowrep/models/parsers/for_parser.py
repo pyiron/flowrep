@@ -14,24 +14,7 @@ def walk_ast_for(
     scope: object_scope.ScopeProxy,
 ) -> None:
     for body in tree.body:
-        if isinstance(body, ast.Assign | ast.AnnAssign):
-            body_walker.handle_assign(body, scope)
-        elif isinstance(body, ast.For):
-            body_walker.handle_for(body, scope)
-        elif isinstance(body, ast.While):
-            body_walker.handle_while(body, scope)
-        elif isinstance(body, ast.If | ast.Try):
-            raise NotImplementedError(
-                f"Support for control flow statement {type(body)} is forthcoming."
-            )
-        elif isinstance(body, ast.Expr):
-            body_walker.handle_appending_to_accumulator(body)
-        else:
-            raise TypeError(
-                f"Workflow python definitions can only interpret assignments, a subset "
-                f"of flow control (for/while/if/try) and a return, but ast found "
-                f"{type(body)}"
-            )
+        body_walker.visit(body, scope)
 
     if len(body_walker.symbol_scope.used_accumulator_map) == 0:
         raise ValueError("For nodes must use up at least one accumulator symbol.")

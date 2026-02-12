@@ -17,30 +17,15 @@ def walk_func_def(
 
     found_return = False
     for body in skip_docstring(tree.body):
-        if isinstance(body, ast.Assign | ast.AnnAssign):
-            body_walker.handle_assign(body, scope)
-        elif isinstance(body, ast.For):
-            body_walker.handle_for(body, scope)
-        elif isinstance(body, ast.While):
-            body_walker.handle_while(body, scope)
-        elif isinstance(body, ast.If | ast.Try):
-            raise NotImplementedError(
-                f"Support for control flow statement {type(body)} is forthcoming."
-            )
-        elif isinstance(body, ast.Return):
+        if isinstance(body, ast.Return):
             if found_return:
                 raise ValueError(
                     "Workflow python definitions must have exactly one return."
                 )
             found_return = True
-            # Sets state: outputs, output_edges
             body_walker.handle_return(body, func, output_labels)
         else:
-            raise TypeError(
-                f"Workflow python definitions can only interpret assignments, a subset "
-                f"of flow control (for/while/if/try) and a return, but ast found "
-                f"{type(body)} {body.value if hasattr(body, 'value') else ''}"
-            )
+            body_walker.visit(body, scope)
 
     if not found_return:
         raise ValueError("Workflow python definitions must have a return statement.")

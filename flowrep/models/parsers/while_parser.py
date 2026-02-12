@@ -20,23 +20,7 @@ def walk_ast_while(
     scope: object_scope.ScopeProxy,
 ) -> None:
     for body in tree.body:
-        if isinstance(body, ast.Assign | ast.AnnAssign):
-            body_walker.handle_assign(body, scope)
-        elif isinstance(body, ast.For):
-            body_walker.handle_for(body, scope)
-        elif isinstance(body, ast.While):
-            body_walker.handle_while(body, scope)
-        elif isinstance(body, ast.If | ast.Try):
-            raise NotImplementedError(
-                f"Support for control flow statement {type(body).__name__} inside "
-                f"While is forthcoming."
-            )
-        else:
-            raise TypeError(
-                f"Workflow python definitions can only interpret assignments, a subset "
-                f"of flow control (for/while/if/try) and a return, but ast found "
-                f"{type(body)}"
-            )
+        body_walker.visit(body, scope)
 
 
 class WhileParser:

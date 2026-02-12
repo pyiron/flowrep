@@ -95,6 +95,26 @@ class WorkflowParser(parser_protocol.BodyWalker):
             output_edges=self.output_edges,
         )
 
+    def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None:
+        if isinstance(stmt, ast.Assign | ast.AnnAssign):
+            self.handle_assign(stmt, scope)
+        elif isinstance(stmt, ast.For):
+            self.handle_for(stmt, scope)
+        elif isinstance(stmt, ast.While):
+            self.handle_while(stmt, scope)
+        elif isinstance(stmt, ast.If | ast.Try):
+            raise NotImplementedError(
+                f"Support for control flow statement {type(stmt)} is forthcoming."
+            )
+        elif isinstance(stmt, ast.Expr) and is_append_call(stmt.value):
+            self.handle_appending_to_accumulator(cast(ast.Call, stmt.value))
+        else:
+            raise TypeError(
+                f"Workflow python definitions can only interpret assignments, a subset "
+                f"of flow control (for/while/if/try) and a return, but ast found "
+                f"{type(stmt)}"
+            )
+
     def handle_assign(
         self, body: ast.Assign | ast.AnnAssign, scope: object_scope.ScopeProxy
     ):
@@ -262,32 +282,23 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 )
             self.output_edges[edge_models.OutputTarget(port=port)] = source
 
-    def handle_appending_to_accumulator(self, append_stmt: ast.Expr) -> None:
-        if is_append_call(append_stmt.value):
-            append_call = cast(ast.Call, append_stmt.value)
-            used_accumulator = cast(
-                ast.Name, cast(ast.Attribute, append_call.func).value
-            ).id
-            if used_accumulator not in self.symbol_scope.accumulators:
-                raise ValueError(
-                    f"Could not append to the symbol {used_accumulator}; it is not "
-                    f"found among known accumulator symbols: "
-                    f"{self.symbol_scope.accumulators}"
-                )
-            appended_symbol = cast(ast.Name, append_call.args[0]).id
-            self.symbol_scope.use_accumulator(used_accumulator, appended_symbol)
-            appended_source = self.symbol_scope[appended_symbol]
-            if isinstance(appended_source, edge_models.SourceHandle):
-                self.outputs.append(appended_symbol)
-                self.output_edges[edge_models.OutputTarget(port=appended_symbol)] = (
-                    appended_source
-                )
-        else:
-            raise TypeError(
-                f"Inside the context of an ast.For node, the only expression "
-                f"currently parseable is an `.append` call to a known "
-                f"accumulator symbol. Instead, got a body value {append_stmt.value}."
-                f"Currently known accumulators: {self.symbol_scope.accumulators}."
+    def handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
+        used_accumulator = cast(
+            ast.Name, cast(ast.Attribute, append_call.func).value
+        ).id
+        if used_accumulator not in self.symbol_scope.accumulators:
+            raise ValueError(
+                f"Could not append to the symbol {used_accumulator}; it is not "
+                f"found among known accumulator symbols: "
+                f"{self.symbol_scope.accumulators}"
+            )
+        appended_symbol = cast(ast.Name, append_call.args[0]).id
+        self.symbol_scope.use_accumulator(used_accumulator, appended_symbol)
+        appended_source = self.symbol_scope[appended_symbol]
+        if isinstance(appended_source, edge_models.SourceHandle):
+            self.outputs.append(appended_symbol)
+            self.output_edges[edge_models.OutputTarget(port=appended_symbol)] = (
+                appended_source
             )
 
 

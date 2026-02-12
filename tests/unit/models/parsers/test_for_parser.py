@@ -694,7 +694,7 @@ class TestAppendAccumulator(unittest.TestCase):
         # accumulator, so is_append_call returns False → TypeError
         with self.assertRaises(TypeError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("accumulator", str(ctx.exception).lower())
+        self.assertIn("but ast found", str(ctx.exception).lower())
 
     def test_append_to_unknown_symbol_raises(self):
         """Appending to a list that was never initialised as []."""
