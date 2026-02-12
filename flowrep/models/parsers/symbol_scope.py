@@ -132,6 +132,10 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             )
         )
 
+    def use_accumulator(self, accumulator_symbol: str, appended_symbol: str) -> None:
+        self.accumulators.remove(accumulator_symbol)
+        self.used_accumulator_map[accumulator_symbol] = appended_symbol
+
     # --- Forking for child scopes ---
     def fork_scope(self, symbol_remap: dict[str, str]) -> "SymbolScope":
         """

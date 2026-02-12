@@ -271,9 +271,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
                     f"found among known accumulator symbols: "
                     f"{self.symbol_scope.accumulators}"
                 )
-            self.symbol_scope.accumulators.remove(used_accumulator)
             appended_symbol = cast(ast.Name, append_call.args[0]).id
-            self.symbol_scope.used_accumulator_map[used_accumulator] = appended_symbol
+            self.symbol_scope.use_accumulator(used_accumulator, appended_symbol)
             appended_source = self.symbol_scope[appended_symbol]
             if isinstance(appended_source, edge_models.SourceHandle):
                 self.outputs.append(appended_symbol)
