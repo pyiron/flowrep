@@ -153,7 +153,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         for_label = label_helpers.unique_suffix("for", self.nodes)
         self.nodes[for_label] = for_node
 
-        # 6. Consume accumulators that the for-node fulfilled
+        # 6. Log all accumulators used inside the for-node as no longer available
         self.symbol_scope.accumulators -= set(used_accumulators)
 
         # 7. Log all symbols used inside the for-node as consumed
