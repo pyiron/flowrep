@@ -1,7 +1,9 @@
+import ast
 import builtins
 import hashlib
 import inspect
 import json
+import textwrap
 from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
 from functools import update_wrapper
@@ -541,9 +543,28 @@ def _get_control_flow_graph(control_flows: list[str]) -> nx.DiGraph:
     return graph
 
 
+def _function_to_ast_dict(node):
+    if isinstance(node, ast.AST):
+        result = {"_type": type(node).__name__}
+        for field, value in ast.iter_fields(node):
+            result[field] = _function_to_ast_dict(value)
+        return result
+    elif isinstance(node, list):
+        return [_function_to_ast_dict(item) for item in node]
+    else:
+        return node
+
+
+def get_ast_dict(func: Callable) -> dict:
+    """Get the AST dictionary representation of a function."""
+    source_code = textwrap.dedent(inspect.getsource(func))
+    tree = ast.parse(source_code)
+    return _function_to_ast_dict(tree)
+
+
 def analyze_function(func: Callable) -> tuple[nx.DiGraph, dict[str, Any], dict]:
     """Extracts the variable flow graph from a function"""
-    ast_dict = tools.get_ast_dict(func)
+    ast_dict = get_ast_dict(func)
     scope = inspect.getmodule(func).__dict__ | vars(builtins)
     analyzer = FunctionDictFlowAnalyzer(ast_dict["body"][0], scope)
     return analyzer.analyze()
