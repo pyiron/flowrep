@@ -50,7 +50,7 @@ class TestTools(unittest.TestCase):
         """Test that hash_function falls back to signature for functions without source."""
         import math
 
-        # Built-in functions should not raise exceptions
+        # Built-in functions (not Python functions, so uses else branch)
         hash_result = tools.hash_function(math.sin)
         self.assertTrue(hash_result.startswith("sin:"))
         self.assertEqual(len(hash_result), 68)  # "sin:" + 64 char hex hash
@@ -59,6 +59,24 @@ class TestTools(unittest.TestCase):
         hash_result = tools.hash_function(len)
         self.assertTrue(hash_result.startswith("len:"))
         self.assertEqual(len(hash_result), 68)
+
+    def test_hash_function_except_path(self):
+        """Test that hash_function handles functions where source is unavailable (except path)."""
+        # Create a lambda function - it's a function but source is unavailable
+        lambda_func = lambda x: x * 2
+        hash_result = tools.hash_function(lambda_func)
+        self.assertTrue(hash_result.startswith("<lambda>:"))
+        self.assertEqual(len(hash_result), 73)  # "<lambda>:" + 64 char hex hash
+
+        # Create a dynamically defined function using exec
+        exec_globals = {}
+        exec("def dynamic_test_func(x):\n    return x + 1", exec_globals)
+        dynamic_func = exec_globals["dynamic_test_func"]
+        hash_result = tools.hash_function(dynamic_func)
+        self.assertTrue(hash_result.startswith("dynamic_test_func:"))
+        self.assertEqual(
+            len(hash_result), 82
+        )  # "dynamic_test_func:" + 64 char hex hash
 
 
 if __name__ == "__main__":
