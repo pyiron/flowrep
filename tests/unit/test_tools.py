@@ -38,9 +38,10 @@ class TestTools(unittest.TestCase):
             "sin:0146c21ab456a735f07d62b456f003ce3dc6",
         )
 
+        expected_hash = "example_function:196938631e98c05e128b0b1"
         self.assertEqual(
-            tools.hash_function(example_function)[:40],
-            "example_function:196938631e98c05e128b0b1",
+            tools.hash_function(example_function)[: len(expected_hash)],
+            expected_hash,
         )
 
 
