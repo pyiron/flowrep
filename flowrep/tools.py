@@ -75,17 +75,14 @@ def hash_function(fn: Callable) -> str:
     
     For regular functions, the hash is based on the dedented source code.
     For other callables (built-ins, methods, etc.), the hash is based on
-    the module, qualified name, and signature.
+    the module, qualified name, and signature. If source code is unavailable
+    for a function, falls back to signature-based hashing.
 
     Args:
         fn (Callable): The function to hash.
 
     Returns:
         str: A stable hash string in the format "function_name:hash_hex".
-        
-    Raises:
-        OSError: If source code cannot be retrieved for a function.
-        TypeError: If the callable doesn't have the required attributes.
     """
 
     if inspect.isfunction(fn):
@@ -96,7 +93,7 @@ def hash_function(fn: Callable) -> str:
             source_code = f"{fn.__module__}:{fn.__qualname__}:{inspect.signature(fn)}"
     else:
         source_code = f"{fn.__module__}:{fn.__qualname__}:{inspect.signature(fn)}"
-    source_code = textwrap.dedent(source_code.replace("\r\n", "\n"))
+    source_code = textwrap.dedent(source_code.replace("\r\n", "\n").replace("\r", "\n"))
     source_code_hash = hashlib.sha256(source_code.encode("utf-8")).hexdigest()
     name = getattr(fn, "__name__", "unknown")
     return name + ":" + source_code_hash
