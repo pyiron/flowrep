@@ -33,16 +33,32 @@ class TestTools(unittest.TestCase):
     def test_hash_function(self):
         import math
 
+        # Test built-in function (triggers except path - no source code available)
         self.assertEqual(
             tools.hash_function(math.sin)[:40],
             "sin:0146c21ab456a735f07d62b456f003ce3dc6",
         )
 
+        # Test regular function with source code available
         expected_hash = "example_function:196938631e98c05e128b0b1"
         self.assertEqual(
             tools.hash_function(example_function)[: len(expected_hash)],
             expected_hash,
         )
+
+    def test_hash_function_fallback(self):
+        """Test that hash_function falls back to signature for functions without source."""
+        import math
+
+        # Built-in functions should not raise exceptions
+        hash_result = tools.hash_function(math.sin)
+        self.assertTrue(hash_result.startswith("sin:"))
+        self.assertEqual(len(hash_result), 68)  # "sin:" + 64 char hex hash
+
+        # Test another built-in
+        hash_result = tools.hash_function(len)
+        self.assertTrue(hash_result.startswith("len:"))
+        self.assertEqual(len(hash_result), 68)
 
 
 if __name__ == "__main__":
