@@ -63,8 +63,7 @@ class TestTools(unittest.TestCase):
     def test_hash_function_except_path(self):
         """Test that hash_function handles functions where source is unavailable (except path)."""
         # Create a lambda function - it's a function but source is unavailable
-        lambda_func = lambda x: x * 2
-        hash_result = tools.hash_function(lambda_func)
+        hash_result = tools.hash_function(lambda x: x * 2)
         self.assertTrue(hash_result.startswith("<lambda>:"))
         self.assertEqual(len(hash_result), 73)  # "<lambda>:" + 64 char hex hash
 
