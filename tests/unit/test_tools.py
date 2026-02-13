@@ -35,7 +35,12 @@ class TestTools(unittest.TestCase):
 
         self.assertEqual(
             tools.hash_function(math.sin)[:40],
-            "sin:c5f6a0370fc318866315717568a5c3d2d704",
+            "sin:0146c21ab456a735f07d62b456f003ce3dc6",
+        )
+
+        self.assertEqual(
+            tools.hash_function(example_function)[:40],
+            "example_function:196938631e98c05e128b0b1"
         )
 
 

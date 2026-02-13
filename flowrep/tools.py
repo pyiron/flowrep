@@ -1,5 +1,7 @@
 import copy
 import hashlib
+import inspect
+import textwrap
 from collections import defaultdict
 from collections.abc import Callable
 from importlib import import_module
@@ -79,13 +81,15 @@ def hash_function(fn: Callable) -> str:
         str: A stable hash string representing the function.
     """
 
+    source_code = (
+        inspect.getsource(fn)
+        if inspect.isfunction(fn)
+        else f"{fn.__module__}:{fn.__qualname__}:{inspect.signature(fn)}"
+    )
+    source_code = textwrap.dedent(source_code.replace("\\r\\n", ""))
+    source_code_hash = hashlib.sha256(source_code.encode("utf-8")).hexdigest()
     name = getattr(fn, "__name__", "unkonwn")
-    if hasattr(fn, "__module__") and hasattr(fn, "__qualname__"):
-        version = _get_version_from_module(fn.__module__)
-        identity = f"{fn.__module__}:{fn.__qualname__}:{version}"
-        return name + ":" + hashlib.sha256(identity.encode("utf-8")).hexdigest()
-
-    raise TypeError(f"{fn!r} is not hashable - wrap it in another function")
+    return name + ":" + source_code_hash
 
 
 def recursive_defaultdict() -> defaultdict:
