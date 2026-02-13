@@ -40,7 +40,7 @@ class TestTools(unittest.TestCase):
 
         self.assertEqual(
             tools.hash_function(example_function)[:40],
-            "example_function:196938631e98c05e128b0b1"
+            "example_function:196938631e98c05e128b0b1",
         )
 
 
