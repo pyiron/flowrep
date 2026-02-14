@@ -705,11 +705,11 @@ class TestWorkflow(unittest.TestCase):
         wf_dict["nodes"]["add_0"]["inputs"] = {"y": {"metadata": "something"}}
         G = fwf.get_workflow_graph(wf_dict)
         self.assertDictEqual(
-            G.nodes["add_0.inputs.y"],
+            G.nodes["add_0:inputs@y"],
             {"metadata": "something", "position": 0, "step": "input"},
         )
         G = fwf.simple_run(G)
-        self.assertDictEqual(G.nodes["outputs.z"], {"step": "output", "value": 12})
+        self.assertDictEqual(G.nodes["outputs@z"], {"step": "output", "value": 12})
         rev_edges = fwf.graph_to_wf_dict(G)["edges"]
         self.assertEqual(
             sorted(rev_edges),
