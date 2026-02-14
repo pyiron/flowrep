@@ -1019,37 +1019,6 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
     return hash_dict
 
 
-def _replace_input_ports(
-    graph: nx.DiGraph, workflow_dict: dict[str, Any]
-) -> nx.DiGraph:
-    G = graph.copy()
-    for n in list(G.nodes):
-        if G.in_degree(n) == 0:
-            assert n.startswith("inputs@")
-            data = _get_entry(workflow_dict, n)["value"]
-            nx.relabel_nodes(G, {n: data}, copy=False)
-    return G
-
-
-def _get_entry(data: dict[str, Any], key: str) -> Any:
-    """
-    Get a value from a nested dictionary at the specified key path.
-
-    Args:
-        data (dict[str, Any]): The dictionary to search.
-        key (str): The key path to retrieve the value from, separated by dots.
-
-    Returns:
-        Any: The value at the specified key path.
-
-    Raises:
-        KeyError: If the key path does not exist in the dictionary.
-    """
-    for item in key.split("."):
-        data = data[item]
-    return data
-
-
 def _set_entry(
     data: dict[str, Any], key: str, value: Any, create_missing: bool = False
 ) -> None:

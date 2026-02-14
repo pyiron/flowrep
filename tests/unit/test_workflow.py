@@ -656,10 +656,8 @@ class TestWorkflow(unittest.TestCase):
             return x, y
 
         workflow_dict = fwf.get_workflow_dict(yet_another_workflow, with_io=True)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.default"), 10)
-        self.assertRaises(KeyError, fwf._get_entry, workflow_dict, "inputs.x.value")
         fwf._set_entry(workflow_dict, "inputs.a.value", 42)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.value"), 42)
+        self.assertEqual(workflow_dict["inputs"]["a"]["value"], 42)
 
     def test_get_function_metadata(self):
         self.assertEqual(
