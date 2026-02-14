@@ -1138,6 +1138,7 @@ class _GNode:
         arg = re.search(r"(inputs|outputs)@", self.key)
         if arg is not None:
             return arg.group(1)
+        return None
 
     @property
     def arg(self) -> str | None:
