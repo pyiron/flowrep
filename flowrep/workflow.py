@@ -975,7 +975,7 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
 
     for node in list(nx.topological_sort(G)):
         break_flag = False
-        if G.nodes[node]["step"] != "node":
+        if "@" in node:
             for term in ["hash", "value"]:
                 if "hash" not in G.nodes[node]:
                     for pre in G.predecessors(node):
@@ -1015,7 +1015,7 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
                 h + "@" + G.nodes[out].get("label", out.split("@")[-1])
             )
         hash_dict_tmp["hash"] = h
-        hash_dict[node] = hash_dict_tmp
+        hash_dict[node.replace("/", ".")] = hash_dict_tmp
     return hash_dict
 
 
@@ -1120,8 +1120,9 @@ class _GNode:
 
     @property
     def node(self) -> str | None:
-        if ":" in self.key:
-            return self.key.split(":")[0]
+        if "@" in self.key and ":" not in self.key:
+            return None
+        return self.key.split(":")[0]
 
     @property
     def node_list(self) -> list[str]:
@@ -1190,13 +1191,13 @@ def graph_to_wf_dict(G: nx.DiGraph) -> dict:
                     ".".join([dest.node_list[-1], dest.io, dest.arg]),
                 )
         elif len(orig.node_list) > len(dest.node_list):
-            nodes = dest.node_list[:-1]
+            nodes = dest.node_list
             edge = (
                 ".".join([orig.node_list[-1], orig.io, orig.arg]),
                 ".".join([dest.io, dest.arg]),
             )
         else:
-            nodes = orig.node_list[:-1]
+            nodes = orig.node_list
             edge = (
                 ".".join([orig.io, orig.arg]),
                 ".".join([dest.node_list[-1], dest.io, dest.arg]),
