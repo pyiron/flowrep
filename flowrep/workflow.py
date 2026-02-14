@@ -959,7 +959,7 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
             continue
         io = node.split(":")[-1].split("@")[0]
         assert io in ["inputs", "outputs"], f"Node {node} is not correctly formatted"
-        G.nodes[node]["step"] = io[:-1]
+        G.nodes[node]["step"] = {"inputs": "input", "outputs": "output"}[io]
     G.graph[""] = {
         key: value
         for key, value in workflow_dict.items()
@@ -1107,6 +1107,7 @@ class _GNode:
         arg = re.search(r"(inputs|outputs)@", self.key)
         if arg is not None:
             return arg.group(1)
+        return None
 
     @property
     def arg(self) -> str | None:
