@@ -1083,7 +1083,7 @@ def simple_run(G: nx.DiGraph) -> nx.DiGraph:
     return G
 
 
-class _GNode:
+class GNode:
     def __init__(self, key: str):
         self.key = key
 
@@ -1132,7 +1132,7 @@ def graph_to_wf_dict(G: nx.DiGraph) -> dict:
     wf_dict = tools.dict_to_recursive_dd({})
 
     for node, metadata in list(G.nodes.data()):
-        gn = _GNode(node)
+        gn = GNode(node)
         d = wf_dict
         for n in gn.node_list:
             d = d["nodes"][n]
@@ -1144,8 +1144,8 @@ def graph_to_wf_dict(G: nx.DiGraph) -> dict:
             d.update({key: value for key, value in metadata.items() if key != "step"})
 
     for edge in G.edges:
-        orig = _GNode(edge[0])
-        dest = _GNode(edge[1])
+        orig = GNode(edge[0])
+        dest = GNode(edge[1])
         if not orig.is_io or not dest.is_io:
             continue
         if len(orig.node_list) == len(dest.node_list):
