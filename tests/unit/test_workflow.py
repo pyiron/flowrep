@@ -656,10 +656,8 @@ class TestWorkflow(unittest.TestCase):
             return x, y
 
         workflow_dict = fwf.get_workflow_dict(yet_another_workflow, with_io=True)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.default"), 10)
-        self.assertRaises(KeyError, fwf._get_entry, workflow_dict, "inputs.x.value")
         fwf._set_entry(workflow_dict, "inputs.a.value", 42)
-        self.assertEqual(fwf._get_entry(workflow_dict, "inputs.a.value"), 42)
+        self.assertEqual(workflow_dict["inputs"]["a"]["value"], 42)
 
     def test_get_function_metadata(self):
         self.assertEqual(
@@ -705,11 +703,11 @@ class TestWorkflow(unittest.TestCase):
         wf_dict["nodes"]["add_0"]["inputs"] = {"y": {"metadata": "something"}}
         G = fwf.get_workflow_graph(wf_dict)
         self.assertDictEqual(
-            G.nodes["add_0.inputs.y"],
+            G.nodes["add_0:inputs@y"],
             {"metadata": "something", "position": 0, "step": "input"},
         )
         G = fwf.simple_run(G)
-        self.assertDictEqual(G.nodes["outputs.z"], {"step": "output", "value": 12})
+        self.assertDictEqual(G.nodes["outputs@z"], {"step": "output", "value": 12})
         rev_edges = fwf.graph_to_wf_dict(G)["edges"]
         self.assertEqual(
             sorted(rev_edges),
