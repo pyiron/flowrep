@@ -1,5 +1,7 @@
 import copy
 import hashlib
+import inspect
+import textwrap
 from collections import defaultdict
 from collections.abc import Callable
 from importlib import import_module
@@ -69,23 +71,34 @@ def get_function_metadata(
 
 def hash_function(fn: Callable) -> str:
     """
-    Hash a function based on its module, qualified name, and version. If the
-    function does not have a module or qualified name, it raises a TypeError.
+    Hash a function based on its source code or signature.
+
+    For regular functions, the hash is based on the dedented source code.
+    For other callables (built-ins, methods, etc.), the hash is based on
+    the module, qualified name, and signature. If source code is unavailable
+    for a function, falls back to signature-based hashing.
 
     Args:
         fn (Callable): The function to hash.
 
     Returns:
-        str: A stable hash string representing the function.
+        str: A stable hash string in the format "function_name:hash_hex".
     """
 
-    name = getattr(fn, "__name__", "unkonwn")
-    if hasattr(fn, "__module__") and hasattr(fn, "__qualname__"):
-        version = _get_version_from_module(fn.__module__)
-        identity = f"{fn.__module__}:{fn.__qualname__}:{version}"
-        return name + ":" + hashlib.sha256(identity.encode("utf-8")).hexdigest()
-
-    raise TypeError(f"{fn!r} is not hashable - wrap it in another function")
+    if inspect.isfunction(fn):
+        try:
+            source_code = inspect.getsource(fn)
+            source_code = textwrap.dedent(
+                source_code.replace("\r\n", "\n").replace("\r", "\n")
+            )
+        except (OSError, TypeError):
+            # Fall back to signature for functions where source is unavailable
+            source_code = f"{fn.__module__}:{fn.__qualname__}:{inspect.signature(fn)}"
+    else:
+        source_code = f"{fn.__module__}:{fn.__qualname__}:{inspect.signature(fn)}"
+    source_code_hash = hashlib.sha256(source_code.encode("utf-8")).hexdigest()
+    name = getattr(fn, "__name__", "unknown")
+    return name + ":" + source_code_hash
 
 
 def recursive_defaultdict() -> defaultdict:
