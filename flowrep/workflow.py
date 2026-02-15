@@ -3,6 +3,7 @@ import builtins
 import hashlib
 import inspect
 import json
+import re
 import textwrap
 from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
@@ -906,11 +907,27 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
     def _get_items(d: dict[str, dict]) -> dict[str, dict]:
         return {k: v for k, v in d.items() if k not in ["inputs", "outputs"]}
 
+    def _to_gnode(node: str) -> str:
+        node_split = node.rsplit(".", 2)
+        if len(node_split) < 2:
+            return node
+        if len(node_split) == 2:
+            assert node_split[0] in [
+                "inputs",
+                "outputs",
+            ], f"Node {node} is not correctly formatted"
+            return f"{node_split[0]}@{node_split[1]}"
+        assert node_split[1] in [
+            "inputs",
+            "outputs",
+        ], f"Node {node} is not correctly formatted"
+        return f"{node_split[0]}:{node_split[1]}@{node_split[2]}"
+
     G = nx.DiGraph()
     for inp, data in workflow_dict.get("inputs", {}).items():
-        G.add_node(f"inputs.{inp}", step="input", **data)
+        G.add_node(f"inputs@{inp}", step="input", **data)
     for out, data in workflow_dict.get("outputs", {}).items():
-        G.add_node(f"outputs.{out}", step="output", **data)
+        G.add_node(f"outputs@{out}", step="output", **data)
 
     nodes_to_delete = []
     if "test" in workflow_dict:
@@ -925,30 +942,34 @@ def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
         if node["type"] in ["workflow", "for", "while"]:
             child_G = get_workflow_graph(node)
             for child_key in list(child_G.graph.keys()):
-                new_key = f"{key}.{child_key}" if child_key != "" else key
+                new_key = f"{key}/{child_key}" if child_key != "" else key
                 child_G.graph[new_key] = child_G.graph[child_key]
-            mapping = {n: key + "." + n for n in child_G.nodes()}
+            mapping = {}
+            for n in child_G.nodes():
+                if n.startswith("inputs@") or n.startswith("outputs@"):
+                    mapping[n] = key + ":" + n
+                else:
+                    mapping[n] = key + "/" + n
             G = nx.union(nx.relabel_nodes(child_G, mapping), G)
             nodes_to_delete.append(key)
         else:
             G.add_node(key, step="node", **_get_items(node))
         for ii, (inp, data) in enumerate(node.get("inputs", {}).items()):
-            G.add_node(f"{key}.inputs.{inp}", step="input", **({"position": ii} | data))
+            G.add_node(f"{key}:inputs@{inp}", step="input", **({"position": ii} | data))
         for ii, (out, data) in enumerate(node.get("outputs", {}).items()):
             G.add_node(
-                f"{key}.outputs.{out}", step="output", **({"position": ii} | data)
+                f"{key}:outputs@{out}", step="output", **({"position": ii} | data)
             )
     for edge in _get_missing_edges(cast(list[tuple[str, str]], workflow_dict["edges"])):
-        G.add_edge(*edge)
+        G.add_edge(_to_gnode(edge[0]), _to_gnode(edge[1]))
     for node in nodes_to_delete:
         G.remove_node(node)
     for node in G.nodes():
-        if len(node.split(".")) == 1:
+        if "@" not in node:
             continue
-        if node.split(".")[-2] == "inputs":
-            G.nodes[node]["step"] = "input"
-        elif node.split(".")[-2] == "outputs":
-            G.nodes[node]["step"] = "output"
+        io = node.split(":")[-1].split("@")[0]
+        assert io in ["inputs", "outputs"], f"Node {node} is not correctly formatted"
+        G.nodes[node]["step"] = {"inputs": "input", "outputs": "output"}[io]
     G.graph[""] = {
         key: value
         for key, value in workflow_dict.items()
@@ -964,7 +985,7 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
 
     for node in list(nx.topological_sort(G)):
         break_flag = False
-        if G.nodes[node]["step"] != "node":
+        if "@" in node:
             for term in ["hash", "value"]:
                 if "hash" not in G.nodes[node]:
                     for pre in G.predecessors(node):
@@ -975,7 +996,7 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
         hash_dict_tmp = {
             "inputs": {},
             "outputs": [
-                G.nodes[out].get("label", out.split(".")[-1])
+                G.nodes[out].get("label", out.split("@")[-1])
                 for out in G.successors(node)
             ],
             "node": tools.get_function_metadata(G.nodes[node]["function"]),
@@ -983,7 +1004,7 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
         hash_dict_tmp["node"]["connected_inputs"] = []
         for inp in G.predecessors(node):
             data = G.nodes[inp]
-            inp_name = inp.split(".")[-1]
+            inp_name = inp.split("@")[-1]
             if "hash" in data:
                 hash_dict_tmp["inputs"][inp_name] = data["hash"]
                 hash_dict_tmp["node"]["connected_inputs"].append(inp_name)
@@ -1001,42 +1022,11 @@ def get_hashed_node_dict(workflow_dict: dict[str, dict]) -> dict[str, Any]:
         ).hexdigest()
         for out in G.successors(node):
             G.nodes[out]["hash"] = (
-                h + "@" + G.nodes[out].get("label", out.split(".")[-1])
+                h + "@" + G.nodes[out].get("label", out.split("@")[-1])
             )
         hash_dict_tmp["hash"] = h
-        hash_dict[node] = hash_dict_tmp
+        hash_dict[node.replace("/", ".")] = hash_dict_tmp
     return hash_dict
-
-
-def _replace_input_ports(
-    graph: nx.DiGraph, workflow_dict: dict[str, Any]
-) -> nx.DiGraph:
-    G = graph.copy()
-    for n in list(G.nodes):
-        if G.in_degree(n) == 0:
-            assert n.startswith("inputs.")
-            data = _get_entry(workflow_dict, n)["value"]
-            nx.relabel_nodes(G, {n: data}, copy=False)
-    return G
-
-
-def _get_entry(data: dict[str, Any], key: str) -> Any:
-    """
-    Get a value from a nested dictionary at the specified key path.
-
-    Args:
-        data (dict[str, Any]): The dictionary to search.
-        key (str): The key path to retrieve the value from, separated by dots.
-
-    Returns:
-        Any: The value at the specified key path.
-
-    Raises:
-        KeyError: If the key path does not exist in the dictionary.
-    """
-    for item in key.split("."):
-        data = data[item]
-    return data
 
 
 def _set_entry(
@@ -1081,7 +1071,7 @@ def simple_run(G: nx.DiGraph) -> nx.DiGraph:
                 continue
             kwargs = {}
             for inp in G.predecessors(node):
-                kwargs[inp.split(".")[-1]] = G.nodes[inp]["value"]
+                kwargs[inp.split("@")[-1]] = G.nodes[inp]["value"]
             outputs = data["function"](**kwargs)
             successors = list(G.successors(node))
             if len(successors) == 1:
@@ -1089,13 +1079,13 @@ def simple_run(G: nx.DiGraph) -> nx.DiGraph:
             else:
                 for succ in successors:
                     G.nodes[succ]["value"] = outputs[
-                        int(G.nodes[succ].get("position", succ.split(".")[-1]))
+                        int(G.nodes[succ].get("position", succ.split("@")[-1]))
                     ]
             continue
         if "default" in data and "value" not in data:
             data["value"] = data["default"]
         if G.in_degree(node) == 0 and "value" not in data:
-            raise ValueError("Input values not entirely set")
+            raise ValueError(f"Input values not given for {node}")
         assert "value" in data
         for succ in G.successors(node):
             if G.nodes[succ].get("type") != "atomic":
@@ -1107,10 +1097,44 @@ def _get_edges_in_order(G: nx.DiGraph) -> list[tuple[str, str]]:
     node_order = list(nx.topological_sort(G))
     pos = {n: i for i, n in enumerate(node_order)}
 
-    return sorted(
-        G.edges(),
-        key=lambda e: (pos[e[0]], pos[e[1]])
-    )
+    return sorted(G.edges(), key=lambda e: (pos[e[0]], pos[e[1]]))
+
+
+class GNode:
+    def __init__(self, key: str):
+        self.key = key
+
+    @property
+    def node(self) -> str | None:
+        if "@" in self.key and ":" not in self.key:
+            return None
+        return self.key.split(":")[0]
+
+    @property
+    def node_list(self) -> list[str]:
+        if self.node is None:
+            return []
+        return self.node.split("/")
+
+    @property
+    def io(self) -> str | None:
+        arg = re.search(r":(inputs|outputs)@", self.key)
+        if arg is not None:
+            return arg.group(1)
+        arg = re.search(r"(inputs|outputs)@", self.key)
+        if arg is not None:
+            return arg.group(1)
+        return None
+
+    @property
+    def arg(self) -> str | None:
+        return self.key.split("@")[-1] if "@" in self.key else None
+
+    def is_io(self) -> bool:
+        return self.io is not None
+
+    def is_global_io(self) -> bool:
+        return self.is_io() and self.node is None
 
 
 def _graph_to_flat_wf_dict(G: nx.DiGraph) -> dict:
@@ -1124,22 +1148,37 @@ def _graph_to_flat_wf_dict(G: nx.DiGraph) -> dict:
         }
     )
     for edge in _get_edges_in_order(G):
-        wf_dict["edges"].append(edge)
-        for e in edge:
-            if G.nodes[e].get("type") == "test":
-                print(e, nx.descendants(G, e))
+        orig = GNode(edge[0])
+        dest = GNode(edge[1])
+        if not orig.is_io() or not dest.is_io():
+            continue
+        wf_dict["edges"].append(
+            tuple(
+                (
+                    ".".join(["/".join(n.node_list), n.io, n.arg])
+                    if n.node_list
+                    else ".".join([n.io, n.arg])
+                )
+                for n in [orig, dest]
+            )
+        )
     for node, metadata in list(G.nodes.data()):
-        t = metadata["step"]
-        if t in ["input", "output"]:
+        gn = GNode(node)
+        if gn.is_global_io():
             for key, value in metadata.items():
                 if key == "step":
                     continue
-                wf_dict[f"{t}s"][node.split(".")[-1]][key] = value
+                wf_dict[gn.io][gn.arg][key] = value
+        elif gn.is_io():
+            for key, value in metadata.items():
+                if key == "step":
+                    continue
+                wf_dict["nodes"]["/".join(gn.node_list)][gn.io][gn.arg][key] = value
         else:
             for key, value in metadata.items():
                 if key == "step":
                     continue
-                wf_dict["nodes"][node][key] = value
+                wf_dict["nodes"]["/".join(gn.node_list)][key] = value
 
     return tools.recursive_dd_to_dict(wf_dict)
 
@@ -1160,42 +1199,45 @@ def graph_to_wf_dict(G: nx.DiGraph, flatten: bool = False) -> dict:
         return _graph_to_flat_wf_dict(G)
 
     for node, metadata in list(G.nodes.data()):
-        t = metadata["step"]
-        if t in ["input", "output"]:
-            d = wf_dict
-            for n in node.split(".")[:-2]:
-                d = d["nodes"][n]
-            for key, value in metadata.items():
-                if key == "step":
-                    continue
-                d[f"{t}s"][node.split(".")[-1]][key] = value
+        gn = GNode(node)
+        d = wf_dict
+        for n in gn.node_list:
+            d = d["nodes"][n]
+        if gn.is_io():
+            d[gn.io][gn.arg] = {
+                key: value for key, value in metadata.items() if key != "step"
+            }
         else:
-            d = wf_dict
-            for n in node.split("."):
-                d = d["nodes"][n]
-            d.update(
-                {key: value for key, value in metadata.items() if key != "step"}
-            )
+            d.update({key: value for key, value in metadata.items() if key != "step"})
 
     for edge in G.edges:
-        if any(
-            "." not in e or e.split(".")[-2] not in ["inputs", "outputs"] for e in edge
-        ):
+        orig = GNode(edge[0])
+        dest = GNode(edge[1])
+        if not orig.is_io() or not dest.is_io():
             continue
-        if len(edge[0].split(".")) == len(edge[1].split(".")):
-            nodes = edge[0].split(".")[:-3]
-            edge = tuple([".".join(e.split(".")[-3:]) for e in edge])
-        elif len(edge[0].split(".")) > len(edge[1].split(".")):
-            nodes = edge[1].split(".")[:-2]
+        if len(orig.node_list) == len(dest.node_list):
+            nodes = orig.node_list[:-1]
+            if len(orig.node_list) == 0:
+                edge = (
+                    ".".join([orig.io, orig.arg]),
+                    ".".join([dest.io, dest.arg]),
+                )
+            else:
+                edge = (
+                    ".".join([orig.node_list[-1], orig.io, orig.arg]),
+                    ".".join([dest.node_list[-1], dest.io, dest.arg]),
+                )
+        elif len(orig.node_list) > len(dest.node_list):
+            nodes = dest.node_list
             edge = (
-                ".".join(edge[0].split(".")[-3:]),
-                ".".join(edge[1].split(".")[-2:]),
+                ".".join([orig.node_list[-1], orig.io, orig.arg]),
+                ".".join([dest.io, dest.arg]),
             )
         else:
-            nodes = edge[0].split(".")[:-2]
+            nodes = orig.node_list
             edge = (
-                ".".join(edge[0].split(".")[-2:]),
-                ".".join(edge[1].split(".")[-3:]),
+                ".".join([orig.io, orig.arg]),
+                ".".join([dest.node_list[-1], dest.io, dest.arg]),
             )
         d = wf_dict
         for node in nodes:
@@ -1206,7 +1248,7 @@ def graph_to_wf_dict(G: nx.DiGraph, flatten: bool = False) -> dict:
     for key, value in G.graph.items():
         d = wf_dict
         if key != "":
-            for n in key.split("."):
+            for n in key.split("/"):
                 d = d["nodes"][n]
         for k, v in value.items():
             d[k] = v
@@ -1222,15 +1264,11 @@ def flatten_graph(G: nx.DiGraph) -> nx.DiGraph:
         for neighbors in [G.predecessors(n), G.successors(n)]
         for io in neighbors
     ]
-    for node, data in G.nodes.data():
-        if (
-            data["step"] == "node"
-            or node in ios
-            or node.split(".")[0] in ["inputs", "outputs"]
-        ):
+    for node in G.nodes:
+        gn = GNode(node)
+        if not gn.is_io() or node in ios or gn.is_global_io():
             continue
-        assert data["step"] in ["input", "output"]
-        if data["step"] == "input":
+        if gn.io == "input":
             main_node = list(G.successors(node))[0]
         else:
             main_node = list(G.predecessors(node))[0]
