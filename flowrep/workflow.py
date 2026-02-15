@@ -1243,7 +1243,7 @@ def flatten_graph(G: nx.DiGraph) -> nx.DiGraph:
         for neighbors in [G.predecessors(n), G.successors(n)]
         for io in neighbors
     ]
-    for node, data in G.nodes.data():
+    for node in G.nodes:
         gn = GNode(node)
         if not gn.is_io() or node in ios or gn.is_global_io():
             continue
