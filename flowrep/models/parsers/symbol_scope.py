@@ -182,7 +182,8 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             raise ValueError(
                 f"Could not append to the symbol {accumulator_symbol}; it is not "
                 f"found among available accumulator symbols: "
-                f"{self.available_accumulators}"
+                f"{self.available_accumulators}. Remember that accumulators need to be "
+                f"declared in the immediate parent scope relative to their use."
             )
         self.available_accumulators.remove(accumulator_symbol)
         self.consumed_accumulators[accumulator_symbol] = appended_symbol
