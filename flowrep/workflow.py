@@ -590,7 +590,7 @@ def _get_nodes(
 
 
 def _remove_index(s: str) -> str:
-    return "_".join(s.split("_")[:-1])
+    return s.rsplit("_", 1)[0]
 
 
 def _get_control_flow(data: dict[str, Any]) -> str:
