@@ -1,7 +1,7 @@
 import unittest
 
 from flowrep.models import edge_models
-from flowrep.models.nodes import while_model, workflow_model
+from flowrep.models.nodes import for_model, while_model, workflow_model
 from flowrep.models.parsers import atomic_parser, while_parser, workflow_parser
 
 
@@ -373,6 +373,27 @@ class TestWhileParserStructure(unittest.TestCase):
         node = self._parse(wf)
         self.assertIn("while_0", node.nodes)
         self.assertIn("while_1", node.nodes)
+
+    def test_for_nested_inside_while_body(self):
+        """A for-loop inside a while-body produces a ForNode in the body workflow."""
+
+        def wf(x, bound):
+            while my_condition(x, bound):
+                xs = identity(x)
+                acc = []
+                for i in xs:
+                    v = identity(i)
+                    acc.append(v)
+                x = identity(acc)
+            return x
+
+        wn = self._parse(wf).nodes["while_0"]
+        body = wn.case.body.node
+        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        for_nodes = [n for n in body.nodes.values() if isinstance(n, for_model.ForNode)]
+        self.assertEqual(len(for_nodes), 1)
+        # The for-node's output is consumed downstream in the while body
+        self.assertIn("acc", for_nodes[0].outputs)
 
 
 class TestWhileParserRoundTrip(unittest.TestCase):

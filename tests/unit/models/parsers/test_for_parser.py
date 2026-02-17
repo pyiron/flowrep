@@ -11,7 +11,7 @@ import textwrap
 import unittest
 
 from flowrep.models import edge_models
-from flowrep.models.nodes import atomic_model, for_model, workflow_model
+from flowrep.models.nodes import atomic_model, for_model, while_model, workflow_model
 from flowrep.models.parsers import atomic_parser, for_parser, workflow_parser
 
 # ---------------------------------------------------------------------------
@@ -36,6 +36,11 @@ def split(a, b):
 
 def my_range(n):
     return list(range(n))
+
+
+@atomic_parser.atomic
+def my_condition(m, n):
+    return m < n
 
 
 # ---------------------------------------------------------------------------
@@ -631,6 +636,28 @@ class TestForParserStructure(unittest.TestCase):
         self.assertIn("for_0", node.nodes)
         self.assertIn("for_1", node.nodes)
         self.assertEqual(sorted(node.outputs), ["first", "second"])
+
+    def test_while_nested_inside_for_body(self):
+        """A while-loop inside a for-body produces a WhileNode in the body workflow."""
+
+        def wf(xs, bound):
+            results = []
+            for x in xs:
+                y = identity(x)
+                while my_condition(y, bound):
+                    y = identity(y)
+                results.append(y)
+            return results
+
+        fn = self._parse(wf).nodes["for_0"]
+        body = fn.body_node.node
+        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        while_nodes = [
+            n for n in body.nodes.values() if isinstance(n, while_model.WhileNode)
+        ]
+        self.assertEqual(len(while_nodes), 1)
+        # The while-node's output feeds the accumulator
+        self.assertIn("y", while_nodes[0].outputs)
 
 
 # ===================================================================
