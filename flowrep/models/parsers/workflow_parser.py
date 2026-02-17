@@ -213,7 +213,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         #    all as InputSources from the body's perspective
         body_symbol_scope = self.symbol_scope.fork_scope(
             {src: var for var, src in all_iters},
-            carry_accumulators=True,
+            available_accumulators=self.symbol_scope.declared_accumulators.copy(),
         )
 
         # 3. Fresh body walker with the forked scope
@@ -269,7 +269,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         #    carry_accumulators=False: the while-node model does not support
         #    accumulation across iterations, so outer accumulators must not
         #    leak into the while body.
-        body_symbol_scope = self.symbol_scope.fork_scope({}, carry_accumulators=False)
+        body_symbol_scope = self.symbol_scope.fork_scope({})
         body_walker = WorkflowParser(symbol_scope=body_symbol_scope)
 
         # 3. WhileParser owns the while-specific wiring; body_walker owns the

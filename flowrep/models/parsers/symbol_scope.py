@@ -192,7 +192,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     def fork_scope(
         self,
         symbol_remap: dict[str, str],
-        carry_accumulators: bool = True,
+        available_accumulators: set[str] | None = None,
     ) -> "SymbolScope":
         """
         Create a child scope wherein some symbols are remapped.
@@ -214,7 +214,5 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
                 (k := symbol_remap.get(key, key)): edge_models.InputSource(port=k)
                 for key in self._sources
             },
-            available_accumulators=(
-                self.declared_accumulators.copy() if carry_accumulators else set()
-            ),
+            available_accumulators=available_accumulators,
         )
