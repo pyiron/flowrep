@@ -102,12 +102,10 @@ class WorkflowParser(parser_protocol.BodyWalker):
     def __init__(self, symbol_scope: symbol_scope.SymbolScope):
         self.symbol_scope = symbol_scope
         self.nodes: union.Nodes = {}
-        self.output_edges: edge_models.OutputEdges = {}
-        self.outputs: list[str] = []
 
     @property
     def inputs(self) -> list[str]:
-        return self.symbol_scope.consumed_input_names
+        return self.symbol_scope.inputs
 
     @property
     def input_edges(self) -> edge_models.InputEdges:
@@ -116,6 +114,14 @@ class WorkflowParser(parser_protocol.BodyWalker):
     @property
     def edges(self) -> edge_models.Edges:
         return self.symbol_scope.edges
+
+    @property
+    def output_edges(self) -> edge_models.OutputEdges:
+        return self.symbol_scope.output_edges
+
+    @property
+    def outputs(self) -> list[str]:
+        return self.symbol_scope.outputs
 
     def build_model(
         self, inputs_override: list[str] | None = None
@@ -206,7 +212,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
         # 2. Fork the scope: replaces iterated-over symbols with iteration variables,
         #    all as InputSources from the body's perspective
         body_symbol_scope = self.symbol_scope.fork_scope(
-            {src: var for var, src in all_iters}
+            {src: var for var, src in all_iters},
+            carry_accumulators=True,
         )
 
         # 3. Fresh body walker with the forked scope
@@ -227,8 +234,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.nodes[for_label] = for_node
 
         # 6. Log all accumulators used inside the for-node as no longer available
-        self.symbol_scope.accumulators -= set(
-            body_walker.symbol_scope.used_accumulator_map
+        self.symbol_scope.declared_accumulators -= set(
+            body_walker.symbol_scope.consumed_accumulators
         )
 
         # 7. Log all symbols used inside the for-node as consumed
@@ -259,7 +266,10 @@ class WorkflowParser(parser_protocol.BodyWalker):
         )
 
         # 2. Build a fresh body walker with the forked scope
-        body_symbol_scope = self.symbol_scope.fork_scope({})
+        #    carry_accumulators=False: the while-node model does not support
+        #    accumulation across iterations, so outer accumulators must not
+        #    leak into the while body.
+        body_symbol_scope = self.symbol_scope.fork_scope({}, carry_accumulators=False)
         body_walker = WorkflowParser(symbol_scope=body_symbol_scope)
 
         # 3. WhileParser owns the while-specific wiring; body_walker owns the
@@ -280,7 +290,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         for port in while_node.inputs:
             self.symbol_scope.consume(port, while_label, port)
 
-        # 8. Register the while-node's outputs as symbols in *this* scope
+        # 6. Register the while-node's outputs as symbols in *this* scope
         labeled_while = helper_models.LabeledNode(label=while_label, node=while_node)
         self.symbol_scope.register(
             new_symbols=while_node.outputs,
@@ -314,10 +324,9 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"({returned_symbols})."
             )
 
-        self.outputs = list(output_labels) or scraped_labels
+        final_ports = list(output_labels) if output_labels else scraped_labels
 
-        self.output_edges = {}
-        for symbol, port in zip(returned_symbols, self.outputs, strict=True):
+        for symbol, port in zip(returned_symbols, final_ports, strict=True):
             try:
                 source = self.symbol_scope[symbol]
             except KeyError as e:
@@ -332,26 +341,17 @@ class WorkflowParser(parser_protocol.BodyWalker):
                     f"but the symbol '{symbol}' appears to be resolved directly from the "
                     f"workflow inputs."
                 )
-            self.output_edges[edge_models.OutputTarget(port=port)] = source
+            self.symbol_scope.produce(port, symbol)
 
     def handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
         used_accumulator = cast(
             ast.Name, cast(ast.Attribute, append_call.func).value
         ).id
-        if used_accumulator not in self.symbol_scope.accumulators:
-            raise ValueError(
-                f"Could not append to the symbol {used_accumulator}; it is not "
-                f"found among known accumulator symbols: "
-                f"{self.symbol_scope.accumulators}"
-            )
         appended_symbol = cast(ast.Name, append_call.args[0]).id
         self.symbol_scope.use_accumulator(used_accumulator, appended_symbol)
         appended_source = self.symbol_scope[appended_symbol]
         if isinstance(appended_source, edge_models.SourceHandle):
-            self.outputs.append(appended_symbol)
-            self.output_edges[edge_models.OutputTarget(port=appended_symbol)] = (
-                appended_source
-            )
+            self.symbol_scope.produce(appended_symbol, appended_symbol)
 
 
 def is_append_call(node: ast.expr | ast.Expr) -> bool:

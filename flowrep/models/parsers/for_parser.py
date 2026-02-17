@@ -59,18 +59,16 @@ class ForParser:
         all_iters = nested_iters + zipped_iters
 
         self.body_walker.walk(tree.body, scope)
-        if len(self.body_walker.symbol_scope.used_accumulator_map) == 0:
+        consumed = self.body_walker.symbol_scope.consumed_accumulators
+        if len(consumed) == 0:
             raise ValueError("For nodes must use up at least one accumulator symbol.")
-        used_accumulator_symbol_map = self.body_walker.symbol_scope.used_accumulator_map
 
         # Every iteration variable must actually be consumed inside the body.
         # An unused iterator likely indicates a bug; if the user only needs the
         # structural effect (e.g. repetition count), they should make the
         # dependency explicit.
         iterating_symbols = {var for var, _ in all_iters}
-        consumed_symbols = set(self.body_walker.inputs) | set(
-            used_accumulator_symbol_map.values()
-        )
+        consumed_symbols = set(self.body_walker.inputs) | set(consumed.values())
         if unused := iterating_symbols - consumed_symbols:
             raise ValueError(
                 f"For-node iteration variable(s) {sorted(unused)} are never "
@@ -81,13 +79,13 @@ class ForParser:
         broadcast_symbols = [
             s
             for s in self.body_walker.inputs
-            if s not in set(used_accumulator_symbol_map.values())
+            if s not in set(consumed.values())
             and s not in {iterating_symbol for iterating_symbol, _ in all_iters}
         ]  # Need to keep it consistently ordered, so don't use a simple set op
         scattered_symbols = [scattered_symbol for _, scattered_symbol in all_iters]
 
         self._inputs = broadcast_symbols + scattered_symbols
-        self._outputs = list(used_accumulator_symbol_map)
+        self._outputs = list(consumed)
         self._nested_ports = [var for var, _ in nested_iters]
         self._zipped_ports = [var for var, _ in zipped_iters]
 
@@ -106,7 +104,7 @@ class ForParser:
         self._input_edges = broadcast_inputs | scattered_inputs
 
         self._output_edges = {}
-        for accumulator_symbol, appended_symbol in used_accumulator_symbol_map.items():
+        for accumulator_symbol, appended_symbol in consumed.items():
             target = edge_models.OutputTarget(port=accumulator_symbol)
             if appended_symbol in self.body_walker.outputs:
                 self._output_edges[target] = edge_models.SourceHandle(

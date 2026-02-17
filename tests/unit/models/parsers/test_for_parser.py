@@ -285,7 +285,9 @@ class TestWalkAstForErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("not found among known accumulator symbols", str(ctx.exception))
+        self.assertIn(
+            "not found among available accumulator symbols", str(ctx.exception)
+        )
         self.assertIn("results", str(ctx.exception))
 
     def test_assigning_non_empty_list_raises(self):
@@ -710,7 +712,7 @@ class TestAppendAccumulator(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
         self.assertIn(
-            "not found among known accumulator symbols", str(ctx.exception).lower()
+            "not found among available accumulator symbols", str(ctx.exception).lower()
         )
         self.assertIn("other", str(ctx.exception).lower())
         self.assertIn("results", str(ctx.exception).lower())
