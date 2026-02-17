@@ -1,14 +1,13 @@
 import ast
 from collections.abc import Callable, Collection
 from types import FunctionType
-from typing import cast
+from typing import Any, cast
 
 from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import helper_models, union, workflow_model
 from flowrep.models.parsers import (
     atomic_parser,
     for_parser,
-    func_def_parser,
     label_helpers,
     object_scope,
     parser_helpers,
@@ -16,6 +15,8 @@ from flowrep.models.parsers import (
     symbol_scope,
     while_parser,
 )
+
+SpecialHandlers = dict[type[ast.stmt], Callable[[Any, object_scope.ScopeProxy], None]]
 
 
 def workflow(
@@ -48,8 +49,41 @@ def parse_workflow(
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs})
     )
     tree = parser_helpers.get_ast_function_node(func)
-    func_def_parser.walk_func_def(state, tree, func, output_labels)
+
+    found_return = False
+
+    def handle_return(stmt: ast.Return, scope: object_scope.ScopeProxy):
+        nonlocal found_return
+        if found_return:
+            raise ValueError(
+                "Workflow python definitions must have exactly one return."
+            )
+        found_return = True
+        state.handle_return(stmt, func, output_labels)
+
+    state.walk(
+        skip_docstring(tree.body),
+        object_scope.get_scope(func),
+        special_handlers={ast.Return: handle_return},
+    )
+
+    if not found_return:
+        raise ValueError("Workflow python definitions must have a return statement.")
+
     return state.build_model(inputs_override=inputs)
+
+
+def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
+    return (
+        body[1:]
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        )
+        else body
+    )
 
 
 class WorkflowParser(parser_protocol.BodyWalker):
@@ -68,13 +102,10 @@ class WorkflowParser(parser_protocol.BodyWalker):
     def __init__(self, symbol_scope: symbol_scope.SymbolScope):
         self.symbol_scope = symbol_scope
         self.nodes: union.Nodes = {}
-        self.output_edges: edge_models.OutputEdges = {}
-        self.outputs: list[str] = []
-        self._for_node_accumulators: set[str] = set()
 
     @property
     def inputs(self) -> list[str]:
-        return self.symbol_scope.consumed_input_names
+        return self.symbol_scope.inputs
 
     @property
     def input_edges(self) -> edge_models.InputEdges:
@@ -83,6 +114,14 @@ class WorkflowParser(parser_protocol.BodyWalker):
     @property
     def edges(self) -> edge_models.Edges:
         return self.symbol_scope.edges
+
+    @property
+    def output_edges(self) -> edge_models.OutputEdges:
+        return self.symbol_scope.output_edges
+
+    @property
+    def outputs(self) -> list[str]:
+        return self.symbol_scope.outputs
 
     def build_model(
         self, inputs_override: list[str] | None = None
@@ -95,6 +134,44 @@ class WorkflowParser(parser_protocol.BodyWalker):
             edges=self.edges,
             output_edges=self.output_edges,
         )
+
+    def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None:
+        if isinstance(stmt, ast.Assign | ast.AnnAssign):
+            self.handle_assign(stmt, scope)
+        elif isinstance(stmt, ast.For):
+            self.handle_for(stmt, scope)
+        elif isinstance(stmt, ast.While):
+            self.handle_while(stmt, scope)
+        elif isinstance(stmt, ast.If | ast.Try):
+            raise NotImplementedError(
+                f"Support for control flow statement {type(stmt)} is forthcoming."
+            )
+        elif isinstance(stmt, ast.Expr) and is_append_call(stmt.value):
+            self.handle_appending_to_accumulator(cast(ast.Call, stmt.value))
+        else:
+            raise TypeError(
+                f"Workflow python definitions can only interpret assignments, a subset "
+                f"of flow control (for/while/if/try) and a return, but ast found "
+                f"{type(stmt)}"
+            )
+
+    def walk(
+        self,
+        statements: list[ast.stmt],
+        scope: object_scope.ScopeProxy,
+        *,
+        special_handlers: SpecialHandlers | None = None,
+    ) -> None:
+        for stmt in statements:
+            if special_handlers:
+                for ast_type, handler in special_handlers.items():
+                    if isinstance(stmt, ast_type):
+                        handler(stmt, scope)
+                        break
+                else:
+                    self.visit(stmt, scope)
+            else:
+                self.visit(stmt, scope)
 
     def handle_assign(
         self, body: ast.Assign | ast.AnnAssign, scope: object_scope.ScopeProxy
@@ -115,7 +192,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
                     f"Empty list assignment must target exactly one symbol, "
                     f"got {new_symbols}"
                 )
-            self._for_node_accumulators.add(new_symbols[0])
+            self.symbol_scope.register_accumulator(new_symbols[0])
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
@@ -127,7 +204,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self,
         tree: ast.For,
         scope: object_scope.ScopeProxy,
-        parsing_function_def: bool = False,
     ) -> None:
         # 1. Parse the iteration header — pure AST, no parser state needed
         nested_iters, zipped_iters, body_tree = for_parser.parse_for_iterations(tree)
@@ -135,18 +211,18 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
         # 2. Fork the scope: replaces iterated-over symbols with iteration variables,
         #    all as InputSources from the body's perspective
-        child_scope = self.symbol_scope.fork_scope({src: var for var, src in all_iters})
+        body_symbol_scope = self.symbol_scope.fork_scope(
+            {src: var for var, src in all_iters},
+            available_accumulators=self.symbol_scope.declared_accumulators.copy(),
+        )
 
         # 3. Fresh body walker with the forked scope
-        body_walker = WorkflowParser(symbol_scope=child_scope)
+        body_walker = WorkflowParser(symbol_scope=body_symbol_scope)
 
         # 4. ForParser owns the for-specific wiring; body_walker owns the
         #    general statement dispatch inside the for-body
-        fp = for_parser.ForParser(
-            body_walker=body_walker,
-            accumulators=self._for_node_accumulators,
-        )
-        used_accumulators = fp.build_body(
+        fp = for_parser.ForParser(body_walker=body_walker)
+        fp.build_body(
             body_tree,
             scope=scope,
             nested_iters=nested_iters,
@@ -157,8 +233,10 @@ class WorkflowParser(parser_protocol.BodyWalker):
         for_label = label_helpers.unique_suffix("for", self.nodes)
         self.nodes[for_label] = for_node
 
-        # 6. Consume accumulators that the for-node fulfilled
-        self._for_node_accumulators -= set(used_accumulators)
+        # 6. Log all accumulators used inside the for-node as no longer available
+        self.symbol_scope.declared_accumulators -= set(
+            body_walker.symbol_scope.consumed_accumulators
+        )
 
         # 7. Log all symbols used inside the for-node as consumed
         for port in for_node.inputs:
@@ -167,7 +245,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         # 8. Register the for-node's outputs as symbols in *this* scope
         labeled_for = helper_models.LabeledNode(label=for_label, node=for_node)
         self.symbol_scope.register(
-            new_symbols=list(used_accumulators),
+            new_symbols=for_node.outputs,
             child=labeled_for,
         )
 
@@ -188,6 +266,9 @@ class WorkflowParser(parser_protocol.BodyWalker):
         )
 
         # 2. Build a fresh body walker with the forked scope
+        #    carry_accumulators=False: the while-node model does not support
+        #    accumulation across iterations, so outer accumulators must not
+        #    leak into the while body.
         body_symbol_scope = self.symbol_scope.fork_scope({})
         body_walker = WorkflowParser(symbol_scope=body_symbol_scope)
 
@@ -209,7 +290,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         for port in while_node.inputs:
             self.symbol_scope.consume(port, while_label, port)
 
-        # 8. Register the while-node's outputs as symbols in *this* scope
+        # 6. Register the while-node's outputs as symbols in *this* scope
         labeled_while = helper_models.LabeledNode(label=while_label, node=while_node)
         self.symbol_scope.register(
             new_symbols=while_node.outputs,
@@ -243,10 +324,9 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"({returned_symbols})."
             )
 
-        self.outputs = list(output_labels) or scraped_labels
+        final_ports = list(output_labels) if output_labels else scraped_labels
 
-        self.output_edges = {}
-        for symbol, port in zip(returned_symbols, self.outputs, strict=True):
+        for symbol, port in zip(returned_symbols, final_ports, strict=True):
             try:
                 source = self.symbol_scope[symbol]
             except KeyError as e:
@@ -261,39 +341,24 @@ class WorkflowParser(parser_protocol.BodyWalker):
                     f"but the symbol '{symbol}' appears to be resolved directly from the "
                     f"workflow inputs."
                 )
-            self.output_edges[edge_models.OutputTarget(port=port)] = source
+            self.symbol_scope.produce(port, symbol)
 
-    def handle_appending_to_accumulator(
-        self, append_stmt: ast.Expr, accumulators: set[str]
-    ) -> tuple[str, str]:
-        if is_append_call(append_stmt.value, accumulators):
-            append_call = cast(ast.Call, append_stmt.value)
-            used_accumulator = cast(
-                ast.Name, cast(ast.Attribute, append_call.func).value
-            ).id
-            appended_symbol = cast(ast.Name, append_call.args[0]).id
-            appended_source = self.symbol_scope[appended_symbol]
-            if isinstance(appended_source, edge_models.SourceHandle):
-                self.outputs.append(appended_symbol)
-                self.output_edges[edge_models.OutputTarget(port=appended_symbol)] = (
-                    appended_source
-                )
-            return used_accumulator, appended_symbol
-        else:
-            raise TypeError(
-                f"Inside the context of an ast.For node, the only expression "
-                f"currently parseable is an `.append` call to a known "
-                f"accumulator symbol. Instead, got a body value {append_stmt.value}."
-                f"Currently known accumulators: {accumulators}."
-            )
+    def handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
+        used_accumulator = cast(
+            ast.Name, cast(ast.Attribute, append_call.func).value
+        ).id
+        appended_symbol = cast(ast.Name, append_call.args[0]).id
+        self.symbol_scope.use_accumulator(used_accumulator, appended_symbol)
+        appended_source = self.symbol_scope[appended_symbol]
+        if isinstance(appended_source, edge_models.SourceHandle):
+            self.symbol_scope.produce(appended_symbol, appended_symbol)
 
 
-def is_append_call(node: ast.expr | ast.Expr, accumulators: set[str]) -> bool:
+def is_append_call(node: ast.expr | ast.Expr) -> bool:
     """Check if node is an append call to a known accumulator."""
     return (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "append"
         and isinstance(node.func.value, ast.Name)
-        and node.func.value.id in accumulators
     )

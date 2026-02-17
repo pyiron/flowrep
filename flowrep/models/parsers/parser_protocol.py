@@ -13,9 +13,7 @@ class BodyWalker(Protocol):
     """What control flow parsers need to walk a sub-body."""
 
     symbol_scope: symbol_scope.SymbolScope
-    outputs: list[str]
     nodes: union.Nodes
-    output_edges: edge_models.OutputEdges
 
     @property
     def inputs(self) -> list[str]: ...
@@ -26,19 +24,27 @@ class BodyWalker(Protocol):
     @property
     def edges(self) -> edge_models.Edges: ...
 
+    @property
+    def output_edges(self) -> edge_models.OutputEdges: ...
+
+    @property
+    def outputs(self) -> list[str]: ...
+
+    def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None: ...
+
+    def walk(
+        self, statements: list[ast.stmt], scope: object_scope.ScopeProxy
+    ) -> None: ...
+
     def handle_assign(
         self, body: ast.Assign | ast.AnnAssign, scope: object_scope.ScopeProxy
     ) -> None: ...
 
-    def handle_for(
-        self, tree: ast.For, scope: object_scope.ScopeProxy, parsing_function_def: bool
-    ) -> None: ...
+    def handle_for(self, tree: ast.For, scope: object_scope.ScopeProxy) -> None: ...
 
     def handle_while(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None: ...
 
-    def handle_appending_to_accumulator(
-        self, stmt: ast.Expr, accumulators: set[str]
-    ) -> tuple[str, str]: ...
+    def handle_appending_to_accumulator(self, append_call: ast.Call) -> None: ...
 
     def handle_return(
         self,

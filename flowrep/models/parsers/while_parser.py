@@ -14,32 +14,6 @@ from flowrep.models.parsers import (
 )
 
 
-def walk_ast_while(
-    body_walker: parser_protocol.BodyWalker,
-    tree: ast.While,
-    scope: object_scope.ScopeProxy,
-) -> list[str]:
-    for body in tree.body:
-        if isinstance(body, ast.Assign | ast.AnnAssign):
-            body_walker.handle_assign(body, scope)
-        elif isinstance(body, ast.For):
-            body_walker.handle_for(body, scope, parsing_function_def=False)
-        elif isinstance(body, ast.While):
-            body_walker.handle_while(body, scope)
-        elif isinstance(body, ast.If | ast.Try):
-            raise NotImplementedError(
-                f"Support for control flow statement {type(body).__name__} inside "
-                f"While is forthcoming."
-            )
-        else:
-            raise TypeError(
-                f"Workflow python definitions can only interpret assignments, a subset "
-                f"of flow control (for/while/if/try) and a return, but ast found "
-                f"{type(body)}"
-            )
-    return body_walker.symbol_scope.reassigned_symbols
-
-
 class WhileParser:
     condition_label: ClassVar[str] = "condition"
     body_label: ClassVar[str] = "body"
@@ -90,7 +64,8 @@ class WhileParser:
 
     def build_body(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None:
 
-        reassigned_symbols = walk_ast_while(self.body_walker, tree, scope)
+        self.body_walker.walk(tree.body, scope)
+        reassigned_symbols = self.body_walker.symbol_scope.reassigned_symbols
         if len(reassigned_symbols) == 0:
             raise ValueError(
                 "While-loop body must reassign at least one symbol from the "
@@ -98,11 +73,7 @@ class WhileParser:
             )
 
         for symbol in reassigned_symbols:
-            source = self.body_walker.symbol_scope[symbol]
-            self.body_walker.outputs.append(symbol)
-            self.body_walker.output_edges[edge_models.OutputTarget(port=symbol)] = (
-                source
-            )
+            self.body_walker.symbol_scope.produce(symbol, symbol)
 
         self._inputs = [source.port for source in self._condition_inputs.values()]
         self._input_edges = self._condition_inputs

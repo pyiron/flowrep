@@ -11,7 +11,7 @@ import textwrap
 import unittest
 
 from flowrep.models import edge_models
-from flowrep.models.nodes import atomic_model, for_model, workflow_model
+from flowrep.models.nodes import atomic_model, for_model, while_model, workflow_model
 from flowrep.models.parsers import atomic_parser, for_parser, workflow_parser
 
 # ---------------------------------------------------------------------------
@@ -36,6 +36,11 @@ def split(a, b):
 
 def my_range(n):
     return list(range(n))
+
+
+@atomic_parser.atomic
+def my_condition(m, n):
+    return m < n
 
 
 # ---------------------------------------------------------------------------
@@ -285,7 +290,10 @@ class TestWalkAstForErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("at most once", str(ctx.exception))
+        self.assertIn(
+            "not found among available accumulator symbols", str(ctx.exception)
+        )
+        self.assertIn("results", str(ctx.exception))
 
     def test_assigning_non_empty_list_raises(self):
         def wf(xs):
@@ -629,6 +637,28 @@ class TestForParserStructure(unittest.TestCase):
         self.assertIn("for_1", node.nodes)
         self.assertEqual(sorted(node.outputs), ["first", "second"])
 
+    def test_while_nested_inside_for_body(self):
+        """A while-loop inside a for-body produces a WhileNode in the body workflow."""
+
+        def wf(xs, bound):
+            results = []
+            for x in xs:
+                y = identity(x)
+                while my_condition(y, bound):
+                    y = identity(y)
+                results.append(y)
+            return results
+
+        fn = self._parse(wf).nodes["for_0"]
+        body = fn.body_node.node
+        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        while_nodes = [
+            n for n in body.nodes.values() if isinstance(n, while_model.WhileNode)
+        ]
+        self.assertEqual(len(while_nodes), 1)
+        # The while-node's output feeds the accumulator
+        self.assertIn("y", while_nodes[0].outputs)
+
 
 # ===================================================================
 # Round-trip serialisation
@@ -693,7 +723,7 @@ class TestAppendAccumulator(unittest.TestCase):
         # accumulator, so is_append_call returns False → TypeError
         with self.assertRaises(TypeError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("accumulator", str(ctx.exception).lower())
+        self.assertIn("but ast found", str(ctx.exception).lower())
 
     def test_append_to_unknown_symbol_raises(self):
         """Appending to a list that was never initialised as []."""
@@ -706,9 +736,36 @@ class TestAppendAccumulator(unittest.TestCase):
                 results.append(y)
             return results
 
-        with self.assertRaises(TypeError) as ctx:
+        with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("accumulator", str(ctx.exception).lower())
+        self.assertIn(
+            "not found among available accumulator symbols", str(ctx.exception).lower()
+        )
+        self.assertIn("other", str(ctx.exception).lower())
+        self.assertIn("results", str(ctx.exception).lower())
+
+    def test_grandparent_accumulator_raises(self):
+        """Accumulator defined two levels up is unreachable from inner for-body."""
+
+        def wf(xs):
+            results = []
+            for x in xs:
+                ys = my_range(x)
+                for y in ys:
+                    z = identity(y)
+                    results.append(z)
+            return results
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn(
+            "not found among available accumulator symbols",
+            str(ctx.exception).lower(),
+        )
+        self.assertIn(
+            "immediate parent scope",
+            str(ctx.exception).lower(),
+        )
 
 
 if __name__ == "__main__":
