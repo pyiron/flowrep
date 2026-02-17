@@ -8,15 +8,6 @@ from flowrep.models.nodes import for_model, helper_models
 from flowrep.models.parsers import object_scope, parser_protocol
 
 
-def walk_ast_for(
-    body_walker: parser_protocol.BodyWalker,
-    tree: ast.For,
-    scope: object_scope.ScopeProxy,
-) -> None:
-    for body in tree.body:
-        body_walker.visit(body, scope)
-
-
 class ForParser:
     body_label: ClassVar[str] = "body"
 
