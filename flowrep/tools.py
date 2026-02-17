@@ -1,8 +1,10 @@
 import copy
 import hashlib
-import json
+import inspect
+import textwrap
 from collections import defaultdict
 from collections.abc import Callable
+from importlib import import_module
 from typing import Any
 
 
@@ -31,6 +33,12 @@ def serialize_functions(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def _get_version_from_module(module_name: str) -> str:
+    base_module_name = module_name.split(".")[0]
+    base_module = import_module(base_module_name)
+    return getattr(base_module, "__version__", "not_defined")
+
+
 def get_function_metadata(
     cls: Callable | dict[str, str], full_metadata: bool = False
 ) -> dict[str, str]:
@@ -51,14 +59,8 @@ def get_function_metadata(
         "module": cls.__module__,
         "qualname": cls.__qualname__,
     }
-    from importlib import import_module
 
-    base_module = import_module(data["module"].split(".")[0])
-    data["version"] = (
-        base_module.__version__
-        if hasattr(base_module, "__version__")
-        else "not_defined"
-    )
+    data["version"] = _get_version_from_module(data["module"])
     if not full_metadata:
         return data
     data["hash"] = hash_function(cls)
@@ -69,42 +71,34 @@ def get_function_metadata(
 
 def hash_function(fn: Callable) -> str:
     """
-    Generate a SHA-256 hash for a given function based on its bytecode and
-    metadata.
+    Hash a function based on its source code or signature.
+
+    For regular functions, the hash is based on the dedented source code.
+    For other callables (built-ins, methods, etc.), the hash is based on
+    the module, qualified name, and signature. If source code is unavailable
+    for a function, falls back to signature-based hashing.
 
     Args:
-        fn (Callable): The function to be hashed.
+        fn (Callable): The function to hash.
 
     Returns:
-        str: A SHA-256 hash of the function's bytecode and metadata.
+        str: A stable hash string in the format "function_name:hash_hex".
     """
-    h = hashlib.sha256()
 
-    code = fn.__code__
-
-    # include bytecode
-    h.update(code.co_code)
-
-    # include metadata
-    fields_dict = {
-        "co_argcount": code.co_argcount,
-        "co_posonlyargcount": code.co_posonlyargcount,
-        "co_kwonlyargcount": code.co_kwonlyargcount,
-        "co_nlocals": code.co_nlocals,
-        "co_stacksize": code.co_stacksize,
-        "co_flags": code.co_flags,
-        "co_consts": code.co_consts,
-        "co_names": code.co_names,
-        "co_varnames": code.co_varnames,
-        "co_freevars": code.co_freevars,
-        "co_cellvars": code.co_cellvars,
-        "defaults": fn.__defaults__,
-        "kwdefaults": fn.__kwdefaults__,
-    }
-
-    h.update(json.dumps(fields_dict, sort_keys=True, default=str).encode("utf-8"))
-
-    return h.hexdigest()
+    if inspect.isfunction(fn):
+        try:
+            source_code = inspect.getsource(fn)
+            source_code = textwrap.dedent(
+                source_code.replace("\r\n", "\n").replace("\r", "\n")
+            )
+        except (OSError, TypeError):
+            # Fall back to signature for functions where source is unavailable
+            source_code = f"{fn.__module__}:{fn.__qualname__}:{inspect.signature(fn)}"
+    else:
+        source_code = f"{fn.__module__}:{fn.__qualname__}:{inspect.signature(fn)}"
+    source_code_hash = hashlib.sha256(source_code.encode("utf-8")).hexdigest()
+    name = getattr(fn, "__name__", "unknown")
+    return name + ":" + source_code_hash
 
 
 def recursive_defaultdict() -> defaultdict:
