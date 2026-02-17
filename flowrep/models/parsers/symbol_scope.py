@@ -42,6 +42,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         self,
         sources: dict[str, edge_models.InputSource | edge_models.SourceHandle],
         available_accumulators: set[str] | None = None,
+        reserved_accumulators: set[str] | None = None,
     ):
         self._sources = dict(sources)
         self._consumptions: list[SymbolConsumption] = []
@@ -50,6 +51,9 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         self.declared_accumulators: set[str] = set()
         self.available_accumulators: set[str] = (
             set() if available_accumulators is None else available_accumulators
+        )
+        self.reserved_accumulators: set[str] = (
+            set() if reserved_accumulators is None else reserved_accumulators
         )
         self.consumed_accumulators: dict[str, str] = {}
 
@@ -120,6 +124,14 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     def __len__(self):
         return len(self._sources)
 
+    @property
+    def all_accumulators(self) -> set[str]:
+        return (
+            self.declared_accumulators
+            | self.available_accumulators
+            | self.reserved_accumulators
+        )
+
     # --- Mutations ---
     def register(
         self,
@@ -127,7 +139,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         child: helper_models.LabeledNode,
     ) -> None:
         """Map new symbols 1:1 to child node outputs. Enforces uniqueness."""
-        all_accumulators = self.declared_accumulators | self.available_accumulators
+        all_accumulators = self.all_accumulators
         if overshadowed := set(new_symbols).intersection(all_accumulators):
             raise ValueError(
                 f"Symbol(s) {overshadowed} already registered as accumulators."
@@ -215,4 +227,6 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
                 for key in self._sources
             },
             available_accumulators=available_accumulators,
+            reserved_accumulators=self.reserved_accumulators
+            | self.available_accumulators,
         )
