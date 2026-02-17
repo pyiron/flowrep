@@ -73,11 +73,7 @@ class WhileParser:
             )
 
         for symbol in reassigned_symbols:
-            source = self.body_walker.symbol_scope[symbol]
-            self.body_walker.outputs.append(symbol)
-            self.body_walker.output_edges[edge_models.OutputTarget(port=symbol)] = (
-                source
-            )
+            self.body_walker.symbol_scope.produce(symbol, symbol)
 
         self._inputs = [source.port for source in self._condition_inputs.values()]
         self._input_edges = self._condition_inputs

@@ -285,7 +285,9 @@ class TestWalkAstForErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("not found among known accumulator symbols", str(ctx.exception))
+        self.assertIn(
+            "not found among available accumulator symbols", str(ctx.exception)
+        )
         self.assertIn("results", str(ctx.exception))
 
     def test_assigning_non_empty_list_raises(self):
@@ -710,10 +712,33 @@ class TestAppendAccumulator(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
         self.assertIn(
-            "not found among known accumulator symbols", str(ctx.exception).lower()
+            "not found among available accumulator symbols", str(ctx.exception).lower()
         )
         self.assertIn("other", str(ctx.exception).lower())
         self.assertIn("results", str(ctx.exception).lower())
+
+    def test_grandparent_accumulator_raises(self):
+        """Accumulator defined two levels up is unreachable from inner for-body."""
+
+        def wf(xs):
+            results = []
+            for x in xs:
+                ys = my_range(x)
+                for y in ys:
+                    z = identity(y)
+                    results.append(z)
+            return results
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn(
+            "not found among available accumulator symbols",
+            str(ctx.exception).lower(),
+        )
+        self.assertIn(
+            "immediate parent scope",
+            str(ctx.exception).lower(),
+        )
 
 
 if __name__ == "__main__":

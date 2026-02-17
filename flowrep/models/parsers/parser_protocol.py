@@ -13,9 +13,7 @@ class BodyWalker(Protocol):
     """What control flow parsers need to walk a sub-body."""
 
     symbol_scope: symbol_scope.SymbolScope
-    outputs: list[str]
     nodes: union.Nodes
-    output_edges: edge_models.OutputEdges
 
     @property
     def inputs(self) -> list[str]: ...
@@ -25,6 +23,12 @@ class BodyWalker(Protocol):
 
     @property
     def edges(self) -> edge_models.Edges: ...
+
+    @property
+    def output_edges(self) -> edge_models.OutputEdges: ...
+
+    @property
+    def outputs(self) -> list[str]: ...
 
     def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None: ...
 
