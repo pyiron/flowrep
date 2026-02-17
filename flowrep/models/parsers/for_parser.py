@@ -1,66 +1,18 @@
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterable
 from typing import ClassVar
 
-from flowrep.models import base_models, edge_models
+from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, helper_models
 from flowrep.models.parsers import object_scope, parser_protocol
-
-
-def walk_ast_for(
-    body_walker: parser_protocol.BodyWalker,
-    tree: ast.For,
-    scope: object_scope.ScopeProxy,
-    accumulators: set[str],
-) -> dict[str, str]:
-    used_accumulators: list[str] = []
-    used_accumulator_source_map: dict[str, str] = {}
-
-    for body in tree.body:
-        if isinstance(body, ast.Assign | ast.AnnAssign):
-            body_walker.handle_assign(body, scope)
-        elif isinstance(body, ast.For):
-            body_walker.handle_for(body, scope, parsing_function_def=False)
-        elif isinstance(body, ast.While | ast.If | ast.Try):
-            raise NotImplementedError(
-                f"Support for control flow statement {type(body)} is forthcoming."
-            )
-        elif isinstance(body, ast.Expr):
-            used_accumulator, appended_symbol = (
-                body_walker.handle_appending_to_accumulator(body, accumulators)
-            )
-            used_accumulators.append(used_accumulator)
-            used_accumulator_source_map[used_accumulator] = appended_symbol
-        else:
-            raise TypeError(
-                f"Workflow python definitions can only interpret assignments, a subset "
-                f"of flow control (for/while/if/try) and a return, but ast found "
-                f"{type(body)}"
-            )
-
-    if len(used_accumulators) == 0:
-        raise ValueError("For nodes must use up at least one accumulator symbol.")
-    base_models.validate_unique(
-        used_accumulators,
-        f"Each accumulator may be appended to at most once, but appended "
-        f"to: {used_accumulators}",
-    )
-
-    return used_accumulator_source_map
 
 
 class ForParser:
     body_label: ClassVar[str] = "body"
 
-    def __init__(
-        self,
-        body_walker: parser_protocol.BodyWalker,
-        accumulators: set[str],
-    ):
+    def __init__(self, body_walker: parser_protocol.BodyWalker):
         self.body_walker = body_walker
-        self.accumulators = accumulators
 
         # When these are all filled, we are ready to `build_model`
         self._inputs: list[str] = []
@@ -70,8 +22,6 @@ class ForParser:
         self._outputs: list[str] = []
         self._nested_ports: list[str] = []
         self._zipped_ports: list[str] = []
-
-        # These are internal state that doesn't translate directly to the final model
 
     @property
     def _body_node(self) -> helper_models.LabeledNode:
@@ -96,21 +46,20 @@ class ForParser:
         scope: object_scope.ScopeProxy,
         nested_iters: list[tuple[str, str]],
         zipped_iters: list[tuple[str, str]],
-    ) -> Iterable[str]:
+    ) -> None:
         all_iters = nested_iters + zipped_iters
 
-        used_accumulator_symbol_map = walk_ast_for(
-            self.body_walker, tree, scope, self.accumulators
-        )
+        self.body_walker.walk(tree.body, scope)
+        consumed = self.body_walker.symbol_scope.consumed_accumulators
+        if len(consumed) == 0:
+            raise ValueError("For nodes must use up at least one accumulator symbol.")
 
         # Every iteration variable must actually be consumed inside the body.
         # An unused iterator likely indicates a bug; if the user only needs the
         # structural effect (e.g. repetition count), they should make the
         # dependency explicit.
         iterating_symbols = {var for var, _ in all_iters}
-        consumed_symbols = set(self.body_walker.inputs) | set(
-            used_accumulator_symbol_map.values()
-        )
+        consumed_symbols = set(self.body_walker.inputs) | set(consumed.values())
         if unused := iterating_symbols - consumed_symbols:
             raise ValueError(
                 f"For-node iteration variable(s) {sorted(unused)} are never "
@@ -121,13 +70,13 @@ class ForParser:
         broadcast_symbols = [
             s
             for s in self.body_walker.inputs
-            if s not in set(used_accumulator_symbol_map.values())
+            if s not in set(consumed.values())
             and s not in {iterating_symbol for iterating_symbol, _ in all_iters}
         ]  # Need to keep it consistently ordered, so don't use a simple set op
         scattered_symbols = [scattered_symbol for _, scattered_symbol in all_iters]
 
         self._inputs = broadcast_symbols + scattered_symbols
-        self._outputs = list(used_accumulator_symbol_map)
+        self._outputs = list(consumed)
         self._nested_ports = [var for var, _ in nested_iters]
         self._zipped_ports = [var for var, _ in zipped_iters]
 
@@ -146,7 +95,7 @@ class ForParser:
         self._input_edges = broadcast_inputs | scattered_inputs
 
         self._output_edges = {}
-        for accumulator_symbol, appended_symbol in used_accumulator_symbol_map.items():
+        for accumulator_symbol, appended_symbol in consumed.items():
             target = edge_models.OutputTarget(port=accumulator_symbol)
             if appended_symbol in self.body_walker.outputs:
                 self._output_edges[target] = edge_models.SourceHandle(
@@ -157,8 +106,7 @@ class ForParser:
                     edge_models.TargetHandle(node=self.body_label, port=appended_symbol)
                 ]
 
-        used_accumulators = used_accumulator_symbol_map.keys()
-        return used_accumulators
+        return None
 
 
 def parse_for_iterations(

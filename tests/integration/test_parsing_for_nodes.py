@@ -375,7 +375,7 @@ offset_square_node = atomic_model.AtomicNode.model_validate(
 nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
     {
         "type": "workflow",
-        "inputs": ["range_offset", "square_offset", "ns"],
+        "inputs": ["ns", "range_offset", "square_offset"],
         "outputs": ["sq_sums"],
         "nodes": {
             "for_0": {

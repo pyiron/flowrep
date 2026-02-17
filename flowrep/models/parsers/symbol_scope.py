@@ -13,22 +13,48 @@ class SymbolConsumption:
     source: edge_models.InputSource | edge_models.SourceHandle
 
 
+@dataclasses.dataclass(frozen=True)
+class SymbolProduction:
+    output_port: str
+    source: edge_models.SourceHandle | edge_models.InputSource
+
+
 class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandle]):
     """
     Tracks which symbols are in scope and where their data comes from.
 
     Immutable-ish: forking for child scopes (e.g. for-node bodies) returns a new
     instance with remapped symbols.
+
+    Accumulators follow a three-stage lifecycle:
+    - declared_accumulators: locally declared via ``acc = []``. Owned by this scope
+        and passed to child scopes as available_accumulators on fork.
+    - available_accumulators: inherited from the parent scope's declared_accumulators.
+        These are the only accumulators a scope is allowed to ``.append()`` to.  This
+        guarantees that an accumulator is only consumable one nesting level below its
+        declaration, preventing grandparent accumulator access.
+    - consumed_accumulators: maps ``accumulator_name → appended_symbol``. Populated by
+        :meth:`use_accumulator` and read by the parent to finalise control-flow node
+        outputs.
     """
 
     def __init__(
-        self, sources: dict[str, edge_models.InputSource | edge_models.SourceHandle]
+        self,
+        sources: dict[str, edge_models.InputSource | edge_models.SourceHandle],
+        available_accumulators: set[str] | None = None,
     ):
         self._sources = dict(sources)
         self._consumptions: list[SymbolConsumption] = []
+        self._productions: list[SymbolProduction] = []
+        self.reassigned_symbols: list[str] = []
+        self.declared_accumulators: set[str] = set()
+        self.available_accumulators: set[str] = (
+            set() if available_accumulators is None else available_accumulators
+        )
+        self.consumed_accumulators: dict[str, str] = {}
 
     @property
-    def consumed_input_names(self) -> list[str]:
+    def inputs(self) -> list[str]:
         """Ordered unique symbols consumed from InputSources."""
         seen: set[str] = set()
         result: list[str] = []
@@ -59,6 +85,24 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             if isinstance(c.source, edge_models.SourceHandle)
         }
 
+    @property
+    def output_edges(self) -> edge_models.OutputEdges:
+        return {
+            edge_models.OutputTarget(port=p.output_port): p.source
+            for p in self._productions
+        }
+
+    @property
+    def outputs(self) -> list[str]:
+        """Ordered unique output port names."""
+        seen: set[str] = set()
+        result: list[str] = []
+        for p in self._productions:
+            if p.output_port not in seen:
+                seen.add(p.output_port)
+                result.append(p.output_port)
+        return result
+
     # --- Mapping interface ---
     def __getitem__(
         self, key: str
@@ -83,18 +127,36 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         child: helper_models.LabeledNode,
     ) -> None:
         """Map new symbols 1:1 to child node outputs. Enforces uniqueness."""
-        if overshadow := set(self._sources) & set(new_symbols):
-            raise ValueError(f"Symbol(s) already in scope: {overshadow}")
+        all_accumulators = self.declared_accumulators | self.available_accumulators
+        if overshadowed := set(new_symbols).intersection(all_accumulators):
+            raise ValueError(
+                f"Symbol(s) {overshadowed} already registered as accumulators."
+            )
         if len(new_symbols) != len(child.node.outputs):
             raise ValueError(
                 f"Cannot map {child.node.outputs} to symbols {new_symbols}"
             )
+        reassigned = [s for s in new_symbols if s in self._sources]
+        for symbol in reassigned:
+            if symbol not in self.reassigned_symbols:
+                self.reassigned_symbols.append(symbol)
         self._sources.update(
             {
                 sym: edge_models.SourceHandle(node=child.label, port=port)
                 for sym, port in zip(new_symbols, child.node.outputs, strict=True)
             }
         )
+
+    def register_accumulator(self, new: str) -> None:
+        if new in self._sources:
+            raise ValueError(f"Accumulator symbol '{new}' already in symbol scope.")
+        if new in self.declared_accumulators:
+            raise ValueError(f"Accumulator symbol '{new}' already declared.")
+        if new in self.available_accumulators:
+            raise ValueError(
+                f"Accumulator symbol '{new}' already available from parent scope."
+            )
+        self.declared_accumulators.add(new)
 
     def consume(self, symbol: str, consumer_node: str, consumer_port: str) -> None:
         """Record that `consumer_node.consumer_port` reads from `symbol`."""
@@ -107,16 +169,50 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             )
         )
 
+    def produce(self, output_port: str, symbol: str) -> None:
+        """Record that `output_port` is sourced from `symbol`."""
+        if any(p.output_port == output_port for p in self._productions):
+            raise ValueError(f"Output port '{output_port}' already produced.")
+        self._productions.append(
+            SymbolProduction(output_port=output_port, source=self[symbol])
+        )
+
+    def use_accumulator(self, accumulator_symbol: str, appended_symbol: str) -> None:
+        if accumulator_symbol not in self.available_accumulators:
+            raise ValueError(
+                f"Could not append to the symbol {accumulator_symbol}; it is not "
+                f"found among available accumulator symbols: "
+                f"{self.available_accumulators}. Remember that accumulators need to be "
+                f"declared in the immediate parent scope relative to their use."
+            )
+        self.available_accumulators.remove(accumulator_symbol)
+        self.consumed_accumulators[accumulator_symbol] = appended_symbol
+
     # --- Forking for child scopes ---
-    def fork_scope(self, symbol_remap: dict[str, str]) -> "SymbolScope":
+    def fork_scope(
+        self,
+        symbol_remap: dict[str, str],
+        available_accumulators: set[str] | None = None,
+    ) -> "SymbolScope":
         """
         Create a child scope wherein some symbols are remapped.
+
         This is necessary when passing scope from one graph layer to another if the
         parent inputs have the same origin but different labels.
+
+        When *carry_accumulators* is True (the default), declared accumulators from
+        this scope become available accumulators in the child.  This is the correct
+        behaviour for for-loop bodies, where the parent scope declares accumulators
+        that the body appends to.
+
+        When *carry_accumulators* is False, the child starts with no available
+        accumulators.  This is correct for while-loop bodies, where the while-node
+        model does not support accumulation across iterations.
         """
         return SymbolScope(
             {
                 (k := symbol_remap.get(key, key)): edge_models.InputSource(port=k)
                 for key in self._sources
-            }
+            },
+            available_accumulators=available_accumulators,
         )
