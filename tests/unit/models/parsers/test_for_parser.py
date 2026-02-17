@@ -43,6 +43,11 @@ def my_condition(m, n):
     return m < n
 
 
+@atomic_parser.atomic
+def my_add(a, b):
+    return a + b
+
+
 # ---------------------------------------------------------------------------
 # AST helpers
 # ---------------------------------------------------------------------------
@@ -306,6 +311,22 @@ class TestWalkAstForErrors(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
         self.assertIn("or empty list", str(ctx.exception))
+
+    def test_accumulator_reassigned_in_nested_while_raises(self):
+        """Reassigning an accumulator symbol inside a nested while is rejected."""
+
+        def wf(xs, acc_val, bound):
+            acc = []
+            for x in xs:
+                while my_condition(acc_val, bound):
+                    acc = identity(acc_val)
+                    acc_val = my_add(acc_val, x)
+                acc.append(x)
+            return acc
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("accumulator", str(ctx.exception).lower())
 
 
 class TestWalkAstForHeaderErrorsViaParseWorkflow(unittest.TestCase):
