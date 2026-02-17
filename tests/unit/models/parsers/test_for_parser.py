@@ -328,6 +328,20 @@ class TestWalkAstForErrors(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("accumulator", str(ctx.exception).lower())
 
+    def test_internal_symbol_reassignment_raises(self):
+        def wf(xs, y):
+            acc = []
+            for x in xs:
+                y = identity(x)  # reassigns y from parent scope
+                acc.append(y)
+            z = identity(y)  # which y is this?
+            return acc, z
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("body reassigns symbol(s)", str(ctx.exception))
+        self.assertIn("y", str(ctx.exception))
+
 
 class TestWalkAstForHeaderErrorsViaParseWorkflow(unittest.TestCase):
     """Header-level errors that surface through parse_workflow."""

@@ -228,6 +228,24 @@ class WorkflowParser(parser_protocol.BodyWalker):
             nested_iters=nested_iters,
             zipped_iters=zipped_iters,
         )
+
+        # Check for internal symbol reassignments
+        body_reassigned = set(body_walker.symbol_scope.reassigned_symbols)
+        accumulator_outputs = set(body_walker.symbol_scope.consumed_accumulators)
+        unreturned_reassignments = (
+            body_reassigned - accumulator_outputs - {var for var, _ in all_iters}
+        )
+        leaked_reassignments = unreturned_reassignments.intersection(
+            self.symbol_scope.keys()
+        )
+        if leaked_reassignments:
+            raise ValueError(
+                f"For-loop body reassigns symbol(s) {sorted(leaked_reassignments)} "
+                f"from the enclosing scope. This is not supported because for-node "
+                f"outputs are determined by accumulators. If you need the reassigned "
+                f"value after the loop, accumulate it explicitly."
+            )
+
         # 5. Build the ForNode and integrate it into *this* parser's state
         for_node = fp.build_model()
         for_label = label_helpers.unique_suffix("for", self.nodes)
