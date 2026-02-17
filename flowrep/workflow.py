@@ -451,9 +451,14 @@ def _detect_io_variables_from_control_flow(
         if _remove_index(edges[1]) in input_stem:
             output_candidate[_remove_index(edges[1])] = edges[1]
     outputs.update(set(output_candidate.values()))
+    outputs = list(outputs)
+    output_stem = [_remove_index(out) for out in outputs]
+    for inp in inputs:
+        if _remove_index(inp) not in output_stem:
+            outputs.append(inp)
     return {
         "inputs": list(inputs),
-        "outputs": list(outputs),
+        "outputs": outputs,
     }
 
 
