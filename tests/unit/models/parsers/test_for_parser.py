@@ -226,7 +226,7 @@ class TestParseForIterations(unittest.TestCase):
 
 
 # ===================================================================
-# walk_ast_for – error paths (tested via parse_workflow)
+# Parser error cases
 # ===================================================================
 
 
@@ -335,9 +335,7 @@ class TestForParserErrors(unittest.TestCase):
         self.assertIn("body reassigns symbol(s)", str(ctx.exception))
         self.assertIn("y", str(ctx.exception))
 
-
-class TestForParserHeaderErrors(unittest.TestCase):
-    """Header-level errors that surface through parse_workflow."""
+    # Header errors
 
     def test_iteration_over_call_raises(self):
         def wf():
