@@ -30,7 +30,7 @@ def parse_for_node(
             ``workflow_parser.WorkflowParser``.
     """
     # 1. Parse the iteration header — pure AST, no parser state needed
-    nested_iters, zipped_iters, body_tree = parse_for_iterations(tree)
+    nested_iters, zipped_iters, body_tree = _parse_for_iterations(tree)
     all_iters = nested_iters + zipped_iters
 
     # 2. Fork the scope: replaces iterated-over symbols with iteration
@@ -144,7 +144,7 @@ def _wire_outputs(
     return outputs, output_edges
 
 
-def parse_for_iterations(
+def _parse_for_iterations(
     for_stmt: ast.For,
 ) -> tuple[list[tuple[str, str]], list[tuple[str, str]], ast.For]:
     """

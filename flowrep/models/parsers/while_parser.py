@@ -42,7 +42,9 @@ def parse_while_node(
         )
 
     # 1. Parse the loop condition — pure AST, no parser state needed
-    labeled_condition, condition_inputs = parse_while_condition(tree, scope, symbol_map)
+    labeled_condition, condition_inputs = _parse_while_condition(
+        tree, scope, symbol_map
+    )
     labeled_condition_node = helper_models.LabeledNode(
         label=WHILE_CONDITION_LABEL,
         node=labeled_condition.node,
@@ -122,7 +124,7 @@ def _wire_outputs(body_walker: BodyWalker) -> tuple[list[str], edge_models.Outpu
     return outputs, output_edges
 
 
-def parse_while_condition(
+def _parse_while_condition(
     while_stmt: ast.While,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,

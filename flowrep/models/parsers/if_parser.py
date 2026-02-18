@@ -52,7 +52,7 @@ def parse_if_node(
     else_walker: parser_protocol.BodyWalker | None = None
     else_assigned: list[str] = []
 
-    case_branches, else_stmts = parse_if_elif_chain(tree)
+    case_branches, else_stmts = _parse_if_elif_chain(tree)
 
     # --- process each if / elif case ---
     for idx, (test_expr, body_stmts) in enumerate(case_branches):
@@ -60,7 +60,7 @@ def parse_if_node(
         body_label = f"{IF_BODY_LABEL_PREFIX}_{idx}"
 
         # Parse condition node
-        labeled_cond, cond_inputs = parse_if_condition(test_expr, scope, symbol_map)
+        labeled_cond, cond_inputs = _parse_if_condition(test_expr, scope, symbol_map)
         # Relabel to our naming scheme
         relabeled_cond = helper_models.LabeledNode(
             label=cond_label, node=labeled_cond.node
@@ -209,7 +209,7 @@ def _wire_outputs(
 # ======================================================================
 
 
-def parse_if_elif_chain(
+def _parse_if_elif_chain(
     tree: ast.If,
 ) -> tuple[list[tuple[ast.expr, list[ast.stmt]]], list[ast.stmt] | None]:
     """
@@ -232,7 +232,7 @@ def parse_if_elif_chain(
             return cases, current.orelse
 
 
-def parse_if_condition(
+def _parse_if_condition(
     test_expr: ast.expr,
     scope: object_scope.ScopeProxy,
     parent_scope: symbol_scope.SymbolScope,
