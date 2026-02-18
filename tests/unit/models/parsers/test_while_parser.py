@@ -3,7 +3,6 @@ import unittest
 from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, if_model, while_model, workflow_model
 from flowrep.models.parsers import atomic_parser, while_parser, workflow_parser
-from flowrep.models.parsers.while_parser import WhileParser
 
 
 @atomic_parser.atomic
@@ -30,12 +29,6 @@ def multi_result(x):
 
 class TestParseWhileConditionErrors(unittest.TestCase):
     """Error paths in parse_while_condition, surfaced through parse_workflow."""
-
-    def test_early_build_model_raises(self):
-        wp = WhileParser()
-        with self.assertRaises(ValueError) as ctx:
-            wp.build_model()
-        self.assertIn("`build_body` first", str(ctx.exception))
 
     def test_bare_symbol_condition_raises(self):
         """Condition must be a function call, not a bare name."""
@@ -290,9 +283,7 @@ class TestWhileParserStructure(unittest.TestCase):
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        self.assertEqual(
-            wn.case.condition.label, while_parser.WhileParser.condition_label
-        )
+        self.assertEqual(wn.case.condition.label, while_parser.WHILE_CONDITION_LABEL)
 
     def test_body_label(self):
         def wf(x, bound):
@@ -301,7 +292,7 @@ class TestWhileParserStructure(unittest.TestCase):
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        self.assertEqual(wn.case.body.label, while_parser.WhileParser.body_label)
+        self.assertEqual(wn.case.body.label, while_parser.WHILE_BODY_LABEL)
 
     def test_body_node_is_workflow(self):
         """

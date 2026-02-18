@@ -203,6 +203,16 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"{type(rhs)}"
             )
 
+    def _digest_flow_control(self, label_prefix: str, node: union.NodeType) -> None:
+        label = label_helpers.unique_suffix(label_prefix, self.nodes)
+        self.nodes[label] = node
+
+        for port in node.inputs:
+            self.symbol_map.consume(port, label, port)
+
+        labeled_node = helper_models.LabeledNode(label=label, node=node)
+        self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
+
     def handle_for(
         self,
         tree: ast.For,
@@ -229,18 +239,10 @@ class WorkflowParser(parser_protocol.BodyWalker):
         tree: ast.While,
         scope: object_scope.ScopeProxy,
     ) -> None:
-        wp = while_parser.WhileParser()
-        wp.build_body(tree, scope, self.symbol_map, WorkflowParser)
-        while_node = wp.build_model()
-
-        while_label = label_helpers.unique_suffix("while", self.nodes)
-        self.nodes[while_label] = while_node
-
-        for port in while_node.inputs:
-            self.symbol_map.consume(port, while_label, port)
-
-        labeled_while = helper_models.LabeledNode(label=while_label, node=while_node)
-        self.symbol_map.register(new_symbols=while_node.outputs, child=labeled_while)
+        while_node = while_parser.parse_while_node(
+            tree, scope, self.symbol_map, WorkflowParser
+        )
+        self._digest_flow_control("while", while_node)
 
     def handle_if(self, tree: ast.If, scope: object_scope.ScopeProxy) -> None:
         ip = if_parser.IfParser()
