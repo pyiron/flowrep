@@ -236,18 +236,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self._digest_flow_control("while", while_node)
 
     def handle_if(self, tree: ast.If, scope: object_scope.ScopeProxy) -> None:
-        ip = if_parser.IfParser()
-        ip.build_body(tree, scope, self.symbol_map, WorkflowParser)
-        if_node = ip.build_model()
-
-        if_label = label_helpers.unique_suffix("if", self.nodes)
-        self.nodes[if_label] = if_node
-
-        for port in if_node.inputs:
-            self.symbol_map.consume(port, if_label, port)
-
-        labeled_if = helper_models.LabeledNode(label=if_label, node=if_node)
-        self.symbol_map.register(new_symbols=if_node.outputs, child=labeled_if)
+        if_node = if_parser.parse_if_node(tree, scope, self.symbol_map, WorkflowParser)
+        self._digest_flow_control("if", if_node)
 
     def handle_return(
         self,

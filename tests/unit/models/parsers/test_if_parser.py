@@ -507,7 +507,7 @@ class TestIfParserStructure(unittest.TestCase):
 
         ifn = self._parse(wf).nodes["if_0"]
         self.assertIsNotNone(ifn.else_case)
-        self.assertEqual(ifn.else_case.label, if_parser.IfParser.else_label)
+        self.assertEqual(ifn.else_case.label, if_parser.IF_ELSE_LABEL)
 
     def test_no_else_case(self):
         def wf(x, y):
