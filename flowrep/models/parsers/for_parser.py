@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Callable
 from typing import ClassVar
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, helper_models
-from flowrep.models.parsers import object_scope, parser_protocol
+from flowrep.models.parsers import object_scope, parser_protocol, symbol_scope
 
 
 class ForParser:
     body_label: ClassVar[str] = "body"
 
-    def __init__(self, body_walker: parser_protocol.BodyWalker):
-        self.body_walker = body_walker
+    def __init__(self) -> None:
+        self._body_walker: parser_protocol.BodyWalker | None = None
+        self._consumed_accumulators: dict[str, str] = {}
 
         # When these are all filled, we are ready to `build_model`
         self._inputs: list[str] = []
@@ -24,9 +26,19 @@ class ForParser:
         self._zipped_ports: list[str] = []
 
     @property
+    def consumed_accumulators(self) -> dict[str, str]:
+        """Accumulators consumed by the body, for parent scope bookkeeping."""
+        return self._consumed_accumulators
+
+    @property
     def _body_node(self) -> helper_models.LabeledNode:
+        if self._body_walker is None:
+            raise ValueError(
+                "ForParser does not have the data to build a body node. Please "
+                "`build_body` first."
+            )
         return helper_models.LabeledNode(
-            label="body", node=self.body_walker.build_model()
+            label="body", node=self._body_walker.build_model()
         )
 
     def build_model(self) -> for_model.ForNode:
@@ -44,13 +56,40 @@ class ForParser:
         self,
         tree: ast.For,
         scope: object_scope.ScopeProxy,
-        nested_iters: list[tuple[str, str]],
-        zipped_iters: list[tuple[str, str]],
+        symbol_map: symbol_scope.SymbolScope,
+        walker_factory: Callable[
+            [symbol_scope.SymbolScope], parser_protocol.BodyWalker
+        ],
     ) -> None:
+        """
+        Walk a for-loop, building all internal state needed for
+        :meth:`build_model`.
+
+        Args:
+            tree: The top-level ``ast.For`` node (may contain immediately
+                nested for-headers that declare additional iteration axes).
+            scope: Object-level scope for resolving callable references.
+            symbol_map: The enclosing :class:`SymbolScope` (used for forking).
+            walker_factory: Callable that creates a :class:`BodyWalker` from a
+                :class:`SymbolScope`.  Avoids a circular import with
+                ``workflow_parser.WorkflowParser``.
+        """
+        # 1. Parse the iteration header — pure AST, no parser state needed
+        nested_iters, zipped_iters, body_tree = parse_for_iterations(tree)
         all_iters = nested_iters + zipped_iters
 
-        self.body_walker.walk(tree.body, scope)
-        consumed = self.body_walker.symbol_map.consumed_accumulators
+        # 2. Fork the scope: replaces iterated-over symbols with iteration
+        #    variables, all as InputSources from the body's perspective
+        body_symbol_map = symbol_map.fork_scope(
+            {src: var for var, src in all_iters},
+            available_accumulators=symbol_map.declared_accumulators.copy(),
+        )
+
+        # 3. Fresh body walker with the forked scope
+        body_walker = walker_factory(body_symbol_map)
+
+        body_walker.walk(body_tree.body, scope)
+        consumed = body_walker.symbol_map.consumed_accumulators
         if len(consumed) == 0:
             raise ValueError("For nodes must use up at least one accumulator symbol.")
 
@@ -59,7 +98,7 @@ class ForParser:
         # structural effect (e.g. repetition count), they should make the
         # dependency explicit.
         iterating_symbols = {var for var, _ in all_iters}
-        consumed_symbols = set(self.body_walker.inputs) | set(consumed.values())
+        consumed_symbols = set(body_walker.inputs) | set(consumed.values())
         if unused := iterating_symbols - consumed_symbols:
             raise ValueError(
                 f"For-node iteration variable(s) {sorted(unused)} are never "
@@ -67,14 +106,31 @@ class ForParser:
                 f"from the iteration header."
             )
 
+        # Check for internal symbol reassignments that would leak
+        body_reassigned = set(body_walker.symbol_map.reassigned_symbols)
+        accumulator_outputs = set(consumed)
+        unreturned_reassignments = (
+            body_reassigned - accumulator_outputs - {var for var, _ in all_iters}
+        )
+        leaked_reassignments = unreturned_reassignments.intersection(symbol_map.keys())
+        if leaked_reassignments:
+            raise ValueError(
+                f"For-loop body reassigns symbol(s) {sorted(leaked_reassignments)} "
+                f"from the enclosing scope. This is not supported because for-node "
+                f"outputs are determined by accumulators. If you need the reassigned "
+                f"value after the loop, accumulate it explicitly."
+            )
+
         broadcast_symbols = [
             s
-            for s in self.body_walker.inputs
+            for s in body_walker.inputs
             if s not in set(consumed.values())
             and s not in {iterating_symbol for iterating_symbol, _ in all_iters}
         ]  # Need to keep it consistently ordered, so don't use a simple set op
         scattered_symbols = [scattered_symbol for _, scattered_symbol in all_iters]
 
+        self._body_walker = body_walker
+        self._consumed_accumulators = consumed
         self._inputs = broadcast_symbols + scattered_symbols
         self._outputs = list(consumed)
         self._nested_ports = [var for var, _ in nested_iters]
@@ -97,7 +153,7 @@ class ForParser:
         self._output_edges = {}
         for accumulator_symbol, appended_symbol in consumed.items():
             target = edge_models.OutputTarget(port=accumulator_symbol)
-            if appended_symbol in self.body_walker.outputs:
+            if appended_symbol in body_walker.outputs:
                 self._output_edges[target] = edge_models.SourceHandle(
                     node=self.body_label, port=appended_symbol
                 )
