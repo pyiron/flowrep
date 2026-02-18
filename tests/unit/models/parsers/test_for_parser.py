@@ -2,8 +2,8 @@
 Unit tests for flowrep.models.parsers.for_parser.
 
 Covers the pure-AST helpers (_is_zip_call, _parse_single_for_header,
-parse_for_iterations) directly, and the stateful ForParser / walk_ast_for
-logic indirectly through workflow_parser.parse_workflow.
+parse_for_iterations) directly, and the stateful ForParser logic indirectly through
+workflow_parser.parse_workflow.
 """
 
 import ast
@@ -232,7 +232,7 @@ class TestParseForIterations(unittest.TestCase):
 
 class TestForParserErrors(unittest.TestCase):
     """
-    walk_ast_for is always reached through WorkflowParser.handle_for,
+    The parser is always reached through WorkflowParser.handle_for,
     so we test error paths by defining small invalid workflow functions.
     """
 

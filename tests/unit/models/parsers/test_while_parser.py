@@ -69,7 +69,7 @@ class TestParseWhileConditionErrors(unittest.TestCase):
 
 class TestWhileParserErrors(unittest.TestCase):
     """
-    walk_ast_while is reached through WorkflowParser.handle_while,
+    The while parser is reached through WorkflowParser.handle_while,
     so we test error paths by defining small invalid workflow functions.
     """
 
