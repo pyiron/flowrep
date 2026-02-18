@@ -2,169 +2,147 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Callable
-from typing import ClassVar
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, helper_models
 from flowrep.models.parsers import object_scope, parser_protocol, symbol_scope
 from flowrep.models.parsers.parser_protocol import BodyWalker
 
+FOR_BODY_LABEL: str = "body"
 
-class ForParser:
-    body_label: ClassVar[str] = "body"
 
-    def __init__(self) -> None:
-        self._body_walker: parser_protocol.BodyWalker | None = None
+def parse_for_node(
+    tree: ast.For,
+    scope: object_scope.ScopeProxy,
+    symbol_map: symbol_scope.SymbolScope,
+    walker_factory: Callable[[symbol_scope.SymbolScope], parser_protocol.BodyWalker],
+) -> for_model.ForNode:
+    """
+    Walk a for-loop, building all internal state needed for
+    :meth:`build_model`.
 
-        # When these are all filled, we are ready to `build_model`
-        self._inputs: list[str] = []
-        self._input_edges: edge_models.InputEdges = {}
-        # Note property: self._body_node
-        self._output_edges: edge_models.OutputEdges = {}
-        self._outputs: list[str] = []
-        self._nested_ports: list[str] = []
-        self._zipped_ports: list[str] = []
+    Args:
+        tree: The top-level ``ast.For`` node (may contain immediately
+            nested for-headers that declare additional iteration axes).
+        scope: Object-level scope for resolving callable references.
+        symbol_map: The enclosing :class:`SymbolScope` (used for forking).
+        walker_factory: Callable that creates a :class:`BodyWalker` from a
+            :class:`SymbolScope`.  Avoids a circular import with
+            ``workflow_parser.WorkflowParser``.
+    """
+    # 1. Parse the iteration header — pure AST, no parser state needed
+    nested_iters, zipped_iters, body_tree = parse_for_iterations(tree)
+    all_iters = nested_iters + zipped_iters
 
-    @property
-    def _body_node(self) -> helper_models.LabeledNode:
-        if self._body_walker is None:
-            raise ValueError(
-                "ForParser does not have the data to build a body node. Please "
-                "`build_body` first."
+    # 2. Fork the scope: replaces iterated-over symbols with iteration
+    #    variables, all as InputSources from the body's perspective
+    body_symbol_map = symbol_map.fork_scope(
+        {src: var for var, src in all_iters},
+        available_accumulators=symbol_map.declared_accumulators.copy(),
+    )
+
+    # 3. Fresh body walker with the forked scope
+    body_walker = walker_factory(body_symbol_map)
+
+    body_walker.walk(body_tree.body, scope)
+    consumed = body_walker.symbol_map.consumed_accumulators
+    if len(consumed) == 0:
+        raise ValueError("For nodes must use up at least one accumulator symbol.")
+
+    # Every iteration variable must actually be consumed inside the body.
+    # An unused iterator likely indicates a bug; if the user only needs the
+    # structural effect (e.g. repetition count), they should make the
+    # dependency explicit.
+    iterating_symbols = {var for var, _ in all_iters}
+    consumed_symbols = set(body_walker.inputs) | set(consumed.values())
+    if unused := iterating_symbols - consumed_symbols:
+        raise ValueError(
+            f"For-node iteration variable(s) {sorted(unused)} are never "
+            f"used inside the node body. Either use them or remove them "
+            f"from the iteration header."
+        )
+
+    # Check for internal symbol reassignments that would leak
+    body_reassigned = set(body_walker.symbol_map.reassigned_symbols)
+    accumulator_outputs = set(consumed)
+    unreturned_reassignments = (
+        body_reassigned - accumulator_outputs - {var for var, _ in all_iters}
+    )
+    leaked_reassignments = unreturned_reassignments.intersection(symbol_map.keys())
+    if leaked_reassignments:
+        raise ValueError(
+            f"For-loop body reassigns symbol(s) {sorted(leaked_reassignments)} "
+            f"from the enclosing scope. This is not supported because for-node "
+            f"outputs are determined by accumulators. If you need the reassigned "
+            f"value after the loop, accumulate it explicitly."
+        )
+
+    nested_ports = [var for var, _ in nested_iters]
+    zipped_ports = [var for var, _ in zipped_iters]
+
+    inputs, input_edges = _wire_inputs(body_walker, all_iters)
+    outputs, output_edges = _wire_outputs(body_walker, input_edges)
+
+    body_node = helper_models.LabeledNode(
+        label=FOR_BODY_LABEL, node=body_walker.build_model()
+    )
+
+    return for_model.ForNode(
+        inputs=inputs,
+        outputs=outputs,
+        body_node=body_node,
+        input_edges=input_edges,
+        output_edges=output_edges,
+        nested_ports=nested_ports,
+        zipped_ports=zipped_ports,
+    )
+
+
+def _wire_inputs(
+    body_walker: BodyWalker, all_iters: list[tuple[str, str]]
+) -> tuple[list[str], edge_models.InputEdges]:
+    consumed = body_walker.symbol_map.consumed_accumulators
+    broadcast_symbols = [
+        s
+        for s in body_walker.inputs
+        if s not in set(consumed.values())
+        and s not in {iterating_symbol for iterating_symbol, _ in all_iters}
+    ]  # Need to keep it consistently ordered, so don't use a simple set op
+    scattered_symbols = [scattered_symbol for _, scattered_symbol in all_iters]
+    inputs = broadcast_symbols + scattered_symbols
+    broadcast_inputs = {
+        edge_models.TargetHandle(
+            node=FOR_BODY_LABEL, port=port
+        ): edge_models.InputSource(port=port)
+        for port in broadcast_symbols
+    }
+    scattered_inputs = {
+        edge_models.TargetHandle(
+            node=FOR_BODY_LABEL, port=body_port
+        ): edge_models.InputSource(port=for_port)
+        for body_port, for_port in all_iters
+    }
+    input_edges = broadcast_inputs | scattered_inputs
+    return inputs, input_edges
+
+
+def _wire_outputs(
+    body_walker: BodyWalker, input_edges: edge_models.InputEdges
+) -> tuple[list[str], edge_models.OutputEdges]:
+    consumed = body_walker.symbol_map.consumed_accumulators
+    outputs = list(consumed)
+    output_edges: edge_models.OutputEdges = {}
+    for accumulator_symbol, appended_symbol in consumed.items():
+        target = edge_models.OutputTarget(port=accumulator_symbol)
+        if appended_symbol in body_walker.outputs:
+            output_edges[target] = edge_models.SourceHandle(
+                node=FOR_BODY_LABEL, port=appended_symbol
             )
-        return helper_models.LabeledNode(
-            label="body", node=self._body_walker.build_model()
-        )
-
-    def build_model(self) -> for_model.ForNode:
-        return for_model.ForNode(
-            inputs=self._inputs,
-            outputs=self._outputs,
-            body_node=self._body_node,
-            input_edges=self._input_edges,
-            output_edges=self._output_edges,
-            nested_ports=self._nested_ports,
-            zipped_ports=self._zipped_ports,
-        )
-
-    def build_body(
-        self,
-        tree: ast.For,
-        scope: object_scope.ScopeProxy,
-        symbol_map: symbol_scope.SymbolScope,
-        walker_factory: Callable[
-            [symbol_scope.SymbolScope], parser_protocol.BodyWalker
-        ],
-    ) -> None:
-        """
-        Walk a for-loop, building all internal state needed for
-        :meth:`build_model`.
-
-        Args:
-            tree: The top-level ``ast.For`` node (may contain immediately
-                nested for-headers that declare additional iteration axes).
-            scope: Object-level scope for resolving callable references.
-            symbol_map: The enclosing :class:`SymbolScope` (used for forking).
-            walker_factory: Callable that creates a :class:`BodyWalker` from a
-                :class:`SymbolScope`.  Avoids a circular import with
-                ``workflow_parser.WorkflowParser``.
-        """
-        # 1. Parse the iteration header — pure AST, no parser state needed
-        nested_iters, zipped_iters, body_tree = parse_for_iterations(tree)
-        all_iters = nested_iters + zipped_iters
-
-        # 2. Fork the scope: replaces iterated-over symbols with iteration
-        #    variables, all as InputSources from the body's perspective
-        body_symbol_map = symbol_map.fork_scope(
-            {src: var for var, src in all_iters},
-            available_accumulators=symbol_map.declared_accumulators.copy(),
-        )
-
-        # 3. Fresh body walker with the forked scope
-        body_walker = walker_factory(body_symbol_map)
-
-        body_walker.walk(body_tree.body, scope)
-        consumed = body_walker.symbol_map.consumed_accumulators
-        if len(consumed) == 0:
-            raise ValueError("For nodes must use up at least one accumulator symbol.")
-
-        # Every iteration variable must actually be consumed inside the body.
-        # An unused iterator likely indicates a bug; if the user only needs the
-        # structural effect (e.g. repetition count), they should make the
-        # dependency explicit.
-        iterating_symbols = {var for var, _ in all_iters}
-        consumed_symbols = set(body_walker.inputs) | set(consumed.values())
-        if unused := iterating_symbols - consumed_symbols:
-            raise ValueError(
-                f"For-node iteration variable(s) {sorted(unused)} are never "
-                f"used inside the node body. Either use them or remove them "
-                f"from the iteration header."
-            )
-
-        # Check for internal symbol reassignments that would leak
-        body_reassigned = set(body_walker.symbol_map.reassigned_symbols)
-        accumulator_outputs = set(consumed)
-        unreturned_reassignments = (
-            body_reassigned - accumulator_outputs - {var for var, _ in all_iters}
-        )
-        leaked_reassignments = unreturned_reassignments.intersection(symbol_map.keys())
-        if leaked_reassignments:
-            raise ValueError(
-                f"For-loop body reassigns symbol(s) {sorted(leaked_reassignments)} "
-                f"from the enclosing scope. This is not supported because for-node "
-                f"outputs are determined by accumulators. If you need the reassigned "
-                f"value after the loop, accumulate it explicitly."
-            )
-
-        self._body_walker = body_walker
-        self._nested_ports = [var for var, _ in nested_iters]
-        self._zipped_ports = [var for var, _ in zipped_iters]
-
-        self._wire_inputs(body_walker, all_iters)
-        self._wire_outputs(body_walker)
-
-        return None
-
-    def _wire_inputs(
-        self, body_walker: BodyWalker, all_iters: list[tuple[str, str]]
-    ) -> None:
-        consumed = body_walker.symbol_map.consumed_accumulators
-        broadcast_symbols = [
-            s
-            for s in body_walker.inputs
-            if s not in set(consumed.values())
-            and s not in {iterating_symbol for iterating_symbol, _ in all_iters}
-        ]  # Need to keep it consistently ordered, so don't use a simple set op
-        scattered_symbols = [scattered_symbol for _, scattered_symbol in all_iters]
-        self._inputs = broadcast_symbols + scattered_symbols
-        broadcast_inputs = {
-            edge_models.TargetHandle(
-                node=self.body_label, port=port
-            ): edge_models.InputSource(port=port)
-            for port in broadcast_symbols
-        }
-        scattered_inputs = {
-            edge_models.TargetHandle(
-                node=self.body_label, port=body_port
-            ): edge_models.InputSource(port=for_port)
-            for body_port, for_port in all_iters
-        }
-        self._input_edges = broadcast_inputs | scattered_inputs
-
-    def _wire_outputs(self, body_walker: BodyWalker) -> None:
-        consumed = body_walker.symbol_map.consumed_accumulators
-        self._outputs = list(consumed)
-        self._output_edges = {}
-        for accumulator_symbol, appended_symbol in consumed.items():
-            target = edge_models.OutputTarget(port=accumulator_symbol)
-            if appended_symbol in body_walker.outputs:
-                self._output_edges[target] = edge_models.SourceHandle(
-                    node=self.body_label, port=appended_symbol
-                )
-            else:
-                self._output_edges[target] = self._input_edges[
-                    edge_models.TargetHandle(node=self.body_label, port=appended_symbol)
-                ]
+        else:
+            output_edges[target] = input_edges[
+                edge_models.TargetHandle(node=FOR_BODY_LABEL, port=appended_symbol)
+            ]
+    return outputs, output_edges
 
 
 def parse_for_iterations(

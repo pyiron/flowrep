@@ -19,7 +19,6 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 from flowrep.models.parsers import atomic_parser, for_parser, workflow_parser
-from flowrep.models.parsers.for_parser import ForParser
 
 # ---------------------------------------------------------------------------
 # Helper callables reachable from the test-module scope so that
@@ -236,12 +235,6 @@ class TestForParserErrors(unittest.TestCase):
     The parser is always reached through WorkflowParser.handle_for,
     so we test error paths by defining small invalid workflow functions.
     """
-
-    def test_early_build_model_raises(self):
-        fp = ForParser()
-        with self.assertRaises(ValueError) as ctx:
-            fp.build_model()
-        self.assertIn("`build_body` first", str(ctx.exception))
 
     def test_try_in_for_body_raises(self):
         def wf(xs):

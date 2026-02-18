@@ -218,21 +218,12 @@ class WorkflowParser(parser_protocol.BodyWalker):
         tree: ast.For,
         scope: object_scope.ScopeProxy,
     ) -> None:
-        fp = for_parser.ForParser()
-        fp.build_body(tree, scope, self.symbol_map, WorkflowParser)
-        for_node = fp.build_model()
-
+        for_node = for_parser.parse_for_node(
+            tree, scope, self.symbol_map, WorkflowParser
+        )
         # Accumulators consumed by the for body are no longer available here
         self.symbol_map.declared_accumulators -= set(for_node.outputs)
-
-        for_label = label_helpers.unique_suffix("for", self.nodes)
-        self.nodes[for_label] = for_node
-
-        for port in for_node.inputs:
-            self.symbol_map.consume(port, for_label, port)
-
-        labeled_for = helper_models.LabeledNode(label=for_label, node=for_node)
-        self.symbol_map.register(new_symbols=for_node.outputs, child=labeled_for)
+        self._digest_flow_control("for", for_node)
 
     def handle_while(
         self,
