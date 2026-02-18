@@ -67,7 +67,7 @@ class TestParseWhileConditionErrors(unittest.TestCase):
         self.assertIn("exactly one", str(ctx.exception))
 
 
-class TestWalkAstWhileErrors(unittest.TestCase):
+class TestWhileParserErrors(unittest.TestCase):
     """
     walk_ast_while is reached through WorkflowParser.handle_while,
     so we test error paths by defining small invalid workflow functions.

@@ -230,7 +230,7 @@ class TestParseForIterations(unittest.TestCase):
 # ===================================================================
 
 
-class TestWalkAstForErrors(unittest.TestCase):
+class TestForParserErrors(unittest.TestCase):
     """
     walk_ast_for is always reached through WorkflowParser.handle_for,
     so we test error paths by defining small invalid workflow functions.
@@ -336,7 +336,7 @@ class TestWalkAstForErrors(unittest.TestCase):
         self.assertIn("y", str(ctx.exception))
 
 
-class TestWalkAstForHeaderErrorsViaParseWorkflow(unittest.TestCase):
+class TestForParserHeaderErrors(unittest.TestCase):
     """Header-level errors that surface through parse_workflow."""
 
     def test_iteration_over_call_raises(self):
