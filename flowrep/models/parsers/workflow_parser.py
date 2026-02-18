@@ -213,11 +213,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         labeled_node = helper_models.LabeledNode(label=label, node=node)
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
 
-    def handle_for(
-        self,
-        tree: ast.For,
-        scope: object_scope.ScopeProxy,
-    ) -> None:
+    def handle_for(self, tree: ast.For, scope: object_scope.ScopeProxy) -> None:
         for_node = for_parser.parse_for_node(
             tree, scope, self.symbol_map, WorkflowParser
         )
@@ -225,11 +221,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.symbol_map.declared_accumulators -= set(for_node.outputs)
         self._digest_flow_control("for", for_node)
 
-    def handle_while(
-        self,
-        tree: ast.While,
-        scope: object_scope.ScopeProxy,
-    ) -> None:
+    def handle_while(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None:
         while_node = while_parser.parse_while_node(
             tree, scope, self.symbol_map, WorkflowParser
         )
