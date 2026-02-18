@@ -15,7 +15,6 @@ class ForParser:
 
     def __init__(self) -> None:
         self._body_walker: parser_protocol.BodyWalker | None = None
-        self._consumed_accumulators: dict[str, str] = {}
 
         # When these are all filled, we are ready to `build_model`
         self._inputs: list[str] = []
@@ -25,11 +24,6 @@ class ForParser:
         self._outputs: list[str] = []
         self._nested_ports: list[str] = []
         self._zipped_ports: list[str] = []
-
-    @property
-    def consumed_accumulators(self) -> dict[str, str]:
-        """Accumulators consumed by the body, for parent scope bookkeeping."""
-        return self._consumed_accumulators
 
     @property
     def _body_node(self) -> helper_models.LabeledNode:
@@ -123,7 +117,6 @@ class ForParser:
             )
 
         self._body_walker = body_walker
-        self._consumed_accumulators = consumed
         self._nested_ports = [var for var, _ in nested_iters]
         self._zipped_ports = [var for var, _ in zipped_iters]
 

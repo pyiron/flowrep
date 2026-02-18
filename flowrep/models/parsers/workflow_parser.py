@@ -211,8 +211,9 @@ class WorkflowParser(parser_protocol.BodyWalker):
         fp = for_parser.ForParser()
         fp.build_body(tree, scope, self.symbol_map, WorkflowParser)
         for_node = fp.build_model()
+
         # Accumulators consumed by the for body are no longer available here
-        self.symbol_map.declared_accumulators -= set(fp.consumed_accumulators)
+        self.symbol_map.declared_accumulators -= set(for_node.outputs)
 
         for_label = label_helpers.unique_suffix("for", self.nodes)
         self.nodes[for_label] = for_node
