@@ -65,7 +65,7 @@ class WhileParser:
     def build_body(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None:
 
         self.body_walker.walk(tree.body, scope)
-        reassigned_symbols = self.body_walker.symbol_scope.reassigned_symbols
+        reassigned_symbols = self.body_walker.symbol_map.reassigned_symbols
         if len(reassigned_symbols) == 0:
             raise ValueError(
                 "While-loop body must reassign at least one symbol from the "
@@ -73,7 +73,7 @@ class WhileParser:
             )
 
         for symbol in reassigned_symbols:
-            self.body_walker.symbol_scope.produce(symbol, symbol)
+            self.body_walker.symbol_map.produce(symbol, symbol)
 
         self._inputs = [source.port for source in self._condition_inputs.values()]
         self._input_edges = self._condition_inputs
@@ -98,7 +98,7 @@ class WhileParser:
 def parse_while_condition(
     while_stmt: ast.While,
     scope: object_scope.ScopeProxy,
-    symbol_scope: symbol_scope.SymbolScope,
+    symbol_map: symbol_scope.SymbolScope,
 ) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
     test_expr = while_stmt.test
     if not isinstance(test_expr, ast.Call):
@@ -114,7 +114,7 @@ def parse_while_condition(
             f"truthy), but got {condition_node.node.outputs}"
         )
 
-    scope_copy = symbol_scope.fork_scope({})
+    scope_copy = symbol_map.fork_scope({})
     parser_helpers.consume_call_arguments(scope_copy, test_expr, condition_node)
     condition_inputs = scope_copy.input_edges
     return condition_node, condition_inputs

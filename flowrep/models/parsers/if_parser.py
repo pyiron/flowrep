@@ -76,7 +76,7 @@ class IfParser:
         self,
         tree: ast.If,
         scope: object_scope.ScopeProxy,
-        symbol_scope: symbol_scope.SymbolScope,
+        symbol_map: symbol_scope.SymbolScope,
         walker_factory: Callable[
             [symbol_scope.SymbolScope], parser_protocol.BodyWalker
         ],
@@ -88,7 +88,7 @@ class IfParser:
         Args:
             tree: The top-level ``ast.If`` node.
             scope: Object-level scope for resolving callable references.
-            symbol_scope: The enclosing :class:`SymbolScope` (used for forking).
+            symbol_map: The enclosing :class:`SymbolScope` (used for forking).
             walker_factory: Callable that creates a :class:`BodyWalker` from a
                 :class:`SymbolScope`.  Avoids a circular import with
                 ``workflow_parser.WorkflowParser``.
@@ -101,9 +101,7 @@ class IfParser:
             body_label = f"{self.body_label_prefix}_{idx}"
 
             # Parse condition node
-            labeled_cond, cond_inputs = parse_if_condition(
-                test_expr, scope, symbol_scope
-            )
+            labeled_cond, cond_inputs = parse_if_condition(test_expr, scope, symbol_map)
             # Relabel to our naming scheme
             relabeled_cond = helper_models.LabeledNode(
                 label=cond_label, node=labeled_cond.node
@@ -114,15 +112,15 @@ class IfParser:
             }
 
             # Fork scope and walk body
-            body_symbol_scope = symbol_scope.fork_scope({})
-            body_walker = walker_factory(body_symbol_scope)
+            body_symbol_map = symbol_map.fork_scope({})
+            body_walker = walker_factory(body_symbol_map)
             body_walker.walk(body_stmts, scope)
 
             # Identify symbols assigned in this branch and produce them as body
             # outputs so that output_edges / build_model can reference them.
-            assigned = _get_assigned_symbols(body_symbol_scope)
+            assigned = _get_assigned_symbols(body_symbol_map)
             for sym in assigned:
-                body_symbol_scope.produce(sym, sym)
+                body_symbol_map.produce(sym, sym)
 
             self._case_components.append(
                 _CaseComponents(
@@ -136,7 +134,7 @@ class IfParser:
 
         # --- process else case (if present) ---
         if else_stmts is not None:
-            else_scope = symbol_scope.fork_scope({})
+            else_scope = symbol_map.fork_scope({})
             self._else_walker = walker_factory(else_scope)
             self._else_walker.walk(else_stmts, scope)
             self._else_assigned = _get_assigned_symbols(else_scope)
