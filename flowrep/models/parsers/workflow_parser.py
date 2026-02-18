@@ -8,6 +8,7 @@ from flowrep.models.nodes import helper_models, union, workflow_model
 from flowrep.models.parsers import (
     atomic_parser,
     for_parser,
+    if_parser,
     label_helpers,
     object_scope,
     parser_helpers,
@@ -142,7 +143,9 @@ class WorkflowParser(parser_protocol.BodyWalker):
             self.handle_for(stmt, scope)
         elif isinstance(stmt, ast.While):
             self.handle_while(stmt, scope)
-        elif isinstance(stmt, ast.If | ast.Try):
+        elif isinstance(stmt, ast.If):
+            self.handle_if(stmt, scope)
+        elif isinstance(stmt, ast.Try):
             raise NotImplementedError(
                 f"Support for control flow statement {type(stmt)} is forthcoming."
             )
@@ -314,6 +317,20 @@ class WorkflowParser(parser_protocol.BodyWalker):
             new_symbols=while_node.outputs,
             child=labeled_while,
         )
+
+    def handle_if(self, tree: ast.If, scope: object_scope.ScopeProxy) -> None:
+        ip = if_parser.IfParser()
+        ip.build_body(tree, scope, self.symbol_scope, WorkflowParser)
+
+        if_node = ip.build_model()
+        if_label = label_helpers.unique_suffix("if", self.nodes)
+        self.nodes[if_label] = if_node
+
+        for port in if_node.inputs:
+            self.symbol_scope.consume(port, if_label, port)
+
+        labeled_if = helper_models.LabeledNode(label=if_label, node=if_node)
+        self.symbol_scope.register(new_symbols=if_node.outputs, child=labeled_if)
 
     def handle_return(
         self,

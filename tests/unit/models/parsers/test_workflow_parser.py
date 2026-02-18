@@ -438,16 +438,6 @@ class TestParseWorkflowErrors(unittest.TestCase):
 class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
     """Control flow is not yet implemented; verify NotImplementedError is raised."""
 
-    def test_if_statement_raises(self):
-        def wf(x):
-            if x > 0:
-                y = add(x)
-            return y
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("if", str(ctx.exception).lower())
-
     def test_try_except_raises(self):
         def wf(x):
             try:
