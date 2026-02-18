@@ -210,13 +210,12 @@ class WorkflowParser(parser_protocol.BodyWalker):
     ) -> None:
         fp = for_parser.ForParser()
         fp.build_body(tree, scope, self.symbol_map, WorkflowParser)
-
         for_node = fp.build_model()
-        for_label = label_helpers.unique_suffix("for", self.nodes)
-        self.nodes[for_label] = for_node
-
         # Accumulators consumed by the for body are no longer available here
         self.symbol_map.declared_accumulators -= set(fp.consumed_accumulators)
+
+        for_label = label_helpers.unique_suffix("for", self.nodes)
+        self.nodes[for_label] = for_node
 
         for port in for_node.inputs:
             self.symbol_map.consume(port, for_label, port)
@@ -231,8 +230,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
     ) -> None:
         wp = while_parser.WhileParser()
         wp.build_body(tree, scope, self.symbol_map, WorkflowParser)
-
         while_node = wp.build_model()
+
         while_label = label_helpers.unique_suffix("while", self.nodes)
         self.nodes[while_label] = while_node
 
@@ -245,8 +244,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
     def handle_if(self, tree: ast.If, scope: object_scope.ScopeProxy) -> None:
         ip = if_parser.IfParser()
         ip.build_body(tree, scope, self.symbol_map, WorkflowParser)
-
         if_node = ip.build_model()
+
         if_label = label_helpers.unique_suffix("if", self.nodes)
         self.nodes[if_label] = if_node
 
