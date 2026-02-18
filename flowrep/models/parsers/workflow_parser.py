@@ -14,6 +14,7 @@ from flowrep.models.parsers import (
     parser_helpers,
     parser_protocol,
     symbol_scope,
+    try_parser,
     while_parser,
 )
 
@@ -146,9 +147,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         elif isinstance(stmt, ast.If):
             self.handle_if(stmt, scope)
         elif isinstance(stmt, ast.Try):
-            raise NotImplementedError(
-                f"Support for control flow statement {type(stmt)} is forthcoming."
-            )
+            self.handle_try(stmt, scope)
         elif isinstance(stmt, ast.Expr) and is_append_call(stmt.value):
             self.handle_appending_to_accumulator(cast(ast.Call, stmt.value))
         else:
@@ -230,6 +229,12 @@ class WorkflowParser(parser_protocol.BodyWalker):
     def handle_if(self, tree: ast.If, scope: object_scope.ScopeProxy) -> None:
         if_node = if_parser.parse_if_node(tree, scope, self.symbol_map, WorkflowParser)
         self._digest_flow_control("if", if_node)
+
+    def handle_try(self, tree: ast.Try, scope: object_scope.ScopeProxy) -> None:
+        try_node = try_parser.parse_try_node(
+            tree, scope, self.symbol_map, WorkflowParser
+        )
+        self._digest_flow_control("try", try_node)
 
     def handle_return(
         self,

@@ -10,6 +10,7 @@ from flowrep.models import edge_models
 from flowrep.models.nodes import (
     for_model,
     if_model,
+    try_model,
     while_model,
     workflow_model,
 )
@@ -194,22 +195,6 @@ class TestParseIfConditionErrors(unittest.TestCase):
 class TestIfBodyErrors(unittest.TestCase):
     """Errors inside if/else bodies surfaced through parse_workflow."""
 
-    def test_try_in_if_body_raises(self):
-        def wf(x, y):
-            if my_condition(x, y):
-                try:  # noqa: SIM105
-                    pass
-                except Exception:
-                    pass
-                x = identity(x)
-            else:
-                x = identity(x)
-            return x
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("Try", str(ctx.exception))
-
     def test_unrecognized_body_stmt_raises(self):
         """ast.Return inside an if body is not handled TypeError."""
 
@@ -224,22 +209,6 @@ class TestIfBodyErrors(unittest.TestCase):
         with self.assertRaises(TypeError) as ctx:
             workflow_parser.parse_workflow(wf)
         self.assertIn("ast found", str(ctx.exception))
-
-    def test_try_in_else_body_raises(self):
-        def wf(x, y):
-            if my_condition(x, y):
-                x = identity(x)
-            else:
-                try:  # noqa: SIM105
-                    pass
-                except Exception:
-                    pass
-                x = identity(x)
-            return x
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("Try", str(ctx.exception))
 
 
 # ===================================================================
@@ -700,6 +669,46 @@ class TestIfParserStructure(unittest.TestCase):
             n for n in else_body.nodes.values() if isinstance(n, for_model.ForNode)
         ]
         self.assertEqual(len(for_nodes), 1)
+
+    def test_try_nested_inside_if_body(self):
+        """A try/except inside an if-body produces a TryNode in the body workflow."""
+
+        def wf(x, y):
+            if my_condition(x, y):
+                try:
+                    z = my_add(x, y)
+                except ValueError:
+                    z = my_mul(x, y)
+            else:
+                z = identity(x)
+            return z
+
+        ifn = self._parse(wf).nodes["if_0"]
+        body = ifn.cases[0].body.node
+        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        try_nodes = [n for n in body.nodes.values() if isinstance(n, try_model.TryNode)]
+        self.assertEqual(len(try_nodes), 1)
+
+    def test_try_nested_inside_else_body(self):
+        """A try/except inside an else-body produces a TryNode in the else workflow."""
+
+        def wf(x, y):
+            if my_condition(x, y):
+                z = identity(x)
+            else:
+                try:
+                    z = my_add(x, y)
+                except ValueError:
+                    z = my_mul(x, y)
+            return z
+
+        ifn = self._parse(wf).nodes["if_0"]
+        else_body = ifn.else_case.node
+        self.assertIsInstance(else_body, workflow_model.WorkflowNode)
+        try_nodes = [
+            n for n in else_body.nodes.values() if isinstance(n, try_model.TryNode)
+        ]
+        self.assertEqual(len(try_nodes), 1)
 
 
 # ===================================================================

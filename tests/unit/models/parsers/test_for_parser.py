@@ -15,6 +15,7 @@ from flowrep.models.nodes import (
     atomic_model,
     for_model,
     if_model,
+    try_model,
     while_model,
     workflow_model,
 )
@@ -235,21 +236,6 @@ class TestForParserErrors(unittest.TestCase):
     The parser is always reached through WorkflowParser.handle_for,
     so we test error paths by defining small invalid workflow functions.
     """
-
-    def test_try_in_for_body_raises(self):
-        def wf(xs):
-            results = []
-            for x in xs:
-                try:  # noqa: SIM105
-                    pass
-                except Exception:
-                    pass
-                results.append(x)
-            return results
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("Try", str(ctx.exception))
 
     def test_unrecognised_body_stmt_raises_type_error(self):
         """ast.Return inside a for body is not handled → TypeError."""
@@ -703,6 +689,25 @@ class TestForParserStructure(unittest.TestCase):
         self.assertIsInstance(body, workflow_model.WorkflowNode)
         if_nodes = [n for n in body.nodes.values() if isinstance(n, if_model.IfNode)]
         self.assertEqual(len(if_nodes), 1)
+
+    def test_try_nested_inside_for_body(self):
+        """A try/except inside a for-body produces a TryNode in the body workflow."""
+
+        def wf(xs, y):
+            results = []
+            for x in xs:
+                try:
+                    v = identity(x)
+                except ValueError:
+                    v = my_add(x, y)
+                results.append(v)
+            return results
+
+        fn = self._parse(wf).nodes["for_0"]
+        body = fn.body_node.node
+        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        try_nodes = [n for n in body.nodes.values() if isinstance(n, try_model.TryNode)]
+        self.assertEqual(len(try_nodes), 1)
 
 
 # ===================================================================

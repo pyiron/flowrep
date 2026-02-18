@@ -435,22 +435,6 @@ class TestParseWorkflowErrors(unittest.TestCase):
         self.assertIn("must target exactly one symbol", str(ctx.exception))
 
 
-class TestParseWorkflowControlFlowNotImplemented(unittest.TestCase):
-    """Control flow is not yet implemented; verify NotImplementedError is raised."""
-
-    def test_try_except_raises(self):
-        def wf(x):
-            try:
-                y = add(x)
-            except Exception:
-                y = multiply(x)
-            return y
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("try", str(ctx.exception).lower())
-
-
 class TestNestedAttributeResolution(unittest.TestCase):
     """Test that nested class attributes like Foo.Bar.func are resolved."""
 
