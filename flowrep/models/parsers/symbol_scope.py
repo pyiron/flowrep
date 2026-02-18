@@ -203,27 +203,32 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     # --- Forking for child scopes ---
     def fork_scope(
         self,
-        symbol_remap: dict[str, str],
+        symbol_remap: dict[str, str] | None = None,
         available_accumulators: set[str] | None = None,
     ) -> "SymbolScope":
         """
-        Create a child scope wherein some symbols are remapped.
+        Create a child scope for a nested control-flow body.
 
-        This is necessary when passing scope from one graph layer to another if the
-        parent inputs have the same origin but different labels.
+        Every symbol in the current ``_sources`` is carried over as a fresh
+        :class:`InputSource` in the child.  *symbol_remap* allows renaming
+        symbols in transit (e.g. a for-loop replacing the iterable symbol
+        with the iteration variable).
 
-        When *carry_accumulators* is True (the default), declared accumulators from
-        this scope become available accumulators in the child.  This is the correct
-        behaviour for for-loop bodies, where the parent scope declares accumulators
-        that the body appends to.
+        Accumulator propagation is controlled explicitly via
+        *available_accumulators*.  For-loop bodies pass the parent's
+        ``declared_accumulators`` so the body can ``.append()``; while-loop
+        and if/else bodies pass ``None`` (the default) to start with an
+        empty set, since those control-flow models do not support
+        cross-iteration accumulation.
 
-        When *carry_accumulators* is False, the child starts with no available
-        accumulators.  This is correct for while-loop bodies, where the while-node
-        model does not support accumulation across iterations.
+        The parent's ``available_accumulators`` are always added to the
+        child's ``reserved_accumulators`` so that erroneous grandparent
+        access is caught with a clear error rather than silently ignored.
         """
+        remap = {} if symbol_remap is None else symbol_remap
         return SymbolScope(
             {
-                (k := symbol_remap.get(key, key)): edge_models.InputSource(port=k)
+                (k := remap.get(key, key)): edge_models.InputSource(port=k)
                 for key in self._sources
             },
             available_accumulators=available_accumulators,
