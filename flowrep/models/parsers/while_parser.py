@@ -61,7 +61,7 @@ def parse_while_node(
     # 2. Fork scope — carry_accumulators=False: the while-node model does
     #    not support accumulation across iterations, so outer accumulators
     #    must not leak into the while body.
-    body_symbol_map = symbol_map.fork_scope({})
+    body_symbol_map = symbol_map.fork_scope()
 
     # 3. Fresh body walker with the forked scope
     body_walker = walker_factory(body_symbol_map)
@@ -143,7 +143,7 @@ def _parse_while_condition(
             f"truthy), but got {condition_node.node.outputs}"
         )
 
-    scope_copy = symbol_map.fork_scope({})
+    scope_copy = symbol_map.fork_scope()
     parser_helpers.consume_call_arguments(scope_copy, test_expr, condition_node)
     condition_inputs = scope_copy.input_edges
     return condition_node, condition_inputs

@@ -71,7 +71,7 @@ def parse_if_node(
         }
 
         # Fork scope and walk body
-        body_symbol_map = symbol_map.fork_scope({})
+        body_symbol_map = symbol_map.fork_scope()
         body_walker = walker_factory(body_symbol_map)
         body_walker.walk(body_stmts, scope)
 
@@ -93,7 +93,7 @@ def parse_if_node(
 
     # --- process else case (if present) ---
     if else_stmts is not None:
-        else_scope = symbol_map.fork_scope({})
+        else_scope = symbol_map.fork_scope()
         else_walker = walker_factory(else_scope)
         else_walker.walk(else_stmts, scope)
         else_assigned = _get_assigned_symbols(else_scope)
@@ -256,7 +256,7 @@ def _parse_if_condition(
             f"truthy), but got {condition_node.node.outputs}"
         )
 
-    scope_copy = parent_scope.fork_scope({})
+    scope_copy = parent_scope.fork_scope()
     parser_helpers.consume_call_arguments(scope_copy, test_expr, condition_node)
     return condition_node, scope_copy.input_edges
 

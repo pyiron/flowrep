@@ -82,7 +82,7 @@ class TestSymbolScopeFork(unittest.TestCase):
 
     def test_fork_without_remap(self):
         scope = SymbolScope({"a": _make_input("a")})
-        child = scope.fork_scope({})
+        child = scope.fork_scope()
 
         self.assertEqual(len(child), 1)
         self.assertEqual(child["a"], _make_input("a"))
@@ -102,7 +102,7 @@ class TestSymbolScopeFork(unittest.TestCase):
         """Even SourceHandle values in the parent become InputSources in the fork,
         since the child scope treats them as its own inputs."""
         scope = SymbolScope({"a": _make_source("node_0", "out")})
-        child = scope.fork_scope({})
+        child = scope.fork_scope()
 
         result = child["a"]
         self.assertIsInstance(result, edge_models.InputSource)
