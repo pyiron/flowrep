@@ -18,8 +18,7 @@ def parse_for_node(
     walker_factory: Callable[[symbol_scope.SymbolScope], parser_protocol.BodyWalker],
 ) -> for_model.ForNode:
     """
-    Walk a for-loop, building all internal state needed for
-    :meth:`build_model`.
+    Walk a for-loop.
 
     Args:
         tree: The top-level ``ast.For`` node (may contain immediately

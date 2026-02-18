@@ -25,8 +25,7 @@ def parse_while_node(
     walker_factory: Callable[[symbol_scope.SymbolScope], parser_protocol.BodyWalker],
 ) -> while_model.WhileNode:
     """
-    Walk a while-loop, building all internal state needed for
-    :meth:`build_model`.
+    Walk a while-loop.
 
     Args:
         tree: The ``ast.While`` node.
