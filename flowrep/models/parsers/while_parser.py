@@ -13,6 +13,7 @@ from flowrep.models.parsers import (
     parser_protocol,
     symbol_scope,
 )
+from flowrep.models.parsers.parser_protocol import BodyWalker
 
 
 class WhileParser:
@@ -117,6 +118,10 @@ class WhileParser:
             body_walker.symbol_map.produce(symbol, symbol)
 
         self._body_walker = body_walker
+        self._wire_inputs(body_walker)
+        self._wire_outputs(body_walker)
+
+    def _wire_inputs(self, body_walker: BodyWalker) -> None:
         self._inputs = [source.port for source in self._condition_inputs.values()]
         self._input_edges = dict(self._condition_inputs)
         for port in body_walker.inputs:
@@ -126,6 +131,8 @@ class WhileParser:
             if port not in self._inputs:
                 self._inputs.append(port)
 
+    def _wire_outputs(self, body_walker: BodyWalker) -> None:
+        reassigned_symbols = body_walker.symbol_map.reassigned_symbols
         self._outputs = reassigned_symbols
         self._output_edges = edge_models.OutputEdges(
             {

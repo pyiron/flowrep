@@ -7,6 +7,7 @@ from typing import ClassVar
 from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, helper_models
 from flowrep.models.parsers import object_scope, parser_protocol, symbol_scope
+from flowrep.models.parsers.parser_protocol import BodyWalker
 
 
 class ForParser:
@@ -121,6 +122,20 @@ class ForParser:
                 f"value after the loop, accumulate it explicitly."
             )
 
+        self._body_walker = body_walker
+        self._consumed_accumulators = consumed
+        self._nested_ports = [var for var, _ in nested_iters]
+        self._zipped_ports = [var for var, _ in zipped_iters]
+
+        self._wire_inputs(body_walker, all_iters)
+        self._wire_outputs(body_walker)
+
+        return None
+
+    def _wire_inputs(
+        self, body_walker: BodyWalker, all_iters: list[tuple[str, str]]
+    ) -> None:
+        consumed = body_walker.symbol_map.consumed_accumulators
         broadcast_symbols = [
             s
             for s in body_walker.inputs
@@ -128,14 +143,7 @@ class ForParser:
             and s not in {iterating_symbol for iterating_symbol, _ in all_iters}
         ]  # Need to keep it consistently ordered, so don't use a simple set op
         scattered_symbols = [scattered_symbol for _, scattered_symbol in all_iters]
-
-        self._body_walker = body_walker
-        self._consumed_accumulators = consumed
         self._inputs = broadcast_symbols + scattered_symbols
-        self._outputs = list(consumed)
-        self._nested_ports = [var for var, _ in nested_iters]
-        self._zipped_ports = [var for var, _ in zipped_iters]
-
         broadcast_inputs = {
             edge_models.TargetHandle(
                 node=self.body_label, port=port
@@ -150,6 +158,9 @@ class ForParser:
         }
         self._input_edges = broadcast_inputs | scattered_inputs
 
+    def _wire_outputs(self, body_walker: BodyWalker) -> None:
+        consumed = body_walker.symbol_map.consumed_accumulators
+        self._outputs = list(consumed)
         self._output_edges = {}
         for accumulator_symbol, appended_symbol in consumed.items():
             target = edge_models.OutputTarget(port=accumulator_symbol)
@@ -161,8 +172,6 @@ class ForParser:
                 self._output_edges[target] = self._input_edges[
                     edge_models.TargetHandle(node=self.body_label, port=appended_symbol)
                 ]
-
-        return None
 
 
 def parse_for_iterations(
