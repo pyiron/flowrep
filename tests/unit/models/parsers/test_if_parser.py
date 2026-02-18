@@ -76,13 +76,13 @@ class TestParseIfElifChain(unittest.TestCase):
 
     def test_simple_if(self):
         stmt = _parse_if_stmt("if cond():\n  x = 1")
-        cases, else_body = if_parser.parse_if_elif_chain(stmt)
+        cases, else_body = if_parser._parse_if_elif_chain(stmt)
         self.assertEqual(len(cases), 1)
         self.assertIsNone(else_body)
 
     def test_if_else(self):
         stmt = _parse_if_stmt("if cond():\n  x = 1\nelse:\n  x = 2")
-        cases, else_body = if_parser.parse_if_elif_chain(stmt)
+        cases, else_body = if_parser._parse_if_elif_chain(stmt)
         self.assertEqual(len(cases), 1)
         self.assertIsNotNone(else_body)
         self.assertEqual(len(else_body), 1)
@@ -90,14 +90,14 @@ class TestParseIfElifChain(unittest.TestCase):
     def test_if_elif(self):
         code = "if a():\n  x = 1\nelif b():\n  x = 2"
         stmt = _parse_if_stmt(code)
-        cases, else_body = if_parser.parse_if_elif_chain(stmt)
+        cases, else_body = if_parser._parse_if_elif_chain(stmt)
         self.assertEqual(len(cases), 2)
         self.assertIsNone(else_body)
 
     def test_if_elif_else(self):
         code = "if a():\n  x = 1\nelif b():\n  x = 2\nelse:\n  x = 3"
         stmt = _parse_if_stmt(code)
-        cases, else_body = if_parser.parse_if_elif_chain(stmt)
+        cases, else_body = if_parser._parse_if_elif_chain(stmt)
         self.assertEqual(len(cases), 2)
         self.assertIsNotNone(else_body)
 
@@ -109,14 +109,14 @@ class TestParseIfElifChain(unittest.TestCase):
             "else:\n  x = 4"
         )
         stmt = _parse_if_stmt(code)
-        cases, else_body = if_parser.parse_if_elif_chain(stmt)
+        cases, else_body = if_parser._parse_if_elif_chain(stmt)
         self.assertEqual(len(cases), 3)
         self.assertIsNotNone(else_body)
 
     def test_body_statements_preserved(self):
         code = "if a():\n  x = 1\n  y = 2\nelse:\n  z = 3"
         stmt = _parse_if_stmt(code)
-        cases, else_body = if_parser.parse_if_elif_chain(stmt)
+        cases, else_body = if_parser._parse_if_elif_chain(stmt)
         self.assertEqual(len(cases[0][1]), 2)
         self.assertEqual(len(else_body), 1)
 
@@ -507,7 +507,7 @@ class TestIfParserStructure(unittest.TestCase):
 
         ifn = self._parse(wf).nodes["if_0"]
         self.assertIsNotNone(ifn.else_case)
-        self.assertEqual(ifn.else_case.label, if_parser.IfParser.else_label)
+        self.assertEqual(ifn.else_case.label, if_parser.IF_ELSE_LABEL)
 
     def test_no_else_case(self):
         def wf(x, y):

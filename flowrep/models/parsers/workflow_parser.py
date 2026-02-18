@@ -203,134 +203,33 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 f"{type(rhs)}"
             )
 
-    def handle_for(
-        self,
-        tree: ast.For,
-        scope: object_scope.ScopeProxy,
-    ) -> None:
-        # 1. Parse the iteration header — pure AST, no parser state needed
-        nested_iters, zipped_iters, body_tree = for_parser.parse_for_iterations(tree)
-        all_iters = nested_iters + zipped_iters
+    def _digest_flow_control(self, label_prefix: str, node: union.NodeType) -> None:
+        label = label_helpers.unique_suffix(label_prefix, self.nodes)
+        self.nodes[label] = node
 
-        # 2. Fork the scope: replaces iterated-over symbols with iteration variables,
-        #    all as InputSources from the body's perspective
-        body_symbol_map = self.symbol_map.fork_scope(
-            {src: var for var, src in all_iters},
-            available_accumulators=self.symbol_map.declared_accumulators.copy(),
+        for port in node.inputs:
+            self.symbol_map.consume(port, label, port)
+
+        labeled_node = helper_models.LabeledNode(label=label, node=node)
+        self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
+
+    def handle_for(self, tree: ast.For, scope: object_scope.ScopeProxy) -> None:
+        for_node = for_parser.parse_for_node(
+            tree, scope, self.symbol_map, WorkflowParser
         )
+        # Accumulators consumed by the for body are no longer available here
+        self.symbol_map.declared_accumulators -= set(for_node.outputs)
+        self._digest_flow_control("for", for_node)
 
-        # 3. Fresh body walker with the forked scope
-        body_walker = WorkflowParser(symbol_map=body_symbol_map)
-
-        # 4. ForParser owns the for-specific wiring; body_walker owns the
-        #    general statement dispatch inside the for-body
-        fp = for_parser.ForParser(body_walker=body_walker)
-        fp.build_body(
-            body_tree,
-            scope=scope,
-            nested_iters=nested_iters,
-            zipped_iters=zipped_iters,
+    def handle_while(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None:
+        while_node = while_parser.parse_while_node(
+            tree, scope, self.symbol_map, WorkflowParser
         )
-
-        # Check for internal symbol reassignments
-        body_reassigned = set(body_walker.symbol_map.reassigned_symbols)
-        accumulator_outputs = set(body_walker.symbol_map.consumed_accumulators)
-        unreturned_reassignments = (
-            body_reassigned - accumulator_outputs - {var for var, _ in all_iters}
-        )
-        leaked_reassignments = unreturned_reassignments.intersection(
-            self.symbol_map.keys()
-        )
-        if leaked_reassignments:
-            raise ValueError(
-                f"For-loop body reassigns symbol(s) {sorted(leaked_reassignments)} "
-                f"from the enclosing scope. This is not supported because for-node "
-                f"outputs are determined by accumulators. If you need the reassigned "
-                f"value after the loop, accumulate it explicitly."
-            )
-
-        # 5. Build the ForNode and integrate it into *this* parser's state
-        for_node = fp.build_model()
-        for_label = label_helpers.unique_suffix("for", self.nodes)
-        self.nodes[for_label] = for_node
-
-        # 6. Log all accumulators used inside the for-node as no longer available
-        self.symbol_map.declared_accumulators -= set(
-            body_walker.symbol_map.consumed_accumulators
-        )
-
-        # 7. Log all symbols used inside the for-node as consumed
-        for port in for_node.inputs:
-            self.symbol_map.consume(port, for_label, port)
-
-        # 8. Register the for-node's outputs as symbols in *this* scope
-        labeled_for = helper_models.LabeledNode(label=for_label, node=for_node)
-        self.symbol_map.register(
-            new_symbols=for_node.outputs,
-            child=labeled_for,
-        )
-
-    def handle_while(
-        self,
-        tree: ast.While,
-        scope: object_scope.ScopeProxy,
-    ):
-        # 0. Fail early for unsupported syntax
-        if tree.orelse:
-            raise NotImplementedError(
-                "While loops with else branches are not supported in our parsing "
-                "syntax."
-            )
-        # 1. Parse the loop header — pure AST, no parser state needed
-        labeled_condition_node, condition_inputs = while_parser.parse_while_condition(
-            tree, scope, self.symbol_map
-        )
-
-        # 2. Build a fresh body walker with the forked scope
-        #    carry_accumulators=False: the while-node model does not support
-        #    accumulation across iterations, so outer accumulators must not
-        #    leak into the while body.
-        body_symbol_map = self.symbol_map.fork_scope({})
-        body_walker = WorkflowParser(symbol_map=body_symbol_map)
-
-        # 3. WhileParser owns the while-specific wiring; body_walker owns the
-        #    general statement dispatch inside the while-body
-        wp = while_parser.WhileParser(
-            body_walker=body_walker,
-            labeled_condition=labeled_condition_node,
-            condition_inputs=condition_inputs,
-        )
-        wp.build_body(tree, scope=scope)
-
-        # 4. Build the WhileNode and integrate it into *this* parser's state
-        while_node = wp.build_model()
-        while_label = label_helpers.unique_suffix("while", self.nodes)
-        self.nodes[while_label] = while_node
-
-        # 5. Log all symbols used inside the while-node as consumed
-        for port in while_node.inputs:
-            self.symbol_map.consume(port, while_label, port)
-
-        # 6. Register the while-node's outputs as symbols in *this* scope
-        labeled_while = helper_models.LabeledNode(label=while_label, node=while_node)
-        self.symbol_map.register(
-            new_symbols=while_node.outputs,
-            child=labeled_while,
-        )
+        self._digest_flow_control("while", while_node)
 
     def handle_if(self, tree: ast.If, scope: object_scope.ScopeProxy) -> None:
-        ip = if_parser.IfParser()
-        ip.build_body(tree, scope, self.symbol_map, WorkflowParser)
-
-        if_node = ip.build_model()
-        if_label = label_helpers.unique_suffix("if", self.nodes)
-        self.nodes[if_label] = if_node
-
-        for port in if_node.inputs:
-            self.symbol_map.consume(port, if_label, port)
-
-        labeled_if = helper_models.LabeledNode(label=if_label, node=if_node)
-        self.symbol_map.register(new_symbols=if_node.outputs, child=labeled_if)
+        if_node = if_parser.parse_if_node(tree, scope, self.symbol_map, WorkflowParser)
+        self._digest_flow_control("if", if_node)
 
     def handle_return(
         self,

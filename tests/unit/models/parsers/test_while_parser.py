@@ -283,9 +283,7 @@ class TestWhileParserStructure(unittest.TestCase):
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        self.assertEqual(
-            wn.case.condition.label, while_parser.WhileParser.condition_label
-        )
+        self.assertEqual(wn.case.condition.label, while_parser.WHILE_CONDITION_LABEL)
 
     def test_body_label(self):
         def wf(x, bound):
@@ -294,7 +292,7 @@ class TestWhileParserStructure(unittest.TestCase):
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        self.assertEqual(wn.case.body.label, while_parser.WhileParser.body_label)
+        self.assertEqual(wn.case.body.label, while_parser.WHILE_BODY_LABEL)
 
     def test_body_node_is_workflow(self):
         """

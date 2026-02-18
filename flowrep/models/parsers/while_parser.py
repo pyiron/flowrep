@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import ClassVar
+from collections.abc import Callable
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models, while_model
@@ -12,90 +12,119 @@ from flowrep.models.parsers import (
     parser_protocol,
     symbol_scope,
 )
+from flowrep.models.parsers.parser_protocol import BodyWalker
+
+WHILE_CONDITION_LABEL: str = "condition"
+WHILE_BODY_LABEL: str = "body"
 
 
-class WhileParser:
-    condition_label: ClassVar[str] = "condition"
-    body_label: ClassVar[str] = "body"
+def parse_while_node(
+    tree: ast.While,
+    scope: object_scope.ScopeProxy,
+    symbol_map: symbol_scope.SymbolScope,
+    walker_factory: Callable[[symbol_scope.SymbolScope], parser_protocol.BodyWalker],
+) -> while_model.WhileNode:
+    """
+    Walk a while-loop.
 
-    def __init__(
-        self,
-        body_walker: parser_protocol.BodyWalker,
-        labeled_condition: helper_models.LabeledNode,
-        condition_inputs: edge_models.InputEdges,
-    ):
-        self.body_walker = body_walker
-        self._labeled_condition_node = helper_models.LabeledNode(
-            label=self.condition_label,
-            node=labeled_condition.node,
-        )
-        self._condition_inputs = edge_models.InputEdges(
-            {
-                edge_models.TargetHandle(
-                    node=self.condition_label, port=target.port
-                ): source
-                for target, source in condition_inputs.items()
-            }
-        )
-
-        self._inputs: list[str] = []
-        self._outputs: list[str] = []
-        # Note property: self._case
-        self._input_edges: edge_models.InputEdges = {}
-        self._output_edges: edge_models.OutputEdges = {}
-
-    @property
-    def _case(self) -> helper_models.ConditionalCase:
-        return helper_models.ConditionalCase(
-            condition=self._labeled_condition_node,
-            body=helper_models.LabeledNode(
-                label=self.body_label, node=self.body_walker.build_model()
-            ),
+    Args:
+        tree: The ``ast.While`` node.
+        scope: Object-level scope for resolving callable references.
+        symbol_map: The enclosing :class:`SymbolScope` (used for forking).
+        walker_factory: Callable that creates a :class:`BodyWalker` from a
+            :class:`SymbolScope`.  Avoids a circular import with
+            ``workflow_parser.WorkflowParser``.
+    """
+    # 0. Fail early for unsupported syntax
+    if tree.orelse:
+        raise NotImplementedError(
+            "While loops with else branches are not supported in our parsing " "syntax."
         )
 
-    def build_model(self) -> while_model.WhileNode:
-        return while_model.WhileNode(
-            inputs=self._inputs,
-            outputs=self._outputs,
-            case=self._case,
-            input_edges=self._input_edges,
-            output_edges=self._output_edges,
+    # 1. Parse the loop condition — pure AST, no parser state needed
+    labeled_condition, condition_inputs = _parse_while_condition(
+        tree, scope, symbol_map
+    )
+    labeled_condition_node = helper_models.LabeledNode(
+        label=WHILE_CONDITION_LABEL,
+        node=labeled_condition.node,
+    )
+    condition_inputs = edge_models.InputEdges(
+        {
+            edge_models.TargetHandle(
+                node=WHILE_CONDITION_LABEL, port=target.port
+            ): source
+            for target, source in condition_inputs.items()
+        }
+    )
+
+    # 2. Fork scope — carry_accumulators=False: the while-node model does
+    #    not support accumulation across iterations, so outer accumulators
+    #    must not leak into the while body.
+    body_symbol_map = symbol_map.fork_scope({})
+
+    # 3. Fresh body walker with the forked scope
+    body_walker = walker_factory(body_symbol_map)
+
+    body_walker.walk(tree.body, scope)
+    reassigned_symbols = body_walker.symbol_map.reassigned_symbols
+    if len(reassigned_symbols) == 0:
+        raise ValueError(
+            "While-loop body must reassign at least one symbol from the "
+            "enclosing scope."
         )
 
-    def build_body(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None:
+    for symbol in reassigned_symbols:
+        body_walker.symbol_map.produce(symbol, symbol)
 
-        self.body_walker.walk(tree.body, scope)
-        reassigned_symbols = self.body_walker.symbol_map.reassigned_symbols
-        if len(reassigned_symbols) == 0:
-            raise ValueError(
-                "While-loop body must reassign at least one symbol from the "
-                "enclosing scope."
+    inputs, input_edges = _wire_inputs(body_walker, condition_inputs)
+    outputs, output_edges = _wire_outputs(body_walker)
+
+    case = helper_models.ConditionalCase(
+        condition=labeled_condition_node,
+        body=helper_models.LabeledNode(
+            label=WHILE_BODY_LABEL, node=body_walker.build_model()
+        ),
+    )
+
+    return while_model.WhileNode(
+        inputs=inputs,
+        outputs=outputs,
+        case=case,
+        input_edges=input_edges,
+        output_edges=output_edges,
+    )
+
+
+def _wire_inputs(
+    body_walker: BodyWalker, condition_inputs: edge_models.InputEdges
+) -> tuple[list[str], edge_models.InputEdges]:
+    inputs = [source.port for source in condition_inputs.values()]
+    input_edges = dict(condition_inputs)
+    for port in body_walker.inputs:
+        input_edges[edge_models.TargetHandle(node=WHILE_BODY_LABEL, port=port)] = (
+            edge_models.InputSource(port=port)
+        )
+        if port not in inputs:
+            inputs.append(port)
+    return inputs, input_edges
+
+
+def _wire_outputs(body_walker: BodyWalker) -> tuple[list[str], edge_models.OutputEdges]:
+    reassigned_symbols = body_walker.symbol_map.reassigned_symbols
+    outputs = reassigned_symbols
+    output_edges = edge_models.OutputEdges(
+        {
+            edge_models.OutputTarget(port=symbol): edge_models.SourceHandle(
+                node=WHILE_BODY_LABEL, port=symbol
             )
-
-        for symbol in reassigned_symbols:
-            self.body_walker.symbol_map.produce(symbol, symbol)
-
-        self._inputs = [source.port for source in self._condition_inputs.values()]
-        self._input_edges = self._condition_inputs
-        for port in self.body_walker.inputs:
-            self._input_edges[
-                edge_models.TargetHandle(node=self.body_label, port=port)
-            ] = edge_models.InputSource(port=port)
-            if port not in self._inputs:
-                self._inputs.append(port)
-
-        self._outputs = reassigned_symbols
-        self._output_edges = edge_models.OutputEdges(
-            {
-                edge_models.OutputTarget(port=symbol): edge_models.SourceHandle(
-                    node=self.body_label, port=symbol
-                )
-                for symbol in reassigned_symbols
-            }
-        )
+            for symbol in reassigned_symbols
+        }
+    )
+    return outputs, output_edges
 
 
-def parse_while_condition(
+def _parse_while_condition(
     while_stmt: ast.While,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,

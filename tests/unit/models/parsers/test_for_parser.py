@@ -176,40 +176,40 @@ class TestParseForIterations(unittest.TestCase):
 
     def test_single_simple_iteration(self):
         stmt = _parse_for_stmt("for x in xs:\n  pass")
-        nested, zipped, body = for_parser.parse_for_iterations(stmt)
+        nested, zipped, body = for_parser._parse_for_iterations(stmt)
         self.assertEqual(nested, [("x", "xs")])
         self.assertEqual(zipped, [])
 
     def test_single_zip_iteration(self):
         stmt = _parse_for_stmt("for a, b in zip(xs, ys):\n  pass")
-        nested, zipped, body = for_parser.parse_for_iterations(stmt)
+        nested, zipped, body = for_parser._parse_for_iterations(stmt)
         self.assertEqual(nested, [])
         self.assertEqual(zipped, [("a", "xs"), ("b", "ys")])
 
     def test_two_nested_simple_iterations(self):
         stmt = _parse_for_stmt("for x in xs:\n  for y in ys:\n    pass")
-        nested, zipped, body = for_parser.parse_for_iterations(stmt)
+        nested, zipped, body = for_parser._parse_for_iterations(stmt)
         self.assertEqual(nested, [("x", "xs"), ("y", "ys")])
         self.assertEqual(zipped, [])
 
     def test_nested_then_zip(self):
         code = "for x in xs:\n  for a, b in zip(as_, bs):\n    pass"
         stmt = _parse_for_stmt(code)
-        nested, zipped, body = for_parser.parse_for_iterations(stmt)
+        nested, zipped, body = for_parser._parse_for_iterations(stmt)
         self.assertEqual(nested, [("x", "xs")])
         self.assertEqual(zipped, [("a", "as_"), ("b", "bs")])
 
     def test_zipped_then_nested(self):
         code = "for a, b in zip(as_, bs):\n    for x in xs:\n      pass"
         stmt = _parse_for_stmt(code)
-        nested, zipped, body = for_parser.parse_for_iterations(stmt)
+        nested, zipped, body = for_parser._parse_for_iterations(stmt)
         self.assertEqual(nested, [("x", "xs")])
         self.assertEqual(zipped, [("a", "as_"), ("b", "bs")])
 
     def test_body_tree_is_innermost_for(self):
         code = "for x in xs:\n  for y in ys:\n    z = 1"
         stmt = _parse_for_stmt(code)
-        _, _, body = for_parser.parse_for_iterations(stmt)
+        _, _, body = for_parser._parse_for_iterations(stmt)
         self.assertIsInstance(body, ast.For)
         # The innermost for's body should contain the assignment
         self.assertIsInstance(body.body[0], ast.Assign)
@@ -218,7 +218,7 @@ class TestParseForIterations(unittest.TestCase):
         """If body[0] is not a For, don't descend even if a For follows."""
         code = "for x in xs:\n  y = 1\n  for z in zs:\n    pass"
         stmt = _parse_for_stmt(code)
-        nested, zipped, body = for_parser.parse_for_iterations(stmt)
+        nested, zipped, body = for_parser._parse_for_iterations(stmt)
         self.assertEqual(nested, [("x", "xs")])
         self.assertEqual(zipped, [])
         # body is the outer for – its body contains the Assign then another For
