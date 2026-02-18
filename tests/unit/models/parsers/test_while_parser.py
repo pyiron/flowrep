@@ -1,7 +1,7 @@
 import unittest
 
 from flowrep.models import edge_models
-from flowrep.models.nodes import for_model, while_model, workflow_model
+from flowrep.models.nodes import for_model, if_model, while_model, workflow_model
 from flowrep.models.parsers import atomic_parser, while_parser, workflow_parser
 
 
@@ -72,18 +72,6 @@ class TestWalkAstWhileErrors(unittest.TestCase):
     walk_ast_while is reached through WorkflowParser.handle_while,
     so we test error paths by defining small invalid workflow functions.
     """
-
-    def test_if_in_while_body_raises(self):
-        def wf(x, bound):
-            while my_condition(x, bound):
-                if True:
-                    pass
-                x = identity(x)
-            return x
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("If", str(ctx.exception))
 
     def test_try_in_while_body_raises(self):
         def wf(x, bound):
@@ -394,6 +382,25 @@ class TestWhileParserStructure(unittest.TestCase):
         self.assertEqual(len(for_nodes), 1)
         # The for-node's output is consumed downstream in the while body
         self.assertIn("acc", for_nodes[0].outputs)
+
+    def test_if_nested_inside_while_body(self):
+        """An if-node inside a while-body produces an IfNode in the body workflow."""
+
+        def wf(x, y, bound):
+            while my_condition(x, bound):
+                if my_condition(x, y):  # noqa: SIM108
+                    x = my_add(x, y)
+                else:
+                    x = identity(x)
+            return x
+
+        wn = self._parse(wf).nodes["while_0"]
+        body = wn.case.body.node
+        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        if_nodes = [n for n in body.nodes.values() if isinstance(n, if_model.IfNode)]
+        self.assertEqual(len(if_nodes), 1)
+        # The if-node's output feeds the while reassignment
+        self.assertIn("x", if_nodes[0].outputs)
 
 
 class TestWhileParserRoundTrip(unittest.TestCase):

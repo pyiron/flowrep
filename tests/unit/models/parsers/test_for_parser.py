@@ -11,7 +11,13 @@ import textwrap
 import unittest
 
 from flowrep.models import edge_models
-from flowrep.models.nodes import atomic_model, for_model, while_model, workflow_model
+from flowrep.models.nodes import (
+    atomic_model,
+    for_model,
+    if_model,
+    while_model,
+    workflow_model,
+)
 from flowrep.models.parsers import atomic_parser, for_parser, workflow_parser
 
 # ---------------------------------------------------------------------------
@@ -229,19 +235,6 @@ class TestWalkAstForErrors(unittest.TestCase):
     walk_ast_for is always reached through WorkflowParser.handle_for,
     so we test error paths by defining small invalid workflow functions.
     """
-
-    def test_if_in_for_body_raises(self):
-        def wf(xs):
-            results = []
-            for x in xs:
-                if True:
-                    pass
-                results.append(x)
-            return results
-
-        with self.assertRaises(NotImplementedError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("If", str(ctx.exception))
 
     def test_try_in_for_body_raises(self):
         def wf(xs):
@@ -693,6 +686,25 @@ class TestForParserStructure(unittest.TestCase):
         self.assertEqual(len(while_nodes), 1)
         # The while-node's output feeds the accumulator
         self.assertIn("y", while_nodes[0].outputs)
+
+    def test_if_nested_inside_for_body(self):
+        """An if-node inside a for-body produces an IfNode in the body workflow."""
+
+        def wf(xs, y):
+            results = []
+            for x in xs:
+                if my_condition(x, y):  # noqa: SIM108
+                    v = identity(x)
+                else:
+                    v = my_add(x, y)
+                results.append(v)
+            return results
+
+        fn = self._parse(wf).nodes["for_0"]
+        body = fn.body_node.node
+        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        if_nodes = [n for n in body.nodes.values() if isinstance(n, if_model.IfNode)]
+        self.assertEqual(len(if_nodes), 1)
 
 
 # ===================================================================
