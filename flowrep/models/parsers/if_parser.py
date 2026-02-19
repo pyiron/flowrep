@@ -251,17 +251,6 @@ def _parse_if_condition(
 
     scope_copy = parent_scope.fork_scope()
     parser_helpers.consume_call_arguments(scope_copy, test_expr, condition_node)
-    return _relabel_node_data(condition_node, scope_copy.input_edges, condition_label)
-
-
-def _relabel_node_data(
-    labeled_node: helper_models.LabeledNode,
-    inputs: edge_models.InputEdges,
-    new_label: str,
-) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
-    relabeled_cond = helper_models.LabeledNode(label=new_label, node=labeled_node.node)
-    relabeled_inputs: edge_models.InputEdges = {
-        edge_models.TargetHandle(node=new_label, port=target.port): source
-        for target, source in inputs.items()
-    }
-    return relabeled_cond, relabeled_inputs
+    return parser_helpers.relabel_node_data(
+        condition_node, scope_copy.input_edges, condition_label
+    )

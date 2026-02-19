@@ -6,6 +6,7 @@ from types import FunctionType
 from typing import Any, cast
 
 from flowrep import workflow
+from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models
 from flowrep.models.parsers import symbol_scope
 
@@ -126,3 +127,16 @@ def consume_call_arguments(
                 "this. Please raise a GitHub issue."
             )
         scope.consume(name_arg.id, child.label, kw.arg)
+
+
+def relabel_node_data(
+    labeled_node: helper_models.LabeledNode,
+    inputs: edge_models.InputEdges,
+    new_label: str,
+) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
+    relabeled_node = helper_models.LabeledNode(label=new_label, node=labeled_node.node)
+    relabeled_inputs: edge_models.InputEdges = {
+        edge_models.TargetHandle(node=new_label, port=target.port): source
+        for target, source in inputs.items()
+    }
+    return relabeled_node, relabeled_inputs

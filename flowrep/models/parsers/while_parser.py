@@ -135,27 +135,6 @@ def _parse_while_condition(
     scope_copy = symbol_map.fork_scope()
     parser_helpers.consume_call_arguments(scope_copy, test_expr, condition_node)
     condition_inputs = scope_copy.input_edges
-    return _relabel_condition_data(condition_node, condition_inputs)
-
-
-def _relabel_condition_data(
-    labeled_condition: helper_models.LabeledNode,
-    condition_inputs: edge_models.InputEdges,
-) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
-    """
-    Regardless of what the condition node's default label would be, use the
-    module-level label.
-    """
-    labeled_condition_node = helper_models.LabeledNode(
-        label=WHILE_CONDITION_LABEL,
-        node=labeled_condition.node,
+    return parser_helpers.relabel_node_data(
+        condition_node, condition_inputs, WHILE_CONDITION_LABEL
     )
-    condition_inputs = edge_models.InputEdges(
-        {
-            edge_models.TargetHandle(
-                node=WHILE_CONDITION_LABEL, port=target.port
-            ): source
-            for target, source in condition_inputs.items()
-        }
-    )
-    return labeled_condition_node, condition_inputs
