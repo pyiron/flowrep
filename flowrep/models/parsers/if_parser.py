@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import ast
 import dataclasses
-from collections.abc import Callable
 
-from flowrep.models import edge_models, subgraph_validation
+from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models, if_model
 from flowrep.models.parsers import (
-    atomic_parser,
+    case_helpers,
     object_scope,
-    parser_helpers,
     parser_protocol,
     symbol_scope,
 )
@@ -24,17 +22,15 @@ class _CaseComponents:
     """Intermediate data collected while processing a single if/elif branch."""
 
     condition: helper_models.LabeledNode
-    condition_inputs_edges: edge_models.InputEdges
-    body_walker: parser_protocol.BodyWalker
-    body_label: str
-    assigned_symbols: list[str]
+    condition_input_edges: edge_models.InputEdges
+    body: case_helpers.WalkedBranch
 
 
 def parse_if_node(
     tree: ast.If,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,
-    walker_factory: Callable[[symbol_scope.SymbolScope], parser_protocol.BodyWalker],
+    walker_factory: parser_protocol.WalkerFactory,
 ):
     """
     Walk an if/elif/else chain.
@@ -48,157 +44,87 @@ def parse_if_node(
             ``workflow_parser.WorkflowParser``.
     """
 
-    case_components: list[_CaseComponents] = []
-    else_walker: parser_protocol.BodyWalker | None = None
-    else_assigned: list[str] = []
+    cases: list[_CaseComponents] = []
+    else_branch: case_helpers.WalkedBranch | None = None
 
-    case_branches, else_stmts = _parse_if_elif_chain(tree)
+    ast_cases, else_stmts = _parse_if_elif_chain(tree)
 
     # --- process each if / elif case ---
-    for idx, (test_expr, body_stmts) in enumerate(case_branches):
+    for idx, (test_expr, body_stmts) in enumerate(ast_cases):
         cond_label = f"{IF_CONDITION_LABEL_PREFIX}_{idx}"
         body_label = f"{IF_BODY_LABEL_PREFIX}_{idx}"
 
-        # Parse condition node
-        labeled_cond, cond_inputs = _parse_if_condition(
+        labeled_cond, cond_inputs = case_helpers.parse_case(
             test_expr, scope, symbol_map, cond_label
         )
-
-        # Fork scope and walk body
-        body_symbol_map = symbol_map.fork_scope()
-        body_walker = walker_factory(body_symbol_map)
-        body_walker.walk(body_stmts, scope)
-
-        # Identify symbols assigned in this branch and produce them as body
-        # outputs so that output_edges / build_model can reference them.
-        assigned = body_symbol_map.assigned_symbols
-        body_symbol_map.produce_symbols(assigned)
-
-        case_components.append(
+        body = case_helpers.walk_branch(
+            body_label, body_stmts, symbol_map, scope, walker_factory
+        )
+        cases.append(
             _CaseComponents(
                 condition=labeled_cond,
-                condition_inputs_edges=cond_inputs,
-                body_walker=body_walker,
-                body_label=body_label,
-                assigned_symbols=assigned,
+                condition_input_edges=cond_inputs,
+                body=body,
             )
         )
 
     # --- process else case (if present) ---
     if else_stmts is not None:
-        else_scope = symbol_map.fork_scope()
-        else_walker = walker_factory(else_scope)
-        else_walker.walk(else_stmts, scope)
-        else_assigned = else_scope.assigned_symbols
-        else_scope.produce_symbols(else_assigned)
+        else_branch = case_helpers.walk_branch(
+            IF_ELSE_LABEL, else_stmts, symbol_map, scope, walker_factory
+        )
 
-    inputs, input_edges = _wire_inputs(case_components, else_walker)
-    outputs, prospective_output_edges = _wire_outputs(
-        case_components, else_walker, else_assigned
-    )
+    # --- wire edges ---
+    body_branches = [cc.body for cc in cases]
+    if else_branch is not None:
+        body_branches.append(else_branch)
 
-    cases = [
+    inputs, input_edges = _wire_inputs(cases, body_branches)
+    outputs, prospective_output_edges = case_helpers.wire_outputs(body_branches)
+
+    model_cases = [
         helper_models.ConditionalCase(
             condition=cc.condition,
-            body=helper_models.LabeledNode(
-                label=cc.body_label,
-                node=cc.body_walker.build_model(),
-            ),
+            body=cc.body.to_labeled_node(),
         )
-        for cc in case_components
+        for cc in cases
     ]
-    else_case = (
-        helper_models.LabeledNode(
-            label=IF_ELSE_LABEL,
-            node=else_walker.build_model(),
-        )
-        if else_walker is not None
-        else None
-    )
+
     return if_model.IfNode(
         inputs=inputs,
         outputs=outputs,
-        cases=cases,
+        cases=model_cases,
         input_edges=input_edges,
         prospective_output_edges=prospective_output_edges,
-        else_case=else_case,
+        else_case=else_branch.to_labeled_node() if else_branch else None,
     )
 
 
 def _wire_inputs(
-    case_components, else_walker
+    cases: list[_CaseComponents],
+    body_branches: list[case_helpers.WalkedBranch],
 ) -> tuple[list[str], edge_models.InputEdges]:
-    """Collect input edges from conditions, case bodies, and else body."""
-    inputs = []
-    input_edges = {}
+    """Merge condition input edges with body/else branch input edges."""
+    inputs: list[str] = []
+    input_edges: edge_models.InputEdges = {}
 
-    def _add_input(input_port: str) -> None:
-        if input_port not in inputs:
-            inputs.append(input_port)
+    def _add_input(port: str) -> None:
+        if port not in inputs:
+            inputs.append(port)
 
-    # Condition inputs
-    for cc in case_components:
-        for target, source in cc.condition_inputs_edges.items():
+    # Condition inputs first (preserves expected edge ordering)
+    for cc in cases:
+        for target, source in cc.condition_input_edges.items():
             input_edges[target] = source
             _add_input(source.port)
 
-    # Case body inputs
-    for cc in case_components:
-        for port in cc.body_walker.inputs:
-            input_edges[edge_models.TargetHandle(node=cc.body_label, port=port)] = (
-                edge_models.InputSource(port=port)
-            )
-            _add_input(port)
+    # Body + else inputs via shared helper
+    branch_inputs, branch_edges = case_helpers.wire_inputs(body_branches)
+    input_edges.update(branch_edges)
+    for port in branch_inputs:
+        _add_input(port)
 
-    # Else body inputs
-    if else_walker is not None:
-        for port in else_walker.inputs:
-            input_edges[edge_models.TargetHandle(node=IF_ELSE_LABEL, port=port)] = (
-                edge_models.InputSource(port=port)
-            )
-            _add_input(port)
     return inputs, input_edges
-
-
-def _wire_outputs(
-    case_components, else_walker, else_assigned
-) -> tuple[list[str], subgraph_validation.ProspectiveOutputEdges]:
-    """Collect outputs and prospective output edges from all branches."""
-    # Union of assigned symbols across all branches, preserving first-seen order
-    outputs: list[str] = []
-    seen: set[str] = set()
-    for cc in case_components:
-        for sym in cc.assigned_symbols:
-            if sym not in seen:
-                seen.add(sym)
-                outputs.append(sym)
-    for sym in else_assigned:
-        if sym not in seen:
-            seen.add(sym)
-            outputs.append(sym)
-
-    # Build prospective output edges: each output maps to the list of branch
-    # body nodes that can source it.
-    prospective_output_edges: subgraph_validation.ProspectiveOutputEdges = {}
-    for output_name in outputs:
-        target = edge_models.OutputTarget(port=output_name)
-        sources: list[edge_models.SourceHandle] = []
-        for cc in case_components:
-            if output_name in cc.assigned_symbols:
-                sources.append(
-                    edge_models.SourceHandle(node=cc.body_label, port=output_name)
-                )
-        if else_walker is not None and output_name in else_assigned:
-            sources.append(
-                edge_models.SourceHandle(node=IF_ELSE_LABEL, port=output_name)
-            )
-        prospective_output_edges[target] = sources
-    return outputs, prospective_output_edges
-
-
-# ======================================================================
-# Pure-AST helpers
-# ======================================================================
 
 
 def _parse_if_elif_chain(
@@ -222,46 +148,3 @@ def _parse_if_elif_chain(
             current = current.orelse[0]
         else:
             return cases, current.orelse
-
-
-def _parse_if_condition(
-    test_expr: ast.expr,
-    scope: object_scope.ScopeProxy,
-    parent_scope: symbol_scope.SymbolScope,
-    condition_label: str,
-) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
-    """
-    Parse a single if/elif condition expression.
-
-    Validates that the condition is a function call returning exactly one value.
-    Returns the labeled condition node and the input edges needed to feed it.
-    """
-    if not isinstance(test_expr, ast.Call):
-        raise ValueError(
-            "If/elif conditions must be a function call, but got "
-            f"{type(test_expr).__name__}"
-        )
-
-    condition_node = atomic_parser.get_labeled_recipe(test_expr, set(), scope)
-    if len(condition_node.node.outputs) != 1:
-        raise ValueError(
-            f"If/elif condition must return exactly one value (and it had better be "
-            f"truthy), but got {condition_node.node.outputs}"
-        )
-
-    scope_copy = parent_scope.fork_scope()
-    parser_helpers.consume_call_arguments(scope_copy, test_expr, condition_node)
-    return _relabel_node_data(condition_node, scope_copy.input_edges, condition_label)
-
-
-def _relabel_node_data(
-    labeled_node: helper_models.LabeledNode,
-    inputs: edge_models.InputEdges,
-    new_label: str,
-) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
-    relabeled_cond = helper_models.LabeledNode(label=new_label, node=labeled_node.node)
-    relabeled_inputs: edge_models.InputEdges = {
-        edge_models.TargetHandle(node=new_label, port=target.port): source
-        for target, source in inputs.items()
-    }
-    return relabeled_cond, relabeled_inputs

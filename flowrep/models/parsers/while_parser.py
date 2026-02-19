@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import ast
 from ast import While
-from collections.abc import Callable
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models, while_model
 from flowrep.models.parsers import (
-    atomic_parser,
+    case_helpers,
     object_scope,
-    parser_helpers,
     parser_protocol,
     symbol_scope,
 )
@@ -22,7 +20,7 @@ def parse_while_node(
     tree: ast.While,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,
-    walker_factory: Callable[[symbol_scope.SymbolScope], parser_protocol.BodyWalker],
+    walker_factory: parser_protocol.WalkerFactory,
 ) -> while_model.WhileNode:
     """
     Walk a while-loop.
@@ -38,8 +36,8 @@ def parse_while_node(
     _validate_syntax_is_supported(tree)
 
     # Parse the loop condition — pure AST, no parser state needed
-    labeled_condition, condition_inputs = _parse_while_condition(
-        tree, scope, symbol_map
+    labeled_condition, condition_inputs = case_helpers.parse_case(
+        tree.test, scope, symbol_map, WHILE_CONDITION_LABEL
     )
 
     body_walker = walker_factory(symbol_map.fork_scope())
@@ -111,51 +109,3 @@ def _wire_outputs(
         }
     )
     return outputs, output_edges
-
-
-def _parse_while_condition(
-    while_stmt: ast.While,
-    scope: object_scope.ScopeProxy,
-    symbol_map: symbol_scope.SymbolScope,
-) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
-    test_expr = while_stmt.test
-    if not isinstance(test_expr, ast.Call):
-        raise ValueError(
-            "While-loop conditions must be a function call, but got "
-            f"{type(test_expr).__name__}"
-        )
-
-    condition_node = atomic_parser.get_labeled_recipe(test_expr, set(), scope)
-    if len(condition_node.node.outputs) != 1:
-        raise ValueError(
-            f"While-loop condition must return exactly one value (and it had better be "
-            f"truthy), but got {condition_node.node.outputs}"
-        )
-
-    scope_copy = symbol_map.fork_scope()
-    parser_helpers.consume_call_arguments(scope_copy, test_expr, condition_node)
-    condition_inputs = scope_copy.input_edges
-    return _relabel_condition_data(condition_node, condition_inputs)
-
-
-def _relabel_condition_data(
-    labeled_condition: helper_models.LabeledNode,
-    condition_inputs: edge_models.InputEdges,
-) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
-    """
-    Regardless of what the condition node's default label would be, use the
-    module-level label.
-    """
-    labeled_condition_node = helper_models.LabeledNode(
-        label=WHILE_CONDITION_LABEL,
-        node=labeled_condition.node,
-    )
-    condition_inputs = edge_models.InputEdges(
-        {
-            edge_models.TargetHandle(
-                node=WHILE_CONDITION_LABEL, port=target.port
-            ): source
-            for target, source in condition_inputs.items()
-        }
-    )
-    return labeled_condition_node, condition_inputs

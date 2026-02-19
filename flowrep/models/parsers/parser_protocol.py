@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 import ast
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from types import FunctionType
 from typing import Protocol, runtime_checkable
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import union, workflow_model
 from flowrep.models.parsers import object_scope, symbol_scope
+
+WalkerFactory = Callable[[symbol_scope.SymbolScope], "BodyWalker"]
 
 
 @runtime_checkable

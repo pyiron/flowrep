@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-from collections.abc import Callable
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, helper_models
@@ -14,7 +13,7 @@ def parse_for_node(
     tree: ast.For,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,
-    walker_factory: Callable[[symbol_scope.SymbolScope], parser_protocol.BodyWalker],
+    walker_factory: parser_protocol.WalkerFactory,
 ) -> for_model.ForNode:
     """
     Walk a for-loop.
