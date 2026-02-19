@@ -719,6 +719,37 @@ class TestWorkflow(unittest.TestCase):
             sorted(wf_dict["nodes"]["example_macro_0"]["edges"]),
         )
 
+    def test_ast_dict_to_python_object(self):
+        for item in [
+            {"A": 5},
+            [1, 1, 1],
+            2,
+            "string",
+            (1, 2),
+            {1, 2},
+            None,
+            True,
+            False,
+        ]:
+            transformed_item = fwf._ast_dict_to_python_object(
+                fwf._function_to_ast_dict(item)
+            )
+            self.assertEqual(
+                transformed_item,
+                item,
+                msg=f"{transformed_item} != {item} for type {type(item)}",
+            )
+        a = 5
+
+        def my_test_function(a=a):
+            return a
+
+        self.assertRaises(
+            NotImplementedError,
+            fwf._ast_dict_to_python_object,
+            fwf.get_ast_dict(my_test_function)["body"][0]["args"]["defaults"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
