@@ -36,4 +36,17 @@ def parse_case(
 
     scope_copy = symbol_map.fork_scope()
     parser_helpers.consume_call_arguments(scope_copy, test, condition)
-    return parser_helpers.relabel_node_data(condition, scope_copy.input_edges, label)
+    return _relabel_node_data(condition, scope_copy.input_edges, label)
+
+
+def _relabel_node_data(
+    labeled_node: helper_models.LabeledNode,
+    inputs: edge_models.InputEdges,
+    new_label: str,
+) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
+    relabeled_node = helper_models.LabeledNode(label=new_label, node=labeled_node.node)
+    relabeled_inputs: edge_models.InputEdges = {
+        edge_models.TargetHandle(node=new_label, port=target.port): source
+        for target, source in inputs.items()
+    }
+    return relabeled_node, relabeled_inputs
