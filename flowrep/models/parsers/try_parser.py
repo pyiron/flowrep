@@ -61,8 +61,7 @@ def parse_try_node(
     try_walker = walker_factory(try_scope)
     try_walker.walk(tree.body, scope)
     try_assigned = try_scope.assigned_symbols
-    for sym in try_assigned:
-        try_scope.produce(sym)
+    try_scope.produce_symbols(try_assigned)
 
     # 2. Parse each except handler
     except_components: list[_ExceptComponents] = []
@@ -75,8 +74,7 @@ def parse_try_node(
         except_walker = walker_factory(except_scope)
         except_walker.walk(handler.body, scope)
         except_assigned = except_scope.assigned_symbols
-        for sym in except_assigned:
-            except_scope.produce(sym)
+        except_scope.produce_symbols(except_assigned)
 
         except_components.append(
             _ExceptComponents(

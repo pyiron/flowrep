@@ -201,6 +201,11 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             SymbolProduction(output_port=output_port, source=self[produced_symbol])
         )
 
+    def produce_symbols(self, symbols: list[str]) -> None:
+        """Record that an output port of the same name is sources from each symbol."""
+        for symbol in symbols:
+            self.produce(symbol)
+
     def use_accumulator(self, accumulator_symbol: str, appended_symbol: str) -> None:
         if accumulator_symbol not in self.available_accumulators:
             raise ValueError(

@@ -73,9 +73,7 @@ def parse_while_node(
             "While-loop body must reassign at least one symbol from the "
             "enclosing scope."
         )
-
-    for symbol in reassigned_symbols:
-        body_walker.symbol_map.produce(symbol)
+    body_walker.symbol_map.produce_symbols(reassigned_symbols)
 
     inputs, input_edges = _wire_inputs(body_walker, condition_inputs)
     outputs, output_edges = _wire_outputs(body_walker)
