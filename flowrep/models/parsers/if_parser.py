@@ -77,7 +77,7 @@ def parse_if_node(
 
         # Identify symbols assigned in this branch and produce them as body
         # outputs so that output_edges / build_model can reference them.
-        assigned = body_symbol_map.get_assigned_symbols()
+        assigned = body_symbol_map.assigned_symbols
         for sym in assigned:
             body_symbol_map.produce(sym, sym)
 
@@ -96,7 +96,7 @@ def parse_if_node(
         else_scope = symbol_map.fork_scope()
         else_walker = walker_factory(else_scope)
         else_walker.walk(else_stmts, scope)
-        else_assigned = else_scope.get_assigned_symbols()
+        else_assigned = else_scope.assigned_symbols
         for sym in else_assigned:
             else_scope.produce(sym, sym)
 

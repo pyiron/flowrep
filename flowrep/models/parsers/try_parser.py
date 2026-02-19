@@ -60,7 +60,7 @@ def parse_try_node(
     try_scope = symbol_map.fork_scope()
     try_walker = walker_factory(try_scope)
     try_walker.walk(tree.body, scope)
-    try_assigned = try_scope.get_assigned_symbols()
+    try_assigned = try_scope.assigned_symbols
     for sym in try_assigned:
         try_scope.produce(sym, sym)
 
@@ -74,7 +74,7 @@ def parse_try_node(
         except_scope = symbol_map.fork_scope()
         except_walker = walker_factory(except_scope)
         except_walker.walk(handler.body, scope)
-        except_assigned = except_scope.get_assigned_symbols()
+        except_assigned = except_scope.assigned_symbols
         for sym in except_assigned:
             except_scope.produce(sym, sym)
 
