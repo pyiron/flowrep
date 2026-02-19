@@ -5,7 +5,6 @@ from collections.abc import Callable
 from types import FunctionType
 from typing import Any, cast
 
-from flowrep import workflow
 from flowrep.models.nodes import helper_models
 from flowrep.models.parsers import symbol_scope
 
@@ -52,8 +51,8 @@ def get_function_definition(tree: ast.Module) -> ast.FunctionDef:
     if len(tree.body) == 1 and isinstance(tree.body[0], ast.FunctionDef):
         return tree.body[0]
     raise ValueError(
-        f"Expected ast to receive a single function defintion, but got "
-        f"{workflow._function_to_ast_dict(tree.body)}"
+        f"Expected ast to receive a single function definition, but got a body of "
+        f"{[type(t) for t in tree.body]}"
     )
 
 
