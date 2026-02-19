@@ -75,7 +75,7 @@ def parse_while_node(
         )
 
     for symbol in reassigned_symbols:
-        body_walker.symbol_map.produce(symbol, symbol)
+        body_walker.symbol_map.produce(symbol)
 
     inputs, input_edges = _wire_inputs(body_walker, condition_inputs)
     outputs, output_edges = _wire_outputs(body_walker)

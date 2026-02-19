@@ -192,12 +192,13 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             )
         )
 
-    def produce(self, output_port: str, symbol: str) -> None:
+    def produce(self, output_port: str, symbol: str | None = None) -> None:
         """Record that `output_port` is sourced from `symbol`."""
+        produced_symbol = output_port if symbol is None else symbol
         if any(p.output_port == output_port for p in self._productions):
             raise ValueError(f"Output port '{output_port}' already produced.")
         self._productions.append(
-            SymbolProduction(output_port=output_port, source=self[symbol])
+            SymbolProduction(output_port=output_port, source=self[produced_symbol])
         )
 
     def use_accumulator(self, accumulator_symbol: str, appended_symbol: str) -> None:

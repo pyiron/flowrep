@@ -290,7 +290,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.symbol_map.use_accumulator(used_accumulator, appended_symbol)
         appended_source = self.symbol_map[appended_symbol]
         if isinstance(appended_source, edge_models.SourceHandle):
-            self.symbol_map.produce(appended_symbol, appended_symbol)
+            self.symbol_map.produce(appended_symbol)
 
 
 def is_append_call(node: ast.expr | ast.Expr) -> bool:

@@ -79,7 +79,7 @@ def parse_if_node(
         # outputs so that output_edges / build_model can reference them.
         assigned = body_symbol_map.assigned_symbols
         for sym in assigned:
-            body_symbol_map.produce(sym, sym)
+            body_symbol_map.produce(sym)
 
         case_components.append(
             _CaseComponents(
@@ -98,7 +98,7 @@ def parse_if_node(
         else_walker.walk(else_stmts, scope)
         else_assigned = else_scope.assigned_symbols
         for sym in else_assigned:
-            else_scope.produce(sym, sym)
+            else_scope.produce(sym)
 
     inputs, input_edges = _wire_inputs(case_components, else_walker)
     outputs, prospective_output_edges = _wire_outputs(
