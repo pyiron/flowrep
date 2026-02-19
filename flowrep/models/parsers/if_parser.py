@@ -60,15 +60,9 @@ def parse_if_node(
         body_label = f"{IF_BODY_LABEL_PREFIX}_{idx}"
 
         # Parse condition node
-        labeled_cond, cond_inputs = _parse_if_condition(test_expr, scope, symbol_map)
-        # Relabel to our naming scheme
-        relabeled_cond = helper_models.LabeledNode(
-            label=cond_label, node=labeled_cond.node
+        labeled_cond, cond_inputs = _parse_if_condition(
+            test_expr, scope, symbol_map, cond_label
         )
-        relabeled_inputs: edge_models.InputEdges = {
-            edge_models.TargetHandle(node=cond_label, port=target.port): source
-            for target, source in cond_inputs.items()
-        }
 
         # Fork scope and walk body
         body_symbol_map = symbol_map.fork_scope()
@@ -82,8 +76,8 @@ def parse_if_node(
 
         case_components.append(
             _CaseComponents(
-                condition=relabeled_cond,
-                condition_inputs_edges=relabeled_inputs,
+                condition=labeled_cond,
+                condition_inputs_edges=cond_inputs,
                 body_walker=body_walker,
                 body_label=body_label,
                 assigned_symbols=assigned,
@@ -234,6 +228,7 @@ def _parse_if_condition(
     test_expr: ast.expr,
     scope: object_scope.ScopeProxy,
     parent_scope: symbol_scope.SymbolScope,
+    condition_label: str,
 ) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
     """
     Parse a single if/elif condition expression.
@@ -256,4 +251,17 @@ def _parse_if_condition(
 
     scope_copy = parent_scope.fork_scope()
     parser_helpers.consume_call_arguments(scope_copy, test_expr, condition_node)
-    return condition_node, scope_copy.input_edges
+    return _relabel_node_data(condition_node, scope_copy.input_edges, condition_label)
+
+
+def _relabel_node_data(
+    labeled_node: helper_models.LabeledNode,
+    inputs: edge_models.InputEdges,
+    new_label: str,
+) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
+    relabeled_cond = helper_models.LabeledNode(label=new_label, node=labeled_node.node)
+    relabeled_inputs: edge_models.InputEdges = {
+        edge_models.TargetHandle(node=new_label, port=target.port): source
+        for target, source in inputs.items()
+    }
+    return relabeled_cond, relabeled_inputs
