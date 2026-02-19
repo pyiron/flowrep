@@ -77,9 +77,8 @@ def parse_if_node(
 
         # Identify symbols assigned in this branch and produce them as body
         # outputs so that output_edges / build_model can reference them.
-        assigned = _get_assigned_symbols(body_symbol_map)
-        for sym in assigned:
-            body_symbol_map.produce(sym, sym)
+        assigned = body_symbol_map.assigned_symbols
+        body_symbol_map.produce_symbols(assigned)
 
         case_components.append(
             _CaseComponents(
@@ -96,9 +95,8 @@ def parse_if_node(
         else_scope = symbol_map.fork_scope()
         else_walker = walker_factory(else_scope)
         else_walker.walk(else_stmts, scope)
-        else_assigned = _get_assigned_symbols(else_scope)
-        for sym in else_assigned:
-            else_scope.produce(sym, sym)
+        else_assigned = else_scope.assigned_symbols
+        else_scope.produce_symbols(else_assigned)
 
     inputs, input_edges = _wire_inputs(case_components, else_walker)
     outputs, prospective_output_edges = _wire_outputs(
@@ -259,20 +257,3 @@ def _parse_if_condition(
     scope_copy = parent_scope.fork_scope()
     parser_helpers.consume_call_arguments(scope_copy, test_expr, condition_node)
     return condition_node, scope_copy.input_edges
-
-
-# ======================================================================
-# Internal helpers
-# ======================================================================
-
-
-def _get_assigned_symbols(scope: symbol_scope.SymbolScope) -> list[str]:
-    """
-    Identify symbols that were assigned (registered to child nodes) within a
-    forked scope.
-
-    In a forked scope every inherited symbol starts as an :class:`InputSource`.
-    Any key whose source is now a :class:`SourceHandle` must have been assigned
-    by a node inside the branch.
-    """
-    return [key for key in scope if isinstance(scope[key], edge_models.SourceHandle)]

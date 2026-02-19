@@ -53,6 +53,28 @@ class TestSymbolScopeMapping(unittest.TestCase):
         self.assertNotIn("z", self.scope)
 
 
+class TestSymbolScopeAssignedSymbols(unittest.TestCase):
+    def test_fresh_scope_has_no_assigned_symbols(self):
+        scope = SymbolScope({"a": _make_input("a"), "b": _make_input("b")})
+        self.assertEqual(scope.assigned_symbols, [])
+
+    def test_source_handles_are_assigned(self):
+        scope = SymbolScope({"a": _make_input("a"), "b": _make_source("node_0", "out")})
+        self.assertEqual(scope.assigned_symbols, ["b"])
+
+    def test_registered_node_becomes_assigned(self):
+        scope = SymbolScope({"a": _make_input("a")})
+        child = _make_labeled_node("node_0", ["out"])
+        scope.register(["p"], child)
+        self.assertEqual(scope.assigned_symbols, ["p"])
+
+    def test_forked_scope_starts_unassigned(self):
+        """After forking, all symbols become InputSources, so none are assigned."""
+        scope = SymbolScope({"a": _make_input("a"), "b": _make_source("node_0", "out")})
+        child = scope.fork_scope()
+        self.assertEqual(child.assigned_symbols, [])
+
+
 class TestSymbolScopeRegister(unittest.TestCase):
     def test_register_success(self):
         scope = SymbolScope({"a": _make_input("a")})
@@ -68,6 +90,39 @@ class TestSymbolScopeRegister(unittest.TestCase):
         child = _make_labeled_node("node_0", ["out"])
         scope.register(["a"], child)
         self.assertIn("a", scope.reassigned_symbols)
+
+
+class TestSymbolScopeProduce(unittest.TestCase):
+    def test_produce_with_explicit_symbol(self):
+        scope = SymbolScope({"a": _make_input("a")})
+        scope.produce("out", "a")
+        self.assertEqual(scope.outputs, ["out"])
+        self.assertEqual(
+            scope.output_edges,
+            {edge_models.OutputTarget(port="out"): _make_input("a")},
+        )
+
+    def test_produce_with_default_symbol(self):
+        """When symbol is omitted, output_port is used as the symbol name."""
+        scope = SymbolScope({"a": _make_input("a")})
+        scope.produce("a")
+        self.assertEqual(scope.outputs, ["a"])
+        self.assertEqual(
+            scope.output_edges,
+            {edge_models.OutputTarget(port="a"): _make_input("a")},
+        )
+
+    def test_produce_symbols_helper(self):
+        scope = SymbolScope({"x": _make_input("x"), "y": _make_source("node_0", "out")})
+        scope.produce_symbols(["x", "y"])
+        self.assertEqual(scope.outputs, ["x", "y"])
+        self.assertEqual(
+            scope.output_edges,
+            {
+                edge_models.OutputTarget(port="x"): _make_input("x"),
+                edge_models.OutputTarget(port="y"): _make_source("node_0", "out"),
+            },
+        )
 
 
 class TestSymbolScopeFork(unittest.TestCase):
@@ -172,6 +227,13 @@ class TestSymbolScopeErrors(unittest.TestCase):
         with self.assertRaises(KeyError) as ctx:
             scope.produce("out", "missing")
         self.assertIn("missing", str(ctx.exception))
+
+    def test_produce_unknown_default_symbol_raises(self):
+        """When symbol is omitted, output_port is used -- still must exist."""
+        scope = SymbolScope({})
+        with self.assertRaises(KeyError) as ctx:
+            scope.produce("nonexistent")
+        self.assertIn("nonexistent", str(ctx.exception))
 
     def test_produce_duplicate_output_port_raises(self):
         scope = SymbolScope({"a": _make_source("node_0", "x")})
