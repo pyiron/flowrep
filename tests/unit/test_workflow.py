@@ -1,3 +1,4 @@
+import ast
 import unittest
 from dataclasses import dataclass
 
@@ -721,23 +722,32 @@ class TestWorkflow(unittest.TestCase):
 
     def test_ast_dict_to_python_object(self):
         for item in [
-            {"A": 5},
-            [1, 1, 1],
             2,
-            "string",
+            ("string",),
             (1, 2),
-            {1, 2},
             None,
             True,
             False,
         ]:
+            ast_item = ast.parse(str(item))
             transformed_item = fwf._ast_dict_to_python_object(
-                fwf._function_to_ast_dict(item)
+                fwf._function_to_ast_dict(ast_item)["body"][0]["value"]
             )
             self.assertEqual(
                 transformed_item,
                 item,
                 msg=f"{transformed_item} != {item} for type {type(item)}",
+            )
+        for item in [
+            [1, 1, 1],
+            {1, 2},
+            {"A": 5},
+        ]:
+            ast_item = ast.parse(str(item))
+            self.assertRaises(
+                ValueError,
+                fwf._ast_dict_to_python_object,
+                fwf._function_to_ast_dict(ast_item)["body"][0]["value"],
             )
         a = 5
 
