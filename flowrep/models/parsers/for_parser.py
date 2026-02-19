@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import ast
+from typing import NamedTuple
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, helper_models
 from flowrep.models.parsers import object_scope, parser_protocol, symbol_scope
 
 FOR_BODY_LABEL: str = "body"
+
+
+class _IterationAxis(NamedTuple):
+    """Holding the variable, x, and the collection xs, in statements like for x in xs"""
+
+    variable: str
+    collection: str
 
 
 def parse_for_node(
@@ -73,7 +81,7 @@ def _validate_some_output_exists(consumed: dict[str, str]):
 
 
 def _validate_no_unused_iterators(
-    all_iters: list[tuple[str, str]],
+    all_iters: list[_IterationAxis],
     body_walker: parser_protocol.BodyWalker,
     consumed: dict[str, str],
 ):
@@ -93,7 +101,7 @@ def _validate_no_unused_iterators(
 
 
 def _validate_no_leaked_reassignments(
-    all_iters: list[tuple[str, str]],
+    all_iters: list[_IterationAxis],
     body_walker: parser_protocol.BodyWalker,
     consumed: dict[str, str],
     symbol_map: symbol_scope.SymbolScope,
@@ -118,7 +126,7 @@ def _validate_no_leaked_reassignments(
 
 
 def _wire_inputs(
-    body_walker: parser_protocol.BodyWalker, all_iters: list[tuple[str, str]]
+    body_walker: parser_protocol.BodyWalker, all_iters: list[_IterationAxis]
 ) -> tuple[list[str], edge_models.InputEdges]:
     consumed = body_walker.symbol_map.consumed_accumulators
     broadcast_symbols = [
@@ -166,15 +174,15 @@ def _wire_outputs(
 
 def _parse_for_iterations(
     for_stmt: ast.For,
-) -> tuple[list[tuple[str, str]], list[tuple[str, str]], ast.For]:
+) -> tuple[list[_IterationAxis], list[_IterationAxis], ast.For]:
     """
     Parse for-node iteration structure, handling zip and immediately nested iterations.
 
     Returns (nested_iterations, zipped_iterations) where each is a list of
     (variable_name, source_symbol) tuples.
     """
-    nested: list[tuple[str, str]] = []
-    zipped: list[tuple[str, str]] = []
+    nested: list[_IterationAxis] = []
+    zipped: list[_IterationAxis] = []
 
     current = for_stmt
     while isinstance(current, ast.For):
@@ -196,7 +204,7 @@ def _parse_for_iterations(
 
 def _parse_single_for_header(
     for_stmt: ast.For,
-) -> tuple[bool, list[tuple[str, str]]]:
+) -> tuple[bool, list[_IterationAxis]]:
     """
     Parse a single for-header.
 
@@ -226,7 +234,9 @@ def _parse_single_for_header(
                 f"argument count ({len(sources)})"
             )
 
-        return True, list(zip(vars_list, sources, strict=True))
+        return True, [
+            _IterationAxis(v, s) for v, s in zip(vars_list, sources, strict=True)
+        ]
 
     # Simple iteration: for x in xs
     if not isinstance(iter_expr, ast.Name):
@@ -235,7 +245,7 @@ def _parse_single_for_header(
         )
 
     if isinstance(target, ast.Name):
-        return False, [(target.id, iter_expr.id)]
+        return False, [_IterationAxis(target.id, iter_expr.id)]
     elif isinstance(target, ast.Tuple):
         # for a, b in items (tuple unpacking without zip)
         raise ValueError(
