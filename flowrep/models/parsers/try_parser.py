@@ -60,7 +60,7 @@ def parse_try_node(
     try_scope = symbol_map.fork_scope()
     try_walker = walker_factory(try_scope)
     try_walker.walk(tree.body, scope)
-    try_assigned = _get_assigned_symbols(try_scope)
+    try_assigned = try_scope.get_assigned_symbols()
     for sym in try_assigned:
         try_scope.produce(sym, sym)
 
@@ -74,7 +74,7 @@ def parse_try_node(
         except_scope = symbol_map.fork_scope()
         except_walker = walker_factory(except_scope)
         except_walker.walk(handler.body, scope)
-        except_assigned = _get_assigned_symbols(except_scope)
+        except_assigned = except_scope.get_assigned_symbols()
         for sym in except_assigned:
             except_scope.produce(sym, sym)
 
@@ -229,20 +229,3 @@ def _parse_exception_types(
             )
         fqns.append(f"{exc_class.__module__}.{exc_class.__qualname__}")
     return fqns
-
-
-# ======================================================================
-# Internal helpers
-# ======================================================================
-
-
-def _get_assigned_symbols(scope: symbol_scope.SymbolScope) -> list[str]:
-    """
-    Identify symbols that were assigned (registered to child nodes) within a
-    forked scope.
-
-    In a forked scope every inherited symbol starts as an :class:`InputSource`.
-    Any key whose source is now a :class:`SourceHandle` must have been assigned
-    by a node inside the branch.
-    """
-    return [key for key in scope if isinstance(scope[key], edge_models.SourceHandle)]

@@ -235,3 +235,13 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             reserved_accumulators=self.reserved_accumulators
             | self.available_accumulators,
         )
+
+    def get_assigned_symbols(self) -> list[str]:
+        """
+        Identify symbols that were assigned (registered to child nodes) locally.
+
+        In a forked scope every inherited symbol starts as an :class:`InputSource`.
+        Any key whose source is now a :class:`SourceHandle` must have been assigned
+        by a node inside the branch.
+        """
+        return [key for key in self if isinstance(self[key], edge_models.SourceHandle)]
