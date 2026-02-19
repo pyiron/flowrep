@@ -7,9 +7,8 @@ from collections.abc import Callable
 from flowrep.models import edge_models, subgraph_validation
 from flowrep.models.nodes import helper_models, if_model
 from flowrep.models.parsers import (
-    atomic_parser,
+    condition_helpers,
     object_scope,
-    parser_helpers,
     parser_protocol,
     symbol_scope,
 )
@@ -60,7 +59,7 @@ def parse_if_node(
         body_label = f"{IF_BODY_LABEL_PREFIX}_{idx}"
 
         # Parse condition node
-        labeled_cond, cond_inputs = _parse_if_condition(
+        labeled_cond, cond_inputs = condition_helpers.parse_case(
             test_expr, scope, symbol_map, cond_label
         )
 
@@ -222,35 +221,3 @@ def _parse_if_elif_chain(
             current = current.orelse[0]
         else:
             return cases, current.orelse
-
-
-def _parse_if_condition(
-    test_expr: ast.expr,
-    scope: object_scope.ScopeProxy,
-    parent_scope: symbol_scope.SymbolScope,
-    condition_label: str,
-) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
-    """
-    Parse a single if/elif condition expression.
-
-    Validates that the condition is a function call returning exactly one value.
-    Returns the labeled condition node and the input edges needed to feed it.
-    """
-    if not isinstance(test_expr, ast.Call):
-        raise ValueError(
-            "If/elif conditions must be a function call, but got "
-            f"{type(test_expr).__name__}"
-        )
-
-    condition_node = atomic_parser.get_labeled_recipe(test_expr, set(), scope)
-    if len(condition_node.node.outputs) != 1:
-        raise ValueError(
-            f"If/elif condition must return exactly one value (and it had better be "
-            f"truthy), but got {condition_node.node.outputs}"
-        )
-
-    scope_copy = parent_scope.fork_scope()
-    parser_helpers.consume_call_arguments(scope_copy, test_expr, condition_node)
-    return parser_helpers.relabel_node_data(
-        condition_node, scope_copy.input_edges, condition_label
-    )
