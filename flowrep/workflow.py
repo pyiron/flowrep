@@ -8,7 +8,7 @@ import textwrap
 from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
 from functools import update_wrapper
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Dict, Generic, List, TypeVar, cast
 
 import networkx as nx
 from networkx.algorithms.dag import topological_sort
