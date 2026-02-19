@@ -1,11 +1,15 @@
-import ast
+from __future__ import annotations
 
-from flowrep.models import edge_models
+import ast
+import dataclasses
+
+from flowrep.models import edge_models, subgraph_validation
 from flowrep.models.nodes import helper_models
 from flowrep.models.parsers import (
     atomic_parser,
     object_scope,
     parser_helpers,
+    parser_protocol,
     symbol_scope,
 )
 
@@ -50,3 +54,81 @@ def _relabel_node_data(
         for target, source in inputs.items()
     }
     return relabeled_node, relabeled_inputs
+
+
+@dataclasses.dataclass
+class WalkedBranch:
+    label: str
+    walker: parser_protocol.BodyWalker
+    assigned: list[str]
+
+    def to_labeled_node(self) -> helper_models.LabeledNode:
+        return helper_models.LabeledNode(
+            label=self.label,
+            node=self.walker.build_model(),
+        )
+
+
+def walk_branch(
+    label: str,
+    stmts: list[ast.stmt],
+    symbol_map: symbol_scope.SymbolScope,
+    scope: object_scope.ScopeProxy,
+    walker_factory: parser_protocol.WalkerFactory,
+) -> WalkedBranch:
+    fork = symbol_map.fork_scope()
+    w = walker_factory(fork)
+    w.walk(stmts, scope)
+    assigned = fork.assigned_symbols
+    fork.produce_symbols(assigned)
+    return WalkedBranch(label, w, assigned)
+
+
+def wire_inputs(
+    branches: list[WalkedBranch],
+) -> tuple[list[str], edge_models.InputEdges]:
+    """Collect input edges from the condition and body branches."""
+    inputs: list[str] = []
+    input_edges: edge_models.InputEdges = {}
+
+    def _add_input(port: str) -> None:
+        if port not in inputs:
+            inputs.append(port)
+
+    for branch in branches:
+        for port in branch.walker.inputs:
+            input_edges[edge_models.TargetHandle(node=branch.label, port=port)] = (
+                edge_models.InputSource(port=port)
+            )
+            _add_input(port)
+
+    return inputs, input_edges
+
+
+def wire_outputs(
+    branches: list[WalkedBranch],
+) -> tuple[list[str], subgraph_validation.ProspectiveOutputEdges]:
+    """Collect outputs and prospective output edges from try and except bodies."""
+    # Union of assigned symbols across all branches, preserving first-seen order
+    outputs: list[str] = []
+    seen: set[str] = set()
+    for branch in branches:
+        for sym in branch.assigned:
+            if sym not in seen:
+                seen.add(sym)
+                outputs.append(sym)
+
+    # Build prospective output edges: each output maps to the list of branch
+    # body nodes that can source it.
+    prospective_output_edges: subgraph_validation.ProspectiveOutputEdges = {}
+    for output_name in outputs:
+        target = edge_models.OutputTarget(port=output_name)
+        sources: list[edge_models.SourceHandle] = []
+        for branch in branches:
+            if output_name in branch.assigned:
+                sources.append(
+                    edge_models.SourceHandle(node=branch.label, port=output_name)
+                )
+        prospective_output_edges[target] = sources
+
+    return outputs, prospective_output_edges

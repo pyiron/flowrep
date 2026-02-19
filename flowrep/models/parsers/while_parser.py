@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 from ast import While
-from collections.abc import Callable
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models, while_model
@@ -21,7 +20,7 @@ def parse_while_node(
     tree: ast.While,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,
-    walker_factory: Callable[[symbol_scope.SymbolScope], parser_protocol.BodyWalker],
+    walker_factory: parser_protocol.WalkerFactory,
 ) -> while_model.WhileNode:
     """
     Walk a while-loop.
