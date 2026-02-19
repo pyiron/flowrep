@@ -136,3 +136,7 @@ class TestParsingCompositeWorkflows(unittest.TestCase):
             with self.subTest(function=function.__name__):
                 parsed_node = workflow_parser.parse_workflow(function)
                 self.assertEqual(parsed_node, reference)
+
+
+if __name__ == "__main__":
+    unittest.main()

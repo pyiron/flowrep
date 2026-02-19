@@ -488,3 +488,7 @@ class TestParsingForLoops(unittest.TestCase):
                     reference,
                     msg=f"Differences: {_field_differences(reference, parsed_node)}",
                 )
+
+
+if __name__ == "__main__":
+    unittest.main()
