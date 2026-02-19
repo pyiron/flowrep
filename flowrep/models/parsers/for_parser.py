@@ -6,7 +6,6 @@ from collections.abc import Callable
 from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, helper_models
 from flowrep.models.parsers import object_scope, parser_protocol, symbol_scope
-from flowrep.models.parsers.parser_protocol import BodyWalker
 
 FOR_BODY_LABEL: str = "body"
 
@@ -29,52 +28,24 @@ def parse_for_node(
             :class:`SymbolScope`.  Avoids a circular import with
             ``workflow_parser.WorkflowParser``.
     """
-    # 1. Parse the iteration header — pure AST, no parser state needed
+    # Parse the iteration header — pure AST, no parser state needed
     nested_iters, zipped_iters, body_tree = _parse_for_iterations(tree)
     all_iters = nested_iters + zipped_iters
 
-    # 2. Fork the scope: replaces iterated-over symbols with iteration
-    #    variables, all as InputSources from the body's perspective
+    # When we fork the scope here, we replace iterated-over symbols with iteration
+    # variables, all as InputSources from the body's perspective
     body_symbol_map = symbol_map.fork_scope(
         {src: var for var, src in all_iters},
         available_accumulators=symbol_map.declared_accumulators.copy(),
     )
 
-    # 3. Fresh body walker with the forked scope
     body_walker = walker_factory(body_symbol_map)
-
     body_walker.walk(body_tree.body, scope)
     consumed = body_walker.symbol_map.consumed_accumulators
-    if len(consumed) == 0:
-        raise ValueError("For nodes must use up at least one accumulator symbol.")
 
-    # Every iteration variable must actually be consumed inside the body.
-    # An unused iterator likely indicates a bug; if the user only needs the
-    # structural effect (e.g. repetition count), they should make the
-    # dependency explicit.
-    iterating_symbols = {var for var, _ in all_iters}
-    consumed_symbols = set(body_walker.inputs) | set(consumed.values())
-    if unused := iterating_symbols - consumed_symbols:
-        raise ValueError(
-            f"For-node iteration variable(s) {sorted(unused)} are never "
-            f"used inside the node body. Either use them or remove them "
-            f"from the iteration header."
-        )
-
-    # Check for internal symbol reassignments that would leak
-    body_reassigned = set(body_walker.symbol_map.reassigned_symbols)
-    accumulator_outputs = set(consumed)
-    unreturned_reassignments = (
-        body_reassigned - accumulator_outputs - {var for var, _ in all_iters}
-    )
-    leaked_reassignments = unreturned_reassignments.intersection(symbol_map.keys())
-    if leaked_reassignments:
-        raise ValueError(
-            f"For-loop body reassigns symbol(s) {sorted(leaked_reassignments)} "
-            f"from the enclosing scope. This is not supported because for-node "
-            f"outputs are determined by accumulators. If you need the reassigned "
-            f"value after the loop, accumulate it explicitly."
-        )
+    _validate_some_output_exists(consumed)
+    _validate_no_unused_iterators(all_iters, body_walker, consumed)
+    _validate_no_leaked_reassignments(all_iters, body_walker, consumed, symbol_map)
 
     nested_ports = [var for var, _ in nested_iters]
     zipped_ports = [var for var, _ in zipped_iters]
@@ -97,8 +68,58 @@ def parse_for_node(
     )
 
 
+def _validate_some_output_exists(consumed: dict[str, str]):
+    if len(consumed) == 0:
+        raise ValueError("For nodes must use up at least one accumulator symbol.")
+
+
+def _validate_no_unused_iterators(
+    all_iters: list[tuple[str, str]],
+    body_walker: parser_protocol.BodyWalker,
+    consumed: dict[str, str],
+):
+    """
+    Every iteration variable must actually be consumed inside the body.
+    An unused iterator likely indicates a bug; if the user only needs the structural
+    effect (e.g. repetition count), they should make the dependency explicit.
+    """
+    iterating_symbols = {var for var, _ in all_iters}
+    consumed_symbols = set(body_walker.inputs) | set(consumed.values())
+    if unused := iterating_symbols - consumed_symbols:
+        raise ValueError(
+            f"For-node iteration variable(s) {sorted(unused)} are never "
+            f"used inside the node body. Either use them or remove them "
+            f"from the iteration header."
+        )
+
+
+def _validate_no_leaked_reassignments(
+    all_iters: list[tuple[str, str]],
+    body_walker: parser_protocol.BodyWalker,
+    consumed: dict[str, str],
+    symbol_map: symbol_scope.SymbolScope,
+):
+    """
+    Check for internal symbol reassignments that would leak to un-captured outputs --
+    the only outputs we allow from a for node are iterated outputs!
+    """
+    body_reassigned = set(body_walker.symbol_map.reassigned_symbols)
+    accumulator_outputs = set(consumed)
+    unreturned_reassignments = (
+        body_reassigned - accumulator_outputs - {var for var, _ in all_iters}
+    )
+    leaked_reassignments = unreturned_reassignments.intersection(symbol_map.keys())
+    if leaked_reassignments:
+        raise ValueError(
+            f"For-loop body reassigns symbol(s) {sorted(leaked_reassignments)} "
+            f"from the enclosing scope. This is not supported because for-node "
+            f"outputs are determined by accumulators. If you need the reassigned "
+            f"value after the loop, accumulate it explicitly."
+        )
+
+
 def _wire_inputs(
-    body_walker: BodyWalker, all_iters: list[tuple[str, str]]
+    body_walker: parser_protocol.BodyWalker, all_iters: list[tuple[str, str]]
 ) -> tuple[list[str], edge_models.InputEdges]:
     consumed = body_walker.symbol_map.consumed_accumulators
     broadcast_symbols = [
@@ -126,7 +147,7 @@ def _wire_inputs(
 
 
 def _wire_outputs(
-    body_walker: BodyWalker, input_edges: edge_models.InputEdges
+    body_walker: parser_protocol.BodyWalker, input_edges: edge_models.InputEdges
 ) -> tuple[list[str], edge_models.OutputEdges]:
     consumed = body_walker.symbol_map.consumed_accumulators
     outputs = list(consumed)
