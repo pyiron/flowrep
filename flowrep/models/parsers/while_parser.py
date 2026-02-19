@@ -6,7 +6,7 @@ from ast import While
 from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models, while_model
 from flowrep.models.parsers import (
-    condition_helpers,
+    case_helpers,
     object_scope,
     parser_protocol,
     symbol_scope,
@@ -36,7 +36,7 @@ def parse_while_node(
     _validate_syntax_is_supported(tree)
 
     # Parse the loop condition — pure AST, no parser state needed
-    labeled_condition, condition_inputs = condition_helpers.parse_case(
+    labeled_condition, condition_inputs = case_helpers.parse_case(
         tree.test, scope, symbol_map, WHILE_CONDITION_LABEL
     )
 

@@ -6,7 +6,7 @@ import dataclasses
 from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models, if_model
 from flowrep.models.parsers import (
-    condition_helpers,
+    case_helpers,
     object_scope,
     parser_protocol,
     symbol_scope,
@@ -23,7 +23,7 @@ class _CaseComponents:
 
     condition: helper_models.LabeledNode
     condition_input_edges: edge_models.InputEdges
-    body: condition_helpers.WalkedBranch
+    body: case_helpers.WalkedBranch
 
 
 def parse_if_node(
@@ -45,7 +45,7 @@ def parse_if_node(
     """
 
     cases: list[_CaseComponents] = []
-    else_branch: condition_helpers.WalkedBranch | None = None
+    else_branch: case_helpers.WalkedBranch | None = None
 
     ast_cases, else_stmts = _parse_if_elif_chain(tree)
 
@@ -54,10 +54,10 @@ def parse_if_node(
         cond_label = f"{IF_CONDITION_LABEL_PREFIX}_{idx}"
         body_label = f"{IF_BODY_LABEL_PREFIX}_{idx}"
 
-        labeled_cond, cond_inputs = condition_helpers.parse_case(
+        labeled_cond, cond_inputs = case_helpers.parse_case(
             test_expr, scope, symbol_map, cond_label
         )
-        body = condition_helpers.walk_branch(
+        body = case_helpers.walk_branch(
             body_label, body_stmts, symbol_map, scope, walker_factory
         )
         cases.append(
@@ -70,7 +70,7 @@ def parse_if_node(
 
     # --- process else case (if present) ---
     if else_stmts is not None:
-        else_branch = condition_helpers.walk_branch(
+        else_branch = case_helpers.walk_branch(
             IF_ELSE_LABEL, else_stmts, symbol_map, scope, walker_factory
         )
 
@@ -80,7 +80,7 @@ def parse_if_node(
         body_branches.append(else_branch)
 
     inputs, input_edges = _wire_inputs(cases, body_branches)
-    outputs, prospective_output_edges = condition_helpers.wire_outputs(body_branches)
+    outputs, prospective_output_edges = case_helpers.wire_outputs(body_branches)
 
     model_cases = [
         helper_models.ConditionalCase(
@@ -102,7 +102,7 @@ def parse_if_node(
 
 def _wire_inputs(
     cases: list[_CaseComponents],
-    body_branches: list[condition_helpers.WalkedBranch],
+    body_branches: list[case_helpers.WalkedBranch],
 ) -> tuple[list[str], edge_models.InputEdges]:
     """Merge condition input edges with body/else branch input edges."""
     inputs: list[str] = []
@@ -119,7 +119,7 @@ def _wire_inputs(
             _add_input(source.port)
 
     # Body + else inputs via shared helper
-    branch_inputs, branch_edges = condition_helpers.wire_inputs(body_branches)
+    branch_inputs, branch_edges = case_helpers.wire_inputs(body_branches)
     input_edges.update(branch_edges)
     for port in branch_inputs:
         _add_input(port)

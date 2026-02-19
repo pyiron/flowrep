@@ -4,7 +4,7 @@ import ast
 
 from flowrep.models.nodes import helper_models, try_model
 from flowrep.models.parsers import (
-    condition_helpers,
+    case_helpers,
     object_scope,
     parser_protocol,
     symbol_scope,
@@ -45,7 +45,7 @@ def parse_try_node(
         raise ValueError("Try node must have at least one except handler.")
 
     # 1. Parse the try body
-    try_branch = condition_helpers.walk_branch(
+    try_branch = case_helpers.walk_branch(
         TRY_BODY_LABEL,
         tree.body,
         symbol_map,
@@ -55,13 +55,13 @@ def parse_try_node(
 
     # 2. Parse each except handler
     exception_groups: list[list[str]] = []
-    except_branches: list[condition_helpers.WalkedBranch] = []
+    except_branches: list[case_helpers.WalkedBranch] = []
     for idx, handler in enumerate(tree.handlers):
         body_label = f"{EXCEPT_BODY_LABEL_PREFIX}_{idx}"
 
         exception_groups.append(_parse_exception_types(handler, scope))
 
-        exception_branch = condition_helpers.walk_branch(
+        exception_branch = case_helpers.walk_branch(
             body_label,
             handler.body,
             symbol_map,
@@ -72,8 +72,8 @@ def parse_try_node(
 
     # 3. Wire edges
     branches = [try_branch] + except_branches
-    inputs, input_edges = condition_helpers.wire_inputs(branches)
-    outputs, prospective_output_edges = condition_helpers.wire_outputs(branches)
+    inputs, input_edges = case_helpers.wire_inputs(branches)
+    outputs, prospective_output_edges = case_helpers.wire_outputs(branches)
 
     exception_cases = [
         helper_models.ExceptionCase(
