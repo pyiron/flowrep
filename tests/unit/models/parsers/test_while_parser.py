@@ -352,6 +352,19 @@ class TestWhileParserStructure(unittest.TestCase):
         self.assertIn("while_0", node.nodes)
         self.assertIn("while_1", node.nodes)
 
+    def test_while_catches_reassigned_symbols_as_input(self):
+        """When a symbol is reassigned, but not explicitly body or condition input."""
+
+        def wf(x, bound, y):
+            while my_condition(x, bound):
+                x = my_add(x, x)
+                y = identity(x)
+            return y
+
+        node = self._parse(wf)
+        self.assertIn("y", node.nodes["while_0"].inputs)
+        self.assertIn("y", node.nodes["while_0"].outputs)
+
     def test_for_nested_inside_while_body(self):
         """A for-loop inside a while-body produces a ForNode in the body workflow."""
 
