@@ -51,11 +51,11 @@ class IfNode(base_models.NodeModel):
         default=base_models.RecipeElementType.IF, frozen=True
     )
     cases: list[helper_models.ConditionalCase]
+    else_case: helper_models.LabeledNode | None = None
     input_edges: edge_models.InputEdges
     prospective_output_edges: dict[
         edge_models.OutputTarget, base_models.UniqueList[edge_models.SourceHandle]
     ]
-    else_case: helper_models.LabeledNode | None = None
 
     @property
     def prospective_nodes(self) -> Nodes:

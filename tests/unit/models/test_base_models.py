@@ -240,6 +240,13 @@ class TestValidateUniqueFunction(unittest.TestCase):
     def test_empty_list_valid(self):
         self.assertEqual(base_models.validate_unique([]), [])
 
+    def test_custom_message(self):
+        msg = "custom"
+        with self.assertRaises(ValueError) as ctx:
+            base_models.validate_unique(["a", "b", "a", "b", "c"], message=msg)
+        exc_str = str(ctx.exception)
+        self.assertEqual(msg, exc_str)
+
 
 class TestNodeModelSerialization(unittest.TestCase):
     """Tests for NodeModel serialization behavior."""
