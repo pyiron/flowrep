@@ -47,7 +47,9 @@ def parse_while_node(
     _validate_some_output_exists(reassigned_symbols)
     body_walker.symbol_map.produce_symbols(reassigned_symbols)
 
-    inputs, input_edges = _wire_inputs(body_walker, condition_inputs)
+    inputs, input_edges = _wire_inputs(
+        body_walker, condition_inputs, reassigned_symbols
+    )
     outputs, output_edges = _wire_outputs(body_walker)
 
     case = helper_models.ConditionalCase(
@@ -82,7 +84,9 @@ def _validate_some_output_exists(reassigned_symbols: list[str]):
 
 
 def _wire_inputs(
-    body_walker: parser_protocol.BodyWalker, condition_inputs: edge_models.InputEdges
+    body_walker: parser_protocol.BodyWalker,
+    condition_inputs: edge_models.InputEdges,
+    reassigned_symbols: list[str],
 ) -> tuple[list[str], edge_models.InputEdges]:
     inputs = [source.port for source in condition_inputs.values()]
     input_edges = dict(condition_inputs)
@@ -92,6 +96,12 @@ def _wire_inputs(
         )
         if port not in inputs:
             inputs.append(port)
+
+    # Catch symbols that are reassigned internally, but not used as input to the body
+    # or condition
+    for symbol in reassigned_symbols:
+        if symbol not in inputs:
+            inputs.append(symbol)
     return inputs, input_edges
 
 
