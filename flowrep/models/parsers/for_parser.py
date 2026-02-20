@@ -17,6 +17,12 @@ class _IterationAxis(NamedTuple):
     collection: str
 
 
+AccumulatorMap = dict[str, str]
+"""
+Maps accumulator names, xs, to appended symbol names, x, in statements like xs.append(x)
+"""
+
+
 def parse_for_node(
     tree: ast.For,
     scope: object_scope.ScopeProxy,
@@ -75,7 +81,7 @@ def parse_for_node(
     )
 
 
-def _validate_some_output_exists(consumed: dict[str, str]):
+def _validate_some_output_exists(consumed: AccumulatorMap):
     if len(consumed) == 0:
         raise ValueError("For nodes must use up at least one accumulator symbol.")
 
@@ -83,7 +89,7 @@ def _validate_some_output_exists(consumed: dict[str, str]):
 def _validate_no_unused_iterators(
     all_iters: list[_IterationAxis],
     body_walker: parser_protocol.BodyWalker,
-    consumed: dict[str, str],
+    consumed: AccumulatorMap,
 ):
     """
     Every iteration variable must actually be consumed inside the body.
@@ -103,7 +109,7 @@ def _validate_no_unused_iterators(
 def _validate_no_leaked_reassignments(
     all_iters: list[_IterationAxis],
     body_walker: parser_protocol.BodyWalker,
-    consumed: dict[str, str],
+    consumed: AccumulatorMap,
     symbol_map: symbol_scope.SymbolScope,
 ):
     """
