@@ -1,3 +1,4 @@
+import ast
 import unittest
 from dataclasses import dataclass
 
@@ -717,6 +718,47 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual(
             sorted(rev_macro_edges),
             sorted(wf_dict["nodes"]["example_macro_0"]["edges"]),
+        )
+
+    def test_ast_dict_to_python_object(self):
+        for item in [
+            2,
+            ("string",),
+            (1, 2),
+            ((1, 2), (3, 4)),
+            None,
+            True,
+            False,
+        ]:
+            ast_item = ast.parse(str(item))
+            transformed_item = fwf._ast_dict_to_python_object(
+                fwf._function_to_ast_dict(ast_item)["body"][0]["value"]
+            )
+            self.assertEqual(
+                transformed_item,
+                item,
+                msg=f"{transformed_item} != {item} for type {type(item)}",
+            )
+        for item in [
+            [1, 1, 1],
+            {1, 2},
+            {"A": 5},
+        ]:
+            ast_item = ast.parse(str(item))
+            self.assertRaises(
+                ValueError,
+                fwf._ast_dict_to_python_object,
+                fwf._function_to_ast_dict(ast_item)["body"][0]["value"],
+            )
+        a = 5
+
+        def my_test_function(a=a):
+            return a
+
+        self.assertRaises(
+            NotImplementedError,
+            fwf._ast_dict_to_python_object,
+            fwf.get_ast_dict(my_test_function)["body"][0]["args"]["defaults"],
         )
 
 
