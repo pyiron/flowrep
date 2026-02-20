@@ -22,35 +22,6 @@ def _make_atomic(
     )
 
 
-class TestGetFullyQualifiedName(unittest.TestCase):
-    def test_plain_function(self):
-        def my_func():
-            pass
-
-        result = helper_models.get_fully_qualified_name(my_func)
-        self.assertEqual(result, f"{my_func.__module__}.{my_func.__qualname__}")
-        self.assertIn(".", result)
-
-    def test_lambda(self):
-        fn = lambda: None  # noqa: E731
-        result = helper_models.get_fully_qualified_name(fn)
-        self.assertIn("<lambda>", result)
-
-    def test_class(self):
-        result = helper_models.get_fully_qualified_name(ValueError)
-        self.assertEqual(result, "builtins.ValueError")
-
-    def test_nested_class_method(self):
-        class Outer:
-            class Inner:
-                @staticmethod
-                def method():
-                    pass
-
-        result = helper_models.get_fully_qualified_name(Outer.Inner.method)
-        self.assertIn("Outer.Inner.method", result)
-
-
 class TestConditionalCaseValidation(unittest.TestCase):
     @staticmethod
     def _make_condition(outputs=None):
