@@ -124,5 +124,5 @@ def _parse_exception_types(
                 f"Except handler must catch exception types, but resolved "
                 f"{ast.dump(node)} to {exc_class!r}"
             )
-        fqns.append(f"{exc_class.__module__}.{exc_class.__qualname__}")
+        fqns.append(helper_models.get_fully_qualified_name(exc_class))
     return fqns

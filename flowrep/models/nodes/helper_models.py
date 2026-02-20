@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Annotated, Any
 
 import pydantic
 
@@ -14,6 +15,25 @@ if TYPE_CHECKING:
     # Better to nonetheless leave the references as strings to make sure the pydantic
     # handling of forward references is maximally robust through the model_rebuild()
     # Ultimately, just silence ruff as needed
+
+
+def _validate_fully_qualified_name(v: str) -> str:
+    if not v or len(v.split(".")) < 2 or not all(part for part in v.split(".")):
+        msg = (
+            f"'fully_qualified_name' must be a non-empty string "
+            f"in the format 'module.qualname' with at least one period. Got {v}"
+        )
+        raise ValueError(msg)
+    return v
+
+
+FullyQualifiedName = Annotated[
+    str, pydantic.AfterValidator(_validate_fully_qualified_name)
+]
+
+
+def get_fully_qualified_name(caller: Callable[..., Any]) -> FullyQualifiedName:
+    return f"{caller.__module__}.{caller.__qualname__}"
 
 
 class LabeledNode(pydantic.BaseModel):

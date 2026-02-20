@@ -37,7 +37,7 @@ def parse_atomic(
     *output_labels: str,
     unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
 ) -> atomic_model.AtomicNode:
-    fully_qualified_name = f"{func.__module__}.{func.__qualname__}"
+    fully_qualified_name = helper_models.get_fully_qualified_name(func)
 
     input_labels = label_helpers.get_input_labels(func)
 

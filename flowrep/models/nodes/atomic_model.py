@@ -6,6 +6,7 @@ from typing import Literal
 import pydantic
 
 from flowrep.models import base_models
+from flowrep.models.nodes import helper_models
 
 
 class UnpackMode(StrEnum):
@@ -49,19 +50,8 @@ class AtomicNode(base_models.NodeModel):
     type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
         default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
-    fully_qualified_name: str
+    fully_qualified_name: helper_models.FullyQualifiedName
     unpack_mode: UnpackMode = UnpackMode.TUPLE
-
-    @pydantic.field_validator("fully_qualified_name")
-    @classmethod
-    def check_name_format(cls, v: str):
-        if not v or len(v.split(".")) < 2 or not all(part for part in v.split(".")):
-            msg = (
-                f"AtomicNode 'fully_qualified_name' must be a non-empty string "
-                f"in the format 'module.qualname' with at least one period. Got {v}"
-            )
-            raise ValueError(msg)
-        return v
 
     @pydantic.model_validator(mode="after")
     def check_outputs_when_not_unpacking(self):
