@@ -41,8 +41,6 @@ def parse_try_node(
             "Try blocks with finally clauses are not supported in our parsing "
             "syntax."
         )
-    if not tree.handlers:
-        raise ValueError("Try node must have at least one except handler.")
 
     # 1. Parse the try body
     try_branch = case_helpers.walk_branch(
