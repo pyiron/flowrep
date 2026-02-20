@@ -48,7 +48,8 @@ def parse_workflow(
 ):
     inputs = label_helpers.get_input_labels(func)
     state = WorkflowParser(
-        symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs})
+        symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),
+        fully_qualified_name=f"{func.__module__}.{func.__qualname__}",
     )
     tree = parser_helpers.get_ast_function_node(func)
 
@@ -101,9 +102,14 @@ class WorkflowParser(parser_protocol.BodyWalker):
     or to dynamically build a workflow from the body of some control flow.
     """
 
-    def __init__(self, symbol_map: symbol_scope.SymbolScope):
+    def __init__(
+        self,
+        symbol_map: symbol_scope.SymbolScope,
+        fully_qualified_name: str | None = None,
+    ):
         self.symbol_map = symbol_map
         self.nodes: union.Nodes = {}
+        self.fully_qualified_name = fully_qualified_name
 
     @property
     def inputs(self) -> list[str]:
@@ -135,6 +141,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
             input_edges=self.input_edges,
             edges=self.edges,
             output_edges=self.output_edges,
+            fully_qualified_name=self.fully_qualified_name,
         )
 
     def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None:

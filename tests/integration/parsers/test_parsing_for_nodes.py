@@ -105,6 +105,7 @@ single_iteration_node = workflow_model.WorkflowNode.model_validate(
             "l": "how_many_0.length",
             "vecs": "for_0.vecs",
         },
+        "fully_qualified_name": "integration.parsers.test_parsing_for_nodes.single_iteration",
     }
 )
 
@@ -204,6 +205,7 @@ zbat_wf_node = workflow_model.WorkflowNode.model_validate(
             "d_accumulator": "for_0.d_accumulator",
             "sums": "for_0.sums",
         },
+        "fully_qualified_name": "integration.parsers.test_parsing_for_nodes.zipped_broadcast_and_transferred",
     }
 )
 
@@ -319,6 +321,7 @@ nested_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"for_0.ns": "ns"},
         "edges": {},
         "output_edges": {"sq_sums": "for_0.sq_sums"},
+        "fully_qualified_name": "integration.parsers.test_parsing_for_nodes.nested",
     }
 )
 
@@ -452,6 +455,7 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
         },
         "edges": {},
         "output_edges": {"sq_sums": "for_0.sq_sums"},
+        "fully_qualified_name": "integration.parsers.test_parsing_for_nodes.nested_with_passed_input",
     }
 )
 

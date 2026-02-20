@@ -548,5 +548,74 @@ class TestWorkflowWithAtomicRecipes(unittest.TestCase):
         )
 
 
+class TestWorkflowFullyQualifiedName(unittest.TestCase):
+    """Tests that parse_workflow populates fully_qualified_name correctly."""
+
+    def test_fqn_set_on_parsed_workflow(self):
+        def wf(x):
+            y = add(x)
+            return y
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(
+            node.fully_qualified_name,
+            f"{wf.__module__}.{wf.__qualname__}",
+        )
+
+    def test_fqn_on_decorated_workflow(self):
+        @workflow_parser.workflow
+        def decorated_wf(x):
+            y = add(x)
+            return y
+
+        self.assertEqual(
+            decorated_wf.flowrep_recipe.fully_qualified_name,
+            f"{decorated_wf.__module__}.{decorated_wf.__qualname__}",
+        )
+
+    def test_fqn_on_decorated_workflow_with_args(self):
+        @workflow_parser.workflow("result")
+        def decorated_wf(x):
+            y = add(x)
+            return y
+
+        self.assertEqual(
+            decorated_wf.flowrep_recipe.fully_qualified_name,
+            f"{decorated_wf.__module__}.{decorated_wf.__qualname__}",
+        )
+
+    def test_fqn_nested_workflow_has_own_fqn(self):
+        """inner_macro's recipe should carry its own fqn, not the outer's."""
+
+        def outer_wf(a):
+            b = inner_macro(a)
+            return b
+
+        node = workflow_parser.parse_workflow(outer_wf)
+        inner = node.nodes["inner_macro_0"]
+        self.assertEqual(
+            inner.fully_qualified_name,
+            f"{inner_macro.__module__}.{inner_macro.__qualname__}",
+        )
+
+    def test_fqn_defaults_to_none_on_raw_parser(self):
+        parser = workflow_parser.WorkflowParser(symbol_scope.SymbolScope({}))
+        self.assertIsNone(parser.fully_qualified_name)
+
+    def test_fqn_roundtrips_through_serialization(self):
+        def wf(x):
+            y = add(x)
+            return y
+
+        node = workflow_parser.parse_workflow(wf)
+        for mode in ["python", "json"]:
+            with self.subTest(mode=mode):
+                data = node.model_dump(mode=mode)
+                restored = workflow_model.WorkflowNode.model_validate(data)
+                self.assertEqual(
+                    node.fully_qualified_name, restored.fully_qualified_name
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

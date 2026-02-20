@@ -95,6 +95,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"if_0.x": "x", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "if_0.z"},
+        "fully_qualified_name": "integration.parsers.test_parsing_if_nodes.simple_if_else",
     }
 )
 
@@ -198,6 +199,7 @@ elif_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"if_0.x": "x", "if_0.flag": "flag", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "if_0.z"},
+        "fully_qualified_name": "integration.parsers.test_parsing_if_nodes.if_elif_else",
     }
 )
 
@@ -276,6 +278,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"my_add_0.a": "a", "my_add_0.b": "b", "if_0.b": "b"},
         "edges": {"if_0.x": "my_add_0.output_0", "my_identity_0.x": "if_0.y"},
         "output_edges": {"z": "my_identity_0.x"},
+        "fully_qualified_name": "integration.parsers.test_parsing_if_nodes.if_with_context",
     }
 )
 
@@ -373,6 +376,7 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"if_0.x": "x", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"a": "if_0.a", "b": "if_0.b"},
+        "fully_qualified_name": "integration.parsers.test_parsing_if_nodes.multi_output_if",
     }
 )
 
@@ -433,6 +437,7 @@ no_else_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"my_identity_0.x": "x", "if_0.x": "x", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "if_0.z"},
+        "fully_qualified_name": "integration.parsers.test_parsing_if_nodes.if_no_else",
     }
 )
 
@@ -460,6 +465,7 @@ class TestParsingForLoops(unittest.TestCase):
             (simple_if_else, simple_node),
             (if_elif_else, elif_node),
             (if_with_context, context_node),
+            (multi_output_if, multi_output_node),
             (if_no_else, no_else_node),
         ):
             with self.subTest(function=function.__name__):

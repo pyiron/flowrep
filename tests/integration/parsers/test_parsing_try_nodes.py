@@ -89,6 +89,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"try_0.x": "x", "try_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "try_0.z"},
+        "fully_qualified_name": "integration.parsers.test_parsing_try_nodes.simple_try_except",
     }
 )
 
@@ -186,6 +187,7 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"try_0.x": "x", "try_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "try_0.z"},
+        "fully_qualified_name": "integration.parsers.test_parsing_try_nodes.try_multi_except",
     }
 )
 
@@ -266,6 +268,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
             "my_identity_0.x": "try_0.y",
         },
         "output_edges": {"z": "my_identity_0.x"},
+        "fully_qualified_name": "integration.parsers.test_parsing_try_nodes.try_with_context",
     }
 )
 
@@ -357,6 +360,7 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"try_0.x": "x", "try_0.y": "y"},
         "edges": {},
         "output_edges": {"a": "try_0.a", "b": "try_0.b"},
+        "fully_qualified_name": "integration.parsers.test_parsing_try_nodes.multi_output_try",
     }
 )
 
@@ -433,6 +437,7 @@ tuple_exc_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"try_0.x": "x", "try_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "try_0.z"},
+        "fully_qualified_name": "integration.parsers.test_parsing_try_nodes.try_tuple_exceptions",
     }
 )
 
