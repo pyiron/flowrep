@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Annotated, Any
 
 import pydantic
 
@@ -29,6 +30,10 @@ def _validate_fully_qualified_name(v: str) -> str:
 FullyQualifiedName = Annotated[
     str, pydantic.AfterValidator(_validate_fully_qualified_name)
 ]
+
+
+def get_fully_qualified_name(caller: Callable[..., Any]) -> FullyQualifiedName:
+    return f"{caller.__module__}.{caller.__qualname__}"
 
 
 class LabeledNode(pydantic.BaseModel):

@@ -49,7 +49,7 @@ def parse_workflow(
     inputs = label_helpers.get_input_labels(func)
     state = WorkflowParser(
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),
-        fully_qualified_name=f"{func.__module__}.{func.__qualname__}",
+        fully_qualified_name=helper_models.get_fully_qualified_name(func),
     )
     tree = parser_helpers.get_ast_function_node(func)
 
