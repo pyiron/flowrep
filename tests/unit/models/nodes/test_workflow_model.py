@@ -869,5 +869,78 @@ class TestWorkflowNodeSerialization(unittest.TestCase):
         self.assertEqual(data["output_edges"]["z"], "a.o2")
 
 
+class TestWorkflowNodeFullyQualifiedName(unittest.TestCase):
+    """Tests for the optional fully_qualified_name field."""
+
+    def _minimal_wf(self, **overrides):
+        defaults = dict(
+            inputs=[],
+            outputs=[],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
+        defaults.update(overrides)
+        return workflow_model.WorkflowNode(**defaults)
+
+    def test_defaults_to_none(self):
+        wf = self._minimal_wf()
+        self.assertIsNone(wf.fully_qualified_name)
+
+    def test_accepts_valid_fqn(self):
+        wf = self._minimal_wf(fully_qualified_name="my_module.MyClass")
+        self.assertEqual(wf.fully_qualified_name, "my_module.MyClass")
+
+    def test_accepts_deeply_nested_fqn(self):
+        wf = self._minimal_wf(fully_qualified_name="a.b.c.d.e")
+        self.assertEqual(wf.fully_qualified_name, "a.b.c.d.e")
+
+    def test_rejects_single_segment(self):
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            self._minimal_wf(fully_qualified_name="noDot")
+        self.assertIn("fully_qualified_name", str(ctx.exception))
+
+    def test_rejects_empty_string(self):
+        with self.assertRaises(pydantic.ValidationError):
+            self._minimal_wf(fully_qualified_name="")
+
+    def test_rejects_leading_dot(self):
+        with self.assertRaises(pydantic.ValidationError):
+            self._minimal_wf(fully_qualified_name=".leading")
+
+    def test_rejects_trailing_dot(self):
+        with self.assertRaises(pydantic.ValidationError):
+            self._minimal_wf(fully_qualified_name="trailing.")
+
+    def test_rejects_consecutive_dots(self):
+        with self.assertRaises(pydantic.ValidationError):
+            self._minimal_wf(fully_qualified_name="a..b")
+
+    def test_roundtrip_with_fqn(self):
+        original = self._minimal_wf(fully_qualified_name="pkg.mod.func")
+        for mode in ["python", "json"]:
+            with self.subTest(mode=mode):
+                data = original.model_dump(mode=mode)
+                restored = workflow_model.WorkflowNode.model_validate(data)
+                self.assertEqual(
+                    original.fully_qualified_name, restored.fully_qualified_name
+                )
+
+    def test_roundtrip_without_fqn(self):
+        original = self._minimal_wf()
+        data = original.model_dump(mode="json")
+        restored = workflow_model.WorkflowNode.model_validate(data)
+        self.assertIsNone(restored.fully_qualified_name)
+
+    def test_json_schema_includes_fqn(self):
+        schema = workflow_model.WorkflowNode.model_json_schema()
+        # Pydantic v2 may put properties under $defs for recursive models
+        props = schema.get("properties") or schema.get("$defs", {}).get(
+            "WorkflowNode", {}
+        ).get("properties", {})
+        self.assertIn("fully_qualified_name", props)
+
+
 if __name__ == "__main__":
     unittest.main()
