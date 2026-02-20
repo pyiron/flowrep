@@ -3,6 +3,8 @@ from collections.abc import Callable, Collection
 from types import FunctionType
 from typing import Any, cast
 
+from pyiron_snippets import versions
+
 from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import helper_models, union, workflow_model
 from flowrep.models.parsers import (
@@ -25,6 +27,10 @@ def workflow(
     func: FunctionType | str | None = None,
     /,
     *output_labels: str,
+    version_scraping: versions.VersionScrapingMap | None = None,
+    forbid_main: bool = False,
+    forbid_locals: bool = False,
+    require_version: bool = False,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
     Decorator that attaches a flowrep.model.WorkflowNode to the `flowrep_recipe`
@@ -39,17 +45,35 @@ def workflow(
         output_labels,
         parser=parse_workflow,
         decorator_name="@workflow",
+        parser_kwargs={
+            "version_scraping": version_scraping,
+            "forbid_main": forbid_main,
+            "forbid_locals": forbid_locals,
+            "require_version": require_version,
+        },
     )
 
 
 def parse_workflow(
     func: FunctionType,
     *output_labels: str,
+    version_scraping: versions.VersionScrapingMap | None = None,
+    forbid_main: bool = False,
+    forbid_locals: bool = False,
+    require_version: bool = False,
 ):
+    info = versions.VersionInfo.of(
+        func,
+        version_scraping=version_scraping,
+        forbid_main=forbid_main,
+        forbid_locals=forbid_locals,
+        require_version=require_version,
+    )
     inputs = label_helpers.get_input_labels(func)
     state = WorkflowParser(
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),
-        fully_qualified_name=helper_models.get_fully_qualified_name(func),
+        fully_qualified_name=info.fully_qualified_name,
+        version=info.version,
     )
     tree = parser_helpers.get_ast_function_node(func)
 
@@ -106,10 +130,12 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self,
         symbol_map: symbol_scope.SymbolScope,
         fully_qualified_name: str | None = None,
+        version: str | None = None,
     ):
         self.symbol_map = symbol_map
         self.nodes: union.Nodes = {}
         self.fully_qualified_name = fully_qualified_name
+        self.version = version
 
     @property
     def inputs(self) -> list[str]:
@@ -142,6 +168,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
             edges=self.edges,
             output_edges=self.output_edges,
             fully_qualified_name=self.fully_qualified_name,
+            version=self.version,
         )
 
     def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None:

@@ -5,6 +5,8 @@ from collections.abc import Callable, Iterable
 from types import FunctionType
 from typing import Annotated, cast, get_args, get_origin, get_type_hints
 
+from pyiron_snippets import versions
+
 from flowrep.models.nodes import atomic_model, helper_models
 from flowrep.models.parsers import label_helpers, object_scope, parser_helpers
 from flowrep.models.parsers.label_helpers import default_output_label
@@ -15,6 +17,10 @@ def atomic(
     /,
     *output_labels: str,
     unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
+    version_scraping: versions.VersionScrapingMap | None = None,
+    forbid_main: bool = False,
+    forbid_locals: bool = False,
+    require_version: bool = False,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
     Decorator that attaches a flowrep.model.AtomicNode to the `recipe` attribute of a
@@ -28,7 +34,13 @@ def atomic(
         output_labels,
         parser=parse_atomic,
         decorator_name="@atomic",
-        parser_kwargs={"unpack_mode": unpack_mode},
+        parser_kwargs={
+            "unpack_mode": unpack_mode,
+            "version_scraping": version_scraping,
+            "forbid_main": forbid_main,
+            "forbid_locals": forbid_locals,
+            "require_version": require_version,
+        },
     )
 
 
@@ -36,8 +48,18 @@ def parse_atomic(
     func: FunctionType,
     *output_labels: str,
     unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
+    version_scraping: versions.VersionScrapingMap | None = None,
+    forbid_main: bool = False,
+    forbid_locals: bool = False,
+    require_version: bool = False,
 ) -> atomic_model.AtomicNode:
-    fully_qualified_name = helper_models.get_fully_qualified_name(func)
+    info = versions.VersionInfo.of(
+        func,
+        version_scraping=version_scraping,
+        forbid_main=forbid_main,
+        forbid_locals=forbid_locals,
+        require_version=require_version,
+    )
 
     input_labels = label_helpers.get_input_labels(func)
 
@@ -50,7 +72,8 @@ def parse_atomic(
         )
 
     return atomic_model.AtomicNode(
-        fully_qualified_name=fully_qualified_name,
+        fully_qualified_name=info.fully_qualified_name,
+        version=info.version,
         inputs=input_labels,
         outputs=(
             list(output_labels) if len(output_labels) > 0 else scraped_output_labels
