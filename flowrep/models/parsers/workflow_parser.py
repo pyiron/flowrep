@@ -33,12 +33,33 @@ def workflow(
     require_version: bool = False,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
-    Decorator that attaches a flowrep.model.WorkflowNode to the `flowrep_recipe`
-    attribute of a function, under constraints that the function is parseable as a
-    workflow recipe.
+    Decorator that attaches a :class:`~flowrep.models.nodes.workflow_model.WorkflowNode`
+    to the ``flowrep_recipe`` attribute of a function, under constraints that the
+    function body is parseable as a workflow recipe.
 
-    Can be used as with or without args (to specify output labels) -- @workflow or
-    @workflow(...)
+    The decorated function's module, qualname, and (optionally) package version are
+    captured as provenance metadata via
+    :meth:`~pyiron_snippets.versions.VersionInfo.of`.
+
+    Can be used with or without arguments.
+
+    Args:
+        func: The function to decorate. Passed positionally by Python when the
+            decorator is used without parentheses.
+        *output_labels: Explicit names for the workflow's output ports. When
+            provided, their count must match the number of returned symbols.
+        version_scraping: Optional mapping from top-level package names to callables
+            that return a version string. Forwarded to
+            :meth:`~pyiron_snippets.versions.VersionInfo.of`.
+        forbid_main: If ``True``, raise if the function's module is ``__main__``.
+        forbid_locals: If ``True``, raise if the function's qualname contains
+            ``<locals>``.
+        require_version: If ``True``, raise if no version can be determined for
+            the function's package.
+
+    Returns:
+        The original function with a ``flowrep_recipe`` attribute holding a
+        :class:`~flowrep.models.nodes.workflow_model.WorkflowNode`.
     """
     return parser_helpers.parser2decorator(
         func,
@@ -62,6 +83,36 @@ def parse_workflow(
     forbid_locals: bool = False,
     require_version: bool = False,
 ):
+    """
+    Build a :class:`~flowrep.models.nodes.workflow_model.WorkflowNode` by
+    statically analysing a Python function's AST.
+
+    The function body is walked statement-by-statement; assignments with calls on
+    the right-hand side become atomic (or recursively parsed) child nodes, and
+    supported control-flow structures (``for``, ``while``, ``if``, ``try``) are
+    converted into the corresponding composite node types. A single ``return``
+    statement defines the workflow's output ports.
+
+    Args:
+        func: The function to parse into a workflow graph.
+        *output_labels: Explicit output port names. When provided, their count must
+            match the number of returned symbols.
+        version_scraping: Optional version-scraping overrides, forwarded to
+            :meth:`~pyiron_snippets.versions.VersionInfo.of`.
+        forbid_main: If ``True``, raise if the function's module is ``__main__``.
+        forbid_locals: If ``True``, raise if the function's qualname contains
+            ``<locals>``.
+        require_version: If ``True``, raise if no version can be determined.
+
+    Returns:
+        A fully constructed :class:`WorkflowNode`.
+
+    Raises:
+        ValueError: If the function has no return, multiple returns, returns
+            duplicate symbols, returns workflow inputs directly, or if any
+            ``forbid_*`` / ``require_*`` constraint is violated.
+        TypeError: If the function body contains unsupported AST statement types.
+    """
     info = versions.VersionInfo.of(
         func,
         version_scraping=version_scraping,
