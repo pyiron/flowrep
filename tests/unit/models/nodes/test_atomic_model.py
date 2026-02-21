@@ -224,5 +224,81 @@ class TestAtomicNodeSerialization(unittest.TestCase):
         self.assertEqual(data["unpack_mode"], "none")
 
 
+class TestAtomicNodeVersion(unittest.TestCase):
+    """Tests for the optional version field."""
+
+    def test_defaults_to_none(self):
+        node = atomic_model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=[],
+        )
+        self.assertIsNone(node.version)
+
+    def test_accepts_version_string(self):
+        node = atomic_model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=[],
+            version="1.2.3",
+        )
+        self.assertEqual(node.version, "1.2.3")
+
+    def test_accepts_none_explicitly(self):
+        node = atomic_model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=[],
+            version=None,
+        )
+        self.assertIsNone(node.version)
+
+    def test_roundtrip_with_version(self):
+        original = atomic_model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=["a"],
+            outputs=["b"],
+            version="0.5.1",
+        )
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = original.model_dump(mode=mode)
+                restored = atomic_model.AtomicNode.model_validate(data)
+                self.assertEqual(original.version, restored.version)
+
+    def test_roundtrip_without_version(self):
+        original = atomic_model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=[],
+        )
+        data = original.model_dump(mode="json")
+        restored = atomic_model.AtomicNode.model_validate(data)
+        self.assertIsNone(restored.version)
+
+    def test_json_structure_includes_version(self):
+        node = atomic_model.AtomicNode(
+            fully_qualified_name="pkg.mod.func",
+            inputs=["x"],
+            outputs=["y"],
+            version="2.0.0",
+        )
+        data = node.model_dump(mode="json")
+        self.assertEqual(data["version"], "2.0.0")
+
+    def test_json_structure_version_null_when_absent(self):
+        node = atomic_model.AtomicNode(
+            fully_qualified_name="mod.func",
+            inputs=[],
+            outputs=[],
+        )
+        data = node.model_dump(mode="json")
+        self.assertIsNone(data["version"])
+
+    def test_json_schema_includes_version(self):
+        schema = atomic_model.AtomicNode.model_json_schema()
+        self.assertIn("version", schema.get("properties", {}))
+
+
 if __name__ == "__main__":
     unittest.main()
