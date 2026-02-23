@@ -32,6 +32,16 @@ def build_global_namespace(func) -> dict[str, object]:
 
 
 def resolve_ast_node(node: ast.AST, namespace: dict[str, object]) -> Any:
+    """
+    Resolve an AST node to its corresponding object in the given namespace.
+
+    Args:
+        node (ast.AST): The AST node to resolve.
+        namespace (dict[str, object]): The namespace to use for resolution.
+
+    Returns:
+        Any: The resolved object, or None if it cannot be resolved.
+    """
     if isinstance(node, ast.Name):
         return namespace.get(node.id)
 
@@ -45,10 +55,16 @@ def resolve_ast_node(node: ast.AST, namespace: dict[str, object]) -> Any:
 
 
 def extract_called_functions(func: types.FunctionType) -> set[types.FunctionType]:
-    try:
-        source = inspect.getsource(func)
-    except (OSError, TypeError):
-        return set()
+    """
+    Extract all functions called by the given function.
+
+    Args:
+        func (types.FunctionType): The function to analyze.
+
+    Returns:
+        Set[types.FunctionType]: A set of functions that are called by the given function.
+    """
+    source = inspect.getsource(func)
 
     tree = ast.parse(source)
     collector = CallCollector()
@@ -72,9 +88,13 @@ def analyze_function_dependencies(root_func: types.FunctionType) -> tuple[
     """
     Recursively analyze function dependencies.
 
+    Args:
+        root_func (types.FunctionType): The root function to analyze.
+
     Returns:
-        local_functions: set of locally-defined functions
-        external_functions: set of (module, qualname)
+        Tuple[Set[types.FunctionType], Set[FunctionID]]: A tuple containing:
+            - A set of local functions (defined in the same codebase).
+            - A set of external function IDs (from other modules or libraries).
     """
     visited: set[FunctionID] = set()
     local_functions: set[types.FunctionType] = set()
