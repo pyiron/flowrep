@@ -13,6 +13,7 @@ def op(a, b):
     d = math.sqrt(c)
     return d
 
+
 def more_op(a, b):
     c = op(a, b)
     return c
