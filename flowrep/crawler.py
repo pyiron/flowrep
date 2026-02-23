@@ -4,11 +4,7 @@ import sys
 import types
 from typing import Any
 
-from pyiron_snippets import versions
-
-
-def function_id(func) -> versions.VersionInfo:
-    return versions.VersionInfo.of(func)
+from pyiron_snippets.versions import VersionInfo
 
 
 class CallCollector(ast.NodeVisitor):
@@ -101,13 +97,13 @@ def analyze_function_dependencies(root_func: types.FunctionType) -> tuple[
     external_functions: set[FunctionID] = set()
 
     def walk(func):
-        fid = function_id(func)
+        fid = VersionInfo.of(func)
         if fid.fully_qualified_name in visited:
             return
         visited.add(fid.fully_qualified_name)
 
         for called in extract_called_functions(func):
-            cid = function_id(called)
+            cid = VersionInfo.of(called)
 
             if cid.version is None:
                 local_functions.add(called)
