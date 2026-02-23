@@ -53,6 +53,7 @@ class AtomicNode(base_models.NodeModel):
     )
     fully_qualified_name: helper_models.FullyQualifiedName
     version: str | None = None
+    source_code: str | None = None
     unpack_mode: UnpackMode = UnpackMode.TUPLE
 
     @pydantic.model_validator(mode="after")

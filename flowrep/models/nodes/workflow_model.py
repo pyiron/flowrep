@@ -45,6 +45,7 @@ class WorkflowNode(base_models.NodeModel):
     output_edges: edge_models.OutputEdges
     fully_qualified_name: helper_models.FullyQualifiedName | None = None
     version: str | None = None
+    source_code: str | None = None
 
     @pydantic.model_validator(mode="after")
     def validate_io_edges(self):

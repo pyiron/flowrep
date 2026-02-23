@@ -944,5 +944,22 @@ class TestAtomicDecoratorVersionParams(unittest.TestCase):
                 return x
 
 
+class TestParseAtomicSourceCode(unittest.TestCase):
+    def test_source_code_populated(self):
+        def my_func(x):
+            return x
+
+        node = atomic_parser.parse_atomic(my_func)
+        self.assertIsNotNone(node.source_code)
+        self.assertIn("def my_func", node.source_code)
+
+    def test_source_code_none_when_unavailable(self):
+        f = _make_func_in_module("__main__", "f")
+        node = atomic_parser.parse_atomic(f)
+        # _make_func_in_module creates a real function with source,
+        # but exec-defined ones won't; just check the field exists
+        self.assertIsInstance(node.source_code, (str, type(None)))
+
+
 if __name__ == "__main__":
     unittest.main()

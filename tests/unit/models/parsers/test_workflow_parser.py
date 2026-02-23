@@ -733,5 +733,37 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
                 return y
 
 
+class TestParseWorkflowSourceCode(unittest.TestCase):
+    def test_source_code_populated(self):
+        def my_wf(x):
+            y = add(x)
+            return y
+
+        node = workflow_parser.parse_workflow(my_wf)
+        self.assertIsNotNone(node.source_code)
+        self.assertIn("def my_wf", node.source_code)
+
+    def test_decorator_populates_source_code(self):
+        @workflow_parser.workflow
+        def decorated_wf(x):
+            y = add(x)
+            return y
+
+        self.assertIsNotNone(decorated_wf.flowrep_recipe.source_code)
+        self.assertIn("def decorated_wf", decorated_wf.flowrep_recipe.source_code)
+
+    def test_source_code_roundtrips(self):
+        def my_wf(x):
+            y = add(x)
+            return y
+
+        node = workflow_parser.parse_workflow(my_wf)
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = node.model_dump(mode=mode)
+                restored = workflow_model.WorkflowNode.model_validate(data)
+                self.assertEqual(node.source_code, restored.source_code)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -148,7 +148,8 @@ def parse_workflow(
     if not found_return:
         raise ValueError("Workflow python definitions must have a return statement.")
 
-    return state.build_model(inputs_override=inputs)
+    source_code = parser_helpers.get_available_source_code(func)
+    return state.build_model(inputs_override=inputs, source_code=source_code)
 
 
 def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
@@ -209,7 +210,9 @@ class WorkflowParser(parser_protocol.BodyWalker):
         return self.symbol_map.outputs
 
     def build_model(
-        self, inputs_override: list[str] | None = None
+        self,
+        inputs_override: list[str] | None = None,
+        source_code: str | None = None,
     ) -> workflow_model.WorkflowNode:
         return workflow_model.WorkflowNode(
             inputs=self.inputs if inputs_override is None else inputs_override,
@@ -220,6 +223,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
             output_edges=self.output_edges,
             fully_qualified_name=self.fully_qualified_name,
             version=self.version,
+            source_code=source_code,
         )
 
     def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None:
