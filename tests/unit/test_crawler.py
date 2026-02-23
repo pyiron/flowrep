@@ -38,5 +38,6 @@ class TestCrawler(unittest.TestCase):
         called = crawler.extract_called_functions(more_op)
         self.assertEqual(called, {op})
 
+
 if __name__ == "__main__":
     unittest.main()

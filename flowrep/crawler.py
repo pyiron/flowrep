@@ -17,14 +17,7 @@ class CallCollector(ast.NodeVisitor):
 
 
 def _build_global_namespace(func) -> dict[str, object]:
-    namespace = dict(func.__globals__)
-
-    if func.__closure__:
-        freevars = func.__code__.co_freevars
-        for var, cell in zip(freevars, func.__closure__):
-            namespace[var] = cell.cell_contents
-
-    return namespace
+    return dict(func.__globals__)
 
 
 def _resolve_ast_node(node: ast.AST, namespace: dict[str, object]) -> Any:
