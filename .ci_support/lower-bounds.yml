@@ -6,3 +6,4 @@ dependencies:
   - python =3.11
   - networkx =3.4.2
   - pydantic =2.12.0
+  - pyiron_snippets =1.1.0
