@@ -16,7 +16,7 @@ class CallCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def build_global_namespace(func) -> dict[str, object]:
+def _build_global_namespace(func) -> dict[str, object]:
     namespace = dict(func.__globals__)
 
     if func.__closure__:
@@ -66,7 +66,7 @@ def extract_called_functions(func: types.FunctionType) -> set[types.FunctionType
     collector = CallCollector()
     collector.visit(tree)
 
-    namespace = build_global_namespace(func)
+    namespace = _build_global_namespace(func)
     resolved = set()
 
     for call_node in collector.calls:
