@@ -27,7 +27,7 @@ def _build_global_namespace(func) -> dict[str, object]:
     return namespace
 
 
-def resolve_ast_node(node: ast.AST, namespace: dict[str, object]) -> Any:
+def _resolve_ast_node(node: ast.AST, namespace: dict[str, object]) -> Any:
     """
     Resolve an AST node to its corresponding object in the given namespace.
 
@@ -42,7 +42,7 @@ def resolve_ast_node(node: ast.AST, namespace: dict[str, object]) -> Any:
         return namespace.get(node.id)
 
     if isinstance(node, ast.Attribute):
-        base = resolve_ast_node(node.value, namespace)
+        base = _resolve_ast_node(node.value, namespace)
         if base is None:
             return None
         return getattr(base, node.attr, None)
@@ -70,7 +70,7 @@ def extract_called_functions(func: types.FunctionType) -> set[types.FunctionType
     resolved = set()
 
     for call_node in collector.calls:
-        obj = resolve_ast_node(call_node, namespace)
+        obj = _resolve_ast_node(call_node, namespace)
         if callable(obj):
             resolved.add(obj)
 

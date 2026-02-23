@@ -32,6 +32,11 @@ class TestCrawler(unittest.TestCase):
         g = ext.pop()
         self.assertEqual(g.fully_qualified_name, "math.sqrt")
 
+    def test_extract_called_functions(self):
+        called = crawler.extract_called_functions(op)
+        self.assertEqual(called, {add, math.sqrt})
+        called = crawler.extract_called_functions(more_op)
+        self.assertEqual(called, {op})
 
 if __name__ == "__main__":
     unittest.main()
