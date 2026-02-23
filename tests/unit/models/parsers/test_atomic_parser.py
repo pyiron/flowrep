@@ -904,12 +904,14 @@ class TestParseAtomicVersionParams(unittest.TestCase):
     def test_version_scraping_is_forwarded(self):
         f = _make_func_in_module("mypkg.sub", "f")
         custom_version = "99.0.0"
-        scraping = {"mypkg": lambda _name: custom_version}
+        scraping = {"mypkg.sub": lambda _name: custom_version}
         node = atomic_parser.parse_atomic(f, version_scraping=scraping)
         self.assertEqual(node.version, custom_version)
 
     def test_fqn_matches_module_and_qualname(self):
-        scraping = {"my_package": lambda _name: "fake version to avoid lookup"}
+        scraping = {
+            "my_package.my_module": lambda _name: "fake version to avoid lookup"
+        }
         f = _make_func_in_module("my_package.my_module", "MyClass.method")
         node = atomic_parser.parse_atomic(f, version_scraping=scraping)
         self.assertEqual(
