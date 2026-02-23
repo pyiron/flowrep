@@ -1,6 +1,5 @@
 import ast
 import inspect
-import sys
 import types
 from typing import Any
 
@@ -72,7 +71,7 @@ def extract_called_functions(func: types.FunctionType) -> set[types.FunctionType
 
 def analyze_function_dependencies(root_func: types.FunctionType) -> tuple[
     set[types.FunctionType],  # local functions
-    set[FunctionID],  # non-local functions
+    set[VersionInfo],  # non-local functions
 ]:
     """
     Recursively analyze function dependencies.
@@ -81,13 +80,13 @@ def analyze_function_dependencies(root_func: types.FunctionType) -> tuple[
         root_func (types.FunctionType): The root function to analyze.
 
     Returns:
-        Tuple[Set[types.FunctionType], Set[FunctionID]]: A tuple containing:
+        Tuple[Set[types.FunctionType], Set[VersionInfo]]: A tuple containing:
             - A set of local functions (defined in the same codebase).
             - A set of external function IDs (from other modules or libraries).
     """
-    visited: set[FunctionID] = set()
+    visited: set[VersionInfo] = set()
     local_functions: set[types.FunctionType] = set()
-    external_functions: set[FunctionID] = set()
+    external_functions: set[VersionInfo] = set()
 
     def walk(func):
         fid = VersionInfo.of(func)
