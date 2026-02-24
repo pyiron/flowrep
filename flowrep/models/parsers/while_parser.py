@@ -40,8 +40,8 @@ def parse_while_node(
         tree.test, scope, symbol_map, WHILE_CONDITION_LABEL
     )
 
-    body_walker = walker_factory(symbol_map.fork_scope())
-    body_walker.walk(tree.body, scope)
+    body_walker = walker_factory(scope, symbol_map.fork_scope())
+    body_walker.walk(tree.body)
     reassigned_symbols = body_walker.symbol_map.reassigned_symbols
 
     _validate_some_output_exists(reassigned_symbols)
