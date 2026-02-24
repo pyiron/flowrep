@@ -1,4 +1,3 @@
-import math
 import unittest
 
 from pyiron_snippets import versions
