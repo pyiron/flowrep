@@ -54,8 +54,14 @@ def get_call_dependencies(
         except (ValueError, TypeError):
             continue
 
-        if not callable(caller):
-            continue
+        if not callable(caller):  # pragma: no cover
+            # Under remotely normal circumstances, this should be unreachable
+            raise TypeError(
+                f"Caller {caller} is not callable, yet was generated from the list of "
+                f"ast.Call calls, in particular {call}. We're expecting these to "
+                f"actually connect to callables. Please raise a GitHub issue if you "
+                f"think this is not a mistake."
+            )
 
         info = versions.VersionInfo.of(caller, version_scraping=version_scraping)
         call_dependencies[info] = caller
