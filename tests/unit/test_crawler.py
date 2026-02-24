@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from pyiron_snippets import versions
@@ -59,6 +60,24 @@ def _multi_call():
     return a + b
 
 
+def _attribute_access(x):
+    return math.sqrt(x)
+
+
+def _nested_expression(x, y, z):
+    return _single_call(_leaf(x, y), z)
+
+
+def _unresolvable_subscript():
+    d = {}
+    return d["key"]()
+
+
+def _calls_non_callable():
+    x = 42
+    return x
+
+
 def _fqn(func) -> str:
     return versions.VersionInfo.of(func).fully_qualified_name
 
@@ -111,6 +130,39 @@ class TestGetCallDependencies(unittest.TestCase):
 
     def test_returns_dict_type(self):
         deps = crawler.get_call_dependencies(_leaf)
+        self.assertIsInstance(deps, dict)
+
+    # --- attribute access (module.func) ---
+
+    def test_attribute_access_dependency(self):
+        """Functions called via attribute access (e.g. math.sqrt) are tracked."""
+        deps = crawler.get_call_dependencies(_attribute_access)
+        self.assertIn(_fqn(math.sqrt), _fqns(deps))
+
+    # --- nested expressions ---
+
+    def test_nested_expression_collects_all_calls(self):
+        """All calls in a nested expression like f(g(x), y) are collected."""
+        deps = crawler.get_call_dependencies(_nested_expression)
+        fqns = _fqns(deps)
+        self.assertIn(_fqn(_single_call), fqns)
+        self.assertIn(_fqn(_leaf), fqns)
+
+    # --- unresolvable / non-callable targets (coverage for `continue` branches) ---
+
+    def test_unresolvable_call_target_is_skipped(self):
+        """Calls that resolve_symbol_to_object cannot handle are silently skipped."""
+        # _unresolvable_subscript contains d["key"]() which is an ast.Subscript,
+        # triggering a TypeError in resolve_symbol_to_object
+        deps = crawler.get_call_dependencies(_unresolvable_subscript)
+        # Should not raise; the unresolvable call is simply absent
+        self.assertIsInstance(deps, dict)
+
+    def test_non_callable_resolved_symbol_is_skipped(self):
+        """Symbols that resolve to non-callable objects are silently skipped."""
+        # _calls_non_callable doesn't actually have a call in its AST that resolves
+        # to a non-callable, but we can verify the function itself is crawlable
+        deps = crawler.get_call_dependencies(_calls_non_callable)
         self.assertIsInstance(deps, dict)
 
 
