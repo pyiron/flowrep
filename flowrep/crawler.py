@@ -19,10 +19,9 @@ def get_call_dependencies(
     Recursively collect all callable dependencies of *func* via AST introspection.
 
     Each dependency is keyed by its :class:`~pyiron_snippets.versions.VersionInfo`
-    and maps to the list of concrete callables sharing that identity.  The search
-    is depth-first: for every resolved callee that is a
-    :class:`~types.FunctionType` (i.e. has inspectable source), the function
-    recurses into the callee's own scope.
+    and maps to the callables instance with that identity.  The search is depth-first:
+    for every resolved callee that is a :class:`~types.FunctionType` (i.e. has
+    inspectable source), the function recurses into the callee's own scope.
 
     Args:
         func: The function whose call-graph to analyse.
