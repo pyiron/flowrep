@@ -3,7 +3,7 @@ import inspect
 import types
 from typing import Any
 
-from pyiron_snippets.versions import VersionInfo
+from pyiron_snippets import versions
 
 
 class CallCollector(ast.NodeVisitor):
@@ -71,7 +71,7 @@ def extract_called_functions(func: types.FunctionType) -> set[types.FunctionType
 
 def analyze_function_dependencies(root_func: types.FunctionType) -> tuple[
     set[types.FunctionType],  # local functions
-    set[VersionInfo],  # non-local functions
+    set[versions.VersionInfo],  # non-local functions
 ]:
     """
     Recursively analyze function dependencies.
@@ -84,18 +84,18 @@ def analyze_function_dependencies(root_func: types.FunctionType) -> tuple[
             - A set of local functions (defined in the same codebase).
             - A set of external function IDs (from other modules or libraries).
     """
-    visited: set[VersionInfo] = set()
+    visited: set[versions.VersionInfo] = set()
     local_functions: set[types.FunctionType] = set()
-    external_functions: set[VersionInfo] = set()
+    external_functions: set[versions.VersionInfo] = set()
 
     def walk(func):
-        fid = VersionInfo.of(func)
+        fid = versions.VersionInfo.of(func)
         if fid.fully_qualified_name in visited:
             return
         visited.add(fid.fully_qualified_name)
 
         for called in extract_called_functions(func):
-            cid = VersionInfo.of(called)
+            cid = versions.VersionInfo.of(called)
 
             if cid.version is None:
                 local_functions.add(called)
