@@ -1,17 +1,20 @@
 import unittest
 
-from flowrep.models.nodes import atomic_model, for_model, workflow_model
-from flowrep.models.parsers import workflow_parser
+from flowrep.models.nodes import for_model, workflow_model
+from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
 
 
+@atomic_parser.atomic
 def my_unity(x):
     return x
 
 
+@atomic_parser.atomic
 def my_range(n: int) -> list[int]:
     return list(range(n))
 
 
+@atomic_parser.atomic
 def how_many(lst: list) -> int:
     length = len(lst)
     return length
@@ -31,32 +34,14 @@ def single_iteration(ns):
     return l, vecs
 
 
-unity_node = atomic_model.AtomicNode.model_validate(
-    {
-        "type": "atomic",
-        "fully_qualified_name": f"{my_unity.__module__}.{my_unity.__qualname__}",
-        "inputs": ["x"],
-        "outputs": ["x"],
-    }
-)
-
-range_node = atomic_model.AtomicNode.model_validate(
-    {
-        "type": "atomic",
-        "fully_qualified_name": f"{my_range.__module__}.{my_range.__qualname__}",
-        "inputs": ["n"],
-        "outputs": ["output_0"],
-    }
-)
-
 for_body = workflow_model.WorkflowNode.model_validate(
     {
         "type": "workflow",
         "inputs": ["n"],
         "outputs": ["rs"],
         "nodes": {
-            "my_unity_0": unity_node,
-            "my_range_0": range_node,
+            "my_unity_0": my_unity.flowrep_recipe,
+            "my_range_0": my_range.flowrep_recipe,
         },
         "input_edges": {"my_unity_0.x": "n"},
         "edges": {"my_range_0.n": "my_unity_0.x"},
@@ -77,14 +62,6 @@ for_node = for_model.ForNode.model_validate(
     }
 )
 
-how_node = atomic_model.AtomicNode.model_validate(
-    {
-        "type": "atomic",
-        "fully_qualified_name": f"{how_many.__module__}.{how_many.__qualname__}",
-        "inputs": ["lst"],
-        "outputs": ["length"],
-    }
-)
 
 single_iteration_node = workflow_model.WorkflowNode.model_validate(
     {
@@ -92,9 +69,9 @@ single_iteration_node = workflow_model.WorkflowNode.model_validate(
         "inputs": ["ns"],
         "outputs": ["l", "vecs"],
         "nodes": {
-            "my_unity_0": unity_node,
+            "my_unity_0": my_unity.flowrep_recipe,
             "for_0": for_node,
-            "how_many_0": how_node,
+            "how_many_0": how_many.flowrep_recipe,
         },
         "input_edges": {"my_unity_0.x": "ns"},
         "edges": {
@@ -106,10 +83,12 @@ single_iteration_node = workflow_model.WorkflowNode.model_validate(
             "vecs": "for_0.vecs",
         },
         "fully_qualified_name": "integration.parsers.test_parsing_for_nodes.single_iteration",
+        "source_code": parser_helpers.get_available_source_code(single_iteration),
     }
 )
 
 
+@atomic_parser.atomic
 def takes_many(a, b, c, d):
     total = a + b + c + d
     return total
@@ -130,15 +109,6 @@ def zipped_broadcast_and_transferred(a, bs, cs, ds):
     return b_accumulator, c_accumulator, d_accumulator, sums
 
 
-takes_many_node = atomic_model.AtomicNode.model_validate(
-    {
-        "type": "atomic",
-        "fully_qualified_name": f"{takes_many.__module__}.{takes_many.__qualname__}",
-        "inputs": ["a", "b", "c", "d"],
-        "outputs": ["total"],
-    }
-)
-
 # In principle, when it's the body is a single node we could remove this layer
 # but for now let's keep uniform treatment rather than minimal representation
 zbat_for_body = workflow_model.WorkflowNode.model_validate(
@@ -146,7 +116,7 @@ zbat_for_body = workflow_model.WorkflowNode.model_validate(
         "type": "workflow",
         "inputs": ["a", "b", "c", "d"],
         "outputs": ["t"],
-        "nodes": {"takes_many_0": takes_many_node},
+        "nodes": {"takes_many_0": takes_many.flowrep_recipe},
         "input_edges": {
             "takes_many_0.a": "a",
             "takes_many_0.b": "b",
@@ -206,15 +176,20 @@ zbat_wf_node = workflow_model.WorkflowNode.model_validate(
             "sums": "for_0.sums",
         },
         "fully_qualified_name": "integration.parsers.test_parsing_for_nodes.zipped_broadcast_and_transferred",
+        "source_code": parser_helpers.get_available_source_code(
+            zipped_broadcast_and_transferred
+        ),
     }
 )
 
 
+@atomic_parser.atomic
 def sum_elements(lst: list[int]) -> int:
     total = sum(lst)
     return total
 
 
+@atomic_parser.atomic
 def my_square(n: int) -> int:
     n_sq = n * n
     return n_sq
@@ -241,24 +216,6 @@ def nested(ns):
     return sq_sums
 
 
-sum_node = atomic_model.AtomicNode.model_validate(
-    {
-        "type": "atomic",
-        "fully_qualified_name": f"{sum_elements.__module__}.{sum_elements.__qualname__}",
-        "inputs": ["lst"],
-        "outputs": ["total"],
-    }
-)
-
-square_node = atomic_model.AtomicNode.model_validate(
-    {
-        "type": "atomic",
-        "fully_qualified_name": f"{my_square.__module__}.{my_square.__qualname__}",
-        "inputs": ["n"],
-        "outputs": ["n_sq"],
-    }
-)
-
 # at this point, the parser is fully-featured, so we can use its own output to generate
 # the reference and then proof-read it
 nested_node = workflow_model.WorkflowNode.model_validate(
@@ -278,7 +235,7 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["n"],
                         "outputs": ["summed"],
                         "nodes": {
-                            "my_range_0": range_node,
+                            "my_range_0": my_range.flowrep_recipe,
                             "for_0": {
                                 "type": "for",
                                 "inputs": ["rs"],
@@ -290,7 +247,7 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                                         "inputs": ["r"],
                                         "outputs": ["sq"],
                                         "nodes": {
-                                            "my_square_0": square_node,
+                                            "my_square_0": my_square.flowrep_recipe,
                                         },
                                         "input_edges": {"my_square_0.n": "r"},
                                         "edges": {},
@@ -302,7 +259,7 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                                 "nested_ports": ["r"],
                                 "zipped_ports": [],
                             },
-                            "sum_elements_0": sum_node,
+                            "sum_elements_0": sum_elements.flowrep_recipe,
                         },
                         "input_edges": {"my_range_0.n": "n"},
                         "edges": {
@@ -322,14 +279,17 @@ nested_node = workflow_model.WorkflowNode.model_validate(
         "edges": {},
         "output_edges": {"sq_sums": "for_0.sq_sums"},
         "fully_qualified_name": "integration.parsers.test_parsing_for_nodes.nested",
+        "source_code": parser_helpers.get_available_source_code(nested),
     }
 )
 
 
+@atomic_parser.atomic
 def my_offset_range(n: int, offset: int) -> list[int]:
     return list(range(n + offset))
 
 
+@atomic_parser.atomic
 def my_offset_square(n: int, offset: int) -> int:
     n_sq = (n + offset) ** 2
     return n_sq
@@ -357,24 +317,6 @@ def nested_with_passed_input(ns, range_offset, square_offset):
     return sq_sums
 
 
-offset_range_node = atomic_model.AtomicNode.model_validate(
-    {
-        "type": "atomic",
-        "fully_qualified_name": f"{my_offset_range.__module__}.{my_offset_range.__qualname__}",
-        "inputs": ["n", "offset"],
-        "outputs": ["output_0"],
-    }
-)
-
-offset_square_node = atomic_model.AtomicNode.model_validate(
-    {
-        "type": "atomic",
-        "fully_qualified_name": f"{my_offset_square.__module__}.{my_offset_square.__qualname__}",
-        "inputs": ["n", "offset"],
-        "outputs": ["n_sq"],
-    }
-)
-
 nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
     {
         "type": "workflow",
@@ -392,7 +334,7 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["n", "range_offset", "square_offset"],
                         "outputs": ["summed"],
                         "nodes": {
-                            "my_offset_range_0": offset_range_node,
+                            "my_offset_range_0": my_offset_range.flowrep_recipe,
                             "for_0": {
                                 "type": "for",
                                 "inputs": ["square_offset", "rs"],
@@ -404,7 +346,7 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
                                         "inputs": ["r", "square_offset"],
                                         "outputs": ["sq"],
                                         "nodes": {
-                                            "my_offset_square_0": offset_square_node,
+                                            "my_offset_square_0": my_offset_square.flowrep_recipe,
                                         },
                                         "input_edges": {
                                             "my_offset_square_0.n": "r",
@@ -424,7 +366,7 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
                                 "nested_ports": ["r"],
                                 "zipped_ports": [],
                             },
-                            "sum_elements_0": sum_node,
+                            "sum_elements_0": sum_elements.flowrep_recipe,
                         },
                         "input_edges": {
                             "my_offset_range_0.n": "n",
@@ -456,6 +398,9 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
         "edges": {},
         "output_edges": {"sq_sums": "for_0.sq_sums"},
         "fully_qualified_name": "integration.parsers.test_parsing_for_nodes.nested_with_passed_input",
+        "source_code": parser_helpers.get_available_source_code(
+            nested_with_passed_input
+        ),
     }
 )
 

@@ -1,7 +1,7 @@
 import unittest
 
 from flowrep.models.nodes import while_model, workflow_model
-from flowrep.models.parsers import atomic_parser, workflow_parser
+from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
 
 
 @atomic_parser.atomic
@@ -87,6 +87,7 @@ simple_while_node = workflow_model.WorkflowNode.model_validate(
         },
         "output_edges": {"y": "my_unity_1.x"},
         "fully_qualified_name": "integration.parsers.test_parsing_while_nodes.simple_while",
+        "source_code": parser_helpers.get_available_source_code(simple_while),
     }
 )
 
@@ -198,6 +199,7 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
         "edges": {"while_0.y": "my_unity_0.x"},
         "output_edges": {"x": "while_0.x", "y": "while_0.y"},
         "fully_qualified_name": "integration.parsers.test_parsing_while_nodes.nested_while",
+        "source_code": parser_helpers.get_available_source_code(nested_while),
     }
 )
 
@@ -276,6 +278,7 @@ multi_reassign_node = workflow_model.WorkflowNode.model_validate(
             "y": "while_0.y",
         },
         "fully_qualified_name": "integration.parsers.test_parsing_while_nodes.multi_reassign",
+        "source_code": parser_helpers.get_available_source_code(multi_reassign),
     }
 )
 
@@ -359,6 +362,7 @@ sequential_whiles_node = workflow_model.WorkflowNode.model_validate(
             "x": "while_1.x",
         },
         "fully_qualified_name": "integration.parsers.test_parsing_while_nodes.sequential_whiles",
+        "source_code": parser_helpers.get_available_source_code(sequential_whiles),
     }
 )
 
@@ -428,6 +432,7 @@ chained_body_node = workflow_model.WorkflowNode.model_validate(
         "edges": {},
         "output_edges": {"x": "while_0.x"},
         "fully_qualified_name": "integration.parsers.test_parsing_while_nodes.chained_body",
+        "source_code": parser_helpers.get_available_source_code(chained_body),
     }
 )
 

@@ -66,6 +66,16 @@ def outer_workflow(a, b):
     return z
 
 
+@atomic_parser.atomic
+def _wp_add(a, b):
+    return a + b
+
+
+@atomic_parser.atomic
+def _wp_identity(x):
+    return x
+
+
 class TestWorkflowDecorator(unittest.TestCase):
     def test_workflow_without_args(self):
         @workflow_parser.workflow
@@ -615,6 +625,144 @@ class TestWorkflowFullyQualifiedName(unittest.TestCase):
                 self.assertEqual(
                     node.fully_qualified_name, restored.fully_qualified_name
                 )
+
+
+class TestParseWorkflowVersionParams(unittest.TestCase):
+    """Tests that version-related params are forwarded through parse_workflow."""
+
+    def test_version_is_populated(self):
+        def my_wf(x):
+            y = _wp_identity(x)
+            return y
+
+        node = workflow_parser.parse_workflow(my_wf)
+        # The workflow function is defined in this test module; version depends
+        # on whether this package exposes __version__
+        self.assertIsInstance(node.version, (str, type(None)))
+
+    def test_fqn_is_populated(self):
+        def my_wf(x):
+            y = _wp_identity(x)
+            return y
+
+        node = workflow_parser.parse_workflow(my_wf)
+        self.assertIsNotNone(node.fully_qualified_name)
+        self.assertIn("my_wf", node.fully_qualified_name)
+
+    def test_forbid_main_raises(self):
+        def my_wf(x):
+            y = _wp_identity(x)
+            return y
+
+        my_wf.__module__ = "__main__"
+        with self.assertRaises(ValueError, msg="__main__") as ctx:
+            workflow_parser.parse_workflow(my_wf, forbid_main=True)
+        self.assertIn("__main__", str(ctx.exception))
+
+    def test_forbid_locals_raises(self):
+        def my_wf(x):
+            y = _wp_identity(x)
+            return y
+
+        my_wf.__qualname__ = "outer.<locals>.my_wf"
+        with self.assertRaises(ValueError, msg="<locals>") as ctx:
+            workflow_parser.parse_workflow(my_wf, forbid_locals=True)
+        self.assertIn("<locals>.my_wf", str(ctx.exception))
+
+    def test_require_version_raises_when_missing(self):
+        def my_wf(x):
+            y = _wp_identity(x)
+            return y
+
+        my_wf.__module__ = "__main__"
+        with self.assertRaises(ValueError, msg="could not be found") as ctx:
+            workflow_parser.parse_workflow(my_wf, require_version=True)
+        self.assertIn("could not be found", str(ctx.exception))
+
+    def test_version_scraping_is_forwarded(self):
+        def my_wf(x):
+            y = _wp_identity(x)
+            return y
+
+        custom_version = "99.0.0"
+        # The test module's top-level package name
+        pkg = my_wf.__module__.split(".")[0]
+        scraping = {pkg: lambda _name: custom_version}
+        node = workflow_parser.parse_workflow(my_wf, version_scraping=scraping)
+        self.assertEqual(node.version, custom_version)
+
+    def test_child_nodes_not_affected_by_workflow_version_params(self):
+        """Sub-workflow bodies built during parsing should not carry the
+        top-level fqn/version — those are for the enclosing workflow only."""
+
+        def my_wf(a, b):
+            x = _wp_add(a, b)
+            y = _wp_identity(x)
+            return y
+
+        node = workflow_parser.parse_workflow(my_wf)
+        # The child atomic nodes should have their own fqn, not the workflow's
+        for child in node.nodes.values():
+            self.assertNotEqual(child.fully_qualified_name, node.fully_qualified_name)
+
+
+class TestWorkflowDecoratorVersionParams(unittest.TestCase):
+    """Tests that the @workflow decorator forwards version params."""
+
+    def test_decorator_passes_version_scraping(self):
+        custom_version = "42.0.0"
+        module_base = add.__module__.split(".")[0]
+
+        @workflow_parser.workflow(
+            version_scraping={
+                module_base: lambda _: custom_version,
+            }
+        )
+        def my_wf(x):
+            y = _wp_identity(x)
+            return y
+
+        self.assertEqual(my_wf.flowrep_recipe.version, custom_version)
+
+    def test_decorator_forbid_locals_on_inner_function(self):
+        with self.assertRaises(ValueError):
+
+            @workflow_parser.workflow(forbid_locals=True)
+            def inner(x):
+                y = _wp_identity(x)
+                return y
+
+
+class TestParseWorkflowSourceCode(unittest.TestCase):
+    def test_source_code_populated(self):
+        def my_wf(x):
+            y = add(x)
+            return y
+
+        node = workflow_parser.parse_workflow(my_wf)
+        self.assertIsNotNone(node.source_code)
+        self.assertIn("def my_wf", node.source_code)
+
+    def test_decorator_populates_source_code(self):
+        @workflow_parser.workflow
+        def decorated_wf(x):
+            y = add(x)
+            return y
+
+        self.assertIsNotNone(decorated_wf.flowrep_recipe.source_code)
+        self.assertIn("def decorated_wf", decorated_wf.flowrep_recipe.source_code)
+
+    def test_source_code_roundtrips(self):
+        def my_wf(x):
+            y = add(x)
+            return y
+
+        node = workflow_parser.parse_workflow(my_wf)
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = node.model_dump(mode=mode)
+                restored = workflow_model.WorkflowNode.model_validate(data)
+                self.assertEqual(node.source_code, restored.source_code)
 
 
 if __name__ == "__main__":

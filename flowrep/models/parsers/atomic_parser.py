@@ -5,6 +5,8 @@ from collections.abc import Callable, Iterable
 from types import FunctionType
 from typing import Annotated, cast, get_args, get_origin, get_type_hints
 
+from pyiron_snippets import versions
+
 from flowrep.models.nodes import atomic_model, helper_models
 from flowrep.models.parsers import label_helpers, object_scope, parser_helpers
 from flowrep.models.parsers.label_helpers import default_output_label
@@ -15,20 +17,55 @@ def atomic(
     /,
     *output_labels: str,
     unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
+    version_scraping: versions.VersionScrapingMap | None = None,
+    forbid_main: bool = False,
+    forbid_locals: bool = False,
+    require_version: bool = False,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
-    Decorator that attaches a flowrep.model.AtomicNode to the `recipe` attribute of a
-    function.
+    Decorator that attaches a :class:`~flowrep.models.nodes.atomic_model.AtomicNode`
+    to the ``flowrep_recipe`` attribute of a function.
 
-    Can be used as with or without args (to specify output labels) and/or kwargs --
-    @atomic or @atomic(..., unpack_mode=...)
+    The decorated function's module, qualname, and (optionally) package version are
+    captured as provenance metadata via
+    :meth:`~pyiron_snippets.versions.VersionInfo.of`.
+
+    Can be used with or without arguments.
+
+    Args:
+        func: The function to decorate. Passed positionally by Python when the
+            decorator is used without parentheses.
+        *output_labels: Explicit names for the node's output ports. When provided,
+            their count must match the number of outputs inferred from the function
+            and the chosen ``unpack_mode``.
+        unpack_mode: How to convert the function's return value into output ports.
+            See :class:`~flowrep.models.nodes.atomic_model.UnpackMode`.
+        version_scraping: Optional mapping from top-level package names to callables
+            that return a version string, for packages that don't expose
+            ``__version__``. Forwarded to
+            :meth:`~pyiron_snippets.versions.VersionInfo.of`.
+        forbid_main: If ``True``, raise if the function's module is ``__main__``.
+        forbid_locals: If ``True``, raise if the function's qualname contains
+            ``<locals>`` (i.e. it was defined inside another function).
+        require_version: If ``True``, raise if no version can be determined for
+            the function's package.
+
+    Returns:
+        The original function with a ``flowrep_recipe`` attribute holding an
+        :class:`~flowrep.models.nodes.atomic_model.AtomicNode`.
     """
     return parser_helpers.parser2decorator(
         func,
         output_labels,
         parser=parse_atomic,
         decorator_name="@atomic",
-        parser_kwargs={"unpack_mode": unpack_mode},
+        parser_kwargs={
+            "unpack_mode": unpack_mode,
+            "version_scraping": version_scraping,
+            "forbid_main": forbid_main,
+            "forbid_locals": forbid_locals,
+            "require_version": require_version,
+        },
     )
 
 
@@ -36,8 +73,46 @@ def parse_atomic(
     func: FunctionType,
     *output_labels: str,
     unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
+    version_scraping: versions.VersionScrapingMap | None = None,
+    forbid_main: bool = False,
+    forbid_locals: bool = False,
+    require_version: bool = False,
 ) -> atomic_model.AtomicNode:
-    fully_qualified_name = helper_models.get_fully_qualified_name(func)
+    """
+    Build an :class:`~flowrep.models.nodes.atomic_model.AtomicNode` from a plain
+    Python function.
+
+    Introspects the function to determine its fully qualified name, package version,
+    input parameter names, and output port names (via AST return-value analysis and/or
+    type annotations).
+
+    Args:
+        func: The function to represent as an atomic node.
+        *output_labels: Explicit output port names. When provided, their count must
+            match the number of outputs inferred from the function and the chosen
+            ``unpack_mode``.
+        unpack_mode: How to convert the function's return value into output ports.
+        version_scraping: Optional version-scraping overrides, forwarded to
+            :meth:`~pyiron_snippets.versions.VersionInfo.of`.
+        forbid_main: If ``True``, raise if the function's module is ``__main__``.
+        forbid_locals: If ``True``, raise if the function's qualname contains
+            ``<locals>``.
+        require_version: If ``True``, raise if no version can be determined.
+
+    Returns:
+        A fully constructed :class:`AtomicNode`.
+
+    Raises:
+        ValueError: If ``output_labels`` length mismatches the inferred output count,
+            or if any ``forbid_*`` / ``require_*`` constraint is violated.
+    """
+    info = versions.VersionInfo.of(
+        func,
+        version_scraping=version_scraping,
+        forbid_main=forbid_main,
+        forbid_locals=forbid_locals,
+        require_version=require_version,
+    )
 
     input_labels = label_helpers.get_input_labels(func)
 
@@ -49,8 +124,11 @@ def parse_atomic(
             f"unpacking mode '{unpack_mode}', got but got {output_labels}."
         )
 
+    source_code = parser_helpers.get_available_source_code(func)
     return atomic_model.AtomicNode(
-        fully_qualified_name=fully_qualified_name,
+        fully_qualified_name=info.fully_qualified_name,
+        version=info.version,
+        source_code=source_code,
         inputs=input_labels,
         outputs=(
             list(output_labels) if len(output_labels) > 0 else scraped_output_labels

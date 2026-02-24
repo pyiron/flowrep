@@ -9,6 +9,9 @@ from flowrep.models.nodes import helper_models
 from flowrep.models.parsers import symbol_scope
 
 
+class SourceCodeUnavailableError(ValueError): ...
+
+
 def parser2decorator(
     func: FunctionType | str | None,
     output_labels: tuple[str, ...],
@@ -58,7 +61,7 @@ def get_function_definition(tree: ast.Module) -> ast.FunctionDef:
 
 def get_source_code(func: FunctionType) -> str:
     if func.__name__ == "<lambda>":
-        raise ValueError(
+        raise SourceCodeUnavailableError(
             "Cannot parse return labels for lambda functions. "
             "Use a named function with @atomic decorator."
         )
@@ -66,12 +69,19 @@ def get_source_code(func: FunctionType) -> str:
     try:
         source_code = textwrap.dedent(inspect.getsource(func))
     except (OSError, TypeError) as e:
-        raise ValueError(
+        raise SourceCodeUnavailableError(
             f"Cannot parse return labels for {func.__qualname__}: "
             f"source code unavailable (lambdas, dynamically defined functions, "
             f"and compiled code are not supported)"
         ) from e
     return source_code
+
+
+def get_available_source_code(func: FunctionType) -> str | None:
+    try:
+        return get_source_code(func)
+    except SourceCodeUnavailableError:
+        return None
 
 
 def get_ast_function_node(func: FunctionType) -> ast.FunctionDef:

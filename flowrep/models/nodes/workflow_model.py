@@ -30,6 +30,10 @@ class WorkflowNode(base_models.NodeModel):
         input_edges: Edges from workflow inputs to inputs of subgraph nodes.
         edges: Edges between subgraph nodes.
         output_edges: Edges from subgraph nodes back to workflow outputs.
+        fully_qualified_name: The fully-qualified name of function from which the
+            recipe was derived (if any).
+        version: The version of the module of the function from which the recipe was
+            derived (if any).
     """
 
     type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
@@ -40,6 +44,8 @@ class WorkflowNode(base_models.NodeModel):
     edges: edge_models.Edges
     output_edges: edge_models.OutputEdges
     fully_qualified_name: helper_models.FullyQualifiedName | None = None
+    version: str | None = None
+    source_code: str | None = None
 
     @pydantic.model_validator(mode="after")
     def validate_io_edges(self):
