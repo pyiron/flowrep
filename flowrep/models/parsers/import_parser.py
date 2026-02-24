@@ -1,5 +1,5 @@
-import importlib
 import ast
+import importlib
 
 
 def build_scope(
@@ -24,23 +24,21 @@ def build_scope(
     # Handle `import` statements
     for imp in imports:
         for alias in imp.names:
-            module_name = alias.name
-            asname = alias.asname or module_name
+            asname = alias.asname or alias.name
             try:
                 # Dynamically import the module
-                module = importlib.import_module(module_name)
+                module = importlib.import_module(alias.name)
                 scope[asname] = module
             except ImportError:
-                print(f"Warning: Could not import module '{module_name}'")
+                print(f"Warning: Could not import module '{alias.name}'")
 
     # Handle `from ... import ...` statements
     for imp_from in import_froms:
-        module_name = imp_from.module
         level = imp_from.level
         try:
             # Dynamically import the module (absolute or relative)
             module = importlib.import_module(
-                module_name, package=None if level == 0 else "."
+                imp_from.module, package=None if level == 0 else "."
             )
             for alias in imp_from.names:
                 name = alias.name
@@ -50,8 +48,8 @@ def build_scope(
                     obj = getattr(module, name)
                     scope[asname] = obj
                 except AttributeError:
-                    print(f"Warning: Module '{module_name}' has no attribute '{name}'")
+                    print(f"Warning: Module '{imp_from.module}' has no attribute '{name}'")
         except ImportError:
-            print(f"Warning: Could not import module '{module_name}'")
+            print(f"Warning: Could not import module '{imp_from.module}'")
 
     return scope
