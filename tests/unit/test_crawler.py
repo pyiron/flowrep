@@ -117,15 +117,6 @@ class TestGetCallDependencies(unittest.TestCase):
         deps = crawler.get_call_dependencies(_calls_len)
         self.assertIn(_fqn(len), _fqns(deps))
 
-    # --- accumulator semantics ---
-
-    def test_same_function_called_twice_appears_multiple_times_in_list(self):
-        deps = crawler.get_call_dependencies(_multi_call)
-        matching = [info for info in deps if info.fully_qualified_name == _fqn(_leaf)]
-        self.assertEqual(len(matching), 1, "single key expected")
-        # The list value should have two entries (one per call-site)
-        self.assertEqual(len(deps[matching[0]]), 2)
-
     def test_returns_dict_type(self):
         deps = crawler.get_call_dependencies(_leaf)
         self.assertIsInstance(deps, dict)
@@ -152,7 +143,7 @@ class TestSplitByVersionAvailability(unittest.TestCase):
     def test_all_versioned(self):
         info_a = self._make_info("pkg", "a", "1.0")
         info_b = self._make_info("pkg", "b", "2.0")
-        deps: crawler.CallDependencies = {info_a: [_leaf], info_b: [_leaf]}
+        deps: crawler.CallDependencies = {info_a: _leaf, info_b: _leaf}
 
         has, no = crawler.split_by_version_availability(deps)
         self.assertEqual(len(has), 2)
@@ -161,7 +152,7 @@ class TestSplitByVersionAvailability(unittest.TestCase):
     def test_all_unversioned(self):
         info_a = self._make_info("local", "a")
         info_b = self._make_info("local", "b")
-        deps: crawler.CallDependencies = {info_a: [_leaf], info_b: [_leaf]}
+        deps: crawler.CallDependencies = {info_a: _leaf, info_b: _leaf}
 
         has, no = crawler.split_by_version_availability(deps)
         self.assertEqual(len(has), 0)
@@ -171,8 +162,7 @@ class TestSplitByVersionAvailability(unittest.TestCase):
         versioned = self._make_info("pkg", "x", "3.1")
         unversioned = self._make_info("local", "y")
         deps: crawler.CallDependencies = {
-            versioned: [_leaf],
-            unversioned: [_single_call],
+            versioned: _leaf, unversioned: _single_call,
         }
 
         has, no = crawler.split_by_version_availability(deps)
@@ -180,14 +170,6 @@ class TestSplitByVersionAvailability(unittest.TestCase):
         self.assertIn(unversioned, no)
         self.assertNotIn(versioned, no)
         self.assertNotIn(unversioned, has)
-
-    def test_preserves_callable_lists(self):
-        info = self._make_info("pkg", "z", "1.0")
-        callables = [_leaf, _single_call, _no_calls]
-        deps: crawler.CallDependencies = {info: callables}
-
-        has, _ = crawler.split_by_version_availability(deps)
-        self.assertIs(has[info], callables)
 
     def test_partition_is_exhaustive_and_disjoint(self):
         """Every key in the input appears in exactly one partition."""
@@ -197,7 +179,7 @@ class TestSplitByVersionAvailability(unittest.TestCase):
             self._make_info("pkg", "c", "0.1"),
             self._make_info("local", "d"),
         ]
-        deps: crawler.CallDependencies = {info: [_leaf] for info in infos}
+        deps: crawler.CallDependencies = {info: _leaf for info in infos}
 
         has, no = crawler.split_by_version_availability(deps)
         self.assertEqual(set(has) | set(no), set(deps))
@@ -208,8 +190,8 @@ class TestSplitByVersionAvailability(unittest.TestCase):
         none_version = self._make_info("local", "f", None)
         empty_version = self._make_info("local", "g", "")
         deps: crawler.CallDependencies = {
-            none_version: [_leaf],
-            empty_version: [_leaf],
+            none_version: _leaf,
+            empty_version: _leaf,
         }
 
         has, no = crawler.split_by_version_availability(deps)

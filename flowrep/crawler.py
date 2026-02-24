@@ -60,7 +60,7 @@ def get_call_dependencies(
             continue
 
         info = versions.VersionInfo.of(caller, version_scraping=version_scraping)
-        call_dependencies.setdefault(info, []).append(caller)
+        call_dependencies[info] = caller
 
         # Depth-first search on dependencies — only possible when we have source
         if isinstance(caller, types.FunctionType):
