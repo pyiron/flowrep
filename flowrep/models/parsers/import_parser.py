@@ -25,33 +25,22 @@ def build_scope(
     for imp in imports:
         for alias in imp.names:
             asname = alias.asname or alias.name
-            try:
-                # Dynamically import the module
-                module = importlib.import_module(alias.name)
-                scope[asname] = module
-            except ImportError:
-                print(f"Warning: Could not import module '{alias.name}'")
+            module = importlib.import_module(alias.name)
+            scope[asname] = module
 
     # Handle `from ... import ...` statements
     for imp_from in import_froms:
         level = imp_from.level
-        try:
-            # Dynamically import the module (absolute or relative)
-            module = importlib.import_module(
-                imp_from.module, package=None if level == 0 else "."
-            )
-            for alias in imp_from.names:
-                name = alias.name
-                asname = alias.asname or name
-                try:
-                    # Get the specific object from the module
-                    obj = getattr(module, name)
-                    scope[asname] = obj
-                except AttributeError:
-                    print(
-                        f"Warning: Module '{imp_from.module}' has no attribute '{name}'"
-                    )
-        except ImportError:
-            print(f"Warning: Could not import module '{imp_from.module}'")
+        # Dynamically import the module (absolute or relative)
+        if imp_from.module is None:
+            raise ValueError("The module attribute of imp_from cannot be None")
+        module = importlib.import_module(
+            imp_from.module, package=None if level == 0 else "."
+        )
+        for alias in imp_from.names:
+            name = alias.name
+            asname = alias.asname or name
+            obj = getattr(module, name)
+            scope[asname] = obj
 
     return scope
