@@ -48,7 +48,9 @@ def build_scope(
                     obj = getattr(module, name)
                     scope[asname] = obj
                 except AttributeError:
-                    print(f"Warning: Module '{imp_from.module}' has no attribute '{name}'")
+                    print(
+                        f"Warning: Module '{imp_from.module}' has no attribute '{name}'"
+                    )
         except ImportError:
             print(f"Warning: Could not import module '{imp_from.module}'")
 
