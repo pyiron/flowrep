@@ -611,12 +611,6 @@ class TestWorkflowFullyQualifiedName(unittest.TestCase):
             f"{inner_macro.__module__}.{inner_macro.__qualname__}",
         )
 
-    def test_fqn_defaults_to_none_on_raw_parser(self):
-        parser = workflow_parser.WorkflowParser(
-            object_scope.ScopeProxy({}), symbol_scope.SymbolScope({})
-        )
-        self.assertIsNone(parser.fully_qualified_name)
-
     def test_fqn_roundtrips_through_serialization(self):
         def wf(x):
             y = add(x)
@@ -643,7 +637,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         node = workflow_parser.parse_workflow(my_wf)
         # The workflow function is defined in this test module; version depends
         # on whether this package exposes __version__
-        self.assertIsInstance(node.version, (str, type(None)))
+        self.assertIsInstance(node.source.version, (str, type(None)))
 
     def test_fqn_is_populated(self):
         def my_wf(x):
@@ -694,7 +688,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         pkg = my_wf.__module__.split(".")[0]
         scraping = {pkg: lambda _name: custom_version}
         node = workflow_parser.parse_workflow(my_wf, version_scraping=scraping)
-        self.assertEqual(node.version, custom_version)
+        self.assertEqual(node.source.version, custom_version)
 
     def test_child_nodes_not_affected_by_workflow_version_params(self):
         """Sub-workflow bodies built during parsing should not carry the
@@ -727,7 +721,7 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
             y = _wp_identity(x)
             return y
 
-        self.assertEqual(my_wf.flowrep_recipe.version, custom_version)
+        self.assertEqual(my_wf.flowrep_recipe.source.version, custom_version)
 
     def test_decorator_forbid_locals_on_inner_function(self):
         with self.assertRaises(ValueError):

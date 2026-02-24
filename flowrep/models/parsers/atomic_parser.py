@@ -126,8 +126,7 @@ def parse_atomic(
 
     source_code = parser_helpers.get_available_source_code(func)
     return atomic_model.AtomicNode(
-        fully_qualified_name=info.fully_qualified_name,
-        version=info.version,
+        source=info,
         source_code=source_code,
         inputs=input_labels,
         outputs=(

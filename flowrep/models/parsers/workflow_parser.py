@@ -122,8 +122,7 @@ def parse_workflow(
     state = _WorkflowFunctionParser(
         object_scope.get_scope(func),
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),
-        fully_qualified_name=info.fully_qualified_name,
-        version=info.version,
+        source=info,
         func=func,
         output_labels=output_labels,
     )
@@ -168,14 +167,12 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self,
         scope: object_scope.ScopeProxy,
         symbol_map: symbol_scope.SymbolScope,
-        fully_qualified_name: str | None = None,
-        version: str | None = None,
+        source: versions.VersionInfo | None = None,
     ):
         self.scope = scope
         self.symbol_map = symbol_map
         self.nodes: union.Nodes = {}
-        self.fully_qualified_name = fully_qualified_name
-        self.version = version
+        self.source = source
 
     @property
     def inputs(self) -> list[str]:
@@ -209,8 +206,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             input_edges=self.input_edges,
             edges=self.edges,
             output_edges=self.output_edges,
-            fully_qualified_name=self.fully_qualified_name,
-            version=self.version,
+            source=self.source,
             source_code=source_code,
         )
 
@@ -318,12 +314,11 @@ class _WorkflowFunctionParser(WorkflowParser):
         scope: object_scope.ScopeProxy,
         symbol_map: symbol_scope.SymbolScope,
         *,
-        fully_qualified_name: str | None = None,
-        version: str | None = None,
+        source: versions.VersionInfo | None = None,
         func: FunctionType,
         output_labels: Collection[str],
     ):
-        super().__init__(scope, symbol_map, fully_qualified_name, version)
+        super().__init__(scope, symbol_map, source=source)
         self._func = func
         self._output_labels = output_labels
         self._found_return = False

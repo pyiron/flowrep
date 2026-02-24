@@ -1,6 +1,7 @@
 import unittest
 
 import pydantic
+from pyiron_snippets import versions
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import atomic_model, workflow_model
@@ -35,7 +36,9 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
             outputs=["y"],
             nodes={
                 "child": atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=versions.VersionInfo(
+                        module="mod", qualname="func", version=None
+                    ),
                     inputs=["inp"],
                     outputs=["out"],
                 )
@@ -62,7 +65,9 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 outputs=["y"],
                 nodes={
                     "child": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="func", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     )
@@ -85,7 +90,9 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 outputs=["y"],
                 nodes={
                     "child": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="func", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     )
@@ -109,7 +116,9 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
                 outputs=["y"],
                 nodes={
                     "child": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="func", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     )
@@ -136,7 +145,9 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
             outputs=["y"],
             nodes={
                 "child": atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=versions.VersionInfo(
+                        module="mod", qualname="func", version=None
+                    ),
                     inputs=["inp"],
                     outputs=["out"],
                 )
@@ -177,7 +188,9 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                 outputs=["y"],
                 nodes={
                     "child": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="func", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     )
@@ -201,7 +214,9 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                 outputs=["y"],
                 nodes={
                     "child": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="func", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     )
@@ -225,7 +240,9 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
                 outputs=["y"],
                 nodes={
                     "child": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="func", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     )
@@ -253,12 +270,16 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
             outputs=["y"],
             nodes={
                 "a": atomic_model.AtomicNode(
-                    fully_qualified_name="mod.f",
+                    source=versions.VersionInfo(
+                        module="mod", qualname="f", version=None
+                    ),
                     inputs=["inp"],
                     outputs=["out"],
                 ),
                 "b": atomic_model.AtomicNode(
-                    fully_qualified_name="mod.g",
+                    source=versions.VersionInfo(
+                        module="mod", qualname="g", version=None
+                    ),
                     inputs=["inp"],
                     outputs=["out"],
                 ),
@@ -289,7 +310,9 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 outputs=[],
                 nodes={
                     "child": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="func", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     )
@@ -313,7 +336,9 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 outputs=[],
                 nodes={
                     "child": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="func", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     )
@@ -337,12 +362,16 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 outputs=[],
                 nodes={
                     "a": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.f",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="f", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
                     "b": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.g",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="g", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
@@ -366,12 +395,16 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 outputs=[],
                 nodes={
                     "a": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.f",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="f", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
                     "b": atomic_model.AtomicNode(
-                        fully_qualified_name="mod.g",
+                        source=versions.VersionInfo(
+                            module="mod", qualname="g", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
@@ -398,7 +431,9 @@ class TestWorkflowNodeMultiplePorts(unittest.TestCase):
             outputs=["x", "y"],
             nodes={
                 "node1": atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=versions.VersionInfo(
+                        module="mod", qualname="func", version=None
+                    ),
                     inputs=["in1", "in2"],
                     outputs=["out1", "out2"],
                 )
@@ -448,7 +483,9 @@ class TestWorkflowNodeReservedNames(unittest.TestCase):
                         outputs=["b"],
                         nodes={
                             invalid_label: atomic_model.AtomicNode(
-                                fully_qualified_name="m.f",
+                                source=versions.VersionInfo(
+                                    module="m", qualname="f", version=None
+                                ),
                                 inputs=[],
                                 outputs=[],
                             )
@@ -472,12 +509,16 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 outputs=["y"],
                 nodes={
                     "a": atomic_model.AtomicNode(
-                        fully_qualified_name="m.f",
+                        source=versions.VersionInfo(
+                            module="m", qualname="f", version=None
+                        ),
                         inputs=["inp", "feedback"],
                         outputs=["out"],
                     ),
                     "b": atomic_model.AtomicNode(
-                        fully_qualified_name="m.g",
+                        source=versions.VersionInfo(
+                            module="m", qualname="g", version=None
+                        ),
                         inputs=["inp"],
                         outputs=["out", "out2"],
                     ),
@@ -511,7 +552,9 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 outputs=["y"],
                 nodes={
                     "a": atomic_model.AtomicNode(
-                        fully_qualified_name="m.f",
+                        source=versions.VersionInfo(
+                            module="m", qualname="f", version=None
+                        ),
                         inputs=["inp", "feedback"],
                         outputs=["out", "out2"],
                     )
@@ -541,17 +584,17 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
             outputs=["y"],
             nodes={
                 "a": atomic_model.AtomicNode(
-                    fully_qualified_name="m.f",
+                    source=versions.VersionInfo(module="m", qualname="f", version=None),
                     inputs=["inp"],
                     outputs=["out"],
                 ),
                 "b": atomic_model.AtomicNode(
-                    fully_qualified_name="m.g",
+                    source=versions.VersionInfo(module="m", qualname="g", version=None),
                     inputs=["inp"],
                     outputs=["out"],
                 ),
                 "c": atomic_model.AtomicNode(
-                    fully_qualified_name="m.h",
+                    source=versions.VersionInfo(module="m", qualname="h", version=None),
                     inputs=["inp"],
                     outputs=["out"],
                 ),
@@ -588,7 +631,7 @@ class TestNestedWorkflow(unittest.TestCase):
             outputs=["b"],
             nodes={
                 "leaf": atomic_model.AtomicNode(
-                    fully_qualified_name="m.f",
+                    source=versions.VersionInfo(module="m", qualname="f", version=None),
                     inputs=["inp"],
                     outputs=["out"],
                 )
@@ -636,7 +679,7 @@ class TestNestedWorkflow(unittest.TestCase):
                         outputs=["b"],
                         nodes={
                             "bad": atomic_model.AtomicNode(
-                                fully_qualified_name="noDot",
+                                source="Not a VersionInfo",
                                 inputs=[],
                                 outputs=[],
                             )
@@ -658,7 +701,7 @@ class TestNestedWorkflow(unittest.TestCase):
             outputs=["inner_out"],
             nodes={
                 "leaf": atomic_model.AtomicNode(
-                    fully_qualified_name="m.f",
+                    source=versions.VersionInfo(module="m", qualname="f", version=None),
                     inputs=["x"],
                     outputs=["y"],
                 )
@@ -701,7 +744,7 @@ class TestNestedWorkflow(unittest.TestCase):
             outputs=["inner_out"],
             nodes={
                 "leaf": atomic_model.AtomicNode(
-                    fully_qualified_name="m.f",
+                    source=versions.VersionInfo(module="m", qualname="f", version=None),
                     inputs=["x"],
                     outputs=["y"],
                 )
@@ -763,7 +806,7 @@ class TestEmptyWorkflow(unittest.TestCase):
             outputs=[],
             nodes={
                 "n": atomic_model.AtomicNode(
-                    fully_qualified_name="m.f",
+                    source=versions.VersionInfo(module="m", qualname="f", version=None),
                     inputs=[],
                     outputs=[],
                 )
@@ -784,7 +827,7 @@ class TestWorkflowNodeSerialization(unittest.TestCase):
             outputs=["y"],
             nodes={
                 "n": atomic_model.AtomicNode(
-                    fully_qualified_name="m.f",
+                    source=versions.VersionInfo(module="m", qualname="f", version=None),
                     inputs=["inp"],
                     outputs=["out"],
                 )
@@ -819,12 +862,12 @@ class TestWorkflowNodeSerialization(unittest.TestCase):
             outputs=["z", "w"],
             nodes={
                 "a": atomic_model.AtomicNode(
-                    fully_qualified_name="m.f",
+                    source=versions.VersionInfo(module="m", qualname="f", version=None),
                     inputs=["i1", "i2"],
                     outputs=["o1", "o2"],
                 ),
                 "b": atomic_model.AtomicNode(
-                    fully_qualified_name="m.g",
+                    source=versions.VersionInfo(module="m", qualname="g", version=None),
                     inputs=["inp"],
                     outputs=["out"],
                 ),
@@ -869,9 +912,7 @@ class TestWorkflowNodeSerialization(unittest.TestCase):
         self.assertEqual(data["output_edges"]["z"], "a.o2")
 
 
-class TestWorkflowNodeFullyQualifiedName(unittest.TestCase):
-    """Tests for the optional fully_qualified_name field."""
-
+class TestWorkflowNodeSource(unittest.TestCase):
     def _minimal_wf(self, **overrides):
         defaults = dict(
             inputs=[],
@@ -886,39 +927,14 @@ class TestWorkflowNodeFullyQualifiedName(unittest.TestCase):
 
     def test_defaults_to_none(self):
         wf = self._minimal_wf()
-        self.assertIsNone(wf.fully_qualified_name)
+        self.assertIsNone(wf.source)
 
-    def test_accepts_valid_fqn(self):
-        wf = self._minimal_wf(fully_qualified_name="my_module.MyClass")
-        self.assertEqual(wf.fully_qualified_name, "my_module.MyClass")
+    def test_accepts_valid_source(self):
+        wf = self._minimal_wf(source=versions.VersionInfo("mod", "func", "1.2.3"))
+        self.assertEqual(wf.fully_qualified_name, "mod.func")
 
-    def test_accepts_deeply_nested_fqn(self):
-        wf = self._minimal_wf(fully_qualified_name="a.b.c.d.e")
-        self.assertEqual(wf.fully_qualified_name, "a.b.c.d.e")
-
-    def test_rejects_single_segment(self):
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            self._minimal_wf(fully_qualified_name="noDot")
-        self.assertIn("fully_qualified_name", str(ctx.exception))
-
-    def test_rejects_empty_string(self):
-        with self.assertRaises(pydantic.ValidationError):
-            self._minimal_wf(fully_qualified_name="")
-
-    def test_rejects_leading_dot(self):
-        with self.assertRaises(pydantic.ValidationError):
-            self._minimal_wf(fully_qualified_name=".leading")
-
-    def test_rejects_trailing_dot(self):
-        with self.assertRaises(pydantic.ValidationError):
-            self._minimal_wf(fully_qualified_name="trailing.")
-
-    def test_rejects_consecutive_dots(self):
-        with self.assertRaises(pydantic.ValidationError):
-            self._minimal_wf(fully_qualified_name="a..b")
-
-    def test_roundtrip_with_fqn(self):
-        original = self._minimal_wf(fully_qualified_name="pkg.mod.func")
+    def test_roundtrip_with_source(self):
+        original = self._minimal_wf(source=versions.VersionInfo("mod", "func", "1.2.3"))
         for mode in ["python", "json"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
@@ -927,89 +943,13 @@ class TestWorkflowNodeFullyQualifiedName(unittest.TestCase):
                     original.fully_qualified_name, restored.fully_qualified_name
                 )
 
-    def test_roundtrip_without_fqn(self):
-        original = self._minimal_wf()
-        data = original.model_dump(mode="json")
-        restored = workflow_model.WorkflowNode.model_validate(data)
-        self.assertIsNone(restored.fully_qualified_name)
-
-    def test_json_schema_includes_fqn(self):
+    def test_json_schema_includes_source(self):
         schema = workflow_model.WorkflowNode.model_json_schema()
         # Pydantic v2 may put properties under $defs for recursive models
         props = schema.get("properties") or schema.get("$defs", {}).get(
             "WorkflowNode", {}
         ).get("properties", {})
-        self.assertIn("fully_qualified_name", props)
-
-
-class TestWorkflowNodeVersion(unittest.TestCase):
-    """Tests for the optional version field."""
-
-    def _minimal_wf(self, **overrides):
-        defaults = dict(
-            inputs=[],
-            outputs=[],
-            nodes={},
-            input_edges={},
-            edges={},
-            output_edges={},
-        )
-        defaults.update(overrides)
-        return workflow_model.WorkflowNode(**defaults)
-
-    def test_defaults_to_none(self):
-        wf = self._minimal_wf()
-        self.assertIsNone(wf.version)
-
-    def test_accepts_version_string(self):
-        wf = self._minimal_wf(version="3.1.4")
-        self.assertEqual(wf.version, "3.1.4")
-
-    def test_accepts_none_explicitly(self):
-        wf = self._minimal_wf(version=None)
-        self.assertIsNone(wf.version)
-
-    def test_roundtrip_with_version(self):
-        original = self._minimal_wf(fully_qualified_name="pkg.func", version="1.0.0")
-        for mode in ["json", "python"]:
-            with self.subTest(mode=mode):
-                data = original.model_dump(mode=mode)
-                restored = workflow_model.WorkflowNode.model_validate(data)
-                self.assertEqual(original.version, restored.version)
-
-    def test_roundtrip_without_version(self):
-        original = self._minimal_wf()
-        data = original.model_dump(mode="json")
-        restored = workflow_model.WorkflowNode.model_validate(data)
-        self.assertIsNone(restored.version)
-
-    def test_json_structure_includes_version(self):
-        wf = self._minimal_wf(version="2.0.0")
-        data = wf.model_dump(mode="json")
-        self.assertEqual(data["version"], "2.0.0")
-
-    def test_json_structure_version_null_when_absent(self):
-        wf = self._minimal_wf()
-        data = wf.model_dump(mode="json")
-        self.assertIsNone(data["version"])
-
-    def test_json_schema_includes_version(self):
-        schema = workflow_model.WorkflowNode.model_json_schema()
-        props = schema.get("properties") or schema.get("$defs", {}).get(
-            "WorkflowNode", {}
-        ).get("properties", {})
-        self.assertIn("version", props)
-
-    def test_version_and_fqn_together(self):
-        wf = self._minimal_wf(fully_qualified_name="my_pkg.my_func", version="0.1.0")
-        self.assertEqual(wf.fully_qualified_name, "my_pkg.my_func")
-        self.assertEqual(wf.version, "0.1.0")
-
-    def test_version_without_fqn(self):
-        """version can be set even without fully_qualified_name."""
-        wf = self._minimal_wf(version="1.0.0")
-        self.assertIsNone(wf.fully_qualified_name)
-        self.assertEqual(wf.version, "1.0.0")
+        self.assertIn("source", props)
 
 
 class TestWorkflowNodeSourceCode(unittest.TestCase):
