@@ -5,6 +5,7 @@ from flowrep.models import edge_models
 from flowrep.models.nodes import atomic_model, workflow_model
 from flowrep.models.parsers import (
     atomic_parser,
+    object_scope,
     parser_protocol,
     symbol_scope,
     workflow_parser,
@@ -145,7 +146,9 @@ class TestWorkflowDecoratorTypeValidation(unittest.TestCase):
 class TestParseWorkflowBasic(unittest.TestCase):
     def test_protocol_fulfillment(self):
         self.assertIsInstance(
-            workflow_parser.WorkflowParser(symbol_scope.SymbolScope({})),
+            workflow_parser.WorkflowParser(
+                object_scope.ScopeProxy({}), symbol_scope.SymbolScope({})
+            ),
             parser_protocol.BodyWalker,
         )
 
@@ -609,7 +612,9 @@ class TestWorkflowFullyQualifiedName(unittest.TestCase):
         )
 
     def test_fqn_defaults_to_none_on_raw_parser(self):
-        parser = workflow_parser.WorkflowParser(symbol_scope.SymbolScope({}))
+        parser = workflow_parser.WorkflowParser(
+            object_scope.ScopeProxy({}), symbol_scope.SymbolScope({})
+        )
         self.assertIsNone(parser.fully_qualified_name)
 
     def test_fqn_roundtrips_through_serialization(self):

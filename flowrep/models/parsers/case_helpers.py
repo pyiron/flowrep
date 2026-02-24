@@ -77,8 +77,8 @@ def walk_branch(
     walker_factory: parser_protocol.WalkerFactory,
 ) -> WalkedBranch:
     fork = symbol_map.fork_scope()
-    w = walker_factory(fork)
-    w.walk(stmts, scope)
+    w = walker_factory(scope, fork)
+    w.walk(stmts)
     assigned = fork.assigned_symbols
     fork.produce_symbols(assigned)
     return WalkedBranch(label, w, assigned)
