@@ -1,5 +1,4 @@
 import ast
-import inspect
 import types
 from collections.abc import Callable
 
@@ -7,7 +6,7 @@ from pyiron_snippets import versions
 
 from flowrep.models.parsers import object_scope, parser_helpers
 
-CallDependencies = dict[versions.VersionInfo, list[Callable]]
+CallDependencies = dict[versions.VersionInfo, Callable]
 
 
 def get_call_dependencies(
