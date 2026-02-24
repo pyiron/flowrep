@@ -1,7 +1,7 @@
 import ast
 from collections.abc import Callable, Collection
 from types import FunctionType
-from typing import Any, cast
+from typing import cast
 
 from pyiron_snippets import versions
 
@@ -19,8 +19,6 @@ from flowrep.models.parsers import (
     try_parser,
     while_parser,
 )
-
-SpecialHandlers = dict[type[ast.stmt], Callable[[Any], None]]
 
 
 def workflow(
