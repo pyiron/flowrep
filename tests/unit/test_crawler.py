@@ -162,7 +162,8 @@ class TestSplitByVersionAvailability(unittest.TestCase):
         versioned = self._make_info("pkg", "x", "3.1")
         unversioned = self._make_info("local", "y")
         deps: crawler.CallDependencies = {
-            versioned: _leaf, unversioned: _single_call,
+            versioned: _leaf,
+            unversioned: _single_call,
         }
 
         has, no = crawler.split_by_version_availability(deps)
