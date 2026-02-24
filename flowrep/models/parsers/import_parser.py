@@ -1,7 +1,11 @@
 import importlib
+import ast
 
 
-def build_scope(imports: list | None = None, import_froms: list | None = None) -> dict:
+def build_scope(
+    imports: list[ast.Import] | None = None,
+    import_froms: list[ast.ImportFrom] | None = None,
+) -> dict:
     """
     Build a scope dictionary from a list of `import` and `from ... import ...` statements.
 
