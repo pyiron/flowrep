@@ -75,6 +75,14 @@ def _fqns(deps: crawler.CallDependencies) -> set[str]:
     return {info.fully_qualified_name for info in deps}
 
 
+def _local_imports(x):
+    import sys
+    from math import sqrt
+
+    a = sys.getsizeof(x)
+    return sqrt(a)
+
+
 class TestGetCallDependencies(unittest.TestCase):
     """Tests for :func:`crawler.get_call_dependencies`."""
 
@@ -120,6 +128,12 @@ class TestGetCallDependencies(unittest.TestCase):
     def test_returns_dict_type(self):
         deps = crawler.get_call_dependencies(_leaf)
         self.assertIsInstance(deps, dict)
+
+    def test_local_imports_included(self):
+        deps = crawler.get_call_dependencies(_local_imports)
+        fqns = _fqns(deps)
+        self.assertIn("sys.getsizeof", fqns)
+        self.assertIn("math.sqrt", fqns)
 
 
 class TestSplitByVersionAvailability(unittest.TestCase):
