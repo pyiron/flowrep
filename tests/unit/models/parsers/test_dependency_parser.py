@@ -115,6 +115,12 @@ class TestGetCallDependencies(unittest.TestCase):
         matching = [info for info in deps if info.fully_qualified_name == _fqn(_leaf)]
         self.assertEqual(len(matching), 1)
 
+    def test_duplicate_call_deduplicated_by_version_info(self):
+        """Calling the same function twice yields a single key, not two."""
+        deps = dependency_parser.get_call_dependencies(_multi_call)
+        matching = [info for info in deps if info.fully_qualified_name == _fqn(_leaf)]
+        self.assertEqual(len(matching), 1)
+
     # --- cycle safety ---
 
     def test_cycle_does_not_recurse_infinitely(self):
