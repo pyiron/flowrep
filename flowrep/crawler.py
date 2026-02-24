@@ -82,11 +82,11 @@ def split_by_version_availability(
     """
     has_version: CallDependencies = {}
     no_version: CallDependencies = {}
-    for info, dependents in call_dependencies.items():
+    for info, dependent in call_dependencies.items():
         if info.version is None:
-            no_version[info] = dependents
+            no_version[info] = dependent
         else:
-            has_version[info] = dependents
+            has_version[info] = dependent
 
     return has_version, no_version
 
