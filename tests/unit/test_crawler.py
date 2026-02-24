@@ -76,10 +76,10 @@ def _fqns(deps: crawler.CallDependencies) -> set[str]:
 
 
 def _local_imports(x):
-    import sys
+    import sys as s
     from math import sqrt
 
-    a = sys.getsizeof(x)
+    a = s.getsizeof(x)
     return sqrt(a)
 
 
