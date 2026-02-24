@@ -52,8 +52,8 @@ def parse_for_node(
         available_accumulators=symbol_map.declared_accumulators.copy(),
     )
 
-    body_walker = walker_factory(body_symbol_map)
-    body_walker.walk(body_tree.body, scope)
+    body_walker = walker_factory(scope, body_symbol_map)
+    body_walker.walk(body_tree.body)
     consumed = body_walker.symbol_map.consumed_accumulators
 
     _validate_some_output_exists(consumed)
