@@ -64,6 +64,12 @@ def get_call_dependencies(
             )
 
         info = versions.VersionInfo.of(caller, version_scraping=version_scraping)
+        # In principle, we open ourselves to overwriting an existing dependency here,
+        # but it would need to somehow have exactly the same version info (including
+        # qualname) yet be a different object.
+        # This ought not happen by accident, and in case it somehow does happen on
+        # purpose (it probably shouldn't), we just silently keep the more recent one.
+
         call_dependencies[info] = caller
 
         # Depth-first search on dependencies — only possible when we have source
