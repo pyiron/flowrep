@@ -3,6 +3,8 @@ from collections.abc import Callable, Collection
 from types import FunctionType
 from typing import Any, cast
 
+from pyiron_snippets import versions
+
 from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import helper_models, union, workflow_model
 from flowrep.models.parsers import (
@@ -25,31 +27,104 @@ def workflow(
     func: FunctionType | str | None = None,
     /,
     *output_labels: str,
+    version_scraping: versions.VersionScrapingMap | None = None,
+    forbid_main: bool = False,
+    forbid_locals: bool = False,
+    require_version: bool = False,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
-    Decorator that attaches a flowrep.model.WorkflowNode to the `flowrep_recipe`
-    attribute of a function, under constraints that the function is parseable as a
-    workflow recipe.
+    Decorator that attaches a :class:`~flowrep.models.nodes.workflow_model.WorkflowNode`
+    to the ``flowrep_recipe`` attribute of a function, under constraints that the
+    function body is parseable as a workflow recipe.
 
-    Can be used as with or without args (to specify output labels) -- @workflow or
-    @workflow(...)
+    The decorated function's module, qualname, and (optionally) package version are
+    captured as provenance metadata via
+    :meth:`~pyiron_snippets.versions.VersionInfo.of`.
+
+    Can be used with or without arguments.
+
+    Args:
+        func: The function to decorate. Passed positionally by Python when the
+            decorator is used without parentheses.
+        *output_labels: Explicit names for the workflow's output ports. When
+            provided, their count must match the number of returned symbols.
+        version_scraping: Optional mapping from top-level package names to callables
+            that return a version string. Forwarded to
+            :meth:`~pyiron_snippets.versions.VersionInfo.of`.
+        forbid_main: If ``True``, raise if the function's module is ``__main__``.
+        forbid_locals: If ``True``, raise if the function's qualname contains
+            ``<locals>``.
+        require_version: If ``True``, raise if no version can be determined for
+            the function's package.
+
+    Returns:
+        The original function with a ``flowrep_recipe`` attribute holding a
+        :class:`~flowrep.models.nodes.workflow_model.WorkflowNode`.
     """
     return parser_helpers.parser2decorator(
         func,
         output_labels,
         parser=parse_workflow,
         decorator_name="@workflow",
+        parser_kwargs={
+            "version_scraping": version_scraping,
+            "forbid_main": forbid_main,
+            "forbid_locals": forbid_locals,
+            "require_version": require_version,
+        },
     )
 
 
 def parse_workflow(
     func: FunctionType,
     *output_labels: str,
+    version_scraping: versions.VersionScrapingMap | None = None,
+    forbid_main: bool = False,
+    forbid_locals: bool = False,
+    require_version: bool = False,
 ):
+    """
+    Build a :class:`~flowrep.models.nodes.workflow_model.WorkflowNode` by
+    statically analysing a Python function's AST.
+
+    The function body is walked statement-by-statement; assignments with calls on
+    the right-hand side become atomic (or recursively parsed) child nodes, and
+    supported control-flow structures (``for``, ``while``, ``if``, ``try``) are
+    converted into the corresponding composite node types. A single ``return``
+    statement defines the workflow's output ports.
+
+    Args:
+        func: The function to parse into a workflow graph.
+        *output_labels: Explicit output port names. When provided, their count must
+            match the number of returned symbols.
+        version_scraping: Optional version-scraping overrides, forwarded to
+            :meth:`~pyiron_snippets.versions.VersionInfo.of`.
+        forbid_main: If ``True``, raise if the function's module is ``__main__``.
+        forbid_locals: If ``True``, raise if the function's qualname contains
+            ``<locals>``.
+        require_version: If ``True``, raise if no version can be determined.
+
+    Returns:
+        A fully constructed :class:`WorkflowNode`.
+
+    Raises:
+        ValueError: If the function has no return, multiple returns, returns
+            duplicate symbols, returns workflow inputs directly, or if any
+            ``forbid_*`` / ``require_*`` constraint is violated.
+        TypeError: If the function body contains unsupported AST statement types.
+    """
+    info = versions.VersionInfo.of(
+        func,
+        version_scraping=version_scraping,
+        forbid_main=forbid_main,
+        forbid_locals=forbid_locals,
+        require_version=require_version,
+    )
     inputs = label_helpers.get_input_labels(func)
     state = WorkflowParser(
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),
-        fully_qualified_name=helper_models.get_fully_qualified_name(func),
+        fully_qualified_name=info.fully_qualified_name,
+        version=info.version,
     )
     tree = parser_helpers.get_ast_function_node(func)
 
@@ -73,7 +148,8 @@ def parse_workflow(
     if not found_return:
         raise ValueError("Workflow python definitions must have a return statement.")
 
-    return state.build_model(inputs_override=inputs)
+    source_code = parser_helpers.get_available_source_code(func)
+    return state.build_model(inputs_override=inputs, source_code=source_code)
 
 
 def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
@@ -106,10 +182,12 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self,
         symbol_map: symbol_scope.SymbolScope,
         fully_qualified_name: str | None = None,
+        version: str | None = None,
     ):
         self.symbol_map = symbol_map
         self.nodes: union.Nodes = {}
         self.fully_qualified_name = fully_qualified_name
+        self.version = version
 
     @property
     def inputs(self) -> list[str]:
@@ -132,7 +210,9 @@ class WorkflowParser(parser_protocol.BodyWalker):
         return self.symbol_map.outputs
 
     def build_model(
-        self, inputs_override: list[str] | None = None
+        self,
+        inputs_override: list[str] | None = None,
+        source_code: str | None = None,
     ) -> workflow_model.WorkflowNode:
         return workflow_model.WorkflowNode(
             inputs=self.inputs if inputs_override is None else inputs_override,
@@ -142,6 +222,8 @@ class WorkflowParser(parser_protocol.BodyWalker):
             edges=self.edges,
             output_edges=self.output_edges,
             fully_qualified_name=self.fully_qualified_name,
+            version=self.version,
+            source_code=source_code,
         )
 
     def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None:

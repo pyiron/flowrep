@@ -1,7 +1,7 @@
 import unittest
 
 from flowrep.models.nodes import workflow_model
-from flowrep.models.parsers import atomic_parser, workflow_parser
+from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
 
 
 # Reusable atomics
@@ -282,6 +282,7 @@ full_composite_node = workflow_model.WorkflowNode.model_validate(
         },
         "output_edges": {"result": "my_identity_0.x"},
         "fully_qualified_name": "integration.parsers.test_parsing_composite_workflow.full_composite",
+        "source_code": parser_helpers.get_available_source_code(full_composite),
     }
 )
 

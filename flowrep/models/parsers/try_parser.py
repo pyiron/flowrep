@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import ast
 
+from pyiron_snippets import versions
+
 from flowrep.models.nodes import helper_models, try_model
 from flowrep.models.parsers import (
     case_helpers,
@@ -119,10 +121,11 @@ def _parse_exception_types(
     fqns: list[str] = []
     for node in type_nodes:
         exc_class = object_scope.resolve_symbol_to_object(node, scope)
+        exc_info = versions.VersionInfo.of(exc_class)
         if not isinstance(exc_class, type) or not issubclass(exc_class, BaseException):
             raise ValueError(
                 f"Except handler must catch exception types, but resolved "
                 f"{ast.dump(node)} to {exc_class!r}"
             )
-        fqns.append(helper_models.get_fully_qualified_name(exc_class))
+        fqns.append(exc_info.fully_qualified_name)
     return fqns

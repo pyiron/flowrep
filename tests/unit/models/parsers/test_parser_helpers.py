@@ -112,6 +112,25 @@ class TestGetSourceCode(unittest.TestCase):
         self.assertTrue(source.startswith("def inner"))
 
 
+class TestGetAvailableSourceCode(unittest.TestCase):
+    def test_returns_source_for_normal_function(self):
+        def my_func():
+            return 42
+
+        source = parser_helpers.get_available_source_code(my_func)
+        self.assertIsNotNone(source)
+        self.assertIn("def my_func", source)
+
+    def test_returns_none_for_lambda(self):
+        result = parser_helpers.get_available_source_code(lambda: None)
+        self.assertIsNone(result)
+
+    def test_returns_none_for_dynamic_function(self):
+        exec_globals = {}
+        exec("def f(): pass", exec_globals)
+        self.assertIsNone(parser_helpers.get_available_source_code(exec_globals["f"]))
+
+
 class TestGetAstFunctionNode(unittest.TestCase):
     def test_returns_function_def_node(self):
         def my_func(x, y):

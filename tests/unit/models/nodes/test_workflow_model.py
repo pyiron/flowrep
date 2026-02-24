@@ -942,5 +942,106 @@ class TestWorkflowNodeFullyQualifiedName(unittest.TestCase):
         self.assertIn("fully_qualified_name", props)
 
 
+class TestWorkflowNodeVersion(unittest.TestCase):
+    """Tests for the optional version field."""
+
+    def _minimal_wf(self, **overrides):
+        defaults = dict(
+            inputs=[],
+            outputs=[],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
+        defaults.update(overrides)
+        return workflow_model.WorkflowNode(**defaults)
+
+    def test_defaults_to_none(self):
+        wf = self._minimal_wf()
+        self.assertIsNone(wf.version)
+
+    def test_accepts_version_string(self):
+        wf = self._minimal_wf(version="3.1.4")
+        self.assertEqual(wf.version, "3.1.4")
+
+    def test_accepts_none_explicitly(self):
+        wf = self._minimal_wf(version=None)
+        self.assertIsNone(wf.version)
+
+    def test_roundtrip_with_version(self):
+        original = self._minimal_wf(fully_qualified_name="pkg.func", version="1.0.0")
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = original.model_dump(mode=mode)
+                restored = workflow_model.WorkflowNode.model_validate(data)
+                self.assertEqual(original.version, restored.version)
+
+    def test_roundtrip_without_version(self):
+        original = self._minimal_wf()
+        data = original.model_dump(mode="json")
+        restored = workflow_model.WorkflowNode.model_validate(data)
+        self.assertIsNone(restored.version)
+
+    def test_json_structure_includes_version(self):
+        wf = self._minimal_wf(version="2.0.0")
+        data = wf.model_dump(mode="json")
+        self.assertEqual(data["version"], "2.0.0")
+
+    def test_json_structure_version_null_when_absent(self):
+        wf = self._minimal_wf()
+        data = wf.model_dump(mode="json")
+        self.assertIsNone(data["version"])
+
+    def test_json_schema_includes_version(self):
+        schema = workflow_model.WorkflowNode.model_json_schema()
+        props = schema.get("properties") or schema.get("$defs", {}).get(
+            "WorkflowNode", {}
+        ).get("properties", {})
+        self.assertIn("version", props)
+
+    def test_version_and_fqn_together(self):
+        wf = self._minimal_wf(fully_qualified_name="my_pkg.my_func", version="0.1.0")
+        self.assertEqual(wf.fully_qualified_name, "my_pkg.my_func")
+        self.assertEqual(wf.version, "0.1.0")
+
+    def test_version_without_fqn(self):
+        """version can be set even without fully_qualified_name."""
+        wf = self._minimal_wf(version="1.0.0")
+        self.assertIsNone(wf.fully_qualified_name)
+        self.assertEqual(wf.version, "1.0.0")
+
+
+class TestWorkflowNodeSourceCode(unittest.TestCase):
+    """Tests for the optional source_code field."""
+
+    def _minimal_wf(self, **overrides):
+        defaults = dict(
+            inputs=[],
+            outputs=[],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
+        defaults.update(overrides)
+        return workflow_model.WorkflowNode(**defaults)
+
+    def test_defaults_to_none(self):
+        self.assertIsNone(self._minimal_wf().source_code)
+
+    def test_accepts_string(self):
+        wf = self._minimal_wf(source_code="def wf(): pass")
+        self.assertEqual(wf.source_code, "def wf(): pass")
+
+    def test_roundtrip(self):
+        original = self._minimal_wf(source_code="def wf(x):\n    return x")
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = original.model_dump(mode=mode)
+                restored = workflow_model.WorkflowNode.model_validate(data)
+                self.assertEqual(original.source_code, restored.source_code)
+
+
 if __name__ == "__main__":
     unittest.main()

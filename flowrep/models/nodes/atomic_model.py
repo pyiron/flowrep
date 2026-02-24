@@ -44,6 +44,7 @@ class AtomicNode(base_models.NodeModel):
         outputs: The available output port names.
         fully_qualified_name: The fully qualified name of the function to call, i.e.
             module and qualname as a dot-separated string.
+        version: The version of the module of the function (if any).
         unpack_mode: How to handle return values from running functions in atomic nodes.
     """
 
@@ -51,6 +52,8 @@ class AtomicNode(base_models.NodeModel):
         default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
     fully_qualified_name: helper_models.FullyQualifiedName
+    version: str | None = None
+    source_code: str | None = None
     unpack_mode: UnpackMode = UnpackMode.TUPLE
 
     @pydantic.model_validator(mode="after")

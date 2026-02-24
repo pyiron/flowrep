@@ -16,4 +16,5 @@ jobs:
     with:
       semantic-upper-bound: 'minor'
       lower-bound-yaml: '.ci_support/lower-bounds.yml'
+      upper-bound-yaml: '.ci_support/upper-bounds.yml'
       publish-to-pypi: ${{ github.event_name == 'release' && github.event.action == 'published' }}
