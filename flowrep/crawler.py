@@ -1,9 +1,10 @@
 import ast
 import inspect
 import types
-from typing import Any
 
 from pyiron_snippets import versions
+
+from flowrep.models.parsers import object_scope
 
 
 class CallCollector(ast.NodeVisitor):
@@ -13,33 +14,6 @@ class CallCollector(ast.NodeVisitor):
     def visit_Call(self, node):
         self.calls.append(node.func)
         self.generic_visit(node)
-
-
-def _build_global_namespace(func) -> dict[str, object]:
-    return dict(func.__globals__)
-
-
-def _resolve_ast_node(node: ast.AST, namespace: dict[str, object]) -> Any:
-    """
-    Resolve an AST node to its corresponding object in the given namespace.
-
-    Args:
-        node (ast.AST): The AST node to resolve.
-        namespace (dict[str, object]): The namespace to use for resolution.
-
-    Returns:
-        Any: The resolved object, or None if it cannot be resolved.
-    """
-    if isinstance(node, ast.Name):
-        return namespace.get(node.id)
-
-    if isinstance(node, ast.Attribute):
-        base = _resolve_ast_node(node.value, namespace)
-        if base is None:
-            return None
-        return getattr(base, node.attr, None)
-
-    return None
 
 
 def extract_called_functions(func: types.FunctionType) -> set[types.FunctionType]:
@@ -58,11 +32,11 @@ def extract_called_functions(func: types.FunctionType) -> set[types.FunctionType
     collector = CallCollector()
     collector.visit(tree)
 
-    namespace = _build_global_namespace(func)
+    namespace = object_scope.get_scope(func)
     resolved = set()
 
     for call_node in collector.calls:
-        obj = _resolve_ast_node(call_node, namespace)
+        obj = object_scope.resolve_symbol_to_object(call_node, namespace)
         if callable(obj):
             resolved.add(obj)
 
