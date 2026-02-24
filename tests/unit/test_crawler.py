@@ -31,14 +31,6 @@ def _diamond_root():
     _diamond_b()
 
 
-def _mutual_b():
-    return _leaf()
-
-
-def _mutual_a():
-    return _mutual_b()
-
-
 # Mutual recursion to exercise cycle detection.
 def _cycle_a():
     return _cycle_b()  # noqa: F821 — defined below
