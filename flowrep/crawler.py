@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from pyiron_snippets import versions
 
-from flowrep.models.parsers import object_scope, parser_helpers, import_parser
+from flowrep.models.parsers import import_parser, object_scope, parser_helpers
 
 CallDependencies = dict[versions.VersionInfo, Callable]
 
