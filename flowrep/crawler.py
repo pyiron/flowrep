@@ -9,9 +9,9 @@ from flowrep.models.parsers import object_scope
 
 class CallCollector(ast.NodeVisitor):
     def __init__(self):
-        self.calls = []
+        self.calls: list[ast.expr] = []
 
-    def visit_Call(self, node):
+    def visit_Call(self, node: ast.Call) -> None:
         self.calls.append(node.func)
         self.generic_visit(node)
 
