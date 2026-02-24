@@ -1,6 +1,6 @@
 import ast
 from collections.abc import Callable, Collection
-from types import FunctionType, MethodType
+from types import FunctionType
 from typing import Any, cast
 
 from pyiron_snippets import versions
@@ -121,30 +121,19 @@ def parse_workflow(
         require_version=require_version,
     )
     inputs = label_helpers.get_input_labels(func)
-    state = WorkflowParser(
+    state = _WorkflowFunctionParser(
         object_scope.get_scope(func),
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),
         fully_qualified_name=info.fully_qualified_name,
         version=info.version,
+        func=func,
+        output_labels=output_labels,
     )
     tree = parser_helpers.get_ast_function_node(func)
 
-    found_return = False
-
-    def visit_Return(self, stmt: ast.Return):
-        nonlocal found_return
-        if found_return:
-            raise ValueError(
-                "Workflow python definitions must have exactly one return."
-            )
-        found_return = True
-        state.handle_return(stmt, func, output_labels)
-
-    setattr(state, "visit_Return", MethodType(visit_Return, state))  # noqa: B010
-    # We're using setattr to avoid mypy complaining; fix it by proper classing later
     state.walk(skip_docstring(tree.body))
 
-    if not found_return:
+    if not state.found_return:
         raise ValueError("Workflow python definitions must have a return statement.")
 
     source_code = parser_helpers.get_available_source_code(func)
@@ -300,6 +289,59 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         )
         self._digest_flow_control("try", try_node)
 
+    def visit_Expr(self, stmt: ast.Expr) -> None:
+        if is_append_call(stmt.value):
+            self._handle_appending_to_accumulator(cast(ast.Call, stmt.value))
+        else:
+            self.generic_visit(stmt)
+
+    def _handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
+        used_accumulator = cast(
+            ast.Name, cast(ast.Attribute, append_call.func).value
+        ).id
+        appended_symbol = cast(ast.Name, append_call.args[0]).id
+        self.symbol_map.use_accumulator(used_accumulator, appended_symbol)
+        appended_source = self.symbol_map[appended_symbol]
+        if isinstance(appended_source, edge_models.SourceHandle):
+            self.symbol_map.produce(appended_symbol)
+
+    def generic_visit(self, stmt: ast.AST) -> None:
+        raise TypeError(
+            f"Workflow python definitions can only interpret a subset of assignments, "
+            f"and flow controls (for/while/if/try) and (when parsing a function "
+            f"definition) a return, but ast found "
+            f"{type(stmt)}"
+        )
+
+
+class _WorkflowFunctionParser(WorkflowParser):
+    def __init__(
+        self,
+        scope: object_scope.ScopeProxy,
+        symbol_map: symbol_scope.SymbolScope,
+        *,
+        fully_qualified_name: str | None = None,
+        version: str | None = None,
+        func: FunctionType,
+        output_labels: Collection[str],
+    ):
+        super().__init__(scope, symbol_map, fully_qualified_name, version)
+        self._func = func
+        self._output_labels = output_labels
+        self._found_return = False
+
+    @property
+    def found_return(self) -> bool:
+        return self._found_return
+
+    def visit_Return(self, stmt: ast.Return) -> None:
+        if self._found_return:
+            raise ValueError(
+                "Workflow python definitions must have exactly one return."
+            )
+        self._found_return = True
+        self.handle_return(stmt, self._func, self._output_labels)
+
     def handle_return(
         self,
         body: ast.Return,
@@ -345,29 +387,6 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                     f"workflow inputs."
                 )
             self.symbol_map.produce(port, symbol)
-
-    def visit_Expr(self, stmt: ast.Expr) -> None:
-        if is_append_call(stmt.value):
-            self._handle_appending_to_accumulator(cast(ast.Call, stmt.value))
-        else:
-            self.generic_visit(stmt)
-
-    def _handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
-        used_accumulator = cast(
-            ast.Name, cast(ast.Attribute, append_call.func).value
-        ).id
-        appended_symbol = cast(ast.Name, append_call.args[0]).id
-        self.symbol_map.use_accumulator(used_accumulator, appended_symbol)
-        appended_source = self.symbol_map[appended_symbol]
-        if isinstance(appended_source, edge_models.SourceHandle):
-            self.symbol_map.produce(appended_symbol)
-
-    def generic_visit(self, stmt: ast.AST) -> None:
-        raise TypeError(
-            f"Workflow python definitions can only interpret a subset of assignments, "
-            f"and flow controls (for/while/if/try) and a return, but ast found "
-            f"{type(stmt)}"
-        )
 
 
 def is_append_call(node: ast.expr | ast.Expr) -> bool:
