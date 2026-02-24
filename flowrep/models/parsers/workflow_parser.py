@@ -1,6 +1,6 @@
 import ast
 from collections.abc import Callable, Collection
-from types import FunctionType
+from types import FunctionType, MethodType
 from typing import Any, cast
 
 from pyiron_snippets import versions
@@ -131,7 +131,7 @@ def parse_workflow(
 
     found_return = False
 
-    def handle_return(stmt: ast.Return):
+    def visit_Return(self, stmt: ast.Return):
         nonlocal found_return
         if found_return:
             raise ValueError(
@@ -140,10 +140,9 @@ def parse_workflow(
         found_return = True
         state.handle_return(stmt, func, output_labels)
 
-    state.walk(
-        skip_docstring(tree.body),
-        special_handlers={ast.Return: handle_return},
-    )
+    setattr(state, "visit_Return", MethodType(visit_Return, state))  # noqa: B010
+    # We're using setattr to avoid mypy complaining; fix it by proper classing later
+    state.walk(skip_docstring(tree.body))
 
     if not found_return:
         raise ValueError("Workflow python definitions must have a return statement.")
@@ -165,7 +164,7 @@ def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
     )
 
 
-class WorkflowParser(parser_protocol.BodyWalker):
+class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
     """
     Aggregates state until there is enough data to successfully build the pydantic
     data model.
@@ -228,44 +227,17 @@ class WorkflowParser(parser_protocol.BodyWalker):
             source_code=source_code,
         )
 
-    def visit(self, stmt: ast.stmt) -> None:
-        if isinstance(stmt, ast.Assign | ast.AnnAssign):
-            self.handle_assign(stmt)
-        elif isinstance(stmt, ast.For):
-            self.handle_for(stmt)
-        elif isinstance(stmt, ast.While):
-            self.handle_while(stmt)
-        elif isinstance(stmt, ast.If):
-            self.handle_if(stmt)
-        elif isinstance(stmt, ast.Try):
-            self.handle_try(stmt)
-        elif isinstance(stmt, ast.Expr) and is_append_call(stmt.value):
-            self.handle_appending_to_accumulator(cast(ast.Call, stmt.value))
-        else:
-            raise TypeError(
-                f"Workflow python definitions can only interpret assignments, a subset "
-                f"of flow control (for/while/if/try) and a return, but ast found "
-                f"{type(stmt)}"
-            )
+    def walk(self, statements: list[ast.stmt]) -> None:
+        for statement in statements:
+            self.visit(statement)
 
-    def walk(
-        self,
-        statements: list[ast.stmt],
-        *,
-        special_handlers: SpecialHandlers | None = None,
-    ) -> None:
-        for stmt in statements:
-            if special_handlers:
-                for ast_type, handler in special_handlers.items():
-                    if isinstance(stmt, ast_type):
-                        handler(stmt)
-                        break
-                else:
-                    self.visit(stmt)
-            else:
-                self.visit(stmt)
+    def visit_Assign(self, stmt: ast.Assign) -> None:
+        self._handle_assign(stmt)
 
-    def handle_assign(self, body: ast.Assign | ast.AnnAssign):
+    def visit_AnnAssign(self, stmt: ast.AnnAssign) -> None:
+        self._handle_assign(stmt)
+
+    def _handle_assign(self, body: ast.Assign | ast.AnnAssign):
         # Get returned symbols from the left-hand side
         lhs = body.targets[0] if isinstance(body, ast.Assign) else body.target
         new_symbols = parser_helpers.resolve_symbols_to_strings(lhs)
@@ -302,7 +274,7 @@ class WorkflowParser(parser_protocol.BodyWalker):
         labeled_node = helper_models.LabeledNode(label=label, node=node)
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
 
-    def handle_for(self, tree: ast.For) -> None:
+    def visit_For(self, tree: ast.For) -> None:
         for_node = for_parser.parse_for_node(
             tree, self.scope, self.symbol_map, WorkflowParser
         )
@@ -310,19 +282,19 @@ class WorkflowParser(parser_protocol.BodyWalker):
         self.symbol_map.declared_accumulators -= set(for_node.outputs)
         self._digest_flow_control("for", for_node)
 
-    def handle_while(self, tree: ast.While) -> None:
+    def visit_While(self, tree: ast.While) -> None:
         while_node = while_parser.parse_while_node(
             tree, self.scope, self.symbol_map, WorkflowParser
         )
         self._digest_flow_control("while", while_node)
 
-    def handle_if(self, tree: ast.If) -> None:
+    def visit_If(self, tree: ast.If) -> None:
         if_node = if_parser.parse_if_node(
             tree, self.scope, self.symbol_map, WorkflowParser
         )
         self._digest_flow_control("if", if_node)
 
-    def handle_try(self, tree: ast.Try) -> None:
+    def visit_Try(self, tree: ast.Try) -> None:
         try_node = try_parser.parse_try_node(
             tree, self.scope, self.symbol_map, WorkflowParser
         )
@@ -374,7 +346,13 @@ class WorkflowParser(parser_protocol.BodyWalker):
                 )
             self.symbol_map.produce(port, symbol)
 
-    def handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
+    def visit_Expr(self, stmt: ast.Expr) -> None:
+        if is_append_call(stmt.value):
+            self._handle_appending_to_accumulator(cast(ast.Call, stmt.value))
+        else:
+            self.generic_visit(stmt)
+
+    def _handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
         used_accumulator = cast(
             ast.Name, cast(ast.Attribute, append_call.func).value
         ).id
@@ -383,6 +361,13 @@ class WorkflowParser(parser_protocol.BodyWalker):
         appended_source = self.symbol_map[appended_symbol]
         if isinstance(appended_source, edge_models.SourceHandle):
             self.symbol_map.produce(appended_symbol)
+
+    def generic_visit(self, stmt: ast.AST) -> None:
+        raise TypeError(
+            f"Workflow python definitions can only interpret a subset of assignments, "
+            f"and flow controls (for/while/if/try) and a return, but ast found "
+            f"{type(stmt)}"
+        )
 
 
 def is_append_call(node: ast.expr | ast.Expr) -> bool:
