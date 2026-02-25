@@ -47,7 +47,7 @@ def resolve_symbol_to_object(
         return resolve_symbol_to_object(node.value, scope, [node.attr] + _chain)
     else:
         raise TypeError(
-            f"Cannot resolve symbol {node} or the symbol chain '{'.'.join(_chain)}'. "
-            f"Expected an ast.Name or chain of ast.Attribute and ast.Name, but got "
-            f"{node}."
+            f"Cannot resolve symbol {node} while building the symbol chain "
+            f"'{'.'.join(_chain)}'. Expected an ast.Name or chain of ast.Attribute "
+            f"and ast.Name, but got {node}."
         )
