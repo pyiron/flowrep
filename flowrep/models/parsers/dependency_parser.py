@@ -57,31 +57,17 @@ def get_call_dependencies(
 
     for item in items:
         try:
-            caller = object_scope.resolve_attribute_to_object(item, scope)
+            obj = object_scope.resolve_attribute_to_object(item, scope)
         except (ValueError, TypeError):
             continue
 
-        if not callable(caller):  # pragma: no cover
-            # Under remotely normal circumstances, this should be unreachable
-            raise TypeError(
-                f"Caller {caller} is not callable, yet was generated from the list of "
-                f"ast.Call calls, in particular {item}. We're expecting these to "
-                f"actually connect to callables. Please raise a GitHub issue if you "
-                f"think this is not a mistake."
-            )
+        if callable(obj):  # pragma: no cover
+            info = versions.VersionInfo.of(obj, version_scraping=version_scraping)
+            call_dependencies[info] = obj
 
-        info = versions.VersionInfo.of(caller, version_scraping=version_scraping)
-        # In principle, we open ourselves to overwriting an existing dependency here,
-        # but it would need to somehow have exactly the same version info (including
-        # qualname) yet be a different object.
-        # This ought not happen by accident, and in case it somehow does happen on
-        # purpose (it probably shouldn't), we just silently keep the more recent one.
-
-        call_dependencies[info] = caller
-
-        # Depth-first search on dependencies — only possible when we have source
-        if isinstance(caller, types.FunctionType):
-            get_call_dependencies(caller, version_scraping, call_dependencies, visited)
+            # Depth-first search on dependencies — only possible when we have source
+            if isinstance(obj, types.FunctionType):
+                get_call_dependencies(obj, version_scraping, call_dependencies, visited)
 
     return call_dependencies
 
