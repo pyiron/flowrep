@@ -98,7 +98,7 @@ def get_dependencies(
             if isinstance(obj, types.FunctionType):
                 get_call_dependencies(obj, version_scraping, call_dependencies, visited)
         else:
-            variables.append(item)
+            variables.append(obj)
 
     return call_dependencies, variables
 
@@ -134,7 +134,7 @@ class CallCollector(ast.NodeVisitor):
     def _append_item(self, node: ast.expr) -> None:
         item = ast.unparse(node)
         if item.split(".")[0] not in self.local_vars:
-            self.items.add(item)
+            self.items.add(item.split("(")[0])
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         # Collect function arguments as local variables
