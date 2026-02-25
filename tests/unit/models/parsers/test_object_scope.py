@@ -74,3 +74,7 @@ class TestResolveSymbolToObject(unittest.TestCase):
         node = ast.Constant(value=42)
         with self.assertRaises(TypeError):
             object_scope.resolve_symbol_to_object(node, scope)
+
+
+if __name__ == "__main__":
+    unittest.main()
