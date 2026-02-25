@@ -24,7 +24,7 @@ def get_scope(func: FunctionType) -> ScopeProxy:
     return ScopeProxy(inspect.getmodule(func).__dict__ | vars(builtins))
 
 
-def resolve_attribute_to_object(attribute: str, scope: ScopeProxy) -> object:
+def resolve_attribute_to_object(attribute: str, scope: ScopeProxy | object) -> object:
     obj = None
     try:
         for attr in attribute.split("."):
