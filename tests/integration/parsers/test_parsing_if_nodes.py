@@ -95,7 +95,11 @@ simple_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"if_0.x": "x", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "if_0.z"},
-        "fully_qualified_name": "integration.parsers.test_parsing_if_nodes.simple_if_else",
+        "source": {
+            "module": "integration.parsers.test_parsing_if_nodes",
+            "qualname": "simple_if_else",
+            "version": None,
+        },
         "source_code": parser_helpers.get_available_source_code(simple_if_else),
     }
 )
@@ -200,7 +204,11 @@ elif_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"if_0.x": "x", "if_0.flag": "flag", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "if_0.z"},
-        "fully_qualified_name": "integration.parsers.test_parsing_if_nodes.if_elif_else",
+        "source": {
+            "module": "integration.parsers.test_parsing_if_nodes",
+            "qualname": "if_elif_else",
+            "version": None,
+        },
         "source_code": parser_helpers.get_available_source_code(if_elif_else),
     }
 )
@@ -280,7 +288,11 @@ context_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"my_add_0.a": "a", "my_add_0.b": "b", "if_0.b": "b"},
         "edges": {"if_0.x": "my_add_0.output_0", "my_identity_0.x": "if_0.y"},
         "output_edges": {"z": "my_identity_0.x"},
-        "fully_qualified_name": "integration.parsers.test_parsing_if_nodes.if_with_context",
+        "source": {
+            "module": "integration.parsers.test_parsing_if_nodes",
+            "qualname": "if_with_context",
+            "version": None,
+        },
         "source_code": parser_helpers.get_available_source_code(if_with_context),
     }
 )
@@ -379,7 +391,11 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"if_0.x": "x", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"a": "if_0.a", "b": "if_0.b"},
-        "fully_qualified_name": "integration.parsers.test_parsing_if_nodes.multi_output_if",
+        "source": {
+            "module": "integration.parsers.test_parsing_if_nodes",
+            "qualname": "multi_output_if",
+            "version": None,
+        },
         "source_code": parser_helpers.get_available_source_code(multi_output_if),
     }
 )
@@ -441,7 +457,11 @@ no_else_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"my_identity_0.x": "x", "if_0.x": "x", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "if_0.z"},
-        "fully_qualified_name": "integration.parsers.test_parsing_if_nodes.if_no_else",
+        "source": {
+            "module": "integration.parsers.test_parsing_if_nodes",
+            "qualname": "if_no_else",
+            "version": None,
+        },
         "source_code": parser_helpers.get_available_source_code(if_no_else),
     }
 )

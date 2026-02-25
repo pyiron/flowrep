@@ -1,5 +1,7 @@
 import unittest
 
+from pyiron_snippets import versions
+
 from flowrep.models import edge_models
 from flowrep.models.nodes import atomic_model, helper_models
 from flowrep.models.parsers.symbol_scope import SymbolScope
@@ -17,7 +19,9 @@ def _make_labeled_node(label: str, outputs: list[str]) -> helper_models.LabeledN
     return helper_models.LabeledNode(
         label=label,
         node=atomic_model.AtomicNode(
-            fully_qualified_name="test.module.func",
+            source=versions.VersionInfo(
+                module="test.module", qualname="func", version=None
+            ),
             inputs=["x"],
             outputs=outputs,
             unpack_mode="tuple",
