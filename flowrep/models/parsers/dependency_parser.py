@@ -9,6 +9,13 @@ from flowrep.models.parsers import object_scope, parser_helpers
 CallDependencies = dict[versions.VersionInfo, Callable]
 
 
+def _get_collector(func: types.FunctionType) -> CallCollector:
+    tree = parser_helpers.get_ast_function_node(func)
+    collector = CallCollector()
+    collector.visit(tree)
+    return collector
+
+
 def get_call_dependencies(
     func: types.FunctionType,
     version_scraping: versions.VersionScrapingMap | None = None,
@@ -44,9 +51,7 @@ def get_call_dependencies(
     visited.add(func_fqn)
 
     scope = object_scope.get_scope(func)
-    tree = parser_helpers.get_ast_function_node(func)
-    collector = CallCollector()
-    collector.visit(tree)
+    collector = _get_collector(func)
 
     for call in collector.calls:
         try:
@@ -104,8 +109,60 @@ def split_by_version_availability(
 
 class CallCollector(ast.NodeVisitor):
     def __init__(self):
-        self.calls: list[ast.expr] = []
+        self.items: list[ast.expr] = []  # To store the callers (functions being called)
+        self.local_vars: set[str] = set()  # To track variables defined within the function
 
-    def visit_Call(self, node: ast.Call) -> None:
-        self.calls.append(node.func)
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        # Collect function arguments as local variables
+        for arg in node.args.args:
+            self.local_vars.add(arg.arg)
+            # Check for type hints in arguments
+            if arg.annotation and isinstance(arg.annotation, ast.Name):
+                self.items.append(arg.annotation)
+
+        # Check for type hints in the return type
+        if node.returns and isinstance(node.returns, ast.Name):
+            self.items.append(node.returns)
+
+        # Visit the body of the function
         self.generic_visit(node)
+
+        # Clear local variables after leaving the function scope
+        self.local_vars.clear()
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        # Handle multiple assignments and unpacking
+        for target in node.targets:
+            self._process_assignment_target(target)
+        self.generic_visit(node)
+
+    def _process_assignment_target(self, target):
+        # Recursively process assignment targets to handle unpacking
+        if isinstance(target, ast.Attribute):
+            if target.id not in self.local_vars:
+                self.items.append(target.id)
+        elif isinstance(target, ast.Name):
+            # Add the variable name to local_vars
+            self.local_vars.add(target.id)
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            # Handle tuple or list unpacking (e.g., x, y = ...)
+            for element in target.elts:
+                self._process_assignment_target(element)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        # Handle annotated assignments (e.g., x: CustomType = 42)
+        if isinstance(node.target, ast.Name):
+            self.local_vars.add(node.target.id)
+        if node.annotation and isinstance(node.annotation, ast.Name):
+            self.items.append(node.annotation)
+        self.generic_visit(node)
+
+    def visit_Name(self, node: ast.Name) -> None:
+        # Collect all variables that are not locally defined
+        if node.id not in self.local_vars:
+            self.items.append(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        # Collect attributes that are not locally defined
+        if node.value.id not in self.local_vars:
+            self.items.append(node)
