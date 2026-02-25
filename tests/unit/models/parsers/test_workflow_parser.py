@@ -1,3 +1,5 @@
+import sys
+import types
 import unittest
 from typing import Annotated, Any
 
@@ -75,6 +77,21 @@ def _wp_add(a, b):
 @atomic_parser.atomic
 def _wp_identity(x):
     return x
+
+
+# Name that is guaranteed not to collide with a real package or stdlib module.
+_UNVERSIONED_MODULE_NAME = "_flowrep_test_unversioned_mod"
+
+
+def _install_unversioned_module() -> types.ModuleType:
+    """Register a bare module in ``sys.modules`` that has no ``__version__``."""
+    mod = types.ModuleType(_UNVERSIONED_MODULE_NAME)
+    sys.modules[_UNVERSIONED_MODULE_NAME] = mod
+    return mod
+
+
+def _uninstall_unversioned_module() -> None:
+    sys.modules.pop(_UNVERSIONED_MODULE_NAME, None)
 
 
 class TestWorkflowDecorator(unittest.TestCase):
@@ -669,14 +686,19 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         self.assertIn("<locals>.my_wf", str(ctx.exception))
 
     def test_require_version_raises_when_missing(self):
-        def my_wf(x):
-            y = _wp_identity(x)
-            return y
+        _install_unversioned_module()
+        try:
 
-        my_wf.__module__ = "__main__"
-        with self.assertRaises(ValueError, msg="could not be found") as ctx:
-            workflow_parser.parse_workflow(my_wf, require_version=True)
-        self.assertIn("could not be found", str(ctx.exception))
+            def my_wf(x):
+                y = _wp_identity(x)
+                return y
+
+            my_wf.__module__ = _UNVERSIONED_MODULE_NAME
+            with self.assertRaises(ValueError) as ctx:
+                workflow_parser.parse_workflow(my_wf, require_version=True)
+            self.assertIn("Could not find a version", str(ctx.exception))
+        finally:
+            _uninstall_unversioned_module()
 
     def test_version_scraping_is_forwarded(self):
         def my_wf(x):
