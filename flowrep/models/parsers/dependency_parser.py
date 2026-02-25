@@ -43,12 +43,41 @@ def get_call_dependencies(
         A mapping from :class:`VersionInfo` to the callables found under that
         identity across the entire (sub-)tree.
     """
+    return get_dependencies(func, version_scraping, _call_dependencies, _visited)[0]
+
+def get_dependencies(
+    func: types.FunctionType,
+    version_scraping: versions.VersionScrapingMap | None = None,
+    _call_dependencies: CallDependencies | None = None,
+    _visited: set[str] | None = None,
+) -> CallDependencies:
+    """
+    Recursively collect all callable dependencies of *func* via AST introspection.
+
+    Each dependency is keyed by its :class:`~pyiron_snippets.versions.VersionInfo`
+    and maps to the callables instance with that identity.  The search is depth-first:
+    for every resolved callee that is a :class:`~types.FunctionType` (i.e. has
+    inspectable source), the function recurses into the callee's own scope.
+
+    Args:
+        func: The function whose call-graph to analyse.
+        version_scraping (VersionScrapingMap | None): Since some modules may store
+            their version in other ways, this provides an optional map between module
+            names and callables to leverage for extracting that module's version.
+        _call_dependencies: Accumulator for recursive calls — do not pass manually.
+        _visited: Fully-qualified names already traversed — do not pass manually.
+
+    Returns:
+        A mapping from :class:`VersionInfo` to the callables found under that
+        identity across the entire (sub-)tree.
+    """
     call_dependencies: CallDependencies = _call_dependencies or {}
+    variables = []
     visited: set[str] = _visited or set()
 
     func_fqn = versions.VersionInfo.of(func).fully_qualified_name
     if func_fqn in visited:
-        return call_dependencies
+        return call_dependencies, variables
     visited.add(func_fqn)
 
     scope = object_scope.get_scope(func)
@@ -68,8 +97,10 @@ def get_call_dependencies(
             # Depth-first search on dependencies — only possible when we have source
             if isinstance(obj, types.FunctionType):
                 get_call_dependencies(obj, version_scraping, call_dependencies, visited)
+        else:
+            variables.append(item)
 
-    return call_dependencies
+    return call_dependencies, variables
 
 
 def split_by_version_availability(
