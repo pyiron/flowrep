@@ -132,7 +132,7 @@ class TestGetCallDependencies(unittest.TestCase):
 
     def test_builtin_callable_included(self):
         deps = dependency_parser.get_call_dependencies(_calls_len)
-        self.assertIn(_fqn(len), _fqns(deps))
+        self.assertEqual(_fqns(deps), set())
 
     def test_returns_dict_type(self):
         deps = dependency_parser.get_call_dependencies(_leaf)

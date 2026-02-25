@@ -1,4 +1,5 @@
 import ast
+import builtins
 import types
 from collections.abc import Callable
 
@@ -52,10 +53,11 @@ def get_call_dependencies(
 
     scope = object_scope.get_scope(func)
     collector = _get_collector(func)
+    items = collector.items.difference(set(dir(builtins)))
 
-    for call in collector.calls:
+    for item in items:
         try:
-            caller = object_scope.resolve_symbol_to_object(call, scope)
+            caller = object_scope.resolve_attribute_to_object(item, scope)
         except (ValueError, TypeError):
             continue
 
@@ -63,7 +65,7 @@ def get_call_dependencies(
             # Under remotely normal circumstances, this should be unreachable
             raise TypeError(
                 f"Caller {caller} is not callable, yet was generated from the list of "
-                f"ast.Call calls, in particular {call}. We're expecting these to "
+                f"ast.Call calls, in particular {item}. We're expecting these to "
                 f"actually connect to callables. Please raise a GitHub issue if you "
                 f"think this is not a mistake."
             )
@@ -109,8 +111,13 @@ def split_by_version_availability(
 
 class CallCollector(ast.NodeVisitor):
     def __init__(self):
-        self.items: list[ast.expr] = []  # To store the callers (functions being called)
-        self.local_vars: set[str] = set()  # To track variables defined within the function
+        self.items: set[str] = set()
+        self.local_vars: set[str] = set()
+
+    def _append_item(self, node: ast.expr) -> None:
+        item = ast.unparse(node)
+        if item.split(".")[0] not in self.local_vars:
+            self.items.add(item)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         # Collect function arguments as local variables
@@ -118,11 +125,11 @@ class CallCollector(ast.NodeVisitor):
             self.local_vars.add(arg.arg)
             # Check for type hints in arguments
             if arg.annotation and isinstance(arg.annotation, ast.Name):
-                self.items.append(arg.annotation)
+                self._append_item(arg.annotation)
 
         # Check for type hints in the return type
         if node.returns and isinstance(node.returns, ast.Name):
-            self.items.append(node.returns)
+            self._append_item(node.returns)
 
         # Visit the body of the function
         self.generic_visit(node)
@@ -140,7 +147,7 @@ class CallCollector(ast.NodeVisitor):
         # Recursively process assignment targets to handle unpacking
         if isinstance(target, ast.Attribute):
             if target.id not in self.local_vars:
-                self.items.append(target.id)
+                self._append_item(target)
         elif isinstance(target, ast.Name):
             # Add the variable name to local_vars
             self.local_vars.add(target.id)
@@ -154,15 +161,50 @@ class CallCollector(ast.NodeVisitor):
         if isinstance(node.target, ast.Name):
             self.local_vars.add(node.target.id)
         if node.annotation and isinstance(node.annotation, ast.Name):
-            self.items.append(node.annotation)
+            self._append_item(node.annotation)
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
         # Collect all variables that are not locally defined
         if node.id not in self.local_vars:
-            self.items.append(node)
+            self._append_item(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         # Collect attributes that are not locally defined
-        if node.value.id not in self.local_vars:
-            self.items.append(node)
+        self._append_item(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        # Handle loop variables as local variables
+        self._process_assignment_target(node.target)
+        self.generic_visit(node)
+
+    def visit_With(self, node: ast.With) -> None:
+        # Handle variables defined in with statements (e.g., with open(...) as f)
+        for item in node.items:
+            if item.optional_vars and isinstance(item.optional_vars, ast.Name):
+                self.local_vars.add(item.optional_vars.id)
+        self.generic_visit(node)
+
+    def visit_ListComp(self, node: ast.ListComp) -> None:
+        # Handle variables defined in list comprehensions
+        for generator in node.generators:
+            self._process_assignment_target(generator.target)
+        self.generic_visit(node)
+
+    def visit_DictComp(self, node: ast.DictComp) -> None:
+        # Handle variables defined in dict comprehensions
+        for generator in node.generators:
+            self._process_assignment_target(generator.target)
+        self.generic_visit(node)
+
+    def visit_SetComp(self, node: ast.SetComp) -> None:
+        # Handle variables defined in set comprehensions
+        for generator in node.generators:
+            self._process_assignment_target(generator.target)
+        self.generic_visit(node)
+
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
+        # Handle variables defined in generator expressions
+        for generator in node.generators:
+            self._process_assignment_target(generator.target)
+        self.generic_visit(node)
