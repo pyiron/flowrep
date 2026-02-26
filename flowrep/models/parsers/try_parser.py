@@ -20,6 +20,7 @@ def parse_try_node(
     tree: ast.Try,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,
+    info_factory: versions.VersionInfoFactory,
     walker_factory: parser_protocol.WalkerFactory,
 ) -> try_model.TryNode:
     """
@@ -29,6 +30,7 @@ def parse_try_node(
         tree: The ``ast.Try`` node.
         scope: Object-level scope for resolving callable references.
         symbol_map: The enclosing :class:`SymbolScope` (used for forking).
+        info_factory: Stateful object for collecting version info.
         walker_factory: Callable that creates a :class:`BodyWalker` from a
             :class:`SymbolScope`.  Avoids a circular import with
             ``workflow_parser.WorkflowParser``.
@@ -50,6 +52,7 @@ def parse_try_node(
         tree.body,
         symbol_map,
         scope,
+        info_factory,
         walker_factory,
     )
 
@@ -66,6 +69,7 @@ def parse_try_node(
             handler.body,
             symbol_map,
             scope,
+            info_factory,
             walker_factory,
         )
         except_branches.append(exception_branch)

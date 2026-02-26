@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 from ast import While
 
+from pyiron_snippets import versions
+
 from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models, while_model
 from flowrep.models.parsers import (
@@ -20,6 +22,7 @@ def parse_while_node(
     tree: ast.While,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,
+    info_factory: versions.VersionInfoFactory,
     walker_factory: parser_protocol.WalkerFactory,
 ) -> while_model.WhileNode:
     """
@@ -29,6 +32,7 @@ def parse_while_node(
         tree: The ``ast.While`` node.
         scope: Object-level scope for resolving callable references.
         symbol_map: The enclosing :class:`SymbolScope` (used for forking).
+        info_factory: Stateful object for collecting version info.
         walker_factory: Callable that creates a :class:`BodyWalker` from a
             :class:`SymbolScope`.  Avoids a circular import with
             ``workflow_parser.WorkflowParser``.
@@ -37,10 +41,14 @@ def parse_while_node(
 
     # Parse the loop condition — pure AST, no parser state needed
     labeled_condition, condition_inputs = case_helpers.parse_case(
-        tree.test, scope, symbol_map, WHILE_CONDITION_LABEL
+        tree.test,
+        scope,
+        symbol_map,
+        info_factory,
+        WHILE_CONDITION_LABEL,
     )
 
-    body_walker = walker_factory(scope, symbol_map.fork_scope())
+    body_walker = walker_factory(scope, symbol_map.fork_scope(), info_factory)
     body_walker.walk(tree.body)
     reassigned_symbols = body_walker.symbol_map.reassigned_symbols
 

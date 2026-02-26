@@ -4,12 +4,19 @@ import ast
 from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 
+from pyiron_snippets import versions
+
 from flowrep.models import edge_models
 from flowrep.models.nodes import union, workflow_model
 from flowrep.models.parsers import object_scope, symbol_scope
 
 WalkerFactory = Callable[
-    [object_scope.ScopeProxy, symbol_scope.SymbolScope], "BodyWalker"
+    [
+        object_scope.ScopeProxy,
+        symbol_scope.SymbolScope,
+        versions.VersionInfoFactory,
+    ],
+    "BodyWalker",
 ]
 
 
@@ -19,6 +26,7 @@ class BodyWalker(Protocol):
 
     scope: object_scope.ScopeProxy
     symbol_map: symbol_scope.SymbolScope
+    info_factory: versions.VersionInfoFactory
     nodes: union.Nodes
 
     @property

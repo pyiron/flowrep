@@ -111,18 +111,19 @@ def parse_workflow(
             ``forbid_*`` / ``require_*`` constraint is violated.
         TypeError: If the function body contains unsupported AST statement types.
     """
-    info = versions.VersionInfo.of(
-        func,
+    info_factory = versions.VersionInfoFactory(
         version_scraping=version_scraping,
         forbid_main=forbid_main,
         forbid_locals=forbid_locals,
         require_version=require_version,
     )
+    info = info_factory.of(func)
     inputs = label_helpers.get_input_labels(func)
     state = _WorkflowFunctionParser(
         object_scope.get_scope(func),
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),
         source=info,
+        info_factory=info_factory,
         func=func,
         output_labels=output_labels,
     )
@@ -167,10 +168,12 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self,
         scope: object_scope.ScopeProxy,
         symbol_map: symbol_scope.SymbolScope,
+        info_factory: versions.VersionInfoFactory,
         source: versions.VersionInfo | None = None,
     ):
         self.scope = scope
         self.symbol_map = symbol_map
+        self.info_factory = info_factory
         self.nodes: union.Nodes = {}
         self.source = source
 
@@ -227,7 +230,12 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
-            child = atomic_parser.get_labeled_recipe(rhs, self.nodes.keys(), self.scope)
+            child = atomic_parser.get_labeled_recipe(
+                rhs,
+                self.nodes.keys(),
+                self.scope,
+                self.info_factory,
+            )
             self.nodes[child.label] = child.node
             parser_helpers.consume_call_arguments(self.symbol_map, rhs, child)
             self.symbol_map.register(new_symbols, child)
@@ -259,7 +267,11 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
 
     def visit_For(self, tree: ast.For) -> None:
         for_node = for_parser.parse_for_node(
-            tree, self.scope, self.symbol_map, WorkflowParser
+            tree,
+            self.scope,
+            self.symbol_map,
+            self.info_factory,
+            WorkflowParser,
         )
         # Accumulators consumed by the for body are no longer available here
         self.symbol_map.declared_accumulators -= set(for_node.outputs)
@@ -267,19 +279,31 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
 
     def visit_While(self, tree: ast.While) -> None:
         while_node = while_parser.parse_while_node(
-            tree, self.scope, self.symbol_map, WorkflowParser
+            tree,
+            self.scope,
+            self.symbol_map,
+            self.info_factory,
+            WorkflowParser,
         )
         self._digest_flow_control("while", while_node)
 
     def visit_If(self, tree: ast.If) -> None:
         if_node = if_parser.parse_if_node(
-            tree, self.scope, self.symbol_map, WorkflowParser
+            tree,
+            self.scope,
+            self.symbol_map,
+            self.info_factory,
+            WorkflowParser,
         )
         self._digest_flow_control("if", if_node)
 
     def visit_Try(self, tree: ast.Try) -> None:
         try_node = try_parser.parse_try_node(
-            tree, self.scope, self.symbol_map, WorkflowParser
+            tree,
+            self.scope,
+            self.symbol_map,
+            self.info_factory,
+            WorkflowParser,
         )
         self._digest_flow_control("try", try_node)
 
@@ -313,12 +337,18 @@ class _WorkflowFunctionParser(WorkflowParser):
         self,
         scope: object_scope.ScopeProxy,
         symbol_map: symbol_scope.SymbolScope,
+        info_factory: versions.VersionInfoFactory,
         *,
         source: versions.VersionInfo | None = None,
         func: FunctionType,
         output_labels: Collection[str],
     ):
-        super().__init__(scope, symbol_map, source=source)
+        super().__init__(
+            scope,
+            symbol_map,
+            info_factory,
+            source=source,
+        )
         self._func = func
         self._output_labels = output_labels
         self._found_return = False

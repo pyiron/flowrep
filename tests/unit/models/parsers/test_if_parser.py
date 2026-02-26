@@ -27,6 +27,11 @@ def identity(x):
     return x
 
 
+def undecorated_identity(x):
+    """For checking parser propagation"""
+    return x
+
+
 @atomic_parser.atomic
 def my_add(a, b):
     return a + b
@@ -797,6 +802,94 @@ class TestIfNodeRoundTrip(unittest.TestCase):
                 dumped = node.model_dump(mode=mode)
                 restored = workflow_model.WorkflowNode.model_validate(dumped)
                 self.assertEqual(node, restored)
+
+
+# ===================================================================
+# Version propagation
+# ===================================================================
+
+
+class TestIfParserVersionPropagation(unittest.TestCase):
+    """Version scraping/constraints propagate into if/else body child nodes."""
+
+    def _pkg(self) -> str:
+        return undecorated_identity.__module__.split(".")[0]
+
+    def test_version_scraping_propagates_into_if_body(self):
+        """Undecorated child inside an if body receives the scraping map."""
+        custom = "10.20.30"
+
+        def wf(x, y):
+            if my_condition(x, y):
+                z = undecorated_identity(x)
+            else:
+                z = undecorated_identity(y)
+            return z
+
+        node = workflow_parser.parse_workflow(
+            wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        if_node = node.nodes["if_0"]
+        body = if_node.cases[0].body.node
+        child = body.nodes["undecorated_identity_0"]
+        self.assertEqual(child.source.version, custom)
+
+    def test_version_scraping_propagates_into_else_body(self):
+        """Undecorated child inside an else body receives the scraping map."""
+        custom = "20.30.40"
+
+        def wf(x, y):
+            if my_condition(x, y):
+                z = identity(x)
+            else:
+                z = undecorated_identity(y)
+            return z
+
+        node = workflow_parser.parse_workflow(
+            wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        if_node = node.nodes["if_0"]
+        else_body = if_node.else_case.node
+        child = else_body.nodes["undecorated_identity_0"]
+        self.assertEqual(child.source.version, custom)
+
+    def test_version_scraping_propagates_to_condition(self):
+        """
+        The condition node is pre-decorated (@atomic), so scraping should
+        not override it.  Verify the body child *does* get the custom version
+        while the condition does not — confirming selective propagation.
+        """
+        custom = "99.0.0"
+
+        def wf(x, y):
+            if my_condition(x, y):
+                z = undecorated_identity(x)
+            else:
+                z = undecorated_identity(y)
+            return z
+
+        node = workflow_parser.parse_workflow(
+            wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        if_node = node.nodes["if_0"]
+        # condition is pre-decorated, and so keeps its own version
+        condition_node = if_node.cases[0].condition.node
+        self.assertNotEqual(condition_node.source.version, custom)
+        # body child is undecorated, and so picks up custom version
+        body_child = if_node.cases[0].body.node.nodes["undecorated_identity_0"]
+        self.assertEqual(body_child.source.version, custom)
+
+    def test_version_constraints_propagate_to_condition(self):
+        def wf(x, y):
+            if my_condition(x, y):
+                z = undecorated_identity(x)
+            else:
+                z = undecorated_identity(y)
+            return z
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf, require_version=True)
+        self.assertIn("Could not find a version", str(ctx.exception))
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 import dataclasses
 
+from pyiron_snippets import versions
+
 from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models, if_model
 from flowrep.models.parsers import (
@@ -30,6 +32,7 @@ def parse_if_node(
     tree: ast.If,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,
+    info_factory: versions.VersionInfoFactory,
     walker_factory: parser_protocol.WalkerFactory,
 ):
     """
@@ -39,6 +42,7 @@ def parse_if_node(
         tree: The top-level ``ast.If`` node.
         scope: Object-level scope for resolving callable references.
         symbol_map: The enclosing :class:`SymbolScope` (used for forking).
+        info_factory: Stateful object for collecting version info.
         walker_factory: Callable that creates a :class:`BodyWalker` from a
             :class:`SymbolScope`.  Avoids a circular import with
             ``workflow_parser.WorkflowParser``.
@@ -55,10 +59,19 @@ def parse_if_node(
         body_label = f"{IF_BODY_LABEL_PREFIX}_{idx}"
 
         labeled_cond, cond_inputs = case_helpers.parse_case(
-            test_expr, scope, symbol_map, cond_label
+            test_expr,
+            scope,
+            symbol_map,
+            info_factory,
+            cond_label,
         )
         body = case_helpers.walk_branch(
-            body_label, body_stmts, symbol_map, scope, walker_factory
+            body_label,
+            body_stmts,
+            symbol_map,
+            scope,
+            info_factory,
+            walker_factory,
         )
         cases.append(
             _CaseComponents(
@@ -71,7 +84,12 @@ def parse_if_node(
     # --- process else case (if present) ---
     if else_stmts is not None:
         else_branch = case_helpers.walk_branch(
-            IF_ELSE_LABEL, else_stmts, symbol_map, scope, walker_factory
+            IF_ELSE_LABEL,
+            else_stmts,
+            symbol_map,
+            scope,
+            info_factory,
+            walker_factory,
         )
 
     # --- wire edges ---

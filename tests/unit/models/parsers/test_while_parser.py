@@ -16,6 +16,11 @@ def identity(x):
     return x
 
 
+def undecorated_identity(x):
+    """For checking parser propagation"""
+    return x
+
+
 @atomic_parser.atomic
 def my_add(a, b):
     return a + b
@@ -453,6 +458,62 @@ class TestWhileParserRoundTrip(unittest.TestCase):
                 dumped = node.model_dump(mode=mode)
                 restored = workflow_model.WorkflowNode.model_validate(dumped)
                 self.assertEqual(node, restored)
+
+
+class TestWhileParserVersionPropagation(unittest.TestCase):
+    """Version scraping/constraints propagate into while-loop body child nodes."""
+
+    def _pkg(self) -> str:
+        return undecorated_identity.__module__.split(".")[0]
+
+    def test_version_scraping_propagates_into_while_body(self):
+        """Undecorated child inside a while body receives the scraping map."""
+        custom = "10.20.30"
+
+        def wf(x, bound):
+            while my_condition(x, bound):
+                x = undecorated_identity(x)
+            return x
+
+        node = workflow_parser.parse_workflow(
+            wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        while_node = node.nodes["while_0"]
+        body = while_node.case.body.node
+        child = body.nodes["undecorated_identity_0"]
+        self.assertEqual(child.source.version, custom)
+
+    def test_version_scraping_propagates_to_condition(self):
+        """The condition node is pre-decorated (@atomic), so scraping should
+        not override it.  Verify the body child *does* get the custom version
+        while the condition does not — confirming selective propagation."""
+        custom = "99.0.0"
+
+        def wf(x, bound):
+            while my_condition(x, bound):
+                x = undecorated_identity(x)
+            return x
+
+        node = workflow_parser.parse_workflow(
+            wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        while_node = node.nodes["while_0"]
+        # condition is pre-decorated → keeps its own version
+        condition_node = while_node.case.condition.node
+        self.assertNotEqual(condition_node.source.version, custom)
+        # body child is undecorated → picks up custom version
+        body_child = while_node.case.body.node.nodes["undecorated_identity_0"]
+        self.assertEqual(body_child.source.version, custom)
+
+    def test_version_constraints_propagate_to_condition(self):
+        def wf(x, bound):
+            while my_condition(x, bound):
+                x = undecorated_identity(x)
+            return x
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf, require_version=True)
+        self.assertIn("Could not find a version", str(ctx.exception))
 
 
 if __name__ == "__main__":

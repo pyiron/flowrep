@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 from typing import NamedTuple
 
+from pyiron_snippets import versions
+
 from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, helper_models
 from flowrep.models.parsers import object_scope, parser_protocol, symbol_scope
@@ -27,6 +29,7 @@ def parse_for_node(
     tree: ast.For,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,
+    info_factory: versions.VersionInfoFactory,
     walker_factory: parser_protocol.WalkerFactory,
 ) -> for_model.ForNode:
     """
@@ -37,6 +40,7 @@ def parse_for_node(
             nested for-headers that declare additional iteration axes).
         scope: Object-level scope for resolving callable references.
         symbol_map: The enclosing :class:`SymbolScope` (used for forking).
+        info_factory: Stateful object for collecting version info.
         walker_factory: Callable that creates a :class:`BodyWalker` from a
             :class:`SymbolScope`.  Avoids a circular import with
             ``workflow_parser.WorkflowParser``.
@@ -52,7 +56,7 @@ def parse_for_node(
         available_accumulators=symbol_map.declared_accumulators.copy(),
     )
 
-    body_walker = walker_factory(scope, body_symbol_map)
+    body_walker = walker_factory(scope, body_symbol_map, info_factory)
     body_walker.walk(body_tree.body)
     consumed = body_walker.symbol_map.consumed_accumulators
 

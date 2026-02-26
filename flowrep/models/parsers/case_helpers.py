@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 import dataclasses
 
+from pyiron_snippets import versions
+
 from flowrep.models import edge_models, subgraph_validation
 from flowrep.models.nodes import helper_models
 from flowrep.models.parsers import (
@@ -18,6 +20,7 @@ def parse_case(
     test: ast.expr,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,
+    info_factory: versions.VersionInfoFactory,
     label: str,
 ) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
     """
@@ -31,7 +34,7 @@ def parse_case(
             "Test conditions must be a function call, but got " f"{type(test).__name__}"
         )
 
-    condition = atomic_parser.get_labeled_recipe(test, set(), scope)
+    condition = atomic_parser.get_labeled_recipe(test, set(), scope, info_factory)
     if len(condition.node.outputs) != 1:
         raise ValueError(
             f"If/elif condition must return exactly one value (and it had better be "
@@ -74,10 +77,11 @@ def walk_branch(
     stmts: list[ast.stmt],
     symbol_map: symbol_scope.SymbolScope,
     scope: object_scope.ScopeProxy,
+    info_factory: versions.VersionInfoFactory,
     walker_factory: parser_protocol.WalkerFactory,
 ) -> WalkedBranch:
     fork = symbol_map.fork_scope()
-    w = walker_factory(scope, fork)
+    w = walker_factory(scope, fork, info_factory)
     w.walk(stmts)
     assigned = fork.assigned_symbols
     fork.produce_symbols(assigned)

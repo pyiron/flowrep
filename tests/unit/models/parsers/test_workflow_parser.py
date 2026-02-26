@@ -3,6 +3,8 @@ import types
 import unittest
 from typing import Annotated, Any
 
+from pyiron_snippets import versions
+
 from flowrep.models import edge_models
 from flowrep.models.nodes import atomic_model, workflow_model
 from flowrep.models.parsers import (
@@ -164,7 +166,9 @@ class TestParseWorkflowBasic(unittest.TestCase):
     def test_protocol_fulfillment(self):
         self.assertIsInstance(
             workflow_parser.WorkflowParser(
-                object_scope.ScopeProxy({}), symbol_scope.SymbolScope({})
+                object_scope.ScopeProxy({}),
+                symbol_scope.SymbolScope({}),
+                versions.VersionInfoFactory(),
             ),
             parser_protocol.BodyWalker,
         )
@@ -784,6 +788,70 @@ class TestParseWorkflowSourceCode(unittest.TestCase):
                 data = node.model_dump(mode=mode)
                 restored = workflow_model.WorkflowNode.model_validate(data)
                 self.assertEqual(node.source_code, restored.source_code)
+
+
+class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
+    """Verify version_scraping propagates to child nodes parsed inside a workflow."""
+
+    def _pkg(self) -> str:
+        return add.__module__.split(".")[0]
+
+    def test_scraping_propagates_to_undecorated_child(self):
+        """An undecorated function parsed on-the-fly should receive the scraping map."""
+        custom = "11.22.33"
+
+        def my_wf(x):
+            y = add(x)
+            return y
+
+        node = workflow_parser.parse_workflow(
+            my_wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        child = node.nodes["add_0"]
+        self.assertEqual(child.source.version, custom)
+
+    def test_scraping_does_not_override_prebuilt_recipe(self):
+        """A function already decorated with @atomic keeps its own recipe."""
+        custom = "99.99.99"
+
+        def my_wf(x):
+            y = _wp_identity(x)
+            return y
+
+        node = workflow_parser.parse_workflow(
+            my_wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        child = node.nodes["_wp_identity_0"]
+        # _wp_identity was decorated at import time; its recipe is fixed
+        self.assertNotEqual(child.source.version, custom)
+
+    def test_scraping_propagates_through_chained_nodes(self):
+        """Multiple undecorated children all receive the scraping map."""
+        custom = "44.55.66"
+
+        def my_wf(x):
+            y = add(x)
+            z = multiply(y)
+            return z
+
+        node = workflow_parser.parse_workflow(
+            my_wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        self.assertEqual(node.nodes["add_0"].source.version, custom)
+        self.assertEqual(node.nodes["multiply_0"].source.version, custom)
+
+    def test_decorator_propagates_scraping_to_children(self):
+        """@workflow decorator forwards version_scraping to child nodes."""
+        custom = "77.88.99"
+        pkg = add.__module__.split(".")[0]
+
+        @workflow_parser.workflow(version_scraping={pkg: lambda _: custom})
+        def my_wf(x):
+            y = add(x)
+            return y
+
+        child = my_wf.flowrep_recipe.nodes["add_0"]
+        self.assertEqual(child.source.version, custom)
 
 
 if __name__ == "__main__":
