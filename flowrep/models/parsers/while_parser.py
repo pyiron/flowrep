@@ -32,7 +32,7 @@ def parse_while_node(
         WHILE_CONDITION_LABEL,
     )
 
-    body_walker = walker.fork(custom_symbol_map=walker.symbol_map.fork_scope())
+    body_walker = walker.fork(new_symbol_map=walker.symbol_map.fork_scope())
     body_walker.walk(tree.body)
     reassigned_symbols = body_walker.symbol_map.reassigned_symbols
 

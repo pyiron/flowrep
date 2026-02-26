@@ -40,9 +40,4 @@ class BodyWalker(Protocol):
 
     def build_model(self) -> workflow_model.WorkflowNode: ...
 
-    def fork(
-        self,
-        custom_scope: object_scope.ScopeProxy | None = None,
-        custom_symbol_map: symbol_scope.SymbolScope | None = None,
-        custom_info_factory: versions.VersionInfoFactory | None = None,
-    ) -> BodyWalker: ...
+    def fork(self, *, new_symbol_map: symbol_scope.SymbolScope) -> BodyWalker: ...
