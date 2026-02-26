@@ -45,6 +45,7 @@ def get_call_dependencies(
     """
     return get_dependencies(func, version_scraping, _call_dependencies, _visited)[0]
 
+
 def get_dependencies(
     func: types.FunctionType,
     version_scraping: versions.VersionScrapingMap | None = None,
