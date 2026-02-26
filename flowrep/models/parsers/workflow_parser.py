@@ -215,12 +215,12 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             source_code=source_code,
         )
 
+    def fork(self, new_symbol_map: symbol_scope.SymbolScope) -> WorkflowParser:
+        return WorkflowParser(self.scope, new_symbol_map, self.info_factory)
+
     def walk(self, statements: list[ast.stmt]) -> None:
         for statement in statements:
             self.visit(statement)
-
-    def fork(self, new_symbol_map: symbol_scope.SymbolScope) -> WorkflowParser:
-        return WorkflowParser(self.scope, new_symbol_map, self.info_factory)
 
     def visit_Assign(self, stmt: ast.Assign) -> None:
         self._handle_assign(stmt)
