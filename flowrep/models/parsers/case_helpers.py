@@ -41,7 +41,7 @@ def parse_case(
             f"truthy), but got {condition.node.outputs}"
         )
 
-    scope_copy = symbol_map.fork_scope()
+    scope_copy = symbol_map.fork()
     parser_helpers.consume_call_arguments(scope_copy, test, condition)
     return _relabel_node_data(condition, scope_copy.input_edges, label)
 
@@ -75,7 +75,7 @@ class WalkedBranch:
 def walk_branch(
     walker: parser_protocol.BodyWalker, label: str, stmts: list[ast.stmt]
 ) -> WalkedBranch:
-    fork = walker.symbol_map.fork_scope()
+    fork = walker.symbol_map.fork()
     branch_walker = walker.fork(new_symbol_map=fork)
     branch_walker.walk(stmts)
     assigned = fork.assigned_symbols

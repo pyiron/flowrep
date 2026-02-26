@@ -40,7 +40,7 @@ def parse_for_node(
 
     # When we fork the scope here, we replace iterated-over symbols with iteration
     # variables, all as InputSources from the body's perspective
-    body_symbol_map = walker.symbol_map.fork_scope(
+    body_symbol_map = walker.symbol_map.fork(
         {src: var for var, src in all_iters},
         available_accumulators=walker.symbol_map.declared_accumulators.copy(),
     )
