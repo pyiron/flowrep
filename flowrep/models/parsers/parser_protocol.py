@@ -49,3 +49,25 @@ class BodyWalker(Protocol):
     def walk(self, statements: list[ast.stmt]) -> None: ...
 
     def build_model(self) -> workflow_model.WorkflowNode: ...
+
+
+@runtime_checkable
+class WalkerKit(Protocol):
+    @property
+    def walker_factory(self) -> WalkerFactory: ...
+
+    @property
+    def scope(self) -> object_scope.ScopeProxy: ...
+
+    @property
+    def symbol_map(self) -> symbol_scope.SymbolScope: ...
+
+    @property
+    def info_factory(self) -> versions.VersionInfoFactory: ...
+
+    def build(
+        self,
+        custom_scope: object_scope.ScopeProxy | None = None,
+        custom_symbol_map: symbol_scope.SymbolScope | None = None,
+        custom_info_factory: versions.VersionInfoFactory | None = None,
+    ) -> BodyWalker: ...

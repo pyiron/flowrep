@@ -75,13 +75,10 @@ class WalkedBranch:
 def walk_branch(
     label: str,
     stmts: list[ast.stmt],
-    symbol_map: symbol_scope.SymbolScope,
-    scope: object_scope.ScopeProxy,
-    info_factory: versions.VersionInfoFactory,
-    walker_factory: parser_protocol.WalkerFactory,
+    walker_kit: parser_protocol.WalkerKit,
 ) -> WalkedBranch:
-    fork = symbol_map.fork_scope()
-    w = walker_factory(scope, fork, info_factory)
+    fork = walker_kit.symbol_map.fork_scope()
+    w = walker_kit.build(custom_symbol_map=fork)
     w.walk(stmts)
     assigned = fork.assigned_symbols
     fork.produce_symbols(assigned)

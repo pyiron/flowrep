@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import ast
+import dataclasses
 from collections.abc import Callable, Collection
 from types import FunctionType
 from typing import cast
@@ -197,6 +200,15 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
     def outputs(self) -> list[str]:
         return self.symbol_map.outputs
 
+    @property
+    def walker_kit(self) -> WorkflowParserKit:
+        return WorkflowParserKit(
+            walker_factory=type(self),
+            scope=self.scope,
+            symbol_map=self.symbol_map,
+            info_factory=self.info_factory,
+        )
+
     def build_model(
         self,
         inputs_override: list[str] | None = None,
@@ -266,45 +278,21 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
 
     def visit_For(self, tree: ast.For) -> None:
-        for_node = for_parser.parse_for_node(
-            tree,
-            self.scope,
-            self.symbol_map,
-            self.info_factory,
-            WorkflowParser,
-        )
+        for_node = for_parser.parse_for_node(tree, self.walker_kit)
         # Accumulators consumed by the for body are no longer available here
         self.symbol_map.declared_accumulators -= set(for_node.outputs)
         self._digest_flow_control("for", for_node)
 
     def visit_While(self, tree: ast.While) -> None:
-        while_node = while_parser.parse_while_node(
-            tree,
-            self.scope,
-            self.symbol_map,
-            self.info_factory,
-            WorkflowParser,
-        )
+        while_node = while_parser.parse_while_node(tree, self.walker_kit)
         self._digest_flow_control("while", while_node)
 
     def visit_If(self, tree: ast.If) -> None:
-        if_node = if_parser.parse_if_node(
-            tree,
-            self.scope,
-            self.symbol_map,
-            self.info_factory,
-            WorkflowParser,
-        )
+        if_node = if_parser.parse_if_node(tree, self.walker_kit)
         self._digest_flow_control("if", if_node)
 
     def visit_Try(self, tree: ast.Try) -> None:
-        try_node = try_parser.parse_try_node(
-            tree,
-            self.scope,
-            self.symbol_map,
-            self.info_factory,
-            WorkflowParser,
-        )
+        try_node = try_parser.parse_try_node(tree, self.walker_kit)
         self._digest_flow_control("try", try_node)
 
     def visit_Expr(self, stmt: ast.Expr) -> None:
@@ -410,6 +398,26 @@ class _WorkflowFunctionParser(WorkflowParser):
                     f"workflow inputs."
                 )
             self.symbol_map.produce(port, symbol)
+
+
+@dataclasses.dataclass(frozen=True)
+class WorkflowParserKit:  # fulfills parser_protocol.WalkerKit
+    scope: object_scope.ScopeProxy
+    symbol_map: symbol_scope.SymbolScope
+    info_factory: versions.VersionInfoFactory
+    walker_factory: type[WorkflowParser] = WorkflowParser
+
+    def build(
+        self,
+        custom_scope: object_scope.ScopeProxy | None = None,
+        custom_symbol_map: symbol_scope.SymbolScope | None = None,
+        custom_info_factory: versions.VersionInfoFactory | None = None,
+    ) -> WorkflowParser:
+        return WorkflowParser(
+            custom_scope or self.scope,
+            custom_symbol_map or self.symbol_map,
+            custom_info_factory or self.info_factory,
+        )
 
 
 def is_append_call(node: ast.expr | ast.Expr) -> bool:

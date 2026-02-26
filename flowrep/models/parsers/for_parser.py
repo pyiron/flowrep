@@ -3,11 +3,9 @@ from __future__ import annotations
 import ast
 from typing import NamedTuple
 
-from pyiron_snippets import versions
-
 from flowrep.models import edge_models
 from flowrep.models.nodes import for_model, helper_models
-from flowrep.models.parsers import object_scope, parser_protocol, symbol_scope
+from flowrep.models.parsers import parser_protocol, symbol_scope
 
 FOR_BODY_LABEL: str = "body"
 
@@ -26,11 +24,7 @@ Maps accumulator names, xs, to appended symbol names, x, in statements like xs.a
 
 
 def parse_for_node(
-    tree: ast.For,
-    scope: object_scope.ScopeProxy,
-    symbol_map: symbol_scope.SymbolScope,
-    info_factory: versions.VersionInfoFactory,
-    walker_factory: parser_protocol.WalkerFactory,
+    tree: ast.For, walker_kit: parser_protocol.WalkerKit
 ) -> for_model.ForNode:
     """
     Walk a for-loop.
@@ -38,12 +32,8 @@ def parse_for_node(
     Args:
         tree: The top-level ``ast.For`` node (may contain immediately
             nested for-headers that declare additional iteration axes).
-        scope: Object-level scope for resolving callable references.
-        symbol_map: The enclosing :class:`SymbolScope` (used for forking).
-        info_factory: Stateful object for collecting version info.
-        walker_factory: Callable that creates a :class:`BodyWalker` from a
-            :class:`SymbolScope`.  Avoids a circular import with
-            ``workflow_parser.WorkflowParser``.
+        walker_kit: A walker factory and everything needed to pump an instance out of
+            it, per the protocol.
     """
     # Parse the iteration header — pure AST, no parser state needed
     nested_iters, zipped_iters, body_tree = _parse_for_iterations(tree)
@@ -51,18 +41,20 @@ def parse_for_node(
 
     # When we fork the scope here, we replace iterated-over symbols with iteration
     # variables, all as InputSources from the body's perspective
-    body_symbol_map = symbol_map.fork_scope(
+    body_symbol_map = walker_kit.symbol_map.fork_scope(
         {src: var for var, src in all_iters},
-        available_accumulators=symbol_map.declared_accumulators.copy(),
+        available_accumulators=walker_kit.symbol_map.declared_accumulators.copy(),
     )
 
-    body_walker = walker_factory(scope, body_symbol_map, info_factory)
+    body_walker = walker_kit.build(custom_symbol_map=body_symbol_map)
     body_walker.walk(body_tree.body)
     consumed = body_walker.symbol_map.consumed_accumulators
 
     _validate_some_output_exists(consumed)
     _validate_no_unused_iterators(all_iters, body_walker, consumed)
-    _validate_no_leaked_reassignments(all_iters, body_walker, consumed, symbol_map)
+    _validate_no_leaked_reassignments(
+        all_iters, body_walker, consumed, walker_kit.symbol_map
+    )
 
     nested_ports = [var for var, _ in nested_iters]
     zipped_ports = [var for var, _ in zipped_iters]
