@@ -53,7 +53,7 @@ def get_dependencies(
     version_scraping: versions.VersionScrapingMap | None = None,
     _call_dependencies: CallDependencies | None = None,
     _visited: set[str] | None = None,
-) -> CallDependencies:
+) -> tuple[CallDependencies, list[object]]:
     """
     Recursively collect all callable dependencies of *func* via AST introspection.
 
