@@ -24,15 +24,15 @@ Maps accumulator names, xs, to appended symbol names, x, in statements like xs.a
 
 
 def parse_for_node(
-    tree: ast.For, walker: parser_protocol.BodyWalker
+    walker: parser_protocol.BodyWalker, tree: ast.For
 ) -> for_model.ForNode:
     """
     Walk a for-loop.
 
     Args:
+        walker: A walker to fork and use for collecting state inside the tree.
         tree: The top-level ``ast.For`` node (may contain immediately
             nested for-headers that declare additional iteration axes).
-        walker: A walker to fork and use for collecting state inside the tree.
     """
     # Parse the iteration header — pure AST, no parser state needed
     nested_iters, zipped_iters, body_tree = _parse_for_iterations(tree)

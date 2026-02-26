@@ -21,13 +21,13 @@ class _CaseComponents:
     body: case_helpers.WalkedBranch
 
 
-def parse_if_node(tree: ast.If, walker: parser_protocol.BodyWalker) -> if_model.IfNode:
+def parse_if_node(walker: parser_protocol.BodyWalker, tree: ast.If) -> if_model.IfNode:
     """
     Walk an if/elif/else chain.
 
     Args:
-        tree: The top-level ``ast.If`` node.
         walker: A walker to fork and use for collecting state inside the tree.
+        tree: The top-level ``ast.If`` node.
     """
 
     cases: list[_CaseComponents] = []
@@ -47,7 +47,7 @@ def parse_if_node(tree: ast.If, walker: parser_protocol.BodyWalker) -> if_model.
             walker.info_factory,
             cond_label,
         )
-        body = case_helpers.walk_branch(body_label, body_stmts, walker)
+        body = case_helpers.walk_branch(walker, body_label, body_stmts)
         cases.append(
             _CaseComponents(
                 condition=labeled_cond,
@@ -58,7 +58,7 @@ def parse_if_node(tree: ast.If, walker: parser_protocol.BodyWalker) -> if_model.
 
     # --- process else case (if present) ---
     if else_stmts is not None:
-        else_branch = case_helpers.walk_branch(IF_ELSE_LABEL, else_stmts, walker)
+        else_branch = case_helpers.walk_branch(walker, IF_ELSE_LABEL, else_stmts)
 
     # --- wire edges ---
     body_branches = [cc.body for cc in cases]

@@ -280,21 +280,21 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
 
     def visit_For(self, tree: ast.For) -> None:
-        for_node = for_parser.parse_for_node(tree, self)
+        for_node = for_parser.parse_for_node(self, tree)
         # Accumulators consumed by the for body are no longer available here
         self.symbol_map.declared_accumulators -= set(for_node.outputs)
         self._digest_flow_control("for", for_node)
 
     def visit_While(self, tree: ast.While) -> None:
-        while_node = while_parser.parse_while_node(tree, self)
+        while_node = while_parser.parse_while_node(self, tree)
         self._digest_flow_control("while", while_node)
 
     def visit_If(self, tree: ast.If) -> None:
-        if_node = if_parser.parse_if_node(tree, self)
+        if_node = if_parser.parse_if_node(self, tree)
         self._digest_flow_control("if", if_node)
 
     def visit_Try(self, tree: ast.Try) -> None:
-        try_node = try_parser.parse_try_node(tree, self)
+        try_node = try_parser.parse_try_node(self, tree)
         self._digest_flow_control("try", try_node)
 
     def visit_Expr(self, stmt: ast.Expr) -> None:

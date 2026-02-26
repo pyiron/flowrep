@@ -12,14 +12,14 @@ WHILE_BODY_LABEL: str = "body"
 
 
 def parse_while_node(
-    tree: ast.While, walker: parser_protocol.BodyWalker
+    walker: parser_protocol.BodyWalker, tree: ast.While
 ) -> while_model.WhileNode:
     """
     Walk a while-loop.
 
     Args:
-        tree: The ``ast.While`` node.
         walker: A walker to fork and use for collecting state inside the tree.
+        tree: The ``ast.While`` node.
     """
     _validate_syntax_is_supported(tree)
 

@@ -73,9 +73,7 @@ class WalkedBranch:
 
 
 def walk_branch(
-    label: str,
-    stmts: list[ast.stmt],
-    walker: parser_protocol.BodyWalker,
+    walker: parser_protocol.BodyWalker, label: str, stmts: list[ast.stmt]
 ) -> WalkedBranch:
     fork = walker.symbol_map.fork_scope()
     branch_walker = walker.fork(custom_symbol_map=fork)
