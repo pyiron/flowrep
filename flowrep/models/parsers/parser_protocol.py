@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 
 from pyiron_snippets import versions
@@ -9,15 +8,6 @@ from pyiron_snippets import versions
 from flowrep.models import edge_models
 from flowrep.models.nodes import union, workflow_model
 from flowrep.models.parsers import object_scope, symbol_scope
-
-WalkerFactory = Callable[
-    [
-        object_scope.ScopeProxy,
-        symbol_scope.SymbolScope,
-        versions.VersionInfoFactory,
-    ],
-    "BodyWalker",
-]
 
 
 @runtime_checkable
@@ -50,22 +40,7 @@ class BodyWalker(Protocol):
 
     def build_model(self) -> workflow_model.WorkflowNode: ...
 
-
-@runtime_checkable
-class WalkerKit(Protocol):
-    @property
-    def walker_factory(self) -> WalkerFactory: ...
-
-    @property
-    def scope(self) -> object_scope.ScopeProxy: ...
-
-    @property
-    def symbol_map(self) -> symbol_scope.SymbolScope: ...
-
-    @property
-    def info_factory(self) -> versions.VersionInfoFactory: ...
-
-    def build(
+    def fork(
         self,
         custom_scope: object_scope.ScopeProxy | None = None,
         custom_symbol_map: symbol_scope.SymbolScope | None = None,

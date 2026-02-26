@@ -12,28 +12,27 @@ WHILE_BODY_LABEL: str = "body"
 
 
 def parse_while_node(
-    tree: ast.While, walker_kit: parser_protocol.WalkerKit
+    tree: ast.While, walker: parser_protocol.BodyWalker
 ) -> while_model.WhileNode:
     """
     Walk a while-loop.
 
     Args:
         tree: The ``ast.While`` node.
-        walker_kit: A walker factory and everything needed to pump an instance out of
-            it, per the protocol.
+        walker: A walker to fork and use for collecting state inside the tree.
     """
     _validate_syntax_is_supported(tree)
 
     # Parse the loop condition — pure AST, no parser state needed
     labeled_condition, condition_inputs = case_helpers.parse_case(
         tree.test,
-        walker_kit.scope,
-        walker_kit.symbol_map,
-        walker_kit.info_factory,
+        walker.scope,
+        walker.symbol_map,
+        walker.info_factory,
         WHILE_CONDITION_LABEL,
     )
 
-    body_walker = walker_kit.build(custom_symbol_map=walker_kit.symbol_map.fork_scope())
+    body_walker = walker.fork(custom_symbol_map=walker.symbol_map.fork_scope())
     body_walker.walk(tree.body)
     reassigned_symbols = body_walker.symbol_map.reassigned_symbols
 

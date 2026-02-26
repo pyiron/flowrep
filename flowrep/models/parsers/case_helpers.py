@@ -75,14 +75,14 @@ class WalkedBranch:
 def walk_branch(
     label: str,
     stmts: list[ast.stmt],
-    walker_kit: parser_protocol.WalkerKit,
+    walker: parser_protocol.BodyWalker,
 ) -> WalkedBranch:
-    fork = walker_kit.symbol_map.fork_scope()
-    w = walker_kit.build(custom_symbol_map=fork)
-    w.walk(stmts)
+    fork = walker.symbol_map.fork_scope()
+    branch_walker = walker.fork(custom_symbol_map=fork)
+    branch_walker.walk(stmts)
     assigned = fork.assigned_symbols
     fork.produce_symbols(assigned)
-    return WalkedBranch(label, w, assigned)
+    return WalkedBranch(label, branch_walker, assigned)
 
 
 def wire_inputs(

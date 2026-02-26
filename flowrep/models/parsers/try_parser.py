@@ -12,15 +12,14 @@ EXCEPT_BODY_LABEL_PREFIX: str = "except_body"
 
 
 def parse_try_node(
-    tree: ast.Try, walker_kit: parser_protocol.WalkerKit
+    tree: ast.Try, walker: parser_protocol.BodyWalker
 ) -> try_model.TryNode:
     """
     Walk a try/except block.
 
     Args:
         tree: The ``ast.Try`` node.
-        walker_kit: A walker factory and everything needed to pump an instance out of
-            it, per the protocol.
+        walker: A walker to fork and use for collecting state inside the tree.
     """
     # 0. Fail early for unsupported syntax
     if tree.orelse:
@@ -34,7 +33,7 @@ def parse_try_node(
         )
 
     # 1. Parse the try body
-    try_branch = case_helpers.walk_branch(TRY_BODY_LABEL, tree.body, walker_kit)
+    try_branch = case_helpers.walk_branch(TRY_BODY_LABEL, tree.body, walker)
 
     # 2. Parse each except handler
     exception_groups: list[list[str]] = []
@@ -42,11 +41,9 @@ def parse_try_node(
     for idx, handler in enumerate(tree.handlers):
         body_label = f"{EXCEPT_BODY_LABEL_PREFIX}_{idx}"
 
-        exception_groups.append(_parse_exception_types(handler, walker_kit.scope))
+        exception_groups.append(_parse_exception_types(handler, walker.scope))
 
-        exception_branch = case_helpers.walk_branch(
-            body_label, handler.body, walker_kit
-        )
+        exception_branch = case_helpers.walk_branch(body_label, handler.body, walker)
         except_branches.append(exception_branch)
 
     # 3. Wire edges

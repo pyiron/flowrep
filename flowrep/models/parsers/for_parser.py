@@ -24,7 +24,7 @@ Maps accumulator names, xs, to appended symbol names, x, in statements like xs.a
 
 
 def parse_for_node(
-    tree: ast.For, walker_kit: parser_protocol.WalkerKit
+    tree: ast.For, walker: parser_protocol.BodyWalker
 ) -> for_model.ForNode:
     """
     Walk a for-loop.
@@ -32,8 +32,7 @@ def parse_for_node(
     Args:
         tree: The top-level ``ast.For`` node (may contain immediately
             nested for-headers that declare additional iteration axes).
-        walker_kit: A walker factory and everything needed to pump an instance out of
-            it, per the protocol.
+        walker: A walker to fork and use for collecting state inside the tree.
     """
     # Parse the iteration header — pure AST, no parser state needed
     nested_iters, zipped_iters, body_tree = _parse_for_iterations(tree)
@@ -41,19 +40,19 @@ def parse_for_node(
 
     # When we fork the scope here, we replace iterated-over symbols with iteration
     # variables, all as InputSources from the body's perspective
-    body_symbol_map = walker_kit.symbol_map.fork_scope(
+    body_symbol_map = walker.symbol_map.fork_scope(
         {src: var for var, src in all_iters},
-        available_accumulators=walker_kit.symbol_map.declared_accumulators.copy(),
+        available_accumulators=walker.symbol_map.declared_accumulators.copy(),
     )
 
-    body_walker = walker_kit.build(custom_symbol_map=body_symbol_map)
+    body_walker = walker.fork(custom_symbol_map=body_symbol_map)
     body_walker.walk(body_tree.body)
     consumed = body_walker.symbol_map.consumed_accumulators
 
     _validate_some_output_exists(consumed)
     _validate_no_unused_iterators(all_iters, body_walker, consumed)
     _validate_no_leaked_reassignments(
-        all_iters, body_walker, consumed, walker_kit.symbol_map
+        all_iters, body_walker, consumed, walker.symbol_map
     )
 
     nested_ports = [var for var, _ in nested_iters]
