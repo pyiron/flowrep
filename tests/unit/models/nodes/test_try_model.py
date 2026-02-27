@@ -11,6 +11,8 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 
+_VALUE_ERROR_INFO = versions.VersionInfo.of(ValueError)
+
 
 def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
@@ -32,12 +34,12 @@ def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 
 def _make_exception_case(
     n: int,
-    exceptions: list[str] | None = None,
+    exceptions: list[versions.VersionInfo] | None = None,
     inputs=None,
     outputs=None,
 ) -> helper_models.ExceptionCase:
     return helper_models.ExceptionCase(
-        exceptions=exceptions or ["builtins.ValueError"],
+        exceptions=exceptions or [_VALUE_ERROR_INFO],
         body=helper_models.LabeledNode(
             label=f"except_{n}", node=_make_except_body(inputs=inputs, outputs=outputs)
         ),
@@ -123,7 +125,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             label="shared_label", node=_make_try_body()
         )
         exception_case = helper_models.ExceptionCase(
-            exceptions=["builtins.ValueError"],
+            exceptions=[_VALUE_ERROR_INFO],
             body=helper_models.LabeledNode(
                 label="shared_label", node=_make_except_body()
             ),  # Duplicate
@@ -147,11 +149,11 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
         """Labels must be unique across exception cases."""
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         case0 = helper_models.ExceptionCase(
-            exceptions=["builtins.ValueError"],
+            exceptions=[_VALUE_ERROR_INFO],
             body=helper_models.LabeledNode(label="handler", node=_make_except_body()),
         )
         case1 = helper_models.ExceptionCase(
-            exceptions=["builtins.TypeError"],
+            exceptions=[versions.VersionInfo.of(TypeError)],
             body=helper_models.LabeledNode(
                 label="handler", node=_make_except_body()
             ),  # Dup
@@ -201,7 +203,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
 
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_case = helper_models.ExceptionCase(
-            exceptions=["builtins.ValueError"],
+            exceptions=[_VALUE_ERROR_INFO],
             body=helper_models.LabeledNode(
                 label="workflow_handler", node=workflow_body
             ),
@@ -520,7 +522,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         )
         try_node = helper_models.LabeledNode(label="try_body", node=body_node)
         exception_case = helper_models.ExceptionCase(
-            exceptions=["builtins.ValueError"],
+            exceptions=[_VALUE_ERROR_INFO],
             body=helper_models.LabeledNode(label="except_body", node=body_node),
         )
         node = try_model.TryNode(
@@ -562,7 +564,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
             ),
         )
         exception_case = helper_models.ExceptionCase(
-            exceptions=["builtins.ValueError"],
+            exceptions=[_VALUE_ERROR_INFO],
             body=helper_models.LabeledNode(
                 label="handler",
                 node=atomic_model.AtomicNode(
@@ -613,7 +615,7 @@ class TestTryNodeProspectiveNodes(unittest.TestCase):
         """prospective_nodes rejects nodes with conflicting labels."""
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_case = helper_models.ExceptionCase(
-            exceptions=["builtins.ValueError"],
+            exceptions=[_VALUE_ERROR_INFO],
             body=helper_models.LabeledNode(label="try_body", node=_make_except_body()),
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -650,9 +652,9 @@ class TestTryNodeSerialization(unittest.TestCase):
         try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_case = helper_models.ExceptionCase(
             exceptions=[
-                "builtins.ValueError",
-                "builtins.TypeError",
-                "builtins.KeyError",
+                _VALUE_ERROR_INFO,
+                versions.VersionInfo.of(TypeError),
+                versions.VersionInfo.of(KeyError),
             ],
             body=helper_models.LabeledNode(label="handler", node=_make_except_body()),
         )

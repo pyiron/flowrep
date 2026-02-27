@@ -1,5 +1,7 @@
 import unittest
 
+from pyiron_snippets import versions
+
 from flowrep.models import edge_models
 from flowrep.models.nodes import (
     for_model,
@@ -421,7 +423,9 @@ class TestTryParserStructure(unittest.TestCase):
             return z
 
         tn = self._parse(wf).nodes["try_0"]
-        self.assertEqual(tn.exception_cases[0].exceptions, ["builtins.ValueError"])
+        self.assertEqual(
+            tn.exception_cases[0].exceptions, [versions.VersionInfo.of(ValueError)]
+        )
 
     def test_tuple_exception_types_resolved(self):
         """Tuple exception types are all resolved."""
@@ -436,7 +440,10 @@ class TestTryParserStructure(unittest.TestCase):
         tn = self._parse(wf).nodes["try_0"]
         self.assertEqual(
             tn.exception_cases[0].exceptions,
-            ["builtins.ValueError", "builtins.TypeError"],
+            [
+                versions.VersionInfo.of(ValueError),
+                versions.VersionInfo.of(TypeError),
+            ],
         )
 
     def test_multiple_outputs(self):
