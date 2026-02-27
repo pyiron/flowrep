@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
     "networkx==3.6.1",
     "pydantic==2.12.5",
-    "pyiron_snippets==1.1.0",
+    "pyiron_snippets==1.2.0",
 ]
 dynamic = [ "version",]
 authors = [
