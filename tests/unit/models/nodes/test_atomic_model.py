@@ -8,6 +8,11 @@ from flowrep.models import base_models
 from flowrep.models.nodes import atomic_model
 
 
+def _source(module: str = "mod", qualname: str = "func", version: str | None = None):
+    """Shorthand for building a source dict in tests."""
+    return {"module": module, "qualname": qualname, "version": version}
+
+
 class TestAtomicNodeStructure(unittest.TestCase):
     """Tests for basic structure and schema."""
 
@@ -17,74 +22,52 @@ class TestAtomicNodeStructure(unittest.TestCase):
 
     def test_type_defaults_to_atomic(self):
         node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
+            source=_source(),
             inputs=[],
             outputs=[],
         )
         self.assertEqual(node.type, base_models.RecipeElementType.ATOMIC)
 
     def test_required_fields(self):
-        """fully_qualified_name is required; inputs/outputs have no default."""
+        """source is required; inputs/outputs have no default."""
         with self.assertRaises(pydantic.ValidationError):
             atomic_model.AtomicNode()
 
 
-class TestAtomicNodeFQN(unittest.TestCase):
-    """Tests for fully_qualified_name validation."""
+class TestAtomicNodeSource(unittest.TestCase):
+    """Tests for the source field and fully_qualified_name property."""
 
-    def test_valid_fqn_simple(self):
+    def test_fully_qualified_name_property(self):
         node = atomic_model.AtomicNode(
-            fully_qualified_name="module.func",
+            source=_source("module", "func"),
             inputs=[],
             outputs=[],
         )
         self.assertEqual(node.fully_qualified_name, "module.func")
 
-    def test_valid_fqn_deep(self):
+    def test_fully_qualified_name_deep(self):
         node = atomic_model.AtomicNode(
-            fully_qualified_name="a.b.c.d",
+            source=_source("a.b.c", "d"),
             inputs=[],
             outputs=[],
         )
         self.assertEqual(node.fully_qualified_name, "a.b.c.d")
 
-    def test_fqn_no_period_rejected(self):
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            atomic_model.AtomicNode(
-                fully_qualified_name="noDot",
-                inputs=[],
-                outputs=[],
-            )
-        self.assertIn("at least one period", str(ctx.exception))
+    def test_version_accessible_via_source(self):
+        node = atomic_model.AtomicNode(
+            source=_source(version="1.2.3"),
+            inputs=[],
+            outputs=[],
+        )
+        self.assertEqual(node.source.version, "1.2.3")
 
-    def test_fqn_empty_string_rejected(self):
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            atomic_model.AtomicNode(
-                fully_qualified_name="",
-                inputs=[],
-                outputs=[],
-            )
-        self.assertIn("at least one period", str(ctx.exception))
-
-    def test_fqn_empty_parts_rejected(self):
-        """e.g., 'module.' or '.func' or 'a..b'"""
-        invalid_fqns = [
-            ("module.", "trailing dot"),
-            (".func", "leading dot"),
-            ("a..b", "consecutive dots"),
-            (".", "single dot"),
-            ("..", "only dots"),
-        ]
-        for fqn, reason in invalid_fqns:
-            with (
-                self.subTest(fqn=fqn, reason=reason),
-                self.assertRaises(pydantic.ValidationError),
-            ):
-                atomic_model.AtomicNode(
-                    fully_qualified_name=fqn,
-                    inputs=[],
-                    outputs=[],
-                )
+    def test_version_defaults_to_none(self):
+        node = atomic_model.AtomicNode(
+            source=_source(),
+            inputs=[],
+            outputs=[],
+        )
+        self.assertIsNone(node.source.version)
 
 
 class TestAtomicNodeUnpackMode(unittest.TestCase):
@@ -92,7 +75,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_default_unpack_mode_is_tuple(self):
         node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
+            source=_source(),
             inputs=[],
             outputs=["a", "b"],
         )
@@ -100,7 +83,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_tuple_mode_multiple_outputs(self):
         node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
+            source=_source(),
             inputs=[],
             outputs=["a", "b", "c"],
             unpack_mode=atomic_model.UnpackMode.TUPLE,
@@ -109,7 +92,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_tuple_mode_zero_outputs(self):
         node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
+            source=_source(),
             inputs=[],
             outputs=[],
             unpack_mode=atomic_model.UnpackMode.TUPLE,
@@ -118,7 +101,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_dataclass_mode_multiple_outputs(self):
         node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
+            source=_source(),
             inputs=[],
             outputs=["a", "b", "c"],
             unpack_mode=atomic_model.UnpackMode.DATACLASS,
@@ -128,7 +111,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_none_mode_single_output(self):
         node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
+            source=_source(),
             inputs=[],
             outputs=["result"],
             unpack_mode=atomic_model.UnpackMode.NONE,
@@ -137,7 +120,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_none_mode_zero_outputs(self):
         node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
+            source=_source(),
             inputs=[],
             outputs=[],
             unpack_mode=atomic_model.UnpackMode.NONE,
@@ -147,7 +130,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
     def test_none_mode_multiple_outputs_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             atomic_model.AtomicNode(
-                fully_qualified_name="mod.func",
+                source=_source(),
                 inputs=[],
                 outputs=["a", "b"],
                 unpack_mode=atomic_model.UnpackMode.NONE,
@@ -159,7 +142,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
         for mode in ["none", "tuple", "dataclass"]:
             with self.subTest(mode=mode):
                 node = atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=_source(),
                     inputs=[],
                     outputs=["out"],
                     unpack_mode=mode,
@@ -186,7 +169,7 @@ class TestAtomicNodeSerialization(unittest.TestCase):
 
     def test_roundtrip(self):
         original = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
+            source=_source(),
             inputs=["a"],
             outputs=["b"],
         )
@@ -200,7 +183,7 @@ class TestAtomicNodeSerialization(unittest.TestCase):
         for mode in atomic_model.UnpackMode:
             with self.subTest(mode=mode):
                 original = atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=_source(),
                     inputs=[],
                     outputs=["out"],
                     unpack_mode=mode,
@@ -209,19 +192,81 @@ class TestAtomicNodeSerialization(unittest.TestCase):
                 restored = atomic_model.AtomicNode.model_validate(data)
                 self.assertEqual(original.unpack_mode, restored.unpack_mode)
 
+    def test_roundtrip_with_version(self):
+        original = atomic_model.AtomicNode(
+            source=_source(version="0.5.1"),
+            inputs=["a"],
+            outputs=["b"],
+        )
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = original.model_dump(mode=mode)
+                restored = atomic_model.AtomicNode.model_validate(data)
+                self.assertEqual(original.source.version, restored.source.version)
+
     def test_json_structure(self):
         node = atomic_model.AtomicNode(
-            fully_qualified_name="pkg.mod.func",
+            source=_source("pkg.mod", "func", "2.0.0"),
             inputs=["x", "y"],
             outputs=["z"],
             unpack_mode=atomic_model.UnpackMode.NONE,
         )
         data = node.model_dump(mode="json")
         self.assertEqual(data["type"], "atomic")
-        self.assertEqual(data["fully_qualified_name"], "pkg.mod.func")
+        self.assertEqual(
+            data["source"],
+            {"module": "pkg.mod", "qualname": "func", "version": "2.0.0"},
+        )
         self.assertEqual(data["inputs"], ["x", "y"])
         self.assertEqual(data["outputs"], ["z"])
         self.assertEqual(data["unpack_mode"], "none")
+
+    def test_json_structure_version_null_when_absent(self):
+        node = atomic_model.AtomicNode(
+            source=_source(),
+            inputs=[],
+            outputs=[],
+        )
+        data = node.model_dump(mode="json")
+        self.assertIsNone(data["source"]["version"])
+
+    def test_json_schema_includes_source(self):
+        schema = atomic_model.AtomicNode.model_json_schema()
+        self.assertIn("source", schema.get("properties", {}))
+
+
+class TestAtomicNodeSourceCode(unittest.TestCase):
+    """Tests for the optional source_code field."""
+
+    def test_defaults_to_none(self):
+        node = atomic_model.AtomicNode(source=_source(), inputs=[], outputs=[])
+        self.assertIsNone(node.source_code)
+
+    def test_accepts_string(self):
+        node = atomic_model.AtomicNode(
+            source=_source(),
+            inputs=[],
+            outputs=[],
+            source_code="def func(): pass",
+        )
+        self.assertEqual(node.source_code, "def func(): pass")
+
+    def test_roundtrip(self):
+        original = atomic_model.AtomicNode(
+            source=_source(),
+            inputs=["a"],
+            outputs=["b"],
+            source_code="def func(a):\n    return a",
+        )
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = original.model_dump(mode=mode)
+                restored = atomic_model.AtomicNode.model_validate(data)
+                self.assertEqual(original.source_code, restored.source_code)
+
+    def test_json_structure_null_when_absent(self):
+        node = atomic_model.AtomicNode(source=_source(), inputs=[], outputs=[])
+        self.assertIsNone(node.model_dump(mode="json")["source_code"])
 
 
 if __name__ == "__main__":

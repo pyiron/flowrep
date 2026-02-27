@@ -80,8 +80,7 @@ class FunctionDictFlowAnalyzer:
         args = [tag["arg"] for tag in inp["args"]]
         defaults = []
         for d in inp["defaults"]:
-            assert d["_type"] == "Constant"
-            defaults.append({"default": d["value"]})
+            defaults.append({"default": _ast_dict_to_python_object(d)})
         defaults = [{} for _ in range(len(inp["args"]) - len(defaults))] + defaults
         return dict(zip(args, defaults, strict=True))
 
@@ -542,6 +541,64 @@ def _get_control_flow_graph(control_flows: list[str]) -> nx.DiGraph:
     if len(graph) == 0:
         graph.add_node("")
     return graph
+
+
+def _ast_dict_to_python_object(node_dict: dict[str, Any] | list[Any] | Any) -> Any:
+    """
+    Converts a dictionary representation of an AST (Abstract Syntax Tree) node
+    back into the corresponding Python object. Supports lists, tuples, dictionaries,
+    and constants.
+
+    Args:
+        node_dict (dict[str, Any] | list[Any] | Any): The dictionary representation
+            of an AST node, or a list, or a constant value.
+
+    Returns:
+        Any: The reconstructed Python object. This could be a list, tuple, dictionary,
+        or a constant value, depending on the input.
+
+    Supported AST Node Types:
+        - Tuple: Converts to a Python tuple.
+        - Constant: Converts to the constant value.
+        - Load: Ignored (used in AST context but not relevant for Python objects).
+
+    Raises:
+        ValueError: If an unsupported AST node type is encountered.
+    """
+    if isinstance(node_dict, dict):
+        if "_type" in node_dict:
+            node_type = node_dict["_type"]
+            if node_type == "Tuple":
+                # Handle tuples
+                return tuple(
+                    _ast_dict_to_python_object(item) for item in node_dict["elts"]
+                )
+            elif node_type == "Constant":
+                # Handle constants
+                return node_dict["value"]
+            elif node_type == "Load":
+                # Contexts like 'Load' are not directly relevant for the Python object
+                return None
+            elif node_type == "Name":
+                raise NotImplementedError(
+                    f"Arguments are not supported: {node_dict['id']}"
+                )
+            else:
+                raise ValueError(
+                    f"Unsupported type: {node_type} - you can use only non-mutable defaults"
+                )
+        else:
+            # If it's a dictionary but not an AST node, process recursively
+            return {
+                key: _ast_dict_to_python_object(value)
+                for key, value in node_dict.items()
+            }
+    elif isinstance(node_dict, list):
+        # Recursively process lists
+        return [_ast_dict_to_python_object(item) for item in node_dict]
+    else:
+        # Base case: return the value as is
+        return node_dict
 
 
 def _function_to_ast_dict(node):

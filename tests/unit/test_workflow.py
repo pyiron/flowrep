@@ -1,3 +1,4 @@
+import ast
 import unittest
 from dataclasses import dataclass
 
@@ -486,7 +487,7 @@ class TestWorkflow(unittest.TestCase):
             "for",
         )
 
-    def test_for_loop(self):
+    def test_for_node(self):
         data = fwf.get_workflow_dict(workflow_with_for)
         self.assertIn("for_0", data["nodes"])
         self.assertIn("iter", data["nodes"]["for_0"])
@@ -729,6 +730,47 @@ class TestWorkflow(unittest.TestCase):
         result_flat = fwf.simple_run(G_flat)
         self.assertEqual(
             result_flat.nodes["outputs@z"]["value"], result.nodes["outputs@z"]["value"]
+        )
+
+    def test_ast_dict_to_python_object(self):
+        for item in [
+            2,
+            ("string",),
+            (1, 2),
+            ((1, 2), (3, 4)),
+            None,
+            True,
+            False,
+        ]:
+            ast_item = ast.parse(str(item))
+            transformed_item = fwf._ast_dict_to_python_object(
+                fwf._function_to_ast_dict(ast_item)["body"][0]["value"]
+            )
+            self.assertEqual(
+                transformed_item,
+                item,
+                msg=f"{transformed_item} != {item} for type {type(item)}",
+            )
+        for item in [
+            [1, 1, 1],
+            {1, 2},
+            {"A": 5},
+        ]:
+            ast_item = ast.parse(str(item))
+            self.assertRaises(
+                ValueError,
+                fwf._ast_dict_to_python_object,
+                fwf._function_to_ast_dict(ast_item)["body"][0]["value"],
+            )
+        a = 5
+
+        def my_test_function(a=a):
+            return a
+
+        self.assertRaises(
+            NotImplementedError,
+            fwf._ast_dict_to_python_object,
+            fwf.get_ast_dict(my_test_function)["body"][0]["args"]["defaults"],
         )
 
 

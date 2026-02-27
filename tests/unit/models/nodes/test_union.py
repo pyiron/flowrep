@@ -16,18 +16,24 @@ from flowrep.models.nodes import (
 )
 
 
+def _source(module: str = "mod", qualname: str = "func", version: str | None = None):
+    """Shorthand for building a source dict in tests."""
+    return {"module": module, "qualname": qualname, "version": version}
+
+
 class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
     """Parameterized tests for NodeType discriminated union deserialization."""
 
     @classmethod
     def setUpClass(cls):
         """Define test cases: (type_enum, minimal_json_data, expected_class)"""
+
         cls.test_cases = [
             (
                 base_models.RecipeElementType.ATOMIC,
                 {
                     "type": "atomic",
-                    "fully_qualified_name": "mod.func",
+                    "source": _source(),
                     "inputs": ["x"],
                     "outputs": ["y"],
                 },
@@ -56,7 +62,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                         "label": "body",
                         "node": {
                             "type": "atomic",
-                            "fully_qualified_name": "mod.func",
+                            "source": _source(),
                             "inputs": ["item"],
                             "outputs": ["result"],
                         },
@@ -80,7 +86,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "label": "c",
                             "node": {
                                 "type": "atomic",
-                                "fully_qualified_name": "m.f",
+                                "source": _source("m", "f"),
                                 "inputs": [],
                                 "outputs": ["ok"],
                             },
@@ -89,7 +95,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "label": "b",
                             "node": {
                                 "type": "atomic",
-                                "fully_qualified_name": "m.g",
+                                "source": _source("m", "g"),
                                 "inputs": [],
                                 "outputs": [],
                             },
@@ -116,7 +122,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["result"],
-                                    "fully_qualified_name": "mod.check",
+                                    "source": _source(qualname="check"),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -126,7 +132,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["y"],
-                                    "fully_qualified_name": "mod.handle",
+                                    "source": _source(qualname="handle"),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -153,7 +159,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["result"],
-                                    "fully_qualified_name": "mod.check",
+                                    "source": _source(qualname="check"),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -163,7 +169,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["y"],
-                                    "fully_qualified_name": "mod.handle",
+                                    "source": _source(qualname="hanlde"),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -178,7 +184,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "type": "atomic",
                             "inputs": ["x"],
                             "outputs": ["y"],
-                            "fully_qualified_name": "mod.handle",
+                            "source": _source(qualname="handle"),
                             "unpack_mode": "tuple",
                         },
                     },
@@ -197,7 +203,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "type": "atomic",
                             "inputs": ["x"],
                             "outputs": ["y"],
-                            "fully_qualified_name": "mod.try_func",
+                            "source": _source(qualname="try_func"),
                             "unpack_mode": "tuple",
                         },
                     },
@@ -210,7 +216,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["y"],
-                                    "fully_qualified_name": "mod.handle_error",
+                                    "source": _source(qualname="handle_error"),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -275,7 +281,7 @@ class TestDiscriminatorValidation(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError):
             adapter.validate_python(
                 {
-                    "fully_qualified_name": "mod.func",
+                    "source": _source(),
                     "inputs": [],
                     "outputs": [],
                 }
@@ -306,13 +312,13 @@ class TestNodesTypeAlias(unittest.TestCase):
         nodes_data = {
             "step1": {
                 "type": "atomic",
-                "fully_qualified_name": "mod.f",
+                "source": _source(qualname="f"),
                 "inputs": [],
                 "outputs": ["x"],
             },
             "step2": {
                 "type": "atomic",
-                "fully_qualified_name": "mod.g",
+                "source": _source(qualname="g"),
                 "inputs": ["x"],
                 "outputs": [],
             },
@@ -328,7 +334,7 @@ class TestNodesTypeAlias(unittest.TestCase):
         nodes_data = {
             "for": {  # Python keyword
                 "type": "atomic",
-                "fully_qualified_name": "mod.f",
+                "source": _source(qualname="f"),
                 "inputs": [],
                 "outputs": [],
             },
@@ -345,7 +351,7 @@ class TestNodesTypeAlias(unittest.TestCase):
                 nodes_data = {
                     reserved: {
                         "type": "atomic",
-                        "fully_qualified_name": "mod.f",
+                        "source": _source(qualname="f"),
                         "inputs": [],
                         "outputs": [],
                     },
@@ -363,7 +369,7 @@ class TestNodesTypeAlias(unittest.TestCase):
             "nodes": {
                 "leaf": {
                     "type": "atomic",
-                    "fully_qualified_name": "mod.f",
+                    "source": _source(qualname="f"),
                     "inputs": ["x"],
                     "outputs": ["y"],
                 },
@@ -375,7 +381,7 @@ class TestNodesTypeAlias(unittest.TestCase):
         nodes_data = {
             "atomic_node": {
                 "type": "atomic",
-                "fully_qualified_name": "mod.g",
+                "source": _source(qualname="g"),
                 "inputs": [],
                 "outputs": [],
             },
@@ -402,7 +408,7 @@ class TestNestedUnionResolution(unittest.TestCase):
             "inputs": ["data"],
             "outputs": ["results"],
             "nodes": {
-                "loop": {
+                "for_node": {
                     "type": "for",
                     "inputs": ["items"],
                     "outputs": ["out"],
@@ -410,7 +416,7 @@ class TestNestedUnionResolution(unittest.TestCase):
                         "label": "body",
                         "node": {
                             "type": "atomic",
-                            "fully_qualified_name": "mod.transform",
+                            "source": _source(qualname="transform"),
                             "inputs": ["item"],
                             "outputs": ["result"],
                         },
@@ -422,21 +428,23 @@ class TestNestedUnionResolution(unittest.TestCase):
                     "transfer_edges": {},
                 },
             },
-            "input_edges": {"loop.items": "data"},
+            "input_edges": {"for_node.items": "data"},
             "edges": {},
-            "output_edges": {"results": "loop.out"},
+            "output_edges": {"results": "for_node.out"},
         }
         adapter = pydantic.TypeAdapter(union.NodeType)
         wf = adapter.validate_python(data)
         self.assertIsInstance(wf, workflow_model.WorkflowNode)
-        self.assertIsInstance(wf.nodes["loop"], for_model.ForNode)
-        self.assertIsInstance(wf.nodes["loop"].body_node.node, atomic_model.AtomicNode)
+        self.assertIsInstance(wf.nodes["for_node"], for_model.ForNode)
+        self.assertIsInstance(
+            wf.nodes["for_node"].body_node.node, atomic_model.AtomicNode
+        )
 
     def test_deeply_nested_workflows(self):
         """Three levels of workflow nesting."""
         innermost = {
             "type": "atomic",
-            "fully_qualified_name": "mod.leaf",
+            "source": _source(qualname="leaf"),
             "inputs": ["x"],
             "outputs": ["y"],
         }
