@@ -5,35 +5,21 @@ import ast
 from pyiron_snippets import versions
 
 from flowrep.models.nodes import helper_models, try_model
-from flowrep.models.parsers import (
-    case_helpers,
-    object_scope,
-    parser_protocol,
-    symbol_scope,
-)
+from flowrep.models.parsers import case_helpers, object_scope, parser_protocol
 
 TRY_BODY_LABEL: str = "try_body"
 EXCEPT_BODY_LABEL_PREFIX: str = "except_body"
 
 
 def parse_try_node(
-    tree: ast.Try,
-    scope: object_scope.ScopeProxy,
-    symbol_map: symbol_scope.SymbolScope,
-    info_factory: versions.VersionInfoFactory,
-    walker_factory: parser_protocol.WalkerFactory,
+    walker: parser_protocol.BodyWalker, tree: ast.Try
 ) -> try_model.TryNode:
     """
     Walk a try/except block.
 
     Args:
+        walker: A walker to fork and use for collecting state inside the tree.
         tree: The ``ast.Try`` node.
-        scope: Object-level scope for resolving callable references.
-        symbol_map: The enclosing :class:`SymbolScope` (used for forking).
-        info_factory: Stateful object for collecting version info.
-        walker_factory: Callable that creates a :class:`BodyWalker` from a
-            :class:`SymbolScope`.  Avoids a circular import with
-            ``workflow_parser.WorkflowParser``.
     """
     # 0. Fail early for unsupported syntax
     if tree.orelse:
@@ -47,14 +33,7 @@ def parse_try_node(
         )
 
     # 1. Parse the try body
-    try_branch = case_helpers.walk_branch(
-        TRY_BODY_LABEL,
-        tree.body,
-        symbol_map,
-        scope,
-        info_factory,
-        walker_factory,
-    )
+    try_branch = case_helpers.walk_branch(walker, TRY_BODY_LABEL, tree.body)
 
     # 2. Parse each except handler
     exception_groups: list[list[str]] = []
@@ -62,16 +41,9 @@ def parse_try_node(
     for idx, handler in enumerate(tree.handlers):
         body_label = f"{EXCEPT_BODY_LABEL_PREFIX}_{idx}"
 
-        exception_groups.append(_parse_exception_types(handler, scope))
+        exception_groups.append(_parse_exception_types(handler, walker.scope))
 
-        exception_branch = case_helpers.walk_branch(
-            body_label,
-            handler.body,
-            symbol_map,
-            scope,
-            info_factory,
-            walker_factory,
-        )
+        exception_branch = case_helpers.walk_branch(walker, body_label, handler.body)
         except_branches.append(exception_branch)
 
     # 3. Wire edges

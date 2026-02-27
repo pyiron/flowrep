@@ -218,7 +218,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         self.consumed_accumulators[accumulator_symbol] = appended_symbol
 
     # --- Forking for child scopes ---
-    def fork_scope(
+    def fork(
         self,
         symbol_remap: dict[str, str] | None = None,
         available_accumulators: set[str] | None = None,
