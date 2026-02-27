@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pydantic
+from pyiron_snippets import versions
 
 from flowrep.models import base_models
 
@@ -56,12 +57,19 @@ class ExceptionCase(pydantic.BaseModel):
     An exception/node pair.
 
     Attributes:
-        exceptions: The fully qualified names (i.e. module+qualname) of the exception
-            types.
+        exceptions: The version info for exception types against which to except.
         body: The node to couple to these exceptions.
+
+    Note:
+        In a try-except case, we expect the exception target to always be a type --
+        and more idiomatically a subclass of python's builtin :class:`BaseException`.
+        Here, we don't explicitly validate that. Using
+        :class:`pyiron_snippets.versions.VersionInfo` allows us to ensure that recipes
+        are able to fully specify where exceptions can be found, should a non-builtin
+        exception be used.
     """
 
-    exceptions: list[str]
+    exceptions: list[versions.VersionInfo]
     body: LabeledNode
 
     @pydantic.field_validator("exceptions")

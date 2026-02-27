@@ -3,6 +3,7 @@
 import unittest
 
 import pydantic
+from pyiron_snippets import versions
 
 from flowrep.models import base_models
 from flowrep.models.nodes import (
@@ -209,7 +210,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     },
                     "exception_cases": [
                         {
-                            "exceptions": ["builtins.ValueError"],
+                            "exceptions": [versions.VersionInfo.of(ValueError)],
                             "body": {
                                 "label": "except_0",
                                 "node": {

@@ -1,5 +1,7 @@
 import unittest
 
+from pyiron_snippets import versions
+
 from flowrep.models.nodes import workflow_model
 from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
 
@@ -242,7 +244,7 @@ _try_node = {
     "try_node": {"label": "try_body", "node": _try_body},
     "exception_cases": [
         {
-            "exceptions": ["builtins.ValueError"],
+            "exceptions": [versions.VersionInfo.of(ValueError)],
             "body": {"label": "except_body_0", "node": _except_body},
         },
     ],

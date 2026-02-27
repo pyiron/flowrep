@@ -101,21 +101,22 @@ class TestExceptionCaseValidation(unittest.TestCase):
 
     def test_valid_single_exception(self):
         """ExceptionCase with a single exception type should validate."""
+        value_info = versions.VersionInfo.of(ValueError)
         case = helper_models.ExceptionCase(
-            exceptions=["builtins.ValueError"],
+            exceptions=[value_info],
             body=helper_models.LabeledNode(
                 label="handler", node=self._make_except_body()
             ),
         )
-        self.assertEqual(case.exceptions, ["builtins.ValueError"])
+        self.assertEqual(case.exceptions, [value_info])
 
     def test_valid_multiple_exceptions(self):
         """ExceptionCase with multiple exception types should validate."""
         case = helper_models.ExceptionCase(
             exceptions=[
-                "builtins.ValueError",
-                "builtins.TypeError",
-                "builtins.KeyError",
+                versions.VersionInfo.of(ValueError),
+                versions.VersionInfo.of(TypeError),
+                versions.VersionInfo.of(KeyError),
             ],
             body=helper_models.LabeledNode(
                 label="handler", node=self._make_except_body()
@@ -139,7 +140,10 @@ class TestExceptionCaseSerialization(unittest.TestCase):
     def test_exception_case_roundtrip(self):
         """ExceptionCase JSON roundtrip."""
         original = helper_models.ExceptionCase(
-            exceptions=["builtins.ValueError", "builtins.TypeError"],
+            exceptions=[
+                versions.VersionInfo.of(ValueError),
+                versions.VersionInfo.of(TypeError),
+            ],
             body=helper_models.LabeledNode(
                 label="handler",
                 node=atomic_model.AtomicNode(

@@ -36,7 +36,7 @@ def parse_try_node(
     try_branch = case_helpers.walk_branch(walker, TRY_BODY_LABEL, tree.body)
 
     # 2. Parse each except handler
-    exception_groups: list[list[str]] = []
+    exception_groups: list[list[versions.VersionInfo]] = []
     except_branches: list[case_helpers.WalkedBranch] = []
     for idx, handler in enumerate(tree.handlers):
         body_label = f"{EXCEPT_BODY_LABEL_PREFIX}_{idx}"
@@ -72,7 +72,7 @@ def parse_try_node(
 def _parse_exception_types(
     handler: ast.ExceptHandler,
     scope: object_scope.ScopeProxy,
-) -> list[str]:
+) -> list[versions.VersionInfo]:
     """
     Resolve the exception type(s) from an except handler to fully qualified names.
 
@@ -94,7 +94,7 @@ def _parse_exception_types(
         handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
     )
 
-    fqns: list[str] = []
+    exception_records: list[versions.VersionInfo] = []
     for node in type_nodes:
         exc_class = object_scope.resolve_symbol_to_object(node, scope)
         exc_info = versions.VersionInfo.of(exc_class)
@@ -103,5 +103,5 @@ def _parse_exception_types(
                 f"Except handler must catch exception types, but resolved "
                 f"{ast.dump(node)} to {exc_class!r}"
             )
-        fqns.append(exc_info.fully_qualified_name)
-    return fqns
+        exception_records.append(exc_info)
+    return exception_records

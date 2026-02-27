@@ -1,7 +1,12 @@
 import unittest
 
+from pyiron_snippets import versions
+
 from flowrep.models.nodes import workflow_model
 from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
+
+_VALUE_ERROR_INFO = versions.VersionInfo.of(ValueError)
+_TYPE_ERROR_INFO = versions.VersionInfo.of(TypeError)
 
 
 # Reusable atomics (same as other test files)
@@ -55,7 +60,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
                 },
                 "exception_cases": [
                     {
-                        "exceptions": ["builtins.ValueError"],
+                        "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
                             "node": {
@@ -136,7 +141,7 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
                 },
                 "exception_cases": [
                     {
-                        "exceptions": ["builtins.ValueError"],
+                        "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
                             "node": {
@@ -156,7 +161,7 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
                         },
                     },
                     {
-                        "exceptions": ["builtins.TypeError"],
+                        "exceptions": [_TYPE_ERROR_INFO],
                         "body": {
                             "label": "except_body_1",
                             "node": {
@@ -240,7 +245,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
                 },
                 "exception_cases": [
                     {
-                        "exceptions": ["builtins.ValueError"],
+                        "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
                             "node": {
@@ -334,7 +339,7 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
                 },
                 "exception_cases": [
                     {
-                        "exceptions": ["builtins.ValueError"],
+                        "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
                             "node": {
@@ -421,8 +426,8 @@ tuple_exc_node = workflow_model.WorkflowNode.model_validate(
                 "exception_cases": [
                     {
                         "exceptions": [
-                            "builtins.ValueError",
-                            "builtins.TypeError",
+                            _VALUE_ERROR_INFO,
+                            _TYPE_ERROR_INFO,
                         ],
                         "body": {
                             "label": "except_body_0",
