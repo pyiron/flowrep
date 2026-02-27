@@ -818,5 +818,68 @@ class TestAppendAccumulator(unittest.TestCase):
         )
 
 
+class TestForParserVersionPropagation(unittest.TestCase):
+    """Version scraping/constraints propagate into for-loop body child nodes."""
+
+    def _pkg(self) -> str:
+        return identity.__module__.split(".")[0]
+
+    def test_version_scraping_propagates_into_for_body(self):
+        """Undecorated child inside a for body receives the scraping map."""
+        custom = "10.20.30"
+
+        def wf(xs):
+            results = []
+            for x in xs:
+                y = identity(x)
+                results.append(y)
+            return results
+
+        node = workflow_parser.parse_workflow(
+            wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        for_node = node.nodes["for_0"]
+        body = for_node.body_node.node
+        child = body.nodes["identity_0"]
+        self.assertEqual(child.source.version, custom)
+
+    def test_version_scraping_propagates_through_nested_for(self):
+        """Scraping reaches children inside nested for-loops."""
+        custom = "30.40.50"
+
+        def wf(xs):
+            results = []
+            for x in xs:
+                ys = my_range(x)
+                inner = []
+                for y in ys:
+                    z = identity(y)
+                    inner.append(z)
+                results.append(inner)
+            return results
+
+        node = workflow_parser.parse_workflow(
+            wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        for_node = node.nodes["for_0"]
+        outer_body = for_node.body_node.node
+        inner_for = outer_body.nodes["for_0"]
+        inner_body = inner_for.body_node.node
+        child = inner_body.nodes["identity_0"]
+        self.assertEqual(child.source.version, custom)
+
+    def test_version_constraints_propagate_to_condition(self):
+        def wf(xs):
+            results = []
+            for x in xs:
+                y = identity(x)
+                results.append(y)
+            return results
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf, require_version=True)
+        self.assertIn("Could not find a version", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

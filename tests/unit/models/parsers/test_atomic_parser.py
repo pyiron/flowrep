@@ -21,6 +21,15 @@ def _make_func_in_module(module: str, qualname: str) -> FunctionType:
     return f
 
 
+def _make_local_function() -> FunctionType:
+    """Create a function with ``<locals>`` in its qualname from this real module."""
+
+    def inner(x):
+        return x
+
+    return inner
+
+
 class TestParseReturnLabelWithoutUnpackingExceptions(unittest.TestCase):
     """Tests for exception handling in _parse_return_label_without_unpacking."""
 
@@ -885,15 +894,15 @@ class TestParseAtomicVersionParams(unittest.TestCase):
         self.assertIn("__main__", node.fully_qualified_name)
 
     def test_forbid_locals_raises(self):
-        f = _make_func_in_module("some_mod", "outer.<locals>.inner")
+        f = _make_local_function()
         with self.assertRaises(ValueError, msg="<locals>"):
             atomic_parser.parse_atomic(f, forbid_locals=True)
 
     def test_forbid_locals_false_allows_locals(self):
-        scraping = {"my_package": lambda _name: "fake version to avoid lookup"}
-        f = _make_func_in_module("some_mod", "outer.<locals>.inner")
-        with self.assertRaises(ValueError, msg="<locals>"):
-            atomic_parser.parse_atomic(f, version_scraping=scraping, forbid_locals=True)
+        f = _make_local_function()
+        # Without forbid_locals the <locals> qualname is accepted
+        node = atomic_parser.parse_atomic(f, forbid_locals=False)
+        self.assertIn("<locals>", node.fully_qualified_name)
 
     def test_require_version_raises_when_missing(self):
         f = _make_func_in_module("__main__", "f")

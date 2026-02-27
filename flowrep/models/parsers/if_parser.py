@@ -5,12 +5,7 @@ import dataclasses
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models, if_model
-from flowrep.models.parsers import (
-    case_helpers,
-    object_scope,
-    parser_protocol,
-    symbol_scope,
-)
+from flowrep.models.parsers import case_helpers, parser_protocol
 
 IF_CONDITION_LABEL_PREFIX: str = "condition"
 IF_BODY_LABEL_PREFIX: str = "body"
@@ -26,22 +21,13 @@ class _CaseComponents:
     body: case_helpers.WalkedBranch
 
 
-def parse_if_node(
-    tree: ast.If,
-    scope: object_scope.ScopeProxy,
-    symbol_map: symbol_scope.SymbolScope,
-    walker_factory: parser_protocol.WalkerFactory,
-):
+def parse_if_node(walker: parser_protocol.BodyWalker, tree: ast.If) -> if_model.IfNode:
     """
     Walk an if/elif/else chain.
 
     Args:
+        walker: A walker to fork and use for collecting state inside the tree.
         tree: The top-level ``ast.If`` node.
-        scope: Object-level scope for resolving callable references.
-        symbol_map: The enclosing :class:`SymbolScope` (used for forking).
-        walker_factory: Callable that creates a :class:`BodyWalker` from a
-            :class:`SymbolScope`.  Avoids a circular import with
-            ``workflow_parser.WorkflowParser``.
     """
 
     cases: list[_CaseComponents] = []
@@ -55,11 +41,13 @@ def parse_if_node(
         body_label = f"{IF_BODY_LABEL_PREFIX}_{idx}"
 
         labeled_cond, cond_inputs = case_helpers.parse_case(
-            test_expr, scope, symbol_map, cond_label
+            test_expr,
+            walker.scope,
+            walker.symbol_map,
+            walker.info_factory,
+            cond_label,
         )
-        body = case_helpers.walk_branch(
-            body_label, body_stmts, symbol_map, scope, walker_factory
-        )
+        body = case_helpers.walk_branch(walker, body_label, body_stmts)
         cases.append(
             _CaseComponents(
                 condition=labeled_cond,
@@ -70,9 +58,7 @@ def parse_if_node(
 
     # --- process else case (if present) ---
     if else_stmts is not None:
-        else_branch = case_helpers.walk_branch(
-            IF_ELSE_LABEL, else_stmts, symbol_map, scope, walker_factory
-        )
+        else_branch = case_helpers.walk_branch(walker, IF_ELSE_LABEL, else_stmts)
 
     # --- wire edges ---
     body_branches = [cc.body for cc in cases]

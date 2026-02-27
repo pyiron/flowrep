@@ -1,5 +1,9 @@
+import sys
+import types
 import unittest
 from typing import Annotated, Any
+
+from pyiron_snippets import versions
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import atomic_model, workflow_model
@@ -77,6 +81,21 @@ def _wp_identity(x):
     return x
 
 
+# Name that is guaranteed not to collide with a real package or stdlib module.
+_UNVERSIONED_MODULE_NAME = "_flowrep_test_unversioned_mod"
+
+
+def _install_unversioned_module() -> types.ModuleType:
+    """Register a bare module in ``sys.modules`` that has no ``__version__``."""
+    mod = types.ModuleType(_UNVERSIONED_MODULE_NAME)
+    sys.modules[_UNVERSIONED_MODULE_NAME] = mod
+    return mod
+
+
+def _uninstall_unversioned_module() -> None:
+    sys.modules.pop(_UNVERSIONED_MODULE_NAME, None)
+
+
 class TestWorkflowDecorator(unittest.TestCase):
     def test_workflow_without_args(self):
         @workflow_parser.workflow
@@ -147,7 +166,9 @@ class TestParseWorkflowBasic(unittest.TestCase):
     def test_protocol_fulfillment(self):
         self.assertIsInstance(
             workflow_parser.WorkflowParser(
-                object_scope.ScopeProxy({}), symbol_scope.SymbolScope({})
+                object_scope.ScopeProxy({}),
+                symbol_scope.SymbolScope({}),
+                versions.VersionInfoFactory(),
             ),
             parser_protocol.BodyWalker,
         )
@@ -669,14 +690,19 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         self.assertIn("<locals>.my_wf", str(ctx.exception))
 
     def test_require_version_raises_when_missing(self):
-        def my_wf(x):
-            y = _wp_identity(x)
-            return y
+        _install_unversioned_module()
+        try:
 
-        my_wf.__module__ = "__main__"
-        with self.assertRaises(ValueError, msg="could not be found") as ctx:
-            workflow_parser.parse_workflow(my_wf, require_version=True)
-        self.assertIn("could not be found", str(ctx.exception))
+            def my_wf(x):
+                y = _wp_identity(x)
+                return y
+
+            my_wf.__module__ = _UNVERSIONED_MODULE_NAME
+            with self.assertRaises(ValueError) as ctx:
+                workflow_parser.parse_workflow(my_wf, require_version=True)
+            self.assertIn("Could not find a version", str(ctx.exception))
+        finally:
+            _uninstall_unversioned_module()
 
     def test_version_scraping_is_forwarded(self):
         def my_wf(x):
@@ -762,6 +788,70 @@ class TestParseWorkflowSourceCode(unittest.TestCase):
                 data = node.model_dump(mode=mode)
                 restored = workflow_model.WorkflowNode.model_validate(data)
                 self.assertEqual(node.source_code, restored.source_code)
+
+
+class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
+    """Verify version_scraping propagates to child nodes parsed inside a workflow."""
+
+    def _pkg(self) -> str:
+        return add.__module__.split(".")[0]
+
+    def test_scraping_propagates_to_undecorated_child(self):
+        """An undecorated function parsed on-the-fly should receive the scraping map."""
+        custom = "11.22.33"
+
+        def my_wf(x):
+            y = add(x)
+            return y
+
+        node = workflow_parser.parse_workflow(
+            my_wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        child = node.nodes["add_0"]
+        self.assertEqual(child.source.version, custom)
+
+    def test_scraping_does_not_override_prebuilt_recipe(self):
+        """A function already decorated with @atomic keeps its own recipe."""
+        custom = "99.99.99"
+
+        def my_wf(x):
+            y = _wp_identity(x)
+            return y
+
+        node = workflow_parser.parse_workflow(
+            my_wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        child = node.nodes["_wp_identity_0"]
+        # _wp_identity was decorated at import time; its recipe is fixed
+        self.assertNotEqual(child.source.version, custom)
+
+    def test_scraping_propagates_through_chained_nodes(self):
+        """Multiple undecorated children all receive the scraping map."""
+        custom = "44.55.66"
+
+        def my_wf(x):
+            y = add(x)
+            z = multiply(y)
+            return z
+
+        node = workflow_parser.parse_workflow(
+            my_wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        self.assertEqual(node.nodes["add_0"].source.version, custom)
+        self.assertEqual(node.nodes["multiply_0"].source.version, custom)
+
+    def test_decorator_propagates_scraping_to_children(self):
+        """@workflow decorator forwards version_scraping to child nodes."""
+        custom = "77.88.99"
+        pkg = add.__module__.split(".")[0]
+
+        @workflow_parser.workflow(version_scraping={pkg: lambda _: custom})
+        def my_wf(x):
+            y = add(x)
+            return y
+
+        child = my_wf.flowrep_recipe.nodes["add_0"]
+        self.assertEqual(child.source.version, custom)
 
 
 if __name__ == "__main__":
