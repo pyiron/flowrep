@@ -86,7 +86,11 @@ simple_while_node = workflow_model.WorkflowNode.model_validate(
             "my_unity_1.x": "while_0.x",
         },
         "output_edges": {"y": "my_unity_1.x"},
-        "fully_qualified_name": "integration.parsers.test_parsing_while_nodes.simple_while",
+        "source": {
+            "module": "integration.parsers.test_parsing_while_nodes",
+            "qualname": "simple_while",
+            "version": None,
+        },
         "source_code": parser_helpers.get_available_source_code(simple_while),
     }
 )
@@ -198,7 +202,11 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
         },
         "edges": {"while_0.y": "my_unity_0.x"},
         "output_edges": {"x": "while_0.x", "y": "while_0.y"},
-        "fully_qualified_name": "integration.parsers.test_parsing_while_nodes.nested_while",
+        "source": {
+            "module": "integration.parsers.test_parsing_while_nodes",
+            "qualname": "nested_while",
+            "version": None,
+        },
         "source_code": parser_helpers.get_available_source_code(nested_while),
     }
 )
@@ -277,7 +285,11 @@ multi_reassign_node = workflow_model.WorkflowNode.model_validate(
             "x": "while_0.x",
             "y": "while_0.y",
         },
-        "fully_qualified_name": "integration.parsers.test_parsing_while_nodes.multi_reassign",
+        "source": {
+            "module": "integration.parsers.test_parsing_while_nodes",
+            "qualname": "multi_reassign",
+            "version": None,
+        },
         "source_code": parser_helpers.get_available_source_code(multi_reassign),
     }
 )
@@ -361,7 +373,11 @@ sequential_whiles_node = workflow_model.WorkflowNode.model_validate(
         "output_edges": {
             "x": "while_1.x",
         },
-        "fully_qualified_name": "integration.parsers.test_parsing_while_nodes.sequential_whiles",
+        "source": {
+            "module": "integration.parsers.test_parsing_while_nodes",
+            "qualname": "sequential_whiles",
+            "version": None,
+        },
         "source_code": parser_helpers.get_available_source_code(sequential_whiles),
     }
 )
@@ -431,7 +447,11 @@ chained_body_node = workflow_model.WorkflowNode.model_validate(
         },
         "edges": {},
         "output_edges": {"x": "while_0.x"},
-        "fully_qualified_name": "integration.parsers.test_parsing_while_nodes.chained_body",
+        "source": {
+            "module": "integration.parsers.test_parsing_while_nodes",
+            "qualname": "chained_body",
+            "version": None,
+        },
         "source_code": parser_helpers.get_available_source_code(chained_body),
     }
 )

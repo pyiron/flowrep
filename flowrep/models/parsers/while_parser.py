@@ -5,43 +5,35 @@ from ast import While
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import helper_models, while_model
-from flowrep.models.parsers import (
-    case_helpers,
-    object_scope,
-    parser_protocol,
-    symbol_scope,
-)
+from flowrep.models.parsers import case_helpers, parser_protocol
 
 WHILE_CONDITION_LABEL: str = "condition"
 WHILE_BODY_LABEL: str = "body"
 
 
 def parse_while_node(
-    tree: ast.While,
-    scope: object_scope.ScopeProxy,
-    symbol_map: symbol_scope.SymbolScope,
-    walker_factory: parser_protocol.WalkerFactory,
+    walker: parser_protocol.BodyWalker, tree: ast.While
 ) -> while_model.WhileNode:
     """
     Walk a while-loop.
 
     Args:
+        walker: A walker to fork and use for collecting state inside the tree.
         tree: The ``ast.While`` node.
-        scope: Object-level scope for resolving callable references.
-        symbol_map: The enclosing :class:`SymbolScope` (used for forking).
-        walker_factory: Callable that creates a :class:`BodyWalker` from a
-            :class:`SymbolScope`.  Avoids a circular import with
-            ``workflow_parser.WorkflowParser``.
     """
     _validate_syntax_is_supported(tree)
 
     # Parse the loop condition — pure AST, no parser state needed
     labeled_condition, condition_inputs = case_helpers.parse_case(
-        tree.test, scope, symbol_map, WHILE_CONDITION_LABEL
+        tree.test,
+        walker.scope,
+        walker.symbol_map,
+        walker.info_factory,
+        WHILE_CONDITION_LABEL,
     )
 
-    body_walker = walker_factory(symbol_map.fork_scope())
-    body_walker.walk(tree.body, scope)
+    body_walker = walker.fork(new_symbol_map=walker.symbol_map.fork())
+    body_walker.walk(tree.body)
     reassigned_symbols = body_walker.symbol_map.reassigned_symbols
 
     _validate_some_output_exists(reassigned_symbols)

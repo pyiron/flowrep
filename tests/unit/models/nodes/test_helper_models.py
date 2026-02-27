@@ -1,6 +1,7 @@
 import unittest
 
 import pydantic
+from pyiron_snippets import versions
 
 from flowrep.models import base_models
 from flowrep.models.nodes import (
@@ -11,12 +12,13 @@ from flowrep.models.nodes import (
 
 
 def _make_atomic(
-    fully_qualified_name: str = "mod.func",
+    module: str = "mod",
+    qualname: str = "func",
     inputs: list[str] | None = None,
     outputs: list[str] | None = None,
 ) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        fully_qualified_name=fully_qualified_name,
+        source=versions.VersionInfo(module=module, qualname=qualname, version=None),
         inputs=inputs or [],
         outputs=outputs or [],
     )
@@ -28,7 +30,9 @@ class TestConditionalCaseValidation(unittest.TestCase):
         return helper_models.LabeledNode(
             label="condition",
             node=atomic_model.AtomicNode(
-                fully_qualified_name="mod.check",
+                source=versions.VersionInfo(
+                    module="mod", qualname="check", version=None
+                ),
                 inputs=["x"],
                 outputs=outputs or ["result"],
             ),
@@ -39,7 +43,9 @@ class TestConditionalCaseValidation(unittest.TestCase):
         return helper_models.LabeledNode(
             label="body",
             node=atomic_model.AtomicNode(
-                fully_qualified_name="mod.handle",
+                source=versions.VersionInfo(
+                    module="mod", qualname="handle", version=None
+                ),
                 inputs=["x"],
                 outputs=["y"],
             ),
@@ -86,7 +92,9 @@ class TestExceptionCaseValidation(unittest.TestCase):
     @staticmethod
     def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
         return atomic_model.AtomicNode(
-            fully_qualified_name="mod.handle_error",
+            source=versions.VersionInfo(
+                module="mod", qualname="handle_error", version=None
+            ),
             inputs=inputs or ["x"],
             outputs=outputs or ["y"],
         )
@@ -135,7 +143,9 @@ class TestExceptionCaseSerialization(unittest.TestCase):
             body=helper_models.LabeledNode(
                 label="handler",
                 node=atomic_model.AtomicNode(
-                    fully_qualified_name="mod.handle_error",
+                    source=versions.VersionInfo(
+                        module="mod", qualname="handle_error", version=None
+                    ),
                     inputs=["x"],
                     outputs=["y"],
                 ),

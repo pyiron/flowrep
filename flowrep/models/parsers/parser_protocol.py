@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 import ast
-from collections.abc import Callable, Collection
-from types import FunctionType
 from typing import Protocol, runtime_checkable
+
+from pyiron_snippets import versions
 
 from flowrep.models import edge_models
 from flowrep.models.nodes import union, workflow_model
 from flowrep.models.parsers import object_scope, symbol_scope
-
-WalkerFactory = Callable[[symbol_scope.SymbolScope], "BodyWalker"]
 
 
 @runtime_checkable
 class BodyWalker(Protocol):
     """What control flow parsers need to walk a sub-body."""
 
+    scope: object_scope.ScopeProxy
     symbol_map: symbol_scope.SymbolScope
+    info_factory: versions.VersionInfoFactory
     nodes: union.Nodes
 
     @property
@@ -34,31 +34,10 @@ class BodyWalker(Protocol):
     @property
     def outputs(self) -> list[str]: ...
 
-    def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None: ...
-
-    def walk(
-        self, statements: list[ast.stmt], scope: object_scope.ScopeProxy
-    ) -> None: ...
-
-    def handle_assign(
-        self, body: ast.Assign | ast.AnnAssign, scope: object_scope.ScopeProxy
-    ) -> None: ...
-
-    def handle_for(self, tree: ast.For, scope: object_scope.ScopeProxy) -> None: ...
-
-    def handle_if(self, tree: ast.If, scope: object_scope.ScopeProxy) -> None: ...
-
-    def handle_try(self, tree: ast.Try, scope: object_scope.ScopeProxy) -> None: ...
-
-    def handle_while(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None: ...
-
-    def handle_appending_to_accumulator(self, append_call: ast.Call) -> None: ...
-
-    def handle_return(
-        self,
-        body: ast.Return,
-        func: FunctionType,
-        output_labels: Collection[str],
-    ) -> None: ...
-
     def build_model(self) -> workflow_model.WorkflowNode: ...
+
+    def fork(self, *, new_symbol_map: symbol_scope.SymbolScope) -> BodyWalker: ...
+
+    def walk(self, statements: list[ast.stmt]) -> None: ...
+
+    def visit(self, stmt: ast.AST) -> None: ...

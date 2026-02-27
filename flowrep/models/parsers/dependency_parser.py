@@ -19,10 +19,9 @@ def get_call_dependencies(
     Recursively collect all callable dependencies of *func* via AST introspection.
 
     Each dependency is keyed by its :class:`~pyiron_snippets.versions.VersionInfo`
-    and maps to the list of concrete callables sharing that identity.  The search
-    is depth-first: for every resolved callee that is a
-    :class:`~types.FunctionType` (i.e. has inspectable source), the function
-    recurses into the callee's own scope.
+    and maps to the callables instance with that identity.  The search is depth-first:
+    for every resolved callee that is a :class:`~types.FunctionType` (i.e. has
+    inspectable source), the function recurses into the callee's own scope.
 
     Args:
         func: The function whose call-graph to analyse.
@@ -56,10 +55,22 @@ def get_call_dependencies(
         except (ValueError, TypeError):
             continue
 
-        if not callable(caller):
-            continue
+        if not callable(caller):  # pragma: no cover
+            # Under remotely normal circumstances, this should be unreachable
+            raise TypeError(
+                f"Caller {caller} is not callable, yet was generated from the list of "
+                f"ast.Call calls, in particular {call}. We're expecting these to "
+                f"actually connect to callables. Please raise a GitHub issue if you "
+                f"think this is not a mistake."
+            )
 
         info = versions.VersionInfo.of(caller, version_scraping=version_scraping)
+        # In principle, we open ourselves to overwriting an existing dependency here,
+        # but it would need to somehow have exactly the same version info (including
+        # qualname) yet be a different object.
+        # This ought not happen by accident, and in case it somehow does happen on
+        # purpose (it probably shouldn't), we just silently keep the more recent one.
+
         call_dependencies[info] = caller
 
         # Depth-first search on dependencies — only possible when we have source
@@ -83,11 +94,11 @@ def split_by_version_availability(
     """
     has_version: CallDependencies = {}
     no_version: CallDependencies = {}
-    for info, dependents in call_dependencies.items():
+    for info, dependency in call_dependencies.items():
         if info.version is None:
-            no_version[info] = dependents
+            no_version[info] = dependency
         else:
-            has_version[info] = dependents
+            has_version[info] = dependency
 
     return has_version, no_version
 

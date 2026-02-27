@@ -21,6 +21,11 @@ def identity(x):
     return x
 
 
+def undecorated_identity(x):
+    """For checking parser propagation"""
+    return x
+
+
 @atomic_parser.atomic
 def my_add(a, b):
     return a + b
@@ -755,6 +760,92 @@ class TestTryNodeRoundTrip(unittest.TestCase):
                 dumped = node.model_dump(mode=mode)
                 restored = workflow_model.WorkflowNode.model_validate(dumped)
                 self.assertEqual(node, restored)
+
+
+# ===================================================================
+# Version propagation
+# ===================================================================
+
+
+class TestTryParserVersionPropagation(unittest.TestCase):
+    """Version scraping/constraints propagate into try/except body child nodes."""
+
+    def _pkg(self) -> str:
+        return undecorated_identity.__module__.split(".")[0]
+
+    def test_version_scraping_propagates_into_try_body(self):
+        """Undecorated child inside a try body receives the scraping map."""
+        custom = "10.20.30"
+
+        def wf(x, y):
+            try:
+                z = undecorated_identity(x)
+            except ValueError:
+                z = identity(y)
+            return z
+
+        node = workflow_parser.parse_workflow(
+            wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        try_node = node.nodes["try_0"]
+        body = try_node.try_node.node
+        child = body.nodes["undecorated_identity_0"]
+        self.assertEqual(child.source.version, custom)
+
+    def test_version_scraping_propagates_into_except_body(self):
+        """Undecorated child inside an except body receives the scraping map."""
+        custom = "20.30.40"
+
+        def wf(x, y):
+            try:
+                z = identity(x)
+            except ValueError:
+                z = undecorated_identity(y)
+            return z
+
+        node = workflow_parser.parse_workflow(
+            wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        try_node = node.nodes["try_0"]
+        except_body = try_node.exception_cases[0].body.node
+        child = except_body.nodes["undecorated_identity_0"]
+        self.assertEqual(child.source.version, custom)
+
+    def test_version_scraping_does_not_override_prebuilt_recipe(self):
+        """A function already decorated with @atomic keeps its own recipe."""
+        custom = "99.0.0"
+
+        def wf(x, y):
+            try:
+                z = identity(x)
+            except ValueError:
+                z = undecorated_identity(y)
+            return z
+
+        node = workflow_parser.parse_workflow(
+            wf, version_scraping={self._pkg(): lambda _: custom}
+        )
+        try_node = node.nodes["try_0"]
+        # Pre-decorated child in try body keeps its own version
+        try_child = try_node.try_node.node.nodes["identity_0"]
+        self.assertNotEqual(try_child.source.version, custom)
+        # Undecorated child in except body picks up custom version
+        except_child = try_node.exception_cases[0].body.node.nodes[
+            "undecorated_identity_0"
+        ]
+        self.assertEqual(except_child.source.version, custom)
+
+    def test_version_constraints_propagate_to_children(self):
+        def wf(x, y):
+            try:
+                z = undecorated_identity(x)
+            except ValueError:
+                z = undecorated_identity(y)
+            return z
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf, require_version=True)
+        self.assertIn("Could not find a version", str(ctx.exception))
 
 
 if __name__ == "__main__":

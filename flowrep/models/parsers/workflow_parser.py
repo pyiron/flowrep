@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import ast
 from collections.abc import Callable, Collection
 from types import FunctionType
-from typing import Any, cast
+from typing import cast
 
 from pyiron_snippets import versions
 
@@ -19,8 +21,6 @@ from flowrep.models.parsers import (
     try_parser,
     while_parser,
 )
-
-SpecialHandlers = dict[type[ast.stmt], Callable[[Any, object_scope.ScopeProxy], None]]
 
 
 def workflow(
@@ -113,39 +113,27 @@ def parse_workflow(
             ``forbid_*`` / ``require_*`` constraint is violated.
         TypeError: If the function body contains unsupported AST statement types.
     """
-    info = versions.VersionInfo.of(
-        func,
+    info_factory = versions.VersionInfoFactory(
         version_scraping=version_scraping,
         forbid_main=forbid_main,
         forbid_locals=forbid_locals,
         require_version=require_version,
     )
+    info = info_factory.of(func)
     inputs = label_helpers.get_input_labels(func)
-    state = WorkflowParser(
+    state = _WorkflowFunctionParser(
+        object_scope.get_scope(func),
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),
-        fully_qualified_name=info.fully_qualified_name,
-        version=info.version,
+        source=info,
+        info_factory=info_factory,
+        func=func,
+        output_labels=output_labels,
     )
     tree = parser_helpers.get_ast_function_node(func)
 
-    found_return = False
+    state.walk(skip_docstring(tree.body))
 
-    def handle_return(stmt: ast.Return, scope: object_scope.ScopeProxy):
-        nonlocal found_return
-        if found_return:
-            raise ValueError(
-                "Workflow python definitions must have exactly one return."
-            )
-        found_return = True
-        state.handle_return(stmt, func, output_labels)
-
-    state.walk(
-        skip_docstring(tree.body),
-        object_scope.get_scope(func),
-        special_handlers={ast.Return: handle_return},
-    )
-
-    if not found_return:
+    if not state.found_return:
         raise ValueError("Workflow python definitions must have a return statement.")
 
     source_code = parser_helpers.get_available_source_code(func)
@@ -165,7 +153,7 @@ def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
     )
 
 
-class WorkflowParser(parser_protocol.BodyWalker):
+class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
     """
     Aggregates state until there is enough data to successfully build the pydantic
     data model.
@@ -180,14 +168,16 @@ class WorkflowParser(parser_protocol.BodyWalker):
 
     def __init__(
         self,
+        scope: object_scope.ScopeProxy,
         symbol_map: symbol_scope.SymbolScope,
-        fully_qualified_name: str | None = None,
-        version: str | None = None,
+        info_factory: versions.VersionInfoFactory,
+        source: versions.VersionInfo | None = None,
     ):
+        self.scope = scope
         self.symbol_map = symbol_map
+        self.info_factory = info_factory
         self.nodes: union.Nodes = {}
-        self.fully_qualified_name = fully_qualified_name
-        self.version = version
+        self.source = source
 
     @property
     def inputs(self) -> list[str]:
@@ -221,59 +211,36 @@ class WorkflowParser(parser_protocol.BodyWalker):
             input_edges=self.input_edges,
             edges=self.edges,
             output_edges=self.output_edges,
-            fully_qualified_name=self.fully_qualified_name,
-            version=self.version,
+            source=self.source,
             source_code=source_code,
         )
 
-    def visit(self, stmt: ast.stmt, scope: object_scope.ScopeProxy) -> None:
-        if isinstance(stmt, ast.Assign | ast.AnnAssign):
-            self.handle_assign(stmt, scope)
-        elif isinstance(stmt, ast.For):
-            self.handle_for(stmt, scope)
-        elif isinstance(stmt, ast.While):
-            self.handle_while(stmt, scope)
-        elif isinstance(stmt, ast.If):
-            self.handle_if(stmt, scope)
-        elif isinstance(stmt, ast.Try):
-            self.handle_try(stmt, scope)
-        elif isinstance(stmt, ast.Expr) and is_append_call(stmt.value):
-            self.handle_appending_to_accumulator(cast(ast.Call, stmt.value))
-        else:
-            raise TypeError(
-                f"Workflow python definitions can only interpret assignments, a subset "
-                f"of flow control (for/while/if/try) and a return, but ast found "
-                f"{type(stmt)}"
-            )
+    def fork(self, new_symbol_map: symbol_scope.SymbolScope) -> WorkflowParser:
+        return WorkflowParser(self.scope, new_symbol_map, self.info_factory)
 
-    def walk(
-        self,
-        statements: list[ast.stmt],
-        scope: object_scope.ScopeProxy,
-        *,
-        special_handlers: SpecialHandlers | None = None,
-    ) -> None:
-        for stmt in statements:
-            if special_handlers:
-                for ast_type, handler in special_handlers.items():
-                    if isinstance(stmt, ast_type):
-                        handler(stmt, scope)
-                        break
-                else:
-                    self.visit(stmt, scope)
-            else:
-                self.visit(stmt, scope)
+    def walk(self, statements: list[ast.stmt]) -> None:
+        for statement in statements:
+            self.visit(statement)
 
-    def handle_assign(
-        self, body: ast.Assign | ast.AnnAssign, scope: object_scope.ScopeProxy
-    ):
+    def visit_Assign(self, stmt: ast.Assign) -> None:
+        self._handle_assign(stmt)
+
+    def visit_AnnAssign(self, stmt: ast.AnnAssign) -> None:
+        self._handle_assign(stmt)
+
+    def _handle_assign(self, body: ast.Assign | ast.AnnAssign):
         # Get returned symbols from the left-hand side
         lhs = body.targets[0] if isinstance(body, ast.Assign) else body.target
         new_symbols = parser_helpers.resolve_symbols_to_strings(lhs)
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
-            child = atomic_parser.get_labeled_recipe(rhs, self.nodes.keys(), scope)
+            child = atomic_parser.get_labeled_recipe(
+                rhs,
+                self.nodes.keys(),
+                self.scope,
+                self.info_factory,
+            )
             self.nodes[child.label] = child.node
             parser_helpers.consume_call_arguments(self.symbol_map, rhs, child)
             self.symbol_map.register(new_symbols, child)
@@ -303,29 +270,81 @@ class WorkflowParser(parser_protocol.BodyWalker):
         labeled_node = helper_models.LabeledNode(label=label, node=node)
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
 
-    def handle_for(self, tree: ast.For, scope: object_scope.ScopeProxy) -> None:
-        for_node = for_parser.parse_for_node(
-            tree, scope, self.symbol_map, WorkflowParser
-        )
+    def visit_For(self, tree: ast.For) -> None:
+        for_node = for_parser.parse_for_node(self, tree)
         # Accumulators consumed by the for body are no longer available here
         self.symbol_map.declared_accumulators -= set(for_node.outputs)
         self._digest_flow_control("for", for_node)
 
-    def handle_while(self, tree: ast.While, scope: object_scope.ScopeProxy) -> None:
-        while_node = while_parser.parse_while_node(
-            tree, scope, self.symbol_map, WorkflowParser
-        )
+    def visit_While(self, tree: ast.While) -> None:
+        while_node = while_parser.parse_while_node(self, tree)
         self._digest_flow_control("while", while_node)
 
-    def handle_if(self, tree: ast.If, scope: object_scope.ScopeProxy) -> None:
-        if_node = if_parser.parse_if_node(tree, scope, self.symbol_map, WorkflowParser)
+    def visit_If(self, tree: ast.If) -> None:
+        if_node = if_parser.parse_if_node(self, tree)
         self._digest_flow_control("if", if_node)
 
-    def handle_try(self, tree: ast.Try, scope: object_scope.ScopeProxy) -> None:
-        try_node = try_parser.parse_try_node(
-            tree, scope, self.symbol_map, WorkflowParser
-        )
+    def visit_Try(self, tree: ast.Try) -> None:
+        try_node = try_parser.parse_try_node(self, tree)
         self._digest_flow_control("try", try_node)
+
+    def visit_Expr(self, stmt: ast.Expr) -> None:
+        if is_append_call(stmt.value):
+            self._handle_appending_to_accumulator(cast(ast.Call, stmt.value))
+        else:
+            self.generic_visit(stmt)
+
+    def _handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
+        used_accumulator = cast(
+            ast.Name, cast(ast.Attribute, append_call.func).value
+        ).id
+        appended_symbol = cast(ast.Name, append_call.args[0]).id
+        self.symbol_map.use_accumulator(used_accumulator, appended_symbol)
+        appended_source = self.symbol_map[appended_symbol]
+        if isinstance(appended_source, edge_models.SourceHandle):
+            self.symbol_map.produce(appended_symbol)
+
+    def generic_visit(self, stmt: ast.AST) -> None:
+        raise TypeError(
+            f"Workflow python definitions can only interpret a subset of assignments, "
+            f"and flow controls (for/while/if/try) and (when parsing a function "
+            f"definition) a return, but ast found "
+            f"{type(stmt)}"
+        )
+
+
+class _WorkflowFunctionParser(WorkflowParser):
+    def __init__(
+        self,
+        scope: object_scope.ScopeProxy,
+        symbol_map: symbol_scope.SymbolScope,
+        info_factory: versions.VersionInfoFactory,
+        *,
+        source: versions.VersionInfo | None = None,
+        func: FunctionType,
+        output_labels: Collection[str],
+    ):
+        super().__init__(
+            scope,
+            symbol_map,
+            info_factory,
+            source=source,
+        )
+        self._func = func
+        self._output_labels = output_labels
+        self._found_return = False
+
+    @property
+    def found_return(self) -> bool:
+        return self._found_return
+
+    def visit_Return(self, stmt: ast.Return) -> None:
+        if self._found_return:
+            raise ValueError(
+                "Workflow python definitions must have exactly one return."
+            )
+        self._found_return = True
+        self.handle_return(stmt, self._func, self._output_labels)
 
     def handle_return(
         self,
@@ -372,16 +391,6 @@ class WorkflowParser(parser_protocol.BodyWalker):
                     f"workflow inputs."
                 )
             self.symbol_map.produce(port, symbol)
-
-    def handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
-        used_accumulator = cast(
-            ast.Name, cast(ast.Attribute, append_call.func).value
-        ).id
-        appended_symbol = cast(ast.Name, append_call.args[0]).id
-        self.symbol_map.use_accumulator(used_accumulator, appended_symbol)
-        appended_source = self.symbol_map[appended_symbol]
-        if isinstance(appended_source, edge_models.SourceHandle):
-            self.symbol_map.produce(appended_symbol)
 
 
 def is_append_call(node: ast.expr | ast.Expr) -> bool:

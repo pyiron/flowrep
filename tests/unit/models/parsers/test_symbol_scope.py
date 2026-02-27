@@ -1,5 +1,7 @@
 import unittest
 
+from pyiron_snippets import versions
+
 from flowrep.models import edge_models
 from flowrep.models.nodes import atomic_model, helper_models
 from flowrep.models.parsers.symbol_scope import SymbolScope
@@ -17,7 +19,9 @@ def _make_labeled_node(label: str, outputs: list[str]) -> helper_models.LabeledN
     return helper_models.LabeledNode(
         label=label,
         node=atomic_model.AtomicNode(
-            fully_qualified_name="test.module.func",
+            source=versions.VersionInfo(
+                module="test.module", qualname="func", version=None
+            ),
             inputs=["x"],
             outputs=outputs,
             unpack_mode="tuple",
@@ -71,7 +75,7 @@ class TestSymbolScopeAssignedSymbols(unittest.TestCase):
     def test_forked_scope_starts_unassigned(self):
         """After forking, all symbols become InputSources, so none are assigned."""
         scope = SymbolScope({"a": _make_input("a"), "b": _make_source("node_0", "out")})
-        child = scope.fork_scope()
+        child = scope.fork()
         self.assertEqual(child.assigned_symbols, [])
 
 
@@ -128,7 +132,7 @@ class TestSymbolScopeProduce(unittest.TestCase):
 class TestSymbolScopeFork(unittest.TestCase):
     def test_fork_with_remap(self):
         scope = SymbolScope({"xs": _make_input("xs"), "const": _make_input("const")})
-        child = scope.fork_scope({"xs": "x"})
+        child = scope.fork({"xs": "x"})
 
         self.assertEqual(len(child), 2)
         self.assertEqual(child["x"], _make_input("x"))
@@ -137,14 +141,14 @@ class TestSymbolScopeFork(unittest.TestCase):
 
     def test_fork_without_remap(self):
         scope = SymbolScope({"a": _make_input("a")})
-        child = scope.fork_scope()
+        child = scope.fork()
 
         self.assertEqual(len(child), 1)
         self.assertEqual(child["a"], _make_input("a"))
 
     def test_fork_does_not_mutate_parent(self):
         scope = SymbolScope({"xs": _make_input("xs")})
-        child = scope.fork_scope({"xs": "x"})
+        child = scope.fork({"xs": "x"})
 
         # Parent unchanged
         self.assertIn("xs", scope)
@@ -157,7 +161,7 @@ class TestSymbolScopeFork(unittest.TestCase):
         """Even SourceHandle values in the parent become InputSources in the fork,
         since the child scope treats them as its own inputs."""
         scope = SymbolScope({"a": _make_source("node_0", "out")})
-        child = scope.fork_scope()
+        child = scope.fork()
 
         result = child["a"]
         self.assertIsInstance(result, edge_models.InputSource)

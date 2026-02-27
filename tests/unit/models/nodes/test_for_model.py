@@ -11,6 +11,11 @@ from flowrep.models.nodes import (
 )
 
 
+def _source(module: str = "mod", qualname: str = "func", version: str | None = None):
+    """Shorthand for building a source dict in tests."""
+    return {"module": module, "qualname": qualname, "version": version}
+
+
 class TestForNodeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
@@ -24,7 +29,7 @@ class TestForNodeBasic(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=_source(),
                     inputs=["item"],
                     outputs=["result"],
                 ),
@@ -42,7 +47,7 @@ class TestForNodeBasic(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=_source(),
                     inputs=["item"],
                     outputs=["result"],
                 ),
@@ -70,7 +75,7 @@ class TestForNodeBasic(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=_source(),
                     inputs=["x", "y"],
                     outputs=["result"],
                 ),
@@ -100,7 +105,7 @@ class TestForNodeBasic(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=_source(),
                     inputs=["a", "b", "c"],
                     outputs=["out"],
                 ),
@@ -137,7 +142,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
@@ -165,7 +170,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -192,7 +197,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["x"],
                         outputs=["result"],
                     ),
@@ -219,7 +224,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -248,7 +253,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -277,7 +282,7 @@ class TestForNodeInputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -304,7 +309,7 @@ class TestForNodeInputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -331,7 +336,7 @@ class TestForNodeInputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -360,7 +365,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -388,7 +393,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -415,7 +420,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -444,7 +449,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=_source(),
                     inputs=["item", "static"],
                     outputs=["result"],
                 ),
@@ -478,7 +483,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -510,7 +515,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        fully_qualified_name="mod.func",
+                        source=_source(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -542,7 +547,7 @@ class TestForNodeSerialization(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=_source(),
                     inputs=["item", "mult"],
                     outputs=["result"],
                 ),
@@ -586,7 +591,7 @@ class TestForNodeComposition(unittest.TestCase):
             outputs=["y"],
             nodes={
                 "leaf": atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=_source(),
                     inputs=["inp"],
                     outputs=["out"],
                 )
@@ -632,7 +637,7 @@ class TestForNodeComposition(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    fully_qualified_name="mod.func",
+                    source=_source(),
                     inputs=["item"],
                     outputs=["result"],
                 ),
@@ -678,7 +683,7 @@ class TestForNodeComposition(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    fully_qualified_name="mod.transform",
+                    source=_source(qualname="transform"),
                     inputs=["item"],
                     outputs=["result"],
                 ),
@@ -701,13 +706,13 @@ class TestForNodeComposition(unittest.TestCase):
             outputs=["final"],
             nodes={
                 "preprocess": atomic_model.AtomicNode(
-                    fully_qualified_name="mod.preprocess",
+                    source=_source(qualname="preprocess"),
                     inputs=["data"],
                     outputs=["items"],
                 ),
                 "for_node": for_node,
                 "postprocess": atomic_model.AtomicNode(
-                    fully_qualified_name="mod.postprocess",
+                    source=_source(qualname="postprocess"),
                     inputs=["results"],
                     outputs=["output"],
                 ),
@@ -748,7 +753,7 @@ class TestForNodeOutputProperties(unittest.TestCase):
                 "type": "atomic",
                 "inputs": inputs,
                 "outputs": outputs,
-                "fully_qualified_name": "mod.func",
+                "source": _source(),
             },
         }
 

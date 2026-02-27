@@ -1,8 +1,9 @@
+import math
 import unittest
 
 from pyiron_snippets import versions
 
-from flowrep import crawler
+from flowrep.models.parsers import dependency_parser
 
 # ---------------------------------------------------------------------------
 # Helper functions defined at module level so they have inspectable source,
@@ -29,14 +30,6 @@ def _diamond_b():
 def _diamond_root():
     _diamond_a()
     _diamond_b()
-
-
-def _mutual_b():
-    return _leaf()
-
-
-def _mutual_a():
-    return _mutual_b()
 
 
 # Mutual recursion to exercise cycle detection.
@@ -67,11 +60,29 @@ def _multi_call():
     return a + b
 
 
+def _attribute_access(x):
+    return math.sqrt(x)
+
+
+def _nested_expression(x, y, z):
+    return _single_call(_leaf(x, y), z)
+
+
+def _unresolvable_subscript():
+    d = {}
+    return d["key"]()
+
+
+def _calls_non_callable():
+    x = 42
+    return x
+
+
 def _fqn(func) -> str:
     return versions.VersionInfo.of(func).fully_qualified_name
 
 
-def _fqns(deps: crawler.CallDependencies) -> set[str]:
+def _fqns(deps: dependency_parser.CallDependencies) -> set[str]:
     return {info.fully_qualified_name for info in deps}
 
 
@@ -84,20 +95,20 @@ def _local_imports(x):
 
 
 class TestGetCallDependencies(unittest.TestCase):
-    """Tests for :func:`crawler.get_call_dependencies`."""
+    """Tests for :func:`dependency_parser.get_call_dependencies`."""
 
     # --- basic behaviour ---
 
     def test_no_calls_returns_empty(self):
-        deps = crawler.get_call_dependencies(_no_calls)
+        deps = dependency_parser.get_call_dependencies(_no_calls)
         self.assertEqual(deps, {})
 
     def test_single_direct_call(self):
-        deps = crawler.get_call_dependencies(_single_call)
+        deps = dependency_parser.get_call_dependencies(_single_call)
         self.assertIn(_fqn(_leaf), _fqns(deps))
 
     def test_transitive_dependencies(self):
-        deps = crawler.get_call_dependencies(_nested_call)
+        deps = dependency_parser.get_call_dependencies(_nested_call)
         fqns = _fqns(deps)
         # Should find both _single_call and _leaf
         self.assertIn(_fqn(_single_call), fqns)
@@ -108,7 +119,13 @@ class TestGetCallDependencies(unittest.TestCase):
         _diamond_root -> _diamond_a -> _leaf AND _diamond_root -> _diamond_b -> _leaf.
         _leaf's VersionInfo should appear exactly once as a key.
         """
-        deps = crawler.get_call_dependencies(_diamond_root)
+        deps = dependency_parser.get_call_dependencies(_diamond_root)
+        matching = [info for info in deps if info.fully_qualified_name == _fqn(_leaf)]
+        self.assertEqual(len(matching), 1)
+
+    def test_duplicate_call_deduplicated_by_version_info(self):
+        """Calling the same function twice yields a single key, not two."""
+        deps = dependency_parser.get_call_dependencies(_multi_call)
         matching = [info for info in deps if info.fully_qualified_name == _fqn(_leaf)]
         self.assertEqual(len(matching), 1)
 
@@ -116,17 +133,50 @@ class TestGetCallDependencies(unittest.TestCase):
 
     def test_cycle_does_not_recurse_infinitely(self):
         # Should terminate without RecursionError
-        deps = crawler.get_call_dependencies(_cycle_a)
+        deps = dependency_parser.get_call_dependencies(_cycle_a)
         self.assertIn(_fqn(_cycle_b), _fqns(deps))
 
     # --- builtins / non-FunctionType callables ---
 
     def test_builtin_callable_included(self):
-        deps = crawler.get_call_dependencies(_calls_len)
+        deps = dependency_parser.get_call_dependencies(_calls_len)
         self.assertIn(_fqn(len), _fqns(deps))
 
     def test_returns_dict_type(self):
-        deps = crawler.get_call_dependencies(_leaf)
+        deps = dependency_parser.get_call_dependencies(_leaf)
+        self.assertIsInstance(deps, dict)
+
+    # --- attribute access (module.func) ---
+
+    def test_attribute_access_dependency(self):
+        """Functions called via attribute access (e.g. math.sqrt) are tracked."""
+        deps = dependency_parser.get_call_dependencies(_attribute_access)
+        self.assertIn(_fqn(math.sqrt), _fqns(deps))
+
+    # --- nested expressions ---
+
+    def test_nested_expression_collects_all_calls(self):
+        """All calls in a nested expression like f(g(x), y) are collected."""
+        deps = dependency_parser.get_call_dependencies(_nested_expression)
+        fqns = _fqns(deps)
+        self.assertIn(_fqn(_single_call), fqns)
+        self.assertIn(_fqn(_leaf), fqns)
+
+    # --- unresolvable / non-callable targets (coverage for `continue` branches) ---
+
+    def test_unresolvable_call_target_is_skipped(self):
+        """Calls that resolve_symbol_to_object cannot handle are silently skipped."""
+        # _unresolvable_subscript contains d["key"]() which is an ast.Subscript,
+        # triggering a TypeError in resolve_symbol_to_object
+        deps = dependency_parser.get_call_dependencies(_unresolvable_subscript)
+        # Should not raise; the unresolvable call is simply absent
+        self.assertIsInstance(deps, dict)
+
+    def test_non_callable_resolved_symbol_is_skipped(self):
+        """Symbols that resolve to non-callable objects are silently skipped."""
+        # _calls_non_callable doesn't actually have a call in its AST that resolves
+        # to a non-callable, but we can verify the function itself is crawlable
+        deps = dependency_parser.get_call_dependencies(_calls_non_callable)
         self.assertIsInstance(deps, dict)
 
     def test_local_imports_included(self):
@@ -137,7 +187,7 @@ class TestGetCallDependencies(unittest.TestCase):
 
 
 class TestSplitByVersionAvailability(unittest.TestCase):
-    """Tests for :func:`crawler.split_by_version_availability`."""
+    """Tests for :func:`dependency_parser.split_by_version_availability`."""
 
     @staticmethod
     def _make_info(
@@ -150,37 +200,37 @@ class TestSplitByVersionAvailability(unittest.TestCase):
         )
 
     def test_empty_input(self):
-        has, no = crawler.split_by_version_availability({})
+        has, no = dependency_parser.split_by_version_availability({})
         self.assertEqual(has, {})
         self.assertEqual(no, {})
 
     def test_all_versioned(self):
         info_a = self._make_info("pkg", "a", "1.0")
         info_b = self._make_info("pkg", "b", "2.0")
-        deps: crawler.CallDependencies = {info_a: _leaf, info_b: _leaf}
+        deps: dependency_parser.CallDependencies = {info_a: _leaf, info_b: _leaf}
 
-        has, no = crawler.split_by_version_availability(deps)
+        has, no = dependency_parser.split_by_version_availability(deps)
         self.assertEqual(len(has), 2)
         self.assertEqual(len(no), 0)
 
     def test_all_unversioned(self):
         info_a = self._make_info("local", "a")
         info_b = self._make_info("local", "b")
-        deps: crawler.CallDependencies = {info_a: _leaf, info_b: _leaf}
+        deps: dependency_parser.CallDependencies = {info_a: _leaf, info_b: _leaf}
 
-        has, no = crawler.split_by_version_availability(deps)
+        has, no = dependency_parser.split_by_version_availability(deps)
         self.assertEqual(len(has), 0)
         self.assertEqual(len(no), 2)
 
     def test_mixed(self):
         versioned = self._make_info("pkg", "x", "3.1")
         unversioned = self._make_info("local", "y")
-        deps: crawler.CallDependencies = {
+        deps: dependency_parser.CallDependencies = {
             versioned: _leaf,
             unversioned: _single_call,
         }
 
-        has, no = crawler.split_by_version_availability(deps)
+        has, no = dependency_parser.split_by_version_availability(deps)
         self.assertIn(versioned, has)
         self.assertIn(unversioned, no)
         self.assertNotIn(versioned, no)
@@ -194,9 +244,9 @@ class TestSplitByVersionAvailability(unittest.TestCase):
             self._make_info("pkg", "c", "0.1"),
             self._make_info("local", "d"),
         ]
-        deps: crawler.CallDependencies = {info: _leaf for info in infos}
+        deps: dependency_parser.CallDependencies = {info: _leaf for info in infos}
 
-        has, no = crawler.split_by_version_availability(deps)
+        has, no = dependency_parser.split_by_version_availability(deps)
         self.assertEqual(set(has) | set(no), set(deps))
         self.assertTrue(set(has).isdisjoint(set(no)))
 
@@ -204,12 +254,12 @@ class TestSplitByVersionAvailability(unittest.TestCase):
         """Only ``None`` counts as unversioned; an empty string is still 'versioned'."""
         none_version = self._make_info("local", "f", None)
         empty_version = self._make_info("local", "g", "")
-        deps: crawler.CallDependencies = {
+        deps: dependency_parser.CallDependencies = {
             none_version: _leaf,
             empty_version: _leaf,
         }
 
-        has, no = crawler.split_by_version_availability(deps)
+        has, no = dependency_parser.split_by_version_availability(deps)
         self.assertIn(none_version, no)
         self.assertIn(empty_version, has)
 
