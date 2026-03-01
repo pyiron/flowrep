@@ -180,7 +180,7 @@ class TestGetCallDependencies(unittest.TestCase):
         self.assertIsInstance(deps, dict)
 
     def test_local_imports_included(self):
-        deps = crawler.get_call_dependencies(_local_imports)
+        deps = dependency_parser.get_call_dependencies(_local_imports)
         fqns = _fqns(deps)
         self.assertIn("sys.getsizeof", fqns)
         self.assertIn("math.sqrt", fqns)
