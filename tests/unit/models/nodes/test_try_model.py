@@ -1,6 +1,7 @@
 import unittest
 
 import pydantic
+from pyiron_snippets import versions
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import (
@@ -13,7 +14,7 @@ from flowrep.models.nodes import (
 
 def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        fully_qualified_name="mod.try_func",
+        source=versions.VersionInfo(module="mod", qualname="try_func", version=None),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
@@ -21,7 +22,9 @@ def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 
 def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        fully_qualified_name="mod.handle_error",
+        source=versions.VersionInfo(
+            module="mod", qualname="handle_error", version=None
+        ),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
@@ -176,7 +179,9 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             outputs=["y"],
             nodes={
                 "inner": atomic_model.AtomicNode(
-                    fully_qualified_name="mod.f",
+                    source=versions.VersionInfo(
+                        module="mod", qualname="f", version=None
+                    ),
                     inputs=["a"],
                     outputs=["b"],
                 )
@@ -509,7 +514,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
     def test_prospective_output_edges_valid_multiple_outputs(self):
         """prospective_output_edges works with multiple outputs."""
         body_node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.func",
+            source=versions.VersionInfo(module="mod", qualname="func", version=None),
             inputs=["x"],
             outputs=["out1", "out2"],
         )
@@ -549,7 +554,9 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         try_node = helper_models.LabeledNode(
             label="try_body",
             node=atomic_model.AtomicNode(
-                fully_qualified_name="mod.func",
+                source=versions.VersionInfo(
+                    module="mod", qualname="func", version=None
+                ),
                 inputs=["x"],
                 outputs=[],
             ),
@@ -559,7 +566,9 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
             body=helper_models.LabeledNode(
                 label="handler",
                 node=atomic_model.AtomicNode(
-                    fully_qualified_name="mod.handler",
+                    source=versions.VersionInfo(
+                        module="mod", qualname="handler", version=None
+                    ),
                     inputs=["x"],
                     outputs=[],
                 ),

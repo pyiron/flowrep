@@ -11,9 +11,14 @@ from flowrep.models.nodes import (
 )
 
 
+def _source(module: str = "mod", qualname: str = "func", version: str | None = None):
+    """Shorthand for building a source dict in tests."""
+    return {"module": module, "qualname": qualname, "version": version}
+
+
 def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        fully_qualified_name="mod.check",
+        source=_source(qualname="check"),
         inputs=inputs or ["x"],
         outputs=outputs or ["result"],
     )
@@ -21,7 +26,7 @@ def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 
 def _make_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        fully_qualified_name="mod.handle",
+        source=_source(qualname="handle"),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
@@ -165,7 +170,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             outputs=["result"],
             nodes={
                 "inner": atomic_model.AtomicNode(
-                    fully_qualified_name="mod.f",
+                    source=_source(qualname="f"),
                     inputs=["a"],
                     outputs=["b"],
                 )
@@ -528,12 +533,12 @@ class TestIfNodeSerialization(unittest.TestCase):
 
     def test_roundtrip_with_condition_output(self):
         condition = atomic_model.AtomicNode(
-            fully_qualified_name="mod.check",
+            source=_source(qualname="check"),
             inputs=["x"],
             outputs=["a", "b"],
         )
         body = atomic_model.AtomicNode(
-            fully_qualified_name="mod.handle",
+            source=_source(qualname="handle"),
             inputs=["x"],
             outputs=["y"],
         )
@@ -673,7 +678,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
     def test_prospective_output_edges_valid_source_ports(self):
         """output_edges with valid source ports should pass."""
         body_node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.handle",
+            source=_source(qualname="handle"),
             inputs=["x"],
             outputs=["out1", "out2"],
         )
@@ -704,7 +709,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
     def test_prospective_output_edges_valid_source_ports_with_else(self):
         """output_edges with valid source ports and else_case should pass."""
         body_node = atomic_model.AtomicNode(
-            fully_qualified_name="mod.handle",
+            source=_source(qualname="handle"),
             inputs=["x"],
             outputs=["out1", "out2"],
         )

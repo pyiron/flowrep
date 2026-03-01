@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 import dataclasses
 
+from pyiron_snippets import versions
+
 from flowrep.models import edge_models, subgraph_validation
 from flowrep.models.nodes import helper_models
 from flowrep.models.parsers import (
@@ -18,6 +20,7 @@ def parse_case(
     test: ast.expr,
     scope: object_scope.ScopeProxy,
     symbol_map: symbol_scope.SymbolScope,
+    info_factory: versions.VersionInfoFactory,
     label: str,
 ) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
     """
@@ -31,14 +34,14 @@ def parse_case(
             "Test conditions must be a function call, but got " f"{type(test).__name__}"
         )
 
-    condition = atomic_parser.get_labeled_recipe(test, set(), scope)
+    condition = atomic_parser.get_labeled_recipe(test, set(), scope, info_factory)
     if len(condition.node.outputs) != 1:
         raise ValueError(
             f"If/elif condition must return exactly one value (and it had better be "
             f"truthy), but got {condition.node.outputs}"
         )
 
-    scope_copy = symbol_map.fork_scope()
+    scope_copy = symbol_map.fork()
     parser_helpers.consume_call_arguments(scope_copy, test, condition)
     return _relabel_node_data(condition, scope_copy.input_edges, label)
 
@@ -70,18 +73,14 @@ class WalkedBranch:
 
 
 def walk_branch(
-    label: str,
-    stmts: list[ast.stmt],
-    symbol_map: symbol_scope.SymbolScope,
-    scope: object_scope.ScopeProxy,
-    walker_factory: parser_protocol.WalkerFactory,
+    walker: parser_protocol.BodyWalker, label: str, stmts: list[ast.stmt]
 ) -> WalkedBranch:
-    fork = symbol_map.fork_scope()
-    w = walker_factory(scope, fork)
-    w.walk(stmts)
+    fork = walker.symbol_map.fork()
+    branch_walker = walker.fork(new_symbol_map=fork)
+    branch_walker.walk(stmts)
     assigned = fork.assigned_symbols
     fork.produce_symbols(assigned)
-    return WalkedBranch(label, w, assigned)
+    return WalkedBranch(label, branch_walker, assigned)
 
 
 def wire_inputs(

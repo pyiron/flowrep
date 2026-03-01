@@ -21,6 +21,15 @@ def _make_func_in_module(module: str, qualname: str) -> FunctionType:
     return f
 
 
+def _make_local_function() -> FunctionType:
+    """Create a function with ``<locals>`` in its qualname from this real module."""
+
+    def inner(x):
+        return x
+
+    return inner
+
+
 class TestParseReturnLabelWithoutUnpackingExceptions(unittest.TestCase):
     """Tests for exception handling in _parse_return_label_without_unpacking."""
 
@@ -862,8 +871,8 @@ class TestParseAtomicVersionParams(unittest.TestCase):
 
         node = atomic_parser.parse_atomic(dataclasses.is_dataclass)
         # math is a stdlib module; version should be the python version
-        self.assertIsNotNone(node.version)
-        self.assertIsInstance(node.version, str)
+        self.assertIsNotNone(node.source.version)
+        self.assertIsInstance(node.source.version, str)
 
     def test_version_none_for_unversioned(self):
         """Functions from unversioned modules should yield version=None."""
@@ -872,7 +881,7 @@ class TestParseAtomicVersionParams(unittest.TestCase):
         # forbid_main=False; the version for __main__ is None
         # Actually __main__ may not have a version. Let's just check it doesn't crash.
         node = atomic_parser.parse_atomic(f)
-        self.assertIsInstance(node.version, (str, type(None)))
+        self.assertIsInstance(node.source.version, (str, type(None)))
 
     def test_forbid_main_raises(self):
         f = _make_func_in_module("__main__", "f")
@@ -885,15 +894,15 @@ class TestParseAtomicVersionParams(unittest.TestCase):
         self.assertIn("__main__", node.fully_qualified_name)
 
     def test_forbid_locals_raises(self):
-        f = _make_func_in_module("some_mod", "outer.<locals>.inner")
+        f = _make_local_function()
         with self.assertRaises(ValueError, msg="<locals>"):
             atomic_parser.parse_atomic(f, forbid_locals=True)
 
     def test_forbid_locals_false_allows_locals(self):
-        scraping = {"my_package": lambda _name: "fake version to avoid lookup"}
-        f = _make_func_in_module("some_mod", "outer.<locals>.inner")
-        with self.assertRaises(ValueError, msg="<locals>"):
-            atomic_parser.parse_atomic(f, version_scraping=scraping, forbid_locals=True)
+        f = _make_local_function()
+        # Without forbid_locals the <locals> qualname is accepted
+        node = atomic_parser.parse_atomic(f, forbid_locals=False)
+        self.assertIn("<locals>", node.fully_qualified_name)
 
     def test_require_version_raises_when_missing(self):
         f = _make_func_in_module("__main__", "f")
@@ -906,7 +915,7 @@ class TestParseAtomicVersionParams(unittest.TestCase):
         custom_version = "99.0.0"
         scraping = {"mypkg.sub": lambda _name: custom_version}
         node = atomic_parser.parse_atomic(f, version_scraping=scraping)
-        self.assertEqual(node.version, custom_version)
+        self.assertEqual(node.source.version, custom_version)
 
     def test_fqn_matches_module_and_qualname(self):
         scraping = {
@@ -934,7 +943,7 @@ class TestAtomicDecoratorVersionParams(unittest.TestCase):
         def my_func(x):
             return x
 
-        self.assertEqual(my_func.flowrep_recipe.version, custom_version)
+        self.assertEqual(my_func.flowrep_recipe.source.version, custom_version)
 
     def test_decorator_forbid_locals_on_inner_function(self):
         with self.assertRaises(ValueError):

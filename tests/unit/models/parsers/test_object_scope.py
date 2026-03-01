@@ -75,6 +75,11 @@ class TestResolveSymbolToObject(unittest.TestCase):
         with self.assertRaises(TypeError):
             object_scope.resolve_symbol_to_object(node, scope)
 
+    def test_resolve_attribute_to_object(self):
+        scope = object_scope.ScopeProxy({"ast": ast})
+        f = object_scope.resolve_attribute_to_object("ast.literal_eval", scope)
+        self.assertIs(f, ast.literal_eval)
+
 
 if __name__ == "__main__":
     unittest.main()

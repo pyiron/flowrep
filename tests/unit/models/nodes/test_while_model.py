@@ -3,6 +3,7 @@
 import unittest
 
 import pydantic
+from pyiron_snippets import versions
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import (
@@ -15,7 +16,7 @@ from flowrep.models.nodes import (
 
 def make_atomic(inputs: list[str], outputs: list[str]) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        fully_qualified_name="mod.func",
+        source=versions.VersionInfo(module="mod", qualname="func", version=None),
         inputs=inputs,
         outputs=outputs,
     )

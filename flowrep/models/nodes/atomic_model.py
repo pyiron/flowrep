@@ -4,9 +4,9 @@ from enum import StrEnum
 from typing import Literal
 
 import pydantic
+from pyiron_snippets import versions
 
 from flowrep.models import base_models
-from flowrep.models.nodes import helper_models
 
 
 class UnpackMode(StrEnum):
@@ -51,10 +51,13 @@ class AtomicNode(base_models.NodeModel):
     type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
         default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
-    fully_qualified_name: helper_models.FullyQualifiedName
-    version: str | None = None
+    source: versions.VersionInfo
     source_code: str | None = None
     unpack_mode: UnpackMode = UnpackMode.TUPLE
+
+    @property
+    def fully_qualified_name(self) -> str:
+        return self.source.fully_qualified_name
 
     @pydantic.model_validator(mode="after")
     def check_outputs_when_not_unpacking(self):
