@@ -248,6 +248,56 @@ class TestAtomicNodeSerialization(unittest.TestCase):
         self.assertIn("reference", schema.get("properties", {}))
 
 
+class TestAtomicNodeHasDefault(unittest.TestCase):
+    """Tests for reference.has_default ⊆ inputs validation."""
+
+    def test_empty_has_default(self):
+        """Empty has_default is trivially valid."""
+        node = atomic_model.AtomicNode(
+            reference=_reference(),
+            inputs=["a", "b"],
+            outputs=[],
+        )
+        self.assertEqual(node.reference.has_default, [])
+
+    def test_valid_subset(self):
+        ref = _reference(has_default=["b"])
+        node = atomic_model.AtomicNode(
+            reference=ref,
+            inputs=["a", "b"],
+            outputs=[],
+        )
+        self.assertEqual(node.reference.has_default, ["b"])
+
+    def test_full_match(self):
+        ref = _reference(has_default=["a", "b"])
+        node = atomic_model.AtomicNode(
+            reference=ref,
+            inputs=["a", "b"],
+            outputs=[],
+        )
+        self.assertEqual(node.reference.has_default, ["a", "b"])
+
+    def test_not_subset_rejected(self):
+        ref = _reference(has_default=["a", "c"])
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            atomic_model.AtomicNode(
+                reference=ref,
+                inputs=["a", "b"],
+                outputs=[],
+            )
+        self.assertIn("c", str(ctx.exception))
+
+    def test_no_inputs_with_has_default_rejected(self):
+        ref = _reference(has_default=["x"])
+        with self.assertRaises(pydantic.ValidationError):
+            atomic_model.AtomicNode(
+                reference=ref,
+                inputs=[],
+                outputs=[],
+            )
+
+
 class TestAtomicNodeSourceCode(unittest.TestCase):
     """Tests for the optional source_code field."""
 

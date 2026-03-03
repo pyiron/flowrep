@@ -861,6 +861,48 @@ class TestWorkflowNodeSource(unittest.TestCase):
         self.assertIn("reference", props)
 
 
+class TestWorkflowNodeHasDefault(unittest.TestCase):
+    """Tests for reference.has_default ⊆ inputs validation."""
+
+    def _minimal_wf(self, **overrides):
+        defaults = dict(
+            inputs=[],
+            outputs=[],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
+        defaults.update(overrides)
+        return workflow_model.WorkflowNode(**defaults)
+
+    def test_no_reference_skips_validation(self):
+        wf = self._minimal_wf()
+        self.assertIsNone(wf.reference)
+
+    def test_reference_with_empty_has_default(self):
+        wf = self._minimal_wf(
+            inputs=["a"],
+            reference=_reference(has_default=[]),
+        )
+        self.assertEqual(wf.reference.has_default, [])
+
+    def test_valid_subset(self):
+        wf = self._minimal_wf(
+            inputs=["a", "b"],
+            reference=_reference(has_default=["b"]),
+        )
+        self.assertEqual(wf.reference.has_default, ["b"])
+
+    def test_not_subset_rejected(self):
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            self._minimal_wf(
+                inputs=["a"],
+                reference=_reference(has_default=["a", "z"]),
+            )
+        self.assertIn("z", str(ctx.exception))
+
+
 class TestWorkflowNodeSourceCode(unittest.TestCase):
     """Tests for the optional source_code field."""
 
