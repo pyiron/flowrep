@@ -92,7 +92,7 @@ simple_while_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "simple_while",
                 "version": None,
             },
-            "has_default": [],
+            "has_default": ["a", "b", "c"],
         },
         "source_code": parser_helpers.get_available_source_code(simple_while),
     }

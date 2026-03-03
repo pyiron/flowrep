@@ -758,6 +758,74 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
                 return y
 
 
+class TestParseWorkflowHasDefault(unittest.TestCase):
+    """Tests that parse_workflow populates has_default on the workflow and children."""
+
+    def test_workflow_has_default_from_signature(self):
+        def wf(a, b=5):
+            c = add(a, b)
+            return c
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.reference.has_default, ["b"])
+
+    def test_workflow_no_defaults(self):
+        def wf(a, b):
+            c = add(a, b)
+            return c
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.reference.has_default, [])
+
+    def test_workflow_all_defaults(self):
+        def wf(a=1, b=2):
+            c = add(a, b)
+            return c
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.reference.has_default, ["a", "b"])
+
+    def test_child_node_has_default_populated(self):
+        """Undecorated children parsed on-the-fly should carry has_default."""
+
+        def wf(x):
+            y = add(x)  # add has x=2.0, y=1 → has_default=["x", "y"]
+            return y
+
+        node = workflow_parser.parse_workflow(wf)
+        child = node.nodes["add_0"]
+        self.assertEqual(child.reference.has_default, ["x", "y"])
+
+    def test_child_mixed_defaults(self):
+        def wf(x):
+            y = multiply(x)  # multiply has (x, y=5) → has_default=["y"]
+            return y
+
+        node = workflow_parser.parse_workflow(wf)
+        child = node.nodes["multiply_0"]
+        self.assertEqual(child.reference.has_default, ["y"])
+
+    def test_decorator_preserves_has_default(self):
+        @workflow_parser.workflow
+        def wf(a, b=10):
+            c = add(a, b)
+            return c
+
+        self.assertEqual(wf.flowrep_recipe.reference.has_default, ["b"])
+
+    def test_roundtrip_preserves_has_default(self):
+        def wf(a, b=5):
+            c = add(a, b)
+            return c
+
+        node = workflow_parser.parse_workflow(wf)
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = node.model_dump(mode=mode)
+                restored = workflow_model.WorkflowNode.model_validate(data)
+                self.assertEqual(restored.reference.has_default, ["b"])
+
+
 class TestParseWorkflowSourceCode(unittest.TestCase):
     def test_source_code_populated(self):
         def my_wf(x):

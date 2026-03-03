@@ -953,6 +953,58 @@ class TestAtomicDecoratorVersionParams(unittest.TestCase):
                 return x
 
 
+class TestParseAtomicHasDefault(unittest.TestCase):
+    """Tests that parse_atomic populates reference.has_default from the signature."""
+
+    def test_no_defaults(self):
+        def func(a, b):
+            return a, b
+
+        node = atomic_parser.parse_atomic(func)
+        self.assertEqual(node.reference.has_default, [])
+
+    def test_all_defaults(self):
+        def func(a=1, b=2):
+            return a, b
+
+        node = atomic_parser.parse_atomic(func)
+        self.assertEqual(node.reference.has_default, ["a", "b"])
+
+    def test_mixed_defaults(self):
+        def func(a, b, c=3, d="x"):
+            return a, b
+
+        node = atomic_parser.parse_atomic(func)
+        self.assertEqual(node.reference.has_default, ["c", "d"])
+
+    def test_no_params(self):
+        def func():
+            return 42
+
+        node = atomic_parser.parse_atomic(
+            func, unpack_mode=atomic_model.UnpackMode.NONE
+        )
+        self.assertEqual(node.reference.has_default, [])
+
+    def test_decorator_preserves_has_default(self):
+        @atomic_parser.atomic
+        def func(x, y=10):
+            return x
+
+        self.assertEqual(func.flowrep_recipe.reference.has_default, ["y"])
+
+    def test_roundtrip_preserves_has_default(self):
+        def func(a, b=2, c=3):
+            return a, b, c
+
+        node = atomic_parser.parse_atomic(func)
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = node.model_dump(mode=mode)
+                restored = atomic_model.AtomicNode.model_validate(data)
+                self.assertEqual(restored.reference.has_default, ["b", "c"])
+
+
 class TestParseAtomicSourceCode(unittest.TestCase):
     def test_source_code_populated(self):
         def my_func(x):
