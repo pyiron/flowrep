@@ -797,7 +797,7 @@ class TestTryParserVersionPropagation(unittest.TestCase):
         try_node = node.nodes["try_0"]
         body = try_node.try_node.node
         child = body.nodes["undecorated_identity_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
 
     def test_version_scraping_propagates_into_except_body(self):
         """Undecorated child inside an except body receives the scraping map."""
@@ -816,7 +816,7 @@ class TestTryParserVersionPropagation(unittest.TestCase):
         try_node = node.nodes["try_0"]
         except_body = try_node.exception_cases[0].body.node
         child = except_body.nodes["undecorated_identity_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
 
     def test_version_scraping_does_not_override_prebuilt_recipe(self):
         """A function already decorated with @atomic keeps its own recipe."""
@@ -835,12 +835,12 @@ class TestTryParserVersionPropagation(unittest.TestCase):
         try_node = node.nodes["try_0"]
         # Pre-decorated child in try body keeps its own version
         try_child = try_node.try_node.node.nodes["identity_0"]
-        self.assertNotEqual(try_child.source.version, custom)
+        self.assertNotEqual(try_child.reference.info.version, custom)
         # Undecorated child in except body picks up custom version
         except_child = try_node.exception_cases[0].body.node.nodes[
             "undecorated_identity_0"
         ]
-        self.assertEqual(except_child.source.version, custom)
+        self.assertEqual(except_child.reference.info.version, custom)
 
     def test_version_constraints_propagate_to_children(self):
         def wf(x, y):

@@ -16,7 +16,9 @@ from flowrep.models.nodes import (
 
 def make_atomic(inputs: list[str], outputs: list[str]) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        source=versions.VersionInfo(module="mod", qualname="func", version=None),
+        reference=base_models.PythonReference(
+            info=versions.VersionInfo(module="mod", qualname="func", version=None)
+        ),
         inputs=inputs,
         outputs=outputs,
     )

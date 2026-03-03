@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import pydantic
-from pyiron_snippets import versions
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 
@@ -30,10 +29,11 @@ class WorkflowNode(base_models.NodeModel):
         input_edges: Edges from workflow inputs to inputs of subgraph nodes.
         edges: Edges between subgraph nodes.
         output_edges: Edges from subgraph nodes back to workflow outputs.
+        reference: Info about the underlying python function (if any).
+
+    Properties:
         fully_qualified_name: The fully-qualified name of function from which the
             recipe was derived (if any).
-        version: The version of the module of the function from which the recipe was
-            derived (if any).
     """
 
     type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
@@ -43,12 +43,14 @@ class WorkflowNode(base_models.NodeModel):
     input_edges: edge_models.InputEdges
     edges: edge_models.Edges
     output_edges: edge_models.OutputEdges
-    source: versions.VersionInfo | None = None
+    reference: base_models.PythonReference | None = None
     source_code: str | None = None
 
     @property
     def fully_qualified_name(self) -> str | None:
-        return None if self.source is None else self.source.fully_qualified_name
+        return (
+            None if self.reference is None else self.reference.info.fully_qualified_name
+        )
 
     @pydantic.model_validator(mode="after")
     def validate_io_edges(self):

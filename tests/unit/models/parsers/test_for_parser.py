@@ -841,7 +841,7 @@ class TestForParserVersionPropagation(unittest.TestCase):
         for_node = node.nodes["for_0"]
         body = for_node.body_node.node
         child = body.nodes["identity_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
 
     def test_version_scraping_propagates_through_nested_for(self):
         """Scraping reaches children inside nested for-loops."""
@@ -866,7 +866,7 @@ class TestForParserVersionPropagation(unittest.TestCase):
         inner_for = outer_body.nodes["for_0"]
         inner_body = inner_for.body_node.node
         child = inner_body.nodes["identity_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
 
     def test_version_constraints_propagate_to_condition(self):
         def wf(xs):

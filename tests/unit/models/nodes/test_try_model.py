@@ -14,9 +14,21 @@ from flowrep.models.nodes import (
 _VALUE_ERROR_INFO = versions.VersionInfo.of(ValueError)
 
 
+def _reference(
+    module: str = "mod",
+    qualname: str = "func",
+    version: str | None = None,
+    has_default: list[bool] | None = None,
+) -> base_models.PythonReference:
+    return base_models.PythonReference(
+        info=versions.VersionInfo(module=module, qualname=qualname, version=version),
+        has_default=has_default or [],
+    )
+
+
 def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        source=versions.VersionInfo(module="mod", qualname="try_func", version=None),
+        reference=_reference(qualname="try_func"),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
@@ -24,9 +36,7 @@ def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 
 def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        source=versions.VersionInfo(
-            module="mod", qualname="handle_error", version=None
-        ),
+        reference=_reference(qualname="handle_error"),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
@@ -181,8 +191,10 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             outputs=["y"],
             nodes={
                 "inner": atomic_model.AtomicNode(
-                    source=versions.VersionInfo(
-                        module="mod", qualname="f", version=None
+                    reference=base_models.PythonReference(
+                        info=versions.VersionInfo(
+                            module="mod", qualname="f", version=None
+                        )
                     ),
                     inputs=["a"],
                     outputs=["b"],
@@ -516,7 +528,9 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
     def test_prospective_output_edges_valid_multiple_outputs(self):
         """prospective_output_edges works with multiple outputs."""
         body_node = atomic_model.AtomicNode(
-            source=versions.VersionInfo(module="mod", qualname="func", version=None),
+            reference=base_models.PythonReference(
+                info=versions.VersionInfo(module="mod", qualname="func", version=None)
+            ),
             inputs=["x"],
             outputs=["out1", "out2"],
         )
@@ -556,8 +570,10 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         try_node = helper_models.LabeledNode(
             label="try_body",
             node=atomic_model.AtomicNode(
-                source=versions.VersionInfo(
-                    module="mod", qualname="func", version=None
+                reference=base_models.PythonReference(
+                    info=versions.VersionInfo(
+                        module="mod", qualname="func", version=None
+                    )
                 ),
                 inputs=["x"],
                 outputs=[],
@@ -568,9 +584,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
             body=helper_models.LabeledNode(
                 label="handler",
                 node=atomic_model.AtomicNode(
-                    source=versions.VersionInfo(
-                        module="mod", qualname="handler", version=None
-                    ),
+                    reference=_reference(qualname="handler"),
                     inputs=["x"],
                     outputs=[],
                 ),

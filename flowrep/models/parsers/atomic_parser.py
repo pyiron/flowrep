@@ -7,6 +7,7 @@ from typing import Annotated, cast, get_args, get_origin, get_type_hints
 
 from pyiron_snippets import versions
 
+from flowrep.models import base_models
 from flowrep.models.nodes import atomic_model, helper_models
 from flowrep.models.parsers import label_helpers, object_scope, parser_helpers
 from flowrep.models.parsers.label_helpers import default_output_label
@@ -126,7 +127,7 @@ def parse_atomic(
 
     source_code = parser_helpers.get_available_source_code(func)
     return atomic_model.AtomicNode(
-        source=info,
+        reference=base_models.PythonReference(info=info),
         source_code=source_code,
         inputs=input_labels,
         outputs=(
@@ -266,9 +267,9 @@ def get_labeled_recipe(
     if hasattr(child_call, "flowrep_recipe"):
         child_recipe = child_call.flowrep_recipe
         if hasattr(child_recipe, "source") and isinstance(
-            child_recipe.source, versions.VersionInfo
+            child_recipe.reference.info, versions.VersionInfo
         ):
-            child_recipe.source.validate_constraints(
+            child_recipe.reference.info.validate_constraints(
                 forbid_main=info_factory.forbid_main,
                 forbid_locals=info_factory.forbid_locals,
                 require_version=info_factory.require_version,

@@ -658,7 +658,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         node = workflow_parser.parse_workflow(my_wf)
         # The workflow function is defined in this test module; version depends
         # on whether this package exposes __version__
-        self.assertIsInstance(node.source.version, (str, type(None)))
+        self.assertIsInstance(node.reference.info.version, (str, type(None)))
 
     def test_fqn_is_populated(self):
         def my_wf(x):
@@ -714,7 +714,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         pkg = my_wf.__module__.split(".")[0]
         scraping = {pkg: lambda _name: custom_version}
         node = workflow_parser.parse_workflow(my_wf, version_scraping=scraping)
-        self.assertEqual(node.source.version, custom_version)
+        self.assertEqual(node.reference.info.version, custom_version)
 
     def test_child_nodes_not_affected_by_workflow_version_params(self):
         """Sub-workflow bodies built during parsing should not carry the
@@ -747,7 +747,7 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
             y = _wp_identity(x)
             return y
 
-        self.assertEqual(my_wf.flowrep_recipe.source.version, custom_version)
+        self.assertEqual(my_wf.flowrep_recipe.reference.info.version, custom_version)
 
     def test_decorator_forbid_locals_on_inner_function(self):
         with self.assertRaises(ValueError):
@@ -808,7 +808,7 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
             my_wf, version_scraping={self._pkg(): lambda _: custom}
         )
         child = node.nodes["add_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
 
     def test_scraping_does_not_override_prebuilt_recipe(self):
         """A function already decorated with @atomic keeps its own recipe."""
@@ -823,7 +823,7 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
         )
         child = node.nodes["_wp_identity_0"]
         # _wp_identity was decorated at import time; its recipe is fixed
-        self.assertNotEqual(child.source.version, custom)
+        self.assertNotEqual(child.reference.info.version, custom)
 
     def test_scraping_propagates_through_chained_nodes(self):
         """Multiple undecorated children all receive the scraping map."""
@@ -837,8 +837,8 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
         node = workflow_parser.parse_workflow(
             my_wf, version_scraping={self._pkg(): lambda _: custom}
         )
-        self.assertEqual(node.nodes["add_0"].source.version, custom)
-        self.assertEqual(node.nodes["multiply_0"].source.version, custom)
+        self.assertEqual(node.nodes["add_0"].reference.info.version, custom)
+        self.assertEqual(node.nodes["multiply_0"].reference.info.version, custom)
 
     def test_decorator_propagates_scraping_to_children(self):
         """@workflow decorator forwards version_scraping to child nodes."""
@@ -851,7 +851,7 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
             return y
 
         child = my_wf.flowrep_recipe.nodes["add_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
 
 
 if __name__ == "__main__":

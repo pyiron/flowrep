@@ -481,7 +481,7 @@ class TestWhileParserVersionPropagation(unittest.TestCase):
         while_node = node.nodes["while_0"]
         body = while_node.case.body.node
         child = body.nodes["undecorated_identity_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
 
     def test_version_scraping_propagates_to_condition(self):
         """The condition node is pre-decorated (@atomic), so scraping should
@@ -500,10 +500,10 @@ class TestWhileParserVersionPropagation(unittest.TestCase):
         while_node = node.nodes["while_0"]
         # condition is pre-decorated → keeps its own version
         condition_node = while_node.case.condition.node
-        self.assertNotEqual(condition_node.source.version, custom)
+        self.assertNotEqual(condition_node.reference.info.version, custom)
         # body child is undecorated → picks up custom version
         body_child = while_node.case.body.node.nodes["undecorated_identity_0"]
-        self.assertEqual(body_child.source.version, custom)
+        self.assertEqual(body_child.reference.info.version, custom)
 
     def test_version_constraints_propagate_to_condition(self):
         def wf(x, bound):

@@ -7,6 +7,7 @@ from typing import Annotated, TypeVar
 
 import pydantic
 import pydantic_core
+from pyiron_snippets import versions
 
 
 class RecipeElementType(StrEnum):
@@ -84,3 +85,8 @@ class NodeModel(pydantic.BaseModel):
                 )
             if not type_field.frozen:
                 raise TypeError(f"{cls.__name__} must mark 'type' as frozen")
+
+
+class PythonReference(pydantic.BaseModel):
+    info: versions.VersionInfo
+    has_default: Labels = pydantic.Field(default_factory=list)
