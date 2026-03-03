@@ -323,7 +323,7 @@ class _WorkflowFunctionParser(WorkflowParser):
         symbol_map: symbol_scope.SymbolScope,
         info_factory: versions.VersionInfoFactory,
         *,
-        source: versions.VersionInfo | None = None,
+        source: base_models.PythonReference | None = None,
         func: FunctionType,
         output_labels: Collection[str],
     ):
