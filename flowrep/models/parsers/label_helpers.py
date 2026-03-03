@@ -134,7 +134,7 @@ def merge_labels(
         )
 
 
-def get_input_labels(func: FunctionType) -> list[str]:
+def get_input_info(func: FunctionType) -> dict[str, bool]:
     sig = inspect.signature(func)
     for param in sig.parameters.values():
         if param.kind in (
@@ -145,7 +145,10 @@ def get_input_labels(func: FunctionType) -> list[str]:
                 f"Function arguments cannot contain *args or **kwargs, got "
                 f"{list(sig.parameters.keys())}"
             )
-    return list(sig.parameters.keys())
+    return {
+        label: param.default is not inspect._empty
+        for label, param in sig.parameters.items()
+    }
 
 
 def default_output_label(i: int) -> str:

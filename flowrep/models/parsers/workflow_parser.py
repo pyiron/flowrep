@@ -123,7 +123,8 @@ def parse_workflow(
     reference = base_models.PythonReference(
         info=info,
     )
-    inputs = label_helpers.get_input_labels(func)
+    input_info = label_helpers.get_input_info(func)
+    inputs = list(input_info)
     state = _WorkflowFunctionParser(
         object_scope.get_scope(func),
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),

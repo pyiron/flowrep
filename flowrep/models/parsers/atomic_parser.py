@@ -115,7 +115,7 @@ def parse_atomic(
         require_version=require_version,
     )
 
-    input_labels = label_helpers.get_input_labels(func)
+    input_info = label_helpers.get_input_info(func)
 
     scraped_output_labels = _get_output_labels(func, unpack_mode)
     if len(output_labels) > 0 and len(output_labels) != len(scraped_output_labels):
@@ -129,7 +129,7 @@ def parse_atomic(
     return atomic_model.AtomicNode(
         reference=base_models.PythonReference(info=info),
         source_code=source_code,
-        inputs=input_labels,
+        inputs=list(input_info),
         outputs=(
             list(output_labels) if len(output_labels) > 0 else scraped_output_labels
         ),
