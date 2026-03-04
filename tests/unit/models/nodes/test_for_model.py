@@ -364,6 +364,97 @@ class TestForNodeInputEdges(unittest.TestCase):
         self.assertIn("nonexistent", str(ctx.exception))
 
 
+class TestForNodeFullySourcing(unittest.TestCase):
+    """Tests for validate_internal_data_completeness on for-node body."""
+
+    def test_body_unsourced_no_default_raises(self):
+        """Body input without edge or default → rejected."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            for_model.ForNode(
+                inputs=["xs"],
+                outputs=["results"],
+                body_node=helper_models.LabeledNode(
+                    label="body",
+                    node=atomic_model.AtomicNode(
+                        reference=_reference(),  # no defaults
+                        inputs=["x", "extra"],
+                        outputs=["result"],
+                    ),
+                ),
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="body", port="x"
+                    ): edge_models.InputSource(port="xs"),
+                },
+                output_edges={
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
+                        node="body", port="result"
+                    ),
+                },
+                nested_ports=["x"],
+            )
+        self.assertIn("body.extra", str(ctx.exception))
+
+    def test_body_unsourced_with_default_passes(self):
+        """Body input without edge but with default → accepted."""
+        node = for_model.ForNode(
+            inputs=["xs"],
+            outputs=["results"],
+            body_node=helper_models.LabeledNode(
+                label="body",
+                node=atomic_model.AtomicNode(
+                    reference=_reference(inputs_with_defaults=["extra"]),
+                    inputs=["x", "extra"],
+                    outputs=["result"],
+                ),
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="body", port="x"
+                ): edge_models.InputSource(port="xs"),
+            },
+            output_edges={
+                edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
+                    node="body", port="result"
+                ),
+            },
+            nested_ports=["x"],
+        )
+        self.assertIn("extra", node.body_node.node.inputs)
+
+    def test_body_mixed_sourcing_one_unsourced_raises(self):
+        """Multiple body inputs: edged, defaulted, and unsourced → fails."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            for_model.ForNode(
+                inputs=["xs"],
+                outputs=["results"],
+                body_node=helper_models.LabeledNode(
+                    label="body",
+                    node=atomic_model.AtomicNode(
+                        reference=_reference(inputs_with_defaults=["y"]),
+                        inputs=["x", "y", "z"],
+                        outputs=["result"],
+                    ),
+                ),
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="body", port="x"
+                    ): edge_models.InputSource(port="xs"),
+                    # y: no edge, but has default — ok
+                    # z: no edge, no default — fail
+                },
+                output_edges={
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
+                        node="body", port="result"
+                    ),
+                },
+                nested_ports=["x"],
+            )
+        exc_str = str(ctx.exception)
+        self.assertIn("body.z", exc_str)
+        self.assertNotIn("body.y", exc_str)
+
+
 class TestForNodeOutputEdges(unittest.TestCase):
     def test_output_edge_wrong_source_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:

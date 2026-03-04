@@ -359,6 +359,140 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
         self.assertIn("wrong", str(ctx.exception))
 
 
+class TestWorkflowNodeFullySourcing(unittest.TestCase):
+    """Tests that validate_internal_data_completeness catches unsourced child inputs."""
+
+    def test_child_unsourced_no_default_raises(self):
+        """Child input with no edge and no default → rejected."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            workflow_model.WorkflowNode(
+                inputs=["x"],
+                outputs=[],
+                nodes={
+                    "child": atomic_model.AtomicNode(
+                        reference=_reference(),  # no defaults
+                        inputs=["inp"],
+                        outputs=["out"],
+                    ),
+                },
+                input_edges={},
+                edges={},
+                output_edges={},
+            )
+        self.assertIn("child.inp", str(ctx.exception))
+
+    def test_child_unsourced_with_default_passes(self):
+        """Child input with no edge but with default → accepted."""
+        wf = workflow_model.WorkflowNode(
+            inputs=["x"],
+            outputs=[],
+            nodes={
+                "child": atomic_model.AtomicNode(
+                    reference=_reference(inputs_with_defaults=["inp"]),
+                    inputs=["inp"],
+                    outputs=["out"],
+                ),
+            },
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
+        self.assertEqual(wf.nodes["child"].inputs, ["inp"])
+
+    def test_sibling_edge_sources_first_but_second_unsourced_raises(self):
+        """a→b via sibling edge, but a has unsourced input without default → fails."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            workflow_model.WorkflowNode(
+                inputs=["x"],
+                outputs=[],
+                nodes={
+                    "a": atomic_model.AtomicNode(
+                        reference=_reference(),  # no defaults
+                        inputs=["p"],
+                        outputs=["q"],
+                    ),
+                    "b": atomic_model.AtomicNode(
+                        reference=_reference(inputs_with_defaults=["r"]),
+                        inputs=["r"],
+                        outputs=["s"],
+                    ),
+                },
+                input_edges={},
+                edges={
+                    edge_models.TargetHandle(
+                        node="b", port="r"
+                    ): edge_models.SourceHandle(node="a", port="q"),
+                },
+                output_edges={},
+            )
+        self.assertIn("a.p", str(ctx.exception))
+
+    def test_nested_workflow_unsourced_leaf_raises(self):
+        """Inner workflow's leaf has unsourced input → recursive validation catches."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            workflow_model.WorkflowNode(
+                inputs=["inp"],
+                outputs=["out"],
+                nodes={
+                    "inner": workflow_model.WorkflowNode(
+                        inputs=["inner_in"],
+                        outputs=["inner_out"],
+                        nodes={
+                            "leaf": atomic_model.AtomicNode(
+                                reference=_reference(),  # no defaults
+                                inputs=["a", "b"],
+                                outputs=["y"],
+                            )
+                        },
+                        input_edges={
+                            edge_models.TargetHandle(
+                                node="leaf", port="a"
+                            ): edge_models.InputSource(port="inner_in"),
+                            # leaf.b has no edge and no default
+                        },
+                        edges={},
+                        output_edges={
+                            edge_models.OutputTarget(
+                                port="inner_out"
+                            ): edge_models.SourceHandle(node="leaf", port="y"),
+                        },
+                    ),
+                },
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="inner", port="inner_in"
+                    ): edge_models.InputSource(port="inp"),
+                },
+                output_edges={
+                    edge_models.OutputTarget(port="out"): edge_models.SourceHandle(
+                        node="inner", port="inner_out"
+                    ),
+                },
+                edges={},
+            )
+        self.assertIn("leaf.b", str(ctx.exception))
+
+    def test_workflow_inputs_with_defaults_dont_affect_child_sourcing(self):
+        """Workflow-level defaults don't satisfy child inputs."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            workflow_model.WorkflowNode(
+                inputs=["x"],
+                outputs=[],
+                reference=_reference(inputs_with_defaults=["x"]),
+                nodes={
+                    "child": atomic_model.AtomicNode(
+                        reference=_reference(),  # child has no defaults
+                        inputs=["inp"],
+                        outputs=["out"],
+                    ),
+                },
+                input_edges={},
+                edges={},
+                output_edges={},
+            )
+        self.assertIn("child.inp", str(ctx.exception))
+
+
 class TestWorkflowNodeMultiplePorts(unittest.TestCase):
     """Tests for workflows with multiple input/output ports."""
 

@@ -281,6 +281,37 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
             "Schema should define union variants",
         )
 
+    def test_atomic_roundtrip_preserves_defaults(self):
+        data = {
+            "type": "atomic",
+            "reference": _reference_dict(inputs_with_defaults=["b"]),
+            "inputs": ["a", "b"],
+            "outputs": ["c"],
+        }
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
+        self.assertIsInstance(node, atomic_model.AtomicNode)
+        self.assertEqual(node.reference.inputs_with_defaults, ["b"])
+
+        # Full roundtrip
+        dumped = pydantic.TypeAdapter(union.NodeType).dump_python(node, mode="json")
+        restored = pydantic.TypeAdapter(union.NodeType).validate_python(dumped)
+        self.assertEqual(restored.reference.inputs_with_defaults, ["b"])
+
+    def test_workflow_roundtrip_preserves_defaults(self):
+        data = {
+            "type": "workflow",
+            "reference": _reference_dict(inputs_with_defaults=["x"]),
+            "inputs": ["x"],
+            "outputs": [],
+            "nodes": {},
+            "input_edges": {},
+            "edges": {},
+            "output_edges": {},
+        }
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
+        self.assertIsInstance(node, workflow_model.WorkflowNode)
+        self.assertEqual(node.reference.inputs_with_defaults, ["x"])
+
 
 class TestDiscriminatorValidation(unittest.TestCase):
     """Tests for discriminator error handling."""
