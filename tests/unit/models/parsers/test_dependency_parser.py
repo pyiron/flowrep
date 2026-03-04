@@ -86,6 +86,14 @@ def _fqns(deps: dependency_parser.CallDependencies) -> set[str]:
     return {info.fully_qualified_name for info in deps}
 
 
+def _local_imports(x):
+    import sys as s
+    from math import sqrt
+
+    a = s.getsizeof(x)
+    return sqrt(a)
+
+
 class TestGetCallDependencies(unittest.TestCase):
     """Tests for :func:`dependency_parser.get_call_dependencies`."""
 
@@ -170,6 +178,12 @@ class TestGetCallDependencies(unittest.TestCase):
         # to a non-callable, but we can verify the function itself is crawlable
         deps = dependency_parser.get_call_dependencies(_calls_non_callable)
         self.assertIsInstance(deps, dict)
+
+    def test_local_imports_included(self):
+        deps = dependency_parser.get_call_dependencies(_local_imports)
+        fqns = _fqns(deps)
+        self.assertIn("sys.getsizeof", fqns)
+        self.assertIn("math.sqrt", fqns)
 
 
 class TestSplitByVersionAvailability(unittest.TestCase):
