@@ -5,31 +5,7 @@ from pyiron_snippets import versions
 from flowrep.models.nodes import workflow_model
 from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
 
-
-# Reusable atomics
-@atomic_parser.atomic
-def my_add(a, b):
-    return a + b
-
-
-@atomic_parser.atomic
-def my_mul(a, b):
-    return a * b
-
-
-@atomic_parser.atomic
-def my_condition(m, n):
-    return m < n
-
-
-@atomic_parser.atomic
-def my_identity(x):
-    return x
-
-
-@atomic_parser.atomic
-def my_range(n: int) -> list[int]:
-    return list(range(n))
+from flowrep_static import library
 
 
 @atomic_parser.atomic
@@ -46,35 +22,35 @@ def full_composite(x, y, bound):
           while, siblings around for
             for, if/else inside body
     """
-    a = my_add(x, y)
+    a = library.my_add(x, y)
 
     # --- try (level 1) ---
     try:
-        b = my_mul(a, y)
+        b = library.my_mul(a, y)
 
         # --- while (level 2) ---
-        while my_condition(b, bound):
-            c = my_add(b, y)
-            rs = my_range(c)
+        while library.my_condition(b, bound):
+            c = library.my_add(b, y)
+            rs = library.my_range(c)
 
             # --- for (level 3) ---
             acc = []
             for r in rs:
                 # --- if/else (level 4) ---
-                if my_condition(r, y):  # noqa: SIM108
-                    v = my_add(r, c)
+                if library.my_condition(r, y):  # noqa: SIM108
+                    v = library.my_add(r, c)
                 else:
-                    v = my_mul(r, c)
+                    v = library.my_mul(r, c)
                 acc.append(v)
 
             b = my_sum(acc)
 
-        z = my_identity(b)
+        z = library.identity(b)
     except ValueError:
-        z = my_identity(a)
+        z = library.identity(a)
 
     # --- sibling after try ---
-    result = my_identity(z)
+    result = library.identity(z)
     return result
 
 
@@ -88,7 +64,7 @@ _if_true_body = {
     "type": "workflow",
     "inputs": ["r", "c"],
     "outputs": ["v"],
-    "nodes": {"my_add_0": my_add.flowrep_recipe},
+    "nodes": {"my_add_0": library.my_add.flowrep_recipe},
     "input_edges": {"my_add_0.a": "r", "my_add_0.b": "c"},
     "edges": {},
     "output_edges": {"v": "my_add_0.output_0"},
@@ -98,7 +74,7 @@ _if_else_body = {
     "type": "workflow",
     "inputs": ["r", "c"],
     "outputs": ["v"],
-    "nodes": {"my_mul_0": my_mul.flowrep_recipe},
+    "nodes": {"my_mul_0": library.my_mul.flowrep_recipe},
     "input_edges": {"my_mul_0.a": "r", "my_mul_0.b": "c"},
     "edges": {},
     "output_edges": {"v": "my_mul_0.output_0"},
@@ -112,7 +88,7 @@ _if_node = {
         {
             "condition": {
                 "label": "condition_0",
-                "node": my_condition.flowrep_recipe,
+                "node": library.my_condition.flowrep_recipe,
             },
             "body": {"label": "body_0", "node": _if_true_body},
             "condition_output": None,
@@ -160,8 +136,8 @@ _while_body = {
     "inputs": ["b", "y"],
     "outputs": ["b"],
     "nodes": {
-        "my_add_0": my_add.flowrep_recipe,
-        "my_range_0": my_range.flowrep_recipe,
+        "my_add_0": library.my_add.flowrep_recipe,
+        "my_range_0": library.my_range.flowrep_recipe,
         "for_0": _for_node,
         "my_sum_0": my_sum.flowrep_recipe,
     },
@@ -186,7 +162,7 @@ _while_node = {
     "case": {
         "condition": {
             "label": "condition",
-            "node": my_condition.flowrep_recipe,
+            "node": library.my_condition.flowrep_recipe,
         },
         "body": {"label": "body", "node": _while_body},
         "condition_output": None,
@@ -207,9 +183,9 @@ _try_body = {
     "inputs": ["a", "y", "bound"],
     "outputs": ["b", "z"],
     "nodes": {
-        "my_mul_0": my_mul.flowrep_recipe,
+        "my_mul_0": library.my_mul.flowrep_recipe,
         "while_0": _while_node,
-        "my_identity_0": my_identity.flowrep_recipe,
+        "identity_0": library.identity.flowrep_recipe,
     },
     "input_edges": {
         "my_mul_0.a": "a",
@@ -219,11 +195,11 @@ _try_body = {
     },
     "edges": {
         "while_0.b": "my_mul_0.output_0",
-        "my_identity_0.x": "while_0.b",
+        "identity_0.x": "while_0.b",
     },
     "output_edges": {
         "b": "while_0.b",
-        "z": "my_identity_0.x",
+        "z": "identity_0.x",
     },
 }
 
@@ -231,10 +207,10 @@ _except_body = {
     "type": "workflow",
     "inputs": ["a"],
     "outputs": ["z"],
-    "nodes": {"my_identity_0": my_identity.flowrep_recipe},
-    "input_edges": {"my_identity_0.x": "a"},
+    "nodes": {"identity_0": library.identity.flowrep_recipe},
+    "input_edges": {"identity_0.x": "a"},
     "edges": {},
-    "output_edges": {"z": "my_identity_0.x"},
+    "output_edges": {"z": "identity_0.x"},
 }
 
 _try_node = {
@@ -268,9 +244,9 @@ full_composite_node = workflow_model.WorkflowNode.model_validate(
         "inputs": ["x", "y", "bound"],
         "outputs": ["result"],
         "nodes": {
-            "my_add_0": my_add.flowrep_recipe,
+            "my_add_0": library.my_add.flowrep_recipe,
             "try_0": _try_node,
-            "my_identity_0": my_identity.flowrep_recipe,
+            "identity_0": library.identity.flowrep_recipe,
         },
         "input_edges": {
             "my_add_0.a": "x",
@@ -280,9 +256,9 @@ full_composite_node = workflow_model.WorkflowNode.model_validate(
         },
         "edges": {
             "try_0.a": "my_add_0.output_0",
-            "my_identity_0.x": "try_0.z",
+            "identity_0.x": "try_0.z",
         },
-        "output_edges": {"result": "my_identity_0.x"},
+        "output_edges": {"result": "identity_0.x"},
         "reference": {
             "info": {
                 "module": "integration.parsers.test_parsing_composite_workflow",

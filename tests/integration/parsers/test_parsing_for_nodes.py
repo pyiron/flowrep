@@ -3,15 +3,7 @@ import unittest
 from flowrep.models.nodes import for_model, workflow_model
 from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
 
-
-@atomic_parser.atomic
-def my_unity(x):
-    return x
-
-
-@atomic_parser.atomic
-def my_range(n: int) -> list[int]:
-    return list(range(n))
+from flowrep_static import library
 
 
 @atomic_parser.atomic
@@ -23,11 +15,11 @@ def how_many(lst: list) -> int:
 def single_iteration(ns):
     vecs = []
 
-    pass_through = my_unity(ns)
+    pass_through = library.identity(ns)
 
     for n in pass_through:
-        x = my_unity(n)
-        rs = my_range(x)
+        x = library.identity(n)
+        rs = library.my_range(x)
         vecs.append(rs)
 
     l = how_many(vecs)  # noqa: E741
@@ -40,11 +32,11 @@ for_body = workflow_model.WorkflowNode.model_validate(
         "inputs": ["n"],
         "outputs": ["rs"],
         "nodes": {
-            "my_unity_0": my_unity.flowrep_recipe,
-            "my_range_0": my_range.flowrep_recipe,
+            "identity_0": library.identity.flowrep_recipe,
+            "my_range_0": library.my_range.flowrep_recipe,
         },
-        "input_edges": {"my_unity_0.x": "n"},
-        "edges": {"my_range_0.n": "my_unity_0.x"},
+        "input_edges": {"identity_0.x": "n"},
+        "edges": {"my_range_0.n": "identity_0.x"},
         "output_edges": {"rs": "my_range_0.output_0"},
     }
 )
@@ -69,13 +61,13 @@ single_iteration_node = workflow_model.WorkflowNode.model_validate(
         "inputs": ["ns"],
         "outputs": ["l", "vecs"],
         "nodes": {
-            "my_unity_0": my_unity.flowrep_recipe,
+            "identity_0": library.identity.flowrep_recipe,
             "for_0": for_node,
             "how_many_0": how_many.flowrep_recipe,
         },
-        "input_edges": {"my_unity_0.x": "ns"},
+        "input_edges": {"identity_0.x": "ns"},
         "edges": {
-            "for_0.pass_through": "my_unity_0.x",
+            "for_0.pass_through": "identity_0.x",
             "how_many_0.lst": "for_0.vecs",
         },
         "output_edges": {
@@ -219,7 +211,7 @@ def nested(ns):
     sq_sums = []
     for n in ns:
 
-        rs = my_range(n)
+        rs = library.my_range(n)
         squares = []
         for r in rs:
             sq = my_square(r)
@@ -249,7 +241,7 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["n"],
                         "outputs": ["summed"],
                         "nodes": {
-                            "my_range_0": my_range.flowrep_recipe,
+                            "my_range_0": library.my_range.flowrep_recipe,
                             "for_0": {
                                 "type": "for",
                                 "inputs": ["rs"],
