@@ -21,7 +21,7 @@ def _reference(
 
 def _make_child() -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(),
+        reference=_reference(has_default=["inp"]),
         inputs=["inp"],
         outputs=["out"],
     )
@@ -298,12 +298,12 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 outputs=[],
                 nodes={
                     "a": atomic_model.AtomicNode(
-                        reference=_reference(qualname="f"),
+                        reference=_reference(qualname="f", has_default=["inp"]),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
                     "b": atomic_model.AtomicNode(
-                        reference=_reference(qualname="g"),
+                        reference=_reference(qualname="g", has_default=["inp"]),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
@@ -327,12 +327,12 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 outputs=[],
                 nodes={
                     "a": atomic_model.AtomicNode(
-                        reference=_reference(qualname="f"),
+                        reference=_reference(qualname="f", has_default=["inp"]),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
                     "b": atomic_model.AtomicNode(
-                        reference=_reference(qualname="g"),
+                        reference=_reference(qualname="g", has_default=["inp"]),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
@@ -683,6 +683,9 @@ class TestNestedWorkflow(unittest.TestCase):
                 outputs=["outer_out"],
                 nodes={"inner": inner},
                 input_edges={
+                    edge_models.TargetHandle(
+                        node="inner", port="inner_in"
+                    ): edge_models.InputSource(port="outer_in"),
                     edge_models.TargetHandle(
                         node="inner", port="wrong_port"
                     ): edge_models.InputSource(port="outer_in"),

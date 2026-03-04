@@ -14,10 +14,13 @@ from flowrep.models.nodes import (
 )
 
 
-def make_atomic(inputs: list[str], outputs: list[str]) -> atomic_model.AtomicNode:
+def make_atomic(
+    inputs: list[str], outputs: list[str], defaults: list[str] | None = None
+) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
         reference=base_models.PythonReference(
-            info=versions.VersionInfo(module="mod", qualname="func", version=None)
+            info=versions.VersionInfo(module="mod", qualname="func", version=None),
+            has_default=inputs if defaults is None else defaults,
         ),
         inputs=inputs,
         outputs=outputs,

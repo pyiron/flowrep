@@ -86,6 +86,10 @@ class NodeModel(pydantic.BaseModel):
             if not type_field.frozen:
                 raise TypeError(f"{cls.__name__} must mark 'type' as frozen")
 
+    @property
+    def has_default(self) -> Labels:
+        return []
+
     @pydantic.model_validator(mode="after")
     def _check_has_default_subset_of_inputs(self) -> Self:
         ref = getattr(self, "reference", None)
@@ -95,6 +99,10 @@ class NodeModel(pydantic.BaseModel):
                 raise ValueError(
                     f"`reference.has_default` contains labels not in `inputs`: {invalid}"
                 )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_internal_data_completeness(self):
         return self
 
 

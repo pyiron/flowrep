@@ -28,7 +28,9 @@ def _reference(
 
 def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(qualname="try_func"),
+        reference=_reference(
+            qualname="try_func", has_default=["x"] if inputs is None else None
+        ),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
@@ -36,7 +38,9 @@ def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 
 def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(qualname="handle_error"),
+        reference=_reference(
+            qualname="handle_error", has_default=["x"] if inputs is None else None
+        ),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
@@ -597,7 +601,10 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
             exception_cases=[exception_case],
             input_edges={
                 edge_models.TargetHandle(
-                    node="try_body", port="x"
+                    node=try_node.label, port="x"
+                ): edge_models.InputSource(port="inp"),
+                edge_models.TargetHandle(
+                    node=exception_case.body.label, port="x"
                 ): edge_models.InputSource(port="inp"),
             },
             prospective_output_edges={},

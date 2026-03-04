@@ -26,7 +26,9 @@ def _reference(
 
 def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(qualname="check"),
+        reference=_reference(
+            qualname="check", has_default=["x"] if inputs is None else None
+        ),
         inputs=inputs or ["x"],
         outputs=outputs or ["result"],
     )
@@ -34,7 +36,9 @@ def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 
 def _make_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(qualname="handle"),
+        reference=_reference(
+            qualname="handle", has_default=["x"] if inputs is None else None
+        ),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
@@ -57,13 +61,15 @@ def _make_else(inputs=None, outputs=None) -> helper_models.LabeledNode:
     )
 
 
-def _make_input_edges(cases, else_case=None):
-    edge_dict = {
-        edge_models.TargetHandle(
-            node=case.body.label, port="x"
-        ): edge_models.InputSource(port="inp")
-        for case in cases
-    }
+def _make_input_edges(cases, else_case=None) -> edge_models.InputEdges:
+    edge_dict: edge_models.InputEdges = {}
+    for case in cases:
+        edge_dict[edge_models.TargetHandle(node=case.body.label, port="x")] = (
+            edge_models.InputSource(port="inp")
+        )
+        edge_dict[edge_models.TargetHandle(node=case.condition.label, port="x")] = (
+            edge_models.InputSource(port="inp")
+        )
     if else_case is not None:
         edge_dict[edge_models.TargetHandle(node=else_case.label, port="x")] = (
             edge_models.InputSource(port="inp")
@@ -529,14 +535,16 @@ class TestIfNodeSerialization(unittest.TestCase):
                 data = original.model_dump(mode=mode)
                 restored = if_model.IfNode.model_validate(data)
                 self.assertEqual(len(restored.cases), 3)
-                self.assertEqual(len(restored.input_edges), 4)  # 3 bodies + 1 else
+                self.assertEqual(
+                    len(restored.input_edges), 7
+                )  # 3 bodies + 3 cases + 1 else
                 self.assertEqual(
                     len(
                         restored.prospective_output_edges[
                             edge_models.OutputTarget(port="out")
                         ]
                     ),
-                    4,
+                    4,  # 3 bodies + 1 else
                 )
 
     def test_roundtrip_with_condition_output(self):
@@ -729,12 +737,17 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
                 body=helper_models.LabeledNode(label="body", node=body_node),
             )
         ]
+        input_edges = _make_input_edges(cases)
+        else_case = helper_models.LabeledNode(label="else_case", node=body_node)
+        input_edges[edge_models.TargetHandle(node=else_case.label, port="x")] = (
+            edge_models.InputSource(port="inp")
+        )
         node = if_model.IfNode(
             inputs=["inp"],
             outputs=["a", "b"],
             cases=cases,
-            else_case=helper_models.LabeledNode(label="else_case", node=body_node),
-            input_edges=_make_input_edges(cases),
+            else_case=else_case,
+            input_edges=input_edges,
             prospective_output_edges={
                 edge_models.OutputTarget(port="a"): [
                     edge_models.SourceHandle(node="body", port="out1"),

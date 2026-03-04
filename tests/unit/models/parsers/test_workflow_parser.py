@@ -57,7 +57,7 @@ class Outer:
 
 
 @workflow_parser.workflow
-def inner_macro(a, b):
+def inner_macro(a, b=10):
     c, d = operation(a, b)
     e = add(c, y=d)
     f = multiply(e)

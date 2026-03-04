@@ -47,6 +47,10 @@ class WorkflowNode(base_models.NodeModel):
     source_code: str | None = None
 
     @property
+    def has_default(self) -> base_models.Labels:
+        return [] if self.reference is None else self.reference.has_default
+
+    @property
     def fully_qualified_name(self) -> str | None:
         return (
             None if self.reference is None else self.reference.info.fully_qualified_name
@@ -70,5 +74,12 @@ class WorkflowNode(base_models.NodeModel):
         subgraph_validation.validate_acyclic_edges(
             self.edges,
             message="Workflow models must be acyclic (DAG), but found cycle(s)",
+        )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_internal_data_completeness(self):
+        subgraph_validation.validate_nodes_are_fully_sourced(
+            self.nodes, list(self.input_edges) + list(self.edges)
         )
         return self

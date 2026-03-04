@@ -165,3 +165,10 @@ class ForNode(base_models.NodeModel):
                 f"({self.body_node.node.inputs}) but got: {invalid}"
             )
         return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_internal_data_completeness(self):
+        subgraph_validation.validate_nodes_are_fully_sourced(
+            self.prospective_nodes, self.input_edges
+        )
+        return self

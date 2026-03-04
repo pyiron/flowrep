@@ -37,7 +37,7 @@ class TestForNodeBasic(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(),
+                    reference=_reference(has_default=["item"]),
                     inputs=["item"],
                     outputs=["result"],
                 ),
@@ -317,7 +317,7 @@ class TestForNodeInputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=_reference(has_default=["item"]),
                         inputs=["item"],
                         outputs=["result"],
                     ),

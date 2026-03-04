@@ -134,7 +134,10 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["result"],
-                                    "reference": _reference_dict(qualname="check"),
+                                    "reference": _reference_dict(
+                                        qualname="check",
+                                        has_default=["x"],
+                                    ),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -171,7 +174,10 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["result"],
-                                    "reference": _reference_dict(qualname="check"),
+                                    "reference": _reference_dict(
+                                        qualname="check",
+                                        has_default=["x"],
+                                    ),
                                     "unpack_mode": "tuple",
                                 },
                             },
