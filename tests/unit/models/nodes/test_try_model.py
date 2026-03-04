@@ -11,24 +11,14 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 
+from flowrep_static import test_helpers
+
 _VALUE_ERROR_INFO = versions.VersionInfo.of(ValueError)
-
-
-def _reference(
-    module: str = "mod",
-    qualname: str = "func",
-    version: str | None = None,
-    inputs_with_defaults: list[str] | None = None,
-) -> base_models.PythonReference:
-    return base_models.PythonReference(
-        info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        inputs_with_defaults=inputs_with_defaults or [],
-    )
 
 
 def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(
+        reference=test_helpers.make_reference(
             qualname="try_func", inputs_with_defaults=["x"] if inputs is None else None
         ),
         inputs=inputs or ["x"],
@@ -38,7 +28,7 @@ def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 
 def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(
+        reference=test_helpers.make_reference(
             qualname="handle_error",
             inputs_with_defaults=["x"] if inputs is None else None,
         ),
@@ -362,7 +352,9 @@ class TestTryNodeFullySourcing(unittest.TestCase):
         try_node = helper_models.LabeledNode(
             label="try_body",
             node=atomic_model.AtomicNode(
-                reference=_reference(qualname="try_func"),  # no defaults
+                reference=test_helpers.make_reference(
+                    qualname="try_func"
+                ),  # no defaults
                 inputs=["x", "extra"],
                 outputs=["y"],
             ),
@@ -399,7 +391,9 @@ class TestTryNodeFullySourcing(unittest.TestCase):
                 body=helper_models.LabeledNode(
                     label="except_0",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(qualname="handle_error"),  # no defaults
+                        reference=test_helpers.make_reference(
+                            qualname="handle_error"
+                        ),  # no defaults
                         inputs=["x", "extra"],
                         outputs=["y"],
                     ),
@@ -433,7 +427,7 @@ class TestTryNodeFullySourcing(unittest.TestCase):
         try_node = helper_models.LabeledNode(
             label="try_body",
             node=atomic_model.AtomicNode(
-                reference=_reference(
+                reference=test_helpers.make_reference(
                     qualname="try_func", inputs_with_defaults=["extra"]
                 ),
                 inputs=["x", "extra"],
@@ -472,7 +466,7 @@ class TestTryNodeFullySourcing(unittest.TestCase):
                 body=helper_models.LabeledNode(
                     label="except_1",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(qualname="handle_error"),
+                        reference=test_helpers.make_reference(qualname="handle_error"),
                         inputs=["x", "z"],
                         outputs=["y"],
                     ),
@@ -742,7 +736,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
             body=helper_models.LabeledNode(
                 label="handler",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(qualname="handler"),
+                    reference=test_helpers.make_reference(qualname="handler"),
                     inputs=["x"],
                     outputs=[],
                 ),

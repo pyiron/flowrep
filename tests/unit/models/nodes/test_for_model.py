@@ -1,7 +1,6 @@
 import unittest
 
 import pydantic
-from pyiron_snippets import versions
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import (
@@ -11,17 +10,7 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 
-
-def _reference(
-    module: str = "mod",
-    qualname: str = "func",
-    version: str | None = None,
-    inputs_with_defaults: list[str] | None = None,
-) -> base_models.PythonReference:
-    return base_models.PythonReference(
-        info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        inputs_with_defaults=inputs_with_defaults or [],
-    )
+from flowrep_static import test_helpers
 
 
 class TestForNodeBasic(unittest.TestCase):
@@ -37,7 +26,9 @@ class TestForNodeBasic(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(inputs_with_defaults=["item"]),
+                    reference=test_helpers.make_reference(
+                        inputs_with_defaults=["item"]
+                    ),
                     inputs=["item"],
                     outputs=["result"],
                 ),
@@ -55,7 +46,7 @@ class TestForNodeBasic(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(),
+                    reference=test_helpers.make_reference(),
                     inputs=["item"],
                     outputs=["result"],
                 ),
@@ -83,7 +74,7 @@ class TestForNodeBasic(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(),
+                    reference=test_helpers.make_reference(),
                     inputs=["x", "y"],
                     outputs=["result"],
                 ),
@@ -113,7 +104,7 @@ class TestForNodeBasic(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(),
+                    reference=test_helpers.make_reference(),
                     inputs=["a", "b", "c"],
                     outputs=["out"],
                 ),
@@ -150,7 +141,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
@@ -178,7 +169,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -205,7 +196,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["x"],
                         outputs=["result"],
                     ),
@@ -232,7 +223,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -261,7 +252,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -290,7 +281,7 @@ class TestForNodeInputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -317,7 +308,9 @@ class TestForNodeInputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(inputs_with_defaults=["item"]),
+                        reference=test_helpers.make_reference(
+                            inputs_with_defaults=["item"]
+                        ),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -344,7 +337,7 @@ class TestForNodeInputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -376,7 +369,7 @@ class TestForNodeFullySourcing(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),  # no defaults
+                        reference=test_helpers.make_reference(),  # no defaults
                         inputs=["x", "extra"],
                         outputs=["result"],
                     ),
@@ -403,7 +396,9 @@ class TestForNodeFullySourcing(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(inputs_with_defaults=["extra"]),
+                    reference=test_helpers.make_reference(
+                        inputs_with_defaults=["extra"]
+                    ),
                     inputs=["x", "extra"],
                     outputs=["result"],
                 ),
@@ -431,7 +426,9 @@ class TestForNodeFullySourcing(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(inputs_with_defaults=["y"]),
+                        reference=test_helpers.make_reference(
+                            inputs_with_defaults=["y"]
+                        ),
                         inputs=["x", "y", "z"],
                         outputs=["result"],
                     ),
@@ -464,7 +461,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -492,7 +489,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -519,7 +516,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -548,7 +545,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(),
+                    reference=test_helpers.make_reference(),
                     inputs=["item", "static"],
                     outputs=["result"],
                 ),
@@ -582,7 +579,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -614,7 +611,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(),
+                        reference=test_helpers.make_reference(),
                         inputs=["item"],
                         outputs=["result"],
                     ),
@@ -646,7 +643,7 @@ class TestForNodeSerialization(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(),
+                    reference=test_helpers.make_reference(),
                     inputs=["item", "mult"],
                     outputs=["result"],
                 ),
@@ -690,7 +687,7 @@ class TestForNodeComposition(unittest.TestCase):
             outputs=["y"],
             nodes={
                 "leaf": atomic_model.AtomicNode(
-                    reference=_reference(),
+                    reference=test_helpers.make_reference(),
                     inputs=["inp"],
                     outputs=["out"],
                 )
@@ -736,7 +733,7 @@ class TestForNodeComposition(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(),
+                    reference=test_helpers.make_reference(),
                     inputs=["item"],
                     outputs=["result"],
                 ),
@@ -782,7 +779,7 @@ class TestForNodeComposition(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(qualname="transform"),
+                    reference=test_helpers.make_reference(qualname="transform"),
                     inputs=["item"],
                     outputs=["result"],
                 ),
@@ -805,13 +802,13 @@ class TestForNodeComposition(unittest.TestCase):
             outputs=["final"],
             nodes={
                 "preprocess": atomic_model.AtomicNode(
-                    reference=_reference(qualname="preprocess"),
+                    reference=test_helpers.make_reference(qualname="preprocess"),
                     inputs=["data"],
                     outputs=["items"],
                 ),
                 "for_node": for_node,
                 "postprocess": atomic_model.AtomicNode(
-                    reference=_reference(qualname="postprocess"),
+                    reference=test_helpers.make_reference(qualname="postprocess"),
                     inputs=["results"],
                     outputs=["output"],
                 ),
@@ -852,7 +849,7 @@ class TestForNodeOutputProperties(unittest.TestCase):
                 "type": "atomic",
                 "inputs": inputs,
                 "outputs": outputs,
-                "reference": _reference().model_dump(mode="json"),
+                "reference": test_helpers.make_reference().model_dump(mode="json"),
             },
         }
 

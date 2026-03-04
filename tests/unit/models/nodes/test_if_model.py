@@ -1,7 +1,6 @@
 import unittest
 
 import pydantic
-from pyiron_snippets import versions
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import (
@@ -11,22 +10,12 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 
-
-def _reference(
-    module: str = "mod",
-    qualname: str = "func",
-    version: str | None = None,
-    inputs_with_defaults: list[str] | None = None,
-) -> base_models.PythonReference:
-    return base_models.PythonReference(
-        info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        inputs_with_defaults=inputs_with_defaults or [],
-    )
+from flowrep_static import test_helpers
 
 
 def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(
+        reference=test_helpers.make_reference(
             qualname="check", inputs_with_defaults=["x"] if inputs is None else None
         ),
         inputs=inputs or ["x"],
@@ -36,7 +25,7 @@ def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 
 def _make_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(
+        reference=test_helpers.make_reference(
             qualname="handle", inputs_with_defaults=["x"] if inputs is None else None
         ),
         inputs=inputs or ["x"],
@@ -184,7 +173,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             outputs=["result"],
             nodes={
                 "inner": atomic_model.AtomicNode(
-                    reference=_reference(qualname="f"),
+                    reference=test_helpers.make_reference(qualname="f"),
                     inputs=["a"],
                     outputs=["b"],
                 )
@@ -310,7 +299,9 @@ class TestIfNodeFullySourcing(unittest.TestCase):
                 body=helper_models.LabeledNode(
                     label="body_0",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(qualname="handle"),  # no defaults
+                        reference=test_helpers.make_reference(
+                            qualname="handle"
+                        ),  # no defaults
                         inputs=["x", "extra"],
                         outputs=["y"],
                     ),
@@ -345,7 +336,9 @@ class TestIfNodeFullySourcing(unittest.TestCase):
                 condition=helper_models.LabeledNode(
                     label="condition_0",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(qualname="check"),  # no defaults
+                        reference=test_helpers.make_reference(
+                            qualname="check"
+                        ),  # no defaults
                         inputs=["x", "extra"],
                         outputs=["result"],
                     ),
@@ -383,7 +376,7 @@ class TestIfNodeFullySourcing(unittest.TestCase):
         else_case = helper_models.LabeledNode(
             label="else_body",
             node=atomic_model.AtomicNode(
-                reference=_reference(qualname="handle"),  # no defaults
+                reference=test_helpers.make_reference(qualname="handle"),  # no defaults
                 inputs=["x", "extra"],
                 outputs=["y"],
             ),
@@ -415,7 +408,7 @@ class TestIfNodeFullySourcing(unittest.TestCase):
                 body=helper_models.LabeledNode(
                     label="body_0",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(
+                        reference=test_helpers.make_reference(
                             qualname="handle", inputs_with_defaults=["extra"]
                         ),
                         inputs=["x", "extra"],
@@ -450,7 +443,7 @@ class TestIfNodeFullySourcing(unittest.TestCase):
         else_case = helper_models.LabeledNode(
             label="else_body",
             node=atomic_model.AtomicNode(
-                reference=_reference(qualname="handle"),  # no defaults
+                reference=test_helpers.make_reference(qualname="handle"),  # no defaults
                 inputs=["x", "z"],
                 outputs=["y"],
             ),
@@ -727,12 +720,12 @@ class TestIfNodeSerialization(unittest.TestCase):
 
     def test_roundtrip_with_condition_output(self):
         condition = atomic_model.AtomicNode(
-            reference=_reference(qualname="check"),
+            reference=test_helpers.make_reference(qualname="check"),
             inputs=["x"],
             outputs=["a", "b"],
         )
         body = atomic_model.AtomicNode(
-            reference=_reference(qualname="handle"),
+            reference=test_helpers.make_reference(qualname="handle"),
             inputs=["x"],
             outputs=["y"],
         )
@@ -872,7 +865,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
     def test_prospective_output_edges_valid_source_ports(self):
         """output_edges with valid source ports should pass."""
         body_node = atomic_model.AtomicNode(
-            reference=_reference(qualname="handle"),
+            reference=test_helpers.make_reference(qualname="handle"),
             inputs=["x"],
             outputs=["out1", "out2"],
         )
@@ -903,7 +896,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
     def test_prospective_output_edges_valid_source_ports_with_else(self):
         """output_edges with valid source ports and else_case should pass."""
         body_node = atomic_model.AtomicNode(
-            reference=_reference(qualname="handle"),
+            reference=test_helpers.make_reference(qualname="handle"),
             inputs=["x"],
             outputs=["out1", "out2"],
         )
