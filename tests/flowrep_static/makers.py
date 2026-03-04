@@ -1,3 +1,5 @@
+"""Helper functions for common maker patterns in the tests."""
+
 from pyiron_snippets import versions
 
 from flowrep.models import base_models
