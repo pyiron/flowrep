@@ -7,7 +7,7 @@ import pydantic
 from flowrep.models import base_models
 from flowrep.models.nodes import atomic_model
 
-from flowrep_static import test_helpers
+from flowrep_static import makers
 
 
 class TestAtomicNodeStructure(unittest.TestCase):
@@ -19,7 +19,7 @@ class TestAtomicNodeStructure(unittest.TestCase):
 
     def test_type_defaults_to_atomic(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=[],
             outputs=[],
         )
@@ -36,7 +36,7 @@ class TestAtomicNodeSource(unittest.TestCase):
 
     def test_fully_qualified_name_property(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference("module", "func"),
+            reference=makers.make_reference("module", "func"),
             inputs=[],
             outputs=[],
         )
@@ -44,7 +44,7 @@ class TestAtomicNodeSource(unittest.TestCase):
 
     def test_fully_qualified_name_deep(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference("a.b.c", "d"),
+            reference=makers.make_reference("a.b.c", "d"),
             inputs=[],
             outputs=[],
         )
@@ -52,7 +52,7 @@ class TestAtomicNodeSource(unittest.TestCase):
 
     def test_version_accessible_via_source(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(version="1.2.3"),
+            reference=makers.make_reference(version="1.2.3"),
             inputs=[],
             outputs=[],
         )
@@ -60,7 +60,7 @@ class TestAtomicNodeSource(unittest.TestCase):
 
     def test_version_defaults_to_none(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=[],
             outputs=[],
         )
@@ -72,7 +72,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_default_unpack_mode_is_tuple(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=[],
             outputs=["a", "b"],
         )
@@ -80,7 +80,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_tuple_mode_multiple_outputs(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=[],
             outputs=["a", "b", "c"],
             unpack_mode=atomic_model.UnpackMode.TUPLE,
@@ -89,7 +89,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_tuple_mode_zero_outputs(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=[],
             outputs=[],
             unpack_mode=atomic_model.UnpackMode.TUPLE,
@@ -98,7 +98,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_dataclass_mode_multiple_outputs(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=[],
             outputs=["a", "b", "c"],
             unpack_mode=atomic_model.UnpackMode.DATACLASS,
@@ -108,7 +108,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_none_mode_single_output(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=[],
             outputs=["result"],
             unpack_mode=atomic_model.UnpackMode.NONE,
@@ -117,7 +117,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
 
     def test_none_mode_zero_outputs(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=[],
             outputs=[],
             unpack_mode=atomic_model.UnpackMode.NONE,
@@ -127,7 +127,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
     def test_none_mode_multiple_outputs_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             atomic_model.AtomicNode(
-                reference=test_helpers.make_reference(),
+                reference=makers.make_reference(),
                 inputs=[],
                 outputs=["a", "b"],
                 unpack_mode=atomic_model.UnpackMode.NONE,
@@ -139,7 +139,7 @@ class TestAtomicNodeUnpackMode(unittest.TestCase):
         for mode in ["none", "tuple", "dataclass"]:
             with self.subTest(mode=mode):
                 node = atomic_model.AtomicNode(
-                    reference=test_helpers.make_reference(),
+                    reference=makers.make_reference(),
                     inputs=[],
                     outputs=["out"],
                     unpack_mode=mode,
@@ -166,7 +166,7 @@ class TestAtomicNodeSerialization(unittest.TestCase):
 
     def test_roundtrip(self):
         original = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=["a"],
             outputs=["b"],
         )
@@ -180,7 +180,7 @@ class TestAtomicNodeSerialization(unittest.TestCase):
         for mode in atomic_model.UnpackMode:
             with self.subTest(mode=mode):
                 original = atomic_model.AtomicNode(
-                    reference=test_helpers.make_reference(),
+                    reference=makers.make_reference(),
                     inputs=[],
                     outputs=["out"],
                     unpack_mode=mode,
@@ -191,7 +191,7 @@ class TestAtomicNodeSerialization(unittest.TestCase):
 
     def test_roundtrip_with_version(self):
         original = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(version="0.5.1"),
+            reference=makers.make_reference(version="0.5.1"),
             inputs=["a"],
             outputs=["b"],
         )
@@ -205,7 +205,7 @@ class TestAtomicNodeSerialization(unittest.TestCase):
 
     def test_json_structure(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference("pkg.mod", "func", "2.0.0"),
+            reference=makers.make_reference("pkg.mod", "func", "2.0.0"),
             inputs=["x", "y"],
             outputs=["z"],
             unpack_mode=atomic_model.UnpackMode.NONE,
@@ -225,7 +225,7 @@ class TestAtomicNodeSerialization(unittest.TestCase):
 
     def test_json_structure_version_null_when_absent(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=[],
             outputs=[],
         )
@@ -243,14 +243,14 @@ class TestAtomicNodeHasDefault(unittest.TestCase):
     def test_empty_inputs_with_defaults(self):
         """Empty inputs_with_defaults is trivially valid."""
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=["a", "b"],
             outputs=[],
         )
         self.assertEqual(node.reference.inputs_with_defaults, [])
 
     def test_valid_subset(self):
-        ref = test_helpers.make_reference(inputs_with_defaults=["b"])
+        ref = makers.make_reference(inputs_with_defaults=["b"])
         node = atomic_model.AtomicNode(
             reference=ref,
             inputs=["a", "b"],
@@ -259,7 +259,7 @@ class TestAtomicNodeHasDefault(unittest.TestCase):
         self.assertEqual(node.reference.inputs_with_defaults, ["b"])
 
     def test_full_match(self):
-        ref = test_helpers.make_reference(inputs_with_defaults=["a", "b"])
+        ref = makers.make_reference(inputs_with_defaults=["a", "b"])
         node = atomic_model.AtomicNode(
             reference=ref,
             inputs=["a", "b"],
@@ -268,7 +268,7 @@ class TestAtomicNodeHasDefault(unittest.TestCase):
         self.assertEqual(node.reference.inputs_with_defaults, ["a", "b"])
 
     def test_not_subset_rejected(self):
-        ref = test_helpers.make_reference(inputs_with_defaults=["a", "c"])
+        ref = makers.make_reference(inputs_with_defaults=["a", "c"])
         with self.assertRaises(pydantic.ValidationError) as ctx:
             atomic_model.AtomicNode(
                 reference=ref,
@@ -278,7 +278,7 @@ class TestAtomicNodeHasDefault(unittest.TestCase):
         self.assertIn("c", str(ctx.exception))
 
     def test_no_inputs_with_inputs_with_defaults_rejected(self):
-        ref = test_helpers.make_reference(inputs_with_defaults=["x"])
+        ref = makers.make_reference(inputs_with_defaults=["x"])
         with self.assertRaises(pydantic.ValidationError):
             atomic_model.AtomicNode(
                 reference=ref,
@@ -292,13 +292,13 @@ class TestAtomicNodeSourceCode(unittest.TestCase):
 
     def test_defaults_to_none(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(), inputs=[], outputs=[]
+            reference=makers.make_reference(), inputs=[], outputs=[]
         )
         self.assertIsNone(node.source_code)
 
     def test_accepts_string(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=[],
             outputs=[],
             source_code="def func(): pass",
@@ -307,7 +307,7 @@ class TestAtomicNodeSourceCode(unittest.TestCase):
 
     def test_roundtrip(self):
         original = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(),
+            reference=makers.make_reference(),
             inputs=["a"],
             outputs=["b"],
             source_code="def func(a):\n    return a",
@@ -320,7 +320,7 @@ class TestAtomicNodeSourceCode(unittest.TestCase):
 
     def test_json_structure_null_when_absent(self):
         node = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(), inputs=[], outputs=[]
+            reference=makers.make_reference(), inputs=[], outputs=[]
         )
         self.assertIsNone(node.model_dump(mode="json")["source_code"])
 

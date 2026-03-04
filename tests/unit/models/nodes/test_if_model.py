@@ -10,14 +10,14 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 
-from flowrep_static import test_helpers
+from flowrep_static import makers
 
 
 def _make_conditional_cases(n: int) -> list[helper_models.ConditionalCase]:
     return [
         helper_models.ConditionalCase(
-            condition=test_helpers.make_labeled_with_defaults(f"condition_{n}"),
-            body=test_helpers.make_labeled_with_defaults(f"body_{n}"),
+            condition=makers.make_labeled_with_defaults(f"condition_{n}"),
+            body=makers.make_labeled_with_defaults(f"body_{n}"),
         )
         for n in range(n)
     ]
@@ -54,9 +54,7 @@ def _make_output_edges(cases, else_case=None):
 
 def _make_valid_if_node(n_cases=1, with_else=True):
     cases = _make_conditional_cases(n_cases)
-    else_case = (
-        test_helpers.make_labeled_with_defaults("else_body") if with_else else None
-    )
+    else_case = makers.make_labeled_with_defaults("else_body") if with_else else None
 
     return if_model.IfNode(
         inputs=["inp"],
@@ -118,12 +116,12 @@ class TestIfNodeCasesValidation(unittest.TestCase):
     def test_duplicate_labels_across_cases_rejected(self):
         """Labels must be unique across all conditions, bodies, and else_case."""
         case0 = helper_models.ConditionalCase(
-            condition=test_helpers.make_labeled_with_defaults("cond_0"),
-            body=test_helpers.make_labeled_with_defaults("shared_label"),
+            condition=makers.make_labeled_with_defaults("cond_0"),
+            body=makers.make_labeled_with_defaults("shared_label"),
         )
         case1 = helper_models.ConditionalCase(
-            condition=test_helpers.make_labeled_with_defaults("cond_1"),
-            body=test_helpers.make_labeled_with_defaults("shared_label"),
+            condition=makers.make_labeled_with_defaults("cond_1"),
+            body=makers.make_labeled_with_defaults("shared_label"),
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
             if_model.IfNode(
@@ -146,7 +144,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             outputs=["result"],
             nodes={
                 "inner": atomic_model.AtomicNode(
-                    reference=test_helpers.make_reference(qualname="f"),
+                    reference=makers.make_reference(qualname="f"),
                     inputs=["a"],
                     outputs=["b"],
                 )
@@ -169,7 +167,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
                 condition=helper_models.LabeledNode(
                     label="workflow_condition", node=workflow_condition
                 ),
-                body=test_helpers.make_labeled_with_defaults("body"),
+                body=makers.make_labeled_with_defaults("body"),
             )
         ]
 
@@ -242,7 +240,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
     def test_input_edges_can_target_else(self):
         """input_edges targets can include the else node."""
         cases = _make_conditional_cases(2)
-        else_case = test_helpers.make_labeled_with_defaults("else_body")
+        else_case = makers.make_labeled_with_defaults("else_body")
         node = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
@@ -265,8 +263,8 @@ class TestIfNodeFullySourcing(unittest.TestCase):
         """Body input without edge or default → rejected."""
         cases = [
             helper_models.ConditionalCase(
-                condition=test_helpers.make_labeled_with_defaults("condition_0"),
-                body=test_helpers.make_labeled_atomic(
+                condition=makers.make_labeled_with_defaults("condition_0"),
+                body=makers.make_labeled_atomic(
                     "body_0",
                     inputs=["x", "extra"],  # extra has no default
                     outputs=["y"],
@@ -299,13 +297,13 @@ class TestIfNodeFullySourcing(unittest.TestCase):
         """Condition input without edge or default → rejected."""
         cases = [
             helper_models.ConditionalCase(
-                condition=test_helpers.make_labeled_atomic(
+                condition=makers.make_labeled_atomic(
                     "condition_0",
                     inputs=["x", "extra"],  # extra has no default
                     outputs=["y"],
                     inputs_with_defaults=["x"],
                 ),
-                body=test_helpers.make_labeled_with_defaults("body_0"),
+                body=makers.make_labeled_with_defaults("body_0"),
             )
         ]
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -332,7 +330,7 @@ class TestIfNodeFullySourcing(unittest.TestCase):
     def test_else_unsourced_no_default_raises(self):
         """Else body input without edge or default → rejected."""
         cases = _make_conditional_cases(1)
-        else_case = test_helpers.make_labeled_atomic(
+        else_case = makers.make_labeled_atomic(
             "else_body",
             inputs=["x", "extra"],  # extra has no default
             outputs=["y"],
@@ -358,8 +356,8 @@ class TestIfNodeFullySourcing(unittest.TestCase):
         """Node input without edge but with default → accepted."""
         cases = [
             helper_models.ConditionalCase(
-                condition=test_helpers.make_labeled_with_defaults("condition_0"),
-                body=test_helpers.make_labeled_atomic(
+                condition=makers.make_labeled_with_defaults("condition_0"),
+                body=makers.make_labeled_atomic(
                     "body_0",
                     inputs=["x", "extra"],
                     outputs=["y"],
@@ -393,7 +391,7 @@ class TestIfNodeFullySourcing(unittest.TestCase):
         else_case = helper_models.LabeledNode(
             label="else_body",
             node=atomic_model.AtomicNode(
-                reference=test_helpers.make_reference(qualname="handle"),  # no defaults
+                reference=makers.make_reference(qualname="handle"),  # no defaults
                 inputs=["x", "z"],
                 outputs=["y"],
             ),
@@ -441,8 +439,8 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         """Each prospective node can appear at most once per output."""
         cases = [
             helper_models.ConditionalCase(
-                condition=test_helpers.make_labeled_with_defaults("condition"),
-                body=test_helpers.make_labeled_atomic(
+                condition=makers.make_labeled_with_defaults("condition"),
+                body=makers.make_labeled_atomic(
                     "body",
                     inputs=["x"],
                     outputs=["x", "y"],
@@ -524,7 +522,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
     def test_prospective_output_edges_partial_sources_allowed(self):
         """An output can have sources from only some prospective nodes."""
         cases = _make_conditional_cases(3)
-        else_case = test_helpers.make_labeled_with_defaults("else_body")
+        else_case = makers.make_labeled_with_defaults("else_body")
         node = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
@@ -546,7 +544,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
     def test_prospective_output_edges_all_sources_allowed(self):
         """An output can have sources from all prospective nodes."""
         cases = _make_conditional_cases(2)
-        else_case = test_helpers.make_labeled_with_defaults("else_body")
+        else_case = makers.make_labeled_with_defaults("else_body")
         node = if_model.IfNode(
             inputs=["inp"],
             outputs=["out"],
@@ -619,7 +617,7 @@ class TestIfNodeProspectiveNodes(unittest.TestCase):
         The tricky thing here is not to cause another validation error on the way here.
         """
         cases = _make_conditional_cases(1)
-        else_case = test_helpers.make_labeled_with_defaults(cases[0].body.label)
+        else_case = makers.make_labeled_with_defaults(cases[0].body.label)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             if_model.IfNode(
                 inputs=["inp"],
@@ -676,12 +674,12 @@ class TestIfNodeSerialization(unittest.TestCase):
 
     def test_roundtrip_with_condition_output(self):
         condition = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(qualname="check"),
+            reference=makers.make_reference(qualname="check"),
             inputs=["x"],
             outputs=["a", "b"],
         )
         body = atomic_model.AtomicNode(
-            reference=test_helpers.make_reference(qualname="handle"),
+            reference=makers.make_reference(qualname="handle"),
             inputs=["x"],
             outputs=["y"],
         )
@@ -797,7 +795,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
     def test_prospective_output_edges_invalid_else_source_port(self):
         """output_edges source port must exist on the else node."""
         cases = _make_conditional_cases(1)
-        else_case = test_helpers.make_labeled_with_defaults("else_body")
+        else_case = makers.make_labeled_with_defaults("else_body")
         with self.assertRaises(pydantic.ValidationError) as ctx:
             if_model.IfNode(
                 inputs=["inp"],
@@ -822,8 +820,8 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
         """output_edges with valid source ports should pass."""
         cases = [
             helper_models.ConditionalCase(
-                condition=test_helpers.make_labeled_with_defaults("condition"),
-                body=test_helpers.make_labeled_atomic(
+                condition=makers.make_labeled_with_defaults("condition"),
+                body=makers.make_labeled_atomic(
                     "body",
                     inputs=["x"],
                     outputs=["out1", "out2"],
@@ -851,8 +849,8 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
 
         cases = [
             helper_models.ConditionalCase(
-                condition=test_helpers.make_labeled_with_defaults("condition"),
-                body=test_helpers.make_labeled_atomic(
+                condition=makers.make_labeled_with_defaults("condition"),
+                body=makers.make_labeled_atomic(
                     "body",
                     inputs=["x"],
                     outputs=["out1", "out2"],
@@ -860,7 +858,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
             )
         ]
         input_edges = _make_input_edges(cases)
-        else_case = test_helpers.make_labeled_atomic(
+        else_case = makers.make_labeled_atomic(
             "else_case",
             inputs=["x"],
             outputs=["out1", "out2"],

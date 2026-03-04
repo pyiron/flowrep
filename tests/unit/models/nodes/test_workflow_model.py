@@ -5,12 +5,12 @@ import pydantic
 from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import atomic_model, workflow_model
 
-from flowrep_static import test_helpers
+from flowrep_static import makers
 
 
 def _make_child(with_defaults: bool) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=test_helpers.make_reference(
+        reference=makers.make_reference(
             inputs_with_defaults=["inp"] if with_defaults else None,
         ),
         inputs=["inp"],
@@ -351,8 +351,8 @@ class TestWorkflowNodeFullySourcing(unittest.TestCase):
                 inputs=["x"],
                 outputs=[],
                 nodes={
-                    "a": test_helpers.make_atomic(inputs=["p"], outputs=["q"]),
-                    "b": test_helpers.make_atomic(
+                    "a": makers.make_atomic(inputs=["p"], outputs=["q"]),
+                    "b": makers.make_atomic(
                         inputs=["r"], outputs=["s"], inputs_with_defaults=["r"]
                     ),
                 },
@@ -377,7 +377,7 @@ class TestWorkflowNodeFullySourcing(unittest.TestCase):
                         inputs=["inner_in"],
                         outputs=["inner_out"],
                         nodes={
-                            "leaf": test_helpers.make_atomic(
+                            "leaf": makers.make_atomic(
                                 inputs=["a", "b"], outputs=["y"]  # no defaults
                             ),
                         },
@@ -415,7 +415,7 @@ class TestWorkflowNodeFullySourcing(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=[],
-                reference=test_helpers.make_reference(inputs_with_defaults=["x"]),
+                reference=makers.make_reference(inputs_with_defaults=["x"]),
                 nodes={"child": _make_child(with_defaults=False)},
                 input_edges={},
                 edges={},
@@ -433,7 +433,7 @@ class TestWorkflowNodeMultiplePorts(unittest.TestCase):
             inputs=["a", "b"],
             outputs=["x", "y"],
             nodes={
-                "node1": test_helpers.make_atomic(
+                "node1": makers.make_atomic(
                     inputs=["in1", "in2"], outputs=["out1", "out2"]
                 ),
             },
@@ -480,7 +480,7 @@ class TestWorkflowNodeReservedNames(unittest.TestCase):
                     workflow_model.WorkflowNode(
                         inputs=["a"],
                         outputs=["b"],
-                        nodes={invalid_label: test_helpers.make_atomic()},
+                        nodes={invalid_label: makers.make_atomic()},
                         input_edges={},
                         edges={},
                         output_edges={},
@@ -499,12 +499,10 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "a": test_helpers.make_atomic(
+                    "a": makers.make_atomic(
                         inputs=["inp", "feedback"], outputs=["out"]
                     ),
-                    "b": test_helpers.make_atomic(
-                        inputs=["inp"], outputs=["out", "out2"]
-                    ),
+                    "b": makers.make_atomic(inputs=["inp"], outputs=["out", "out2"]),
                 },
                 input_edges={
                     edge_models.TargetHandle(
@@ -534,7 +532,7 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "a": test_helpers.make_atomic(
+                    "a": makers.make_atomic(
                         inputs=["inp", "feedback"], outputs=["out", "out2"]
                     ),
                 },
@@ -756,7 +754,7 @@ class TestEmptyWorkflow(unittest.TestCase):
         wf = workflow_model.WorkflowNode(
             inputs=[],
             outputs=[],
-            nodes={"n": test_helpers.make_atomic()},
+            nodes={"n": makers.make_atomic()},
             input_edges={},
             edges={},
             output_edges={},
@@ -801,7 +799,7 @@ class TestWorkflowNodeSerialization(unittest.TestCase):
             inputs=["x", "y"],
             outputs=["z", "w"],
             nodes={
-                "a": test_helpers.make_atomic(
+                "a": makers.make_atomic(
                     inputs=["i1", "i2"],
                     outputs=["o1", "o2"],
                 ),
@@ -865,14 +863,12 @@ class TestWorkflowNodeSource(unittest.TestCase):
         self.assertIsNone(wf.reference)
 
     def test_accepts_valid_reference(self):
-        wf = self._minimal_wf(
-            reference=test_helpers.make_reference("mod", "func", "1.2.3")
-        )
+        wf = self._minimal_wf(reference=makers.make_reference("mod", "func", "1.2.3"))
         self.assertEqual(wf.fully_qualified_name, "mod.func")
 
     def test_roundtrip_with_reference(self):
         original = self._minimal_wf(
-            reference=test_helpers.make_reference("mod", "func", "1.2.3")
+            reference=makers.make_reference("mod", "func", "1.2.3")
         )
         for mode in ["python", "json"]:
             with self.subTest(mode=mode):
@@ -913,14 +909,14 @@ class TestWorkflowNodeHasDefault(unittest.TestCase):
     def test_reference_with_empty_inputs_with_defaults(self):
         wf = self._minimal_wf(
             inputs=["a"],
-            reference=test_helpers.make_reference(inputs_with_defaults=[]),
+            reference=makers.make_reference(inputs_with_defaults=[]),
         )
         self.assertEqual(wf.reference.inputs_with_defaults, [])
 
     def test_valid_subset(self):
         wf = self._minimal_wf(
             inputs=["a", "b"],
-            reference=test_helpers.make_reference(inputs_with_defaults=["b"]),
+            reference=makers.make_reference(inputs_with_defaults=["b"]),
         )
         self.assertEqual(wf.reference.inputs_with_defaults, ["b"])
 
@@ -928,7 +924,7 @@ class TestWorkflowNodeHasDefault(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             self._minimal_wf(
                 inputs=["a"],
-                reference=test_helpers.make_reference(inputs_with_defaults=["a", "z"]),
+                reference=makers.make_reference(inputs_with_defaults=["a", "z"]),
             )
         self.assertIn("z", str(ctx.exception))
 

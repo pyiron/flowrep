@@ -10,7 +10,7 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 
-from flowrep_static import test_helpers
+from flowrep_static import makers
 
 
 class TestForNodeBasic(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestForNodeBasic(unittest.TestCase):
         node = for_model.ForNode(
             inputs=[],
             outputs=[],
-            body_node=test_helpers.make_labeled_atomic(
+            body_node=makers.make_labeled_atomic(
                 "body",
                 inputs=["item"],
                 outputs=["result"],
@@ -39,7 +39,7 @@ class TestForNodeBasic(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results"],
-            body_node=test_helpers.make_labeled_atomic(
+            body_node=makers.make_labeled_atomic(
                 "body",
                 inputs=["item"],
                 outputs=["result"],
@@ -64,7 +64,7 @@ class TestForNodeBasic(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["xs", "ys"],
             outputs=["results"],
-            body_node=test_helpers.make_labeled_atomic(
+            body_node=makers.make_labeled_atomic(
                 "body",
                 inputs=["x", "y"],
                 outputs=["result"],
@@ -91,7 +91,7 @@ class TestForNodeBasic(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["outer", "inner1", "inner2"],
             outputs=["results"],
-            body_node=test_helpers.make_labeled_atomic(
+            body_node=makers.make_labeled_atomic(
                 "body",
                 inputs=["a", "b", "c"],
                 outputs=["out"],
@@ -125,7 +125,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
             for_model.ForNode(
                 inputs=["x"],
                 outputs=["y"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["inp"],
                     outputs=["out"],
@@ -150,7 +150,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -174,7 +174,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
             for_model.ForNode(
                 inputs=["xs"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["x"],
                     outputs=["result"],
@@ -198,7 +198,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -224,7 +224,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -250,7 +250,7 @@ class TestForNodeInputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -274,7 +274,7 @@ class TestForNodeInputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -299,7 +299,7 @@ class TestForNodeInputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -328,7 +328,7 @@ class TestForNodeFullySourcing(unittest.TestCase):
             for_model.ForNode(
                 inputs=["xs"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["x", "extra"],
                     outputs=["result"],
@@ -352,7 +352,7 @@ class TestForNodeFullySourcing(unittest.TestCase):
         node = for_model.ForNode(
             inputs=["xs"],
             outputs=["results"],
-            body_node=test_helpers.make_labeled_atomic(
+            body_node=makers.make_labeled_atomic(
                 "body",
                 inputs=["x", "extra"],
                 outputs=["result"],
@@ -378,7 +378,7 @@ class TestForNodeFullySourcing(unittest.TestCase):
             for_model.ForNode(
                 inputs=["xs"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["x", "y", "z"],
                     outputs=["result"],
@@ -409,7 +409,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -434,7 +434,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -458,7 +458,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -484,7 +484,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["items", "broadcast"],
             outputs=["results", "original_items"],
-            body_node=test_helpers.make_labeled_atomic(
+            body_node=makers.make_labeled_atomic(
                 "body",
                 inputs=["item", "static"],
                 outputs=["result"],
@@ -515,7 +515,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results", "forwarded"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -544,7 +544,7 @@ class TestForNodeTransferEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=test_helpers.make_labeled_atomic(
+                body_node=makers.make_labeled_atomic(
                     "body",
                     inputs=["item"],
                     outputs=["result"],
@@ -573,7 +573,7 @@ class TestForNodeSerialization(unittest.TestCase):
         original = for_model.ForNode(
             inputs=["items", "multiplier"],
             outputs=["results", "original_items"],
-            body_node=test_helpers.make_labeled_atomic(
+            body_node=makers.make_labeled_atomic(
                 "body",
                 inputs=["item", "mult"],
                 outputs=["result"],
@@ -616,7 +616,7 @@ class TestForNodeComposition(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "leaf": test_helpers.make_atomic(
+                "leaf": makers.make_atomic(
                     inputs=["inp"],
                     outputs=["out"],
                 ),
@@ -659,7 +659,7 @@ class TestForNodeComposition(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results"],
-            body_node=test_helpers.make_labeled_atomic(
+            body_node=makers.make_labeled_atomic(
                 "body",
                 inputs=["item"],
                 outputs=["result"],
@@ -702,7 +702,7 @@ class TestForNodeComposition(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results"],
-            body_node=test_helpers.make_labeled_atomic(
+            body_node=makers.make_labeled_atomic(
                 "body", inputs=["item"], outputs=["result"], qualname="transform"
             ),
             input_edges={
@@ -722,13 +722,13 @@ class TestForNodeComposition(unittest.TestCase):
             inputs=["raw_data"],
             outputs=["final"],
             nodes={
-                "preprocess": test_helpers.make_atomic(
+                "preprocess": makers.make_atomic(
                     inputs=["data"],
                     outputs=["items"],
                     qualname="preprocess",
                 ),
                 "for_node": for_node,
-                "postprocess": test_helpers.make_atomic(
+                "postprocess": makers.make_atomic(
                     inputs=["results"],
                     outputs=["output"],
                     qualname="postprocess",
@@ -764,7 +764,7 @@ class TestForNodeOutputProperties(unittest.TestCase):
     """Tests for outputs from input sources."""
 
     def _make_body(self, inputs, outputs) -> dict:
-        return test_helpers.make_labeled_atomic(
+        return makers.make_labeled_atomic(
             "body", inputs=inputs, outputs=outputs
         ).model_dump(mode="json")
 

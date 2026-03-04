@@ -16,7 +16,7 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 
-from flowrep_static import test_helpers
+from flowrep_static import makers
 
 
 def reference_dict(
@@ -25,7 +25,7 @@ def reference_dict(
     version: str | None = None,
     inputs_with_defaults: list[str] | None = None,
 ) -> dict:
-    return test_helpers.make_reference(
+    return makers.make_reference(
         module=module,
         qualname=qualname,
         version=version,

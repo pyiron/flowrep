@@ -7,7 +7,7 @@ import pydantic
 
 from flowrep.models import base_models
 
-from flowrep_static import test_helpers
+from flowrep_static import makers
 
 
 class _ValidTestNode(base_models.NodeModel):
@@ -296,15 +296,15 @@ class TestPythonReference(unittest.TestCase):
     """Tests for PythonReference model."""
 
     def test_inputs_with_defaults_defaults_to_empty(self):
-        ref = test_helpers.make_reference()
+        ref = makers.make_reference()
         self.assertEqual(ref.inputs_with_defaults, [])
 
     def test_inputs_with_defaults_accepted(self):
-        ref = test_helpers.make_reference(inputs_with_defaults=["a", "b"])
+        ref = makers.make_reference(inputs_with_defaults=["a", "b"])
         self.assertEqual(ref.inputs_with_defaults, ["a", "b"])
 
     def test_roundtrip(self):
-        original = test_helpers.make_reference(inputs_with_defaults=["x", "y"])
+        original = makers.make_reference(inputs_with_defaults=["x", "y"])
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)

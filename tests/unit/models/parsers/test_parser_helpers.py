@@ -5,7 +5,7 @@ from flowrep.models import edge_models
 from flowrep.models.nodes import atomic_model, helper_models
 from flowrep.models.parsers import parser_helpers, symbol_scope
 
-from flowrep_static import test_helpers
+from flowrep_static import makers
 
 
 class TestEnsureFunction(unittest.TestCase):
@@ -190,9 +190,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         return helper_models.LabeledNode(
             label=label,
             node=atomic_model.AtomicNode(
-                reference=test_helpers.make_reference(
-                    module="test.module", qualname="func"
-                ),
+                reference=makers.make_reference(module="test.module", qualname="func"),
                 inputs=inputs,
                 outputs=outputs,
             ),
