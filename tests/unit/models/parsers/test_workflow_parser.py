@@ -3,6 +3,7 @@ import types
 import unittest
 from typing import Annotated, Any
 
+import pydantic
 from pyiron_snippets import versions
 
 from flowrep.models import edge_models
@@ -316,6 +317,76 @@ class TestParseWorkflowNested(unittest.TestCase):
         self.assertIn(target, node.edges)
         self.assertEqual(node.edges[target].node, "inner_macro_0")
         self.assertEqual(node.edges[target].port, "f")
+
+
+class TestNestedWorkflowFullySourcing(unittest.TestCase):
+    """
+    Defaults on nested macro inputs save (or fail) fully-sourced validation.
+
+    ``inner_macro(a, b=10)`` carries ``inputs_with_defaults=["b"]``, so callers
+    that omit ``b`` are rescued by the default.  Omitting ``a`` (which has no
+    default) must fail.
+    """
+
+    def test_nested_macro_default_saves_unsourced_input(self):
+        """inner_macro(a) passes because b=10 provides a default."""
+
+        def wf(a):
+            f = inner_macro(a)
+            return f
+
+        node = workflow_parser.parse_workflow(wf)
+        inner = node.nodes["inner_macro_0"]
+        # b was never wired — only a has an input edge
+        wired_ports = {t.port for t in node.input_edges if t.node == "inner_macro_0"}
+        self.assertIn("a", wired_ports)
+        self.assertNotIn("b", wired_ports)
+        # …but b is in the defaults, which is why validation passed
+        self.assertIn("b", inner.inputs_with_defaults)
+
+    def test_nested_macro_unsourced_no_default_raises(self):
+        """inner_macro(b=x) fails because a has no edge and no default."""
+
+        def wf(x):
+            f = inner_macro(b=x)
+            return f
+
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("inner_macro_0.a", str(ctx.exception))
+
+    def test_nested_macro_all_args_supplied_passes(self):
+        """inner_macro(a, b) passes when all inputs are wired."""
+
+        def wf(a, b):
+            f = inner_macro(a, b)
+            return f
+
+        node = workflow_parser.parse_workflow(wf)
+        wired_ports = {t.port for t in node.input_edges if t.node == "inner_macro_0"}
+        self.assertEqual(wired_ports, {"a", "b"})
+
+    def test_doubly_nested_unsourced_raises(self):
+        """outer_workflow(a) fails — outer_workflow needs both a and b."""
+
+        def wf(a):
+            z = outer_workflow(a)
+            return z
+
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("outer_workflow_0.b", str(ctx.exception))
+
+    def test_doubly_nested_all_args_passes(self):
+        """outer_workflow(a, b) passes when both inputs are provided."""
+
+        def wf(a, b):
+            z = outer_workflow(a, b)
+            return z
+
+        node = workflow_parser.parse_workflow(wf)
+        wired_ports = {t.port for t in node.input_edges if t.node == "outer_workflow_0"}
+        self.assertEqual(wired_ports, {"a", "b"})
 
 
 class TestParseWorkflowOutputLabels(unittest.TestCase):
