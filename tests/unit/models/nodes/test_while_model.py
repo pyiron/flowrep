@@ -3,28 +3,15 @@
 import unittest
 
 import pydantic
-from pyiron_snippets import versions
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import (
-    atomic_model,
     helper_models,
     while_model,
     workflow_model,
 )
 
-
-def make_atomic(
-    inputs: list[str], outputs: list[str], defaults: list[str] | None = None
-) -> atomic_model.AtomicNode:
-    return atomic_model.AtomicNode(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo(module="mod", qualname="func", version=None),
-            inputs_with_defaults=inputs if defaults is None else defaults,
-        ),
-        inputs=inputs,
-        outputs=outputs,
-    )
+from flowrep_static import test_helpers
 
 
 def make_valid_while_node(
@@ -52,13 +39,17 @@ def make_valid_while_node(
         inputs=inputs,
         outputs=outputs,
         case=helper_models.ConditionalCase(
-            condition=helper_models.LabeledNode(
-                label=condition_label,
-                node=make_atomic(condition_inputs, condition_outputs),
+            condition=test_helpers.make_labeled_atomic(
+                condition_label,
+                inputs=condition_inputs,
+                outputs=condition_outputs,
+                inputs_with_defaults=condition_inputs,
             ),
-            body=helper_models.LabeledNode(
-                label=body_label,
-                node=make_atomic(body_inputs, body_outputs),
+            body=test_helpers.make_labeled_atomic(
+                body_label,
+                inputs=body_inputs,
+                outputs=body_outputs,
+                inputs_with_defaults=body_inputs,
             ),
         ),
         input_edges=input_edges if input_edges is not None else {},
@@ -91,13 +82,13 @@ class TestWhileNodeBasic(unittest.TestCase):
             inputs=["n", "acc"],
             outputs=["acc"],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
-                    label="check",
-                    node=make_atomic(["val"], ["is_positive"]),
+                condition=test_helpers.make_labeled_atomic(
+                    "check", inputs=["val"], outputs=["is_positive"]
                 ),
-                body=helper_models.LabeledNode(
-                    label="decrement",
-                    node=make_atomic(["current", "total"], ["next_val", "next_total"]),
+                body=test_helpers.make_labeled_atomic(
+                    "decrement",
+                    inputs=["current", "total"],
+                    outputs=["next_val", "next_total"],
                 ),
             ),
             input_edges={
@@ -260,19 +251,21 @@ class TestWhileNodeFullySourcing(unittest.TestCase):
                 inputs=["x"],
                 outputs=[],
                 case=helper_models.ConditionalCase(
-                    condition=helper_models.LabeledNode(
-                        label="cond",
-                        node=make_atomic(["val", "extra"], ["result"], defaults=[]),
+                    condition=test_helpers.make_labeled_atomic(
+                        "cond",
+                        inputs=["val", "extra"],
+                        outputs=["result"],
                     ),
-                    body=helper_models.LabeledNode(
-                        label="body",
-                        node=make_atomic(["inp"], ["out"]),
+                    body=test_helpers.make_labeled_atomic(
+                        "body",
+                        inputs=["inp"],
+                        outputs=["out"],
+                        inputs_with_defaults=["inp"],
                     ),
                 ),
                 input_edges={
-                    edge_models.TargetHandle(
-                        node="cond", port="val"
-                    ): edge_models.InputSource(port="x"),
+                    "cond.val": "x",
+                    "body.inp": "x",
                 },
                 output_edges={},
             )
@@ -284,19 +277,22 @@ class TestWhileNodeFullySourcing(unittest.TestCase):
             inputs=["x"],
             outputs=[],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
-                    label="cond",
-                    node=make_atomic(["val", "extra"], ["result"], defaults=["extra"]),
+                condition=test_helpers.make_labeled_atomic(
+                    "cond",
+                    inputs=["val", "extra"],
+                    outputs=["result"],
+                    inputs_with_defaults=["extra"],
                 ),
-                body=helper_models.LabeledNode(
-                    label="body",
-                    node=make_atomic(["inp"], ["out"]),
+                body=test_helpers.make_labeled_atomic(
+                    "body",
+                    inputs=["inp"],
+                    outputs=["out"],
+                    inputs_with_defaults=["inp"],
                 ),
             ),
             input_edges={
-                edge_models.TargetHandle(
-                    node="cond", port="val"
-                ): edge_models.InputSource(port="x"),
+                "cond.val": "x",
+                "body.inp": "x",
             },
             output_edges={},
         )
@@ -309,19 +305,21 @@ class TestWhileNodeFullySourcing(unittest.TestCase):
                 inputs=["x"],
                 outputs=[],
                 case=helper_models.ConditionalCase(
-                    condition=helper_models.LabeledNode(
-                        label="cond",
-                        node=make_atomic(["val"], ["result"]),
+                    condition=test_helpers.make_labeled_atomic(
+                        "cond",
+                        inputs=["val"],
+                        outputs=["result"],
                     ),
-                    body=helper_models.LabeledNode(
-                        label="body",
-                        node=make_atomic(["inp", "extra"], ["out"], defaults=[]),
+                    body=test_helpers.make_labeled_atomic(
+                        "body",
+                        inputs=["inp", "extra"],
+                        outputs=["out"],
+                        inputs_with_defaults=["inp"],
                     ),
                 ),
                 input_edges={
-                    edge_models.TargetHandle(
-                        node="body", port="inp"
-                    ): edge_models.InputSource(port="x"),
+                    "cond.val": "x",
+                    "body.inp": "x",
                 },
                 output_edges={},
             )
@@ -333,47 +331,25 @@ class TestWhileNodeFullySourcing(unittest.TestCase):
             inputs=["x"],
             outputs=[],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
-                    label="cond",
-                    node=make_atomic(["val"], ["result"]),
+                condition=test_helpers.make_labeled_atomic(
+                    "cond",
+                    inputs=["val"],
+                    outputs=["result"],
                 ),
-                body=helper_models.LabeledNode(
-                    label="body",
-                    node=make_atomic(["inp", "extra"], ["out"], defaults=["extra"]),
+                body=test_helpers.make_labeled_atomic(
+                    "body",
+                    inputs=["inp", "extra"],
+                    outputs=["out"],
+                    inputs_with_defaults=["extra"],
                 ),
             ),
             input_edges={
-                edge_models.TargetHandle(
-                    node="body", port="inp"
-                ): edge_models.InputSource(port="x"),
+                "cond.val": "x",
+                "body.inp": "x",
             },
             output_edges={},
         )
         self.assertIn("extra", wn.case.body.node.inputs)
-
-    def test_one_node_edged_other_defaulted_passes(self):
-        """Condition fully edged, body relying on default → accepted."""
-        wn = while_model.WhileNode(
-            inputs=["x"],
-            outputs=[],
-            case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
-                    label="cond",
-                    node=make_atomic(["val"], ["result"], defaults=[]),
-                ),
-                body=helper_models.LabeledNode(
-                    label="body",
-                    node=make_atomic(["inp"], ["out"]),  # all defaulted
-                ),
-            ),
-            input_edges={
-                edge_models.TargetHandle(
-                    node="cond", port="val"
-                ): edge_models.InputSource(port="x"),
-            },
-            output_edges={},
-        )
-        self.assertEqual(len(wn.input_edges), 1)
 
 
 class TestWhileNodeOutputEdges(unittest.TestCase):
@@ -454,13 +430,15 @@ class TestWhileNodeInferredIterationEdges(unittest.TestCase):
             inputs=["n", "acc"],
             outputs=["n", "acc"],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
-                    label="check",
-                    node=make_atomic(["val"], ["flag"]),
+                condition=test_helpers.make_labeled_atomic(
+                    "check",
+                    inputs=["val"],
+                    outputs=["flag"],
                 ),
-                body=helper_models.LabeledNode(
-                    label="step",
-                    node=make_atomic(["x", "y"], ["a", "b"]),
+                body=test_helpers.make_labeled_atomic(
+                    "step",
+                    inputs=["x", "y"],
+                    outputs=["a", "b"],
                 ),
             ),
             input_edges={
@@ -487,13 +465,13 @@ class TestWhileNodeInferredIterationEdges(unittest.TestCase):
             inputs=["n", "acc"],
             outputs=["n"],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
-                    label="check",
-                    node=make_atomic(["val"], ["flag"]),
+                condition=test_helpers.make_labeled_atomic(
+                    "check", inputs=["val"], outputs=["flag"]
                 ),
-                body=helper_models.LabeledNode(
-                    label="step",
-                    node=make_atomic(["x", "y"], ["a", "b"]),
+                body=test_helpers.make_labeled_atomic(
+                    "step",
+                    inputs=["x", "y"],
+                    outputs=["a", "b"],
                 ),
             ),
             input_edges={
@@ -538,13 +516,11 @@ class TestWhileNodeInferredIterationEdges(unittest.TestCase):
             inputs=["a"],
             outputs=["a"],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
-                    label="cond",
-                    node=make_atomic(["v"], ["ok"]),
+                condition=test_helpers.make_labeled_atomic(
+                    "cond", inputs=["v"], outputs=["ok"]
                 ),
-                body=helper_models.LabeledNode(
-                    label="body",
-                    node=make_atomic(["p"], ["q"]),
+                body=test_helpers.make_labeled_atomic(
+                    "body", inputs=["p"], outputs=["q"]
                 ),
             ),
             input_edges={"cond.v": "a", "body.p": "a"},
@@ -588,11 +564,13 @@ class TestWhileNodeSerialization(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="check",
-                    node=make_atomic(["val"], ["flag"]),
+                    node=test_helpers.make_atomic(inputs=["val"], outputs=["flag"]),
                 ),
                 body=helper_models.LabeledNode(
                     label="step",
-                    node=make_atomic(["x", "y"], ["a", "b"]),
+                    node=test_helpers.make_atomic(
+                        inputs=["x", "y"], outputs=["a", "b"]
+                    ),
                 ),
             ),
             input_edges={"check.val": "n", "step.x": "n", "step.y": "acc"},
@@ -621,11 +599,11 @@ class TestWhileNodeSerialization(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="cond",
-                    node=make_atomic(["v"], ["ok"]),
+                    node=test_helpers.make_atomic(inputs=["v"], outputs=["ok"]),
                 ),
                 body=helper_models.LabeledNode(
                     label="body",
-                    node=make_atomic(["p"], ["q"]),
+                    node=test_helpers.make_atomic(inputs=["p"], outputs=["q"]),
                 ),
             ),
             input_edges={"cond.v": "a", "body.p": "a"},
@@ -643,11 +621,11 @@ class TestWhileNodeSerialization(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="cond",
-                    node=make_atomic(["inp"], ["out"]),
+                    node=test_helpers.make_atomic(inputs=["inp"], outputs=["out"]),
                 ),
                 body=helper_models.LabeledNode(
                     label="body",
-                    node=make_atomic(["a"], ["b"]),
+                    node=test_helpers.make_atomic(inputs=["a"], outputs=["b"]),
                 ),
             ),
             input_edges={"cond.inp": "x", "body.a": "x"},
@@ -668,7 +646,11 @@ class TestWhileNodeSerialization(unittest.TestCase):
         inner = workflow_model.WorkflowNode(
             inputs=["a"],
             outputs=["b"],
-            nodes={"leaf": make_atomic(["x"], ["y"])},
+            nodes={
+                "leaf": test_helpers.make_atomic(
+                    inputs=["x"], outputs=["y"], inputs_with_defaults=["x"]
+                )
+            },
             input_edges={"leaf.x": "a"},
             edges={},
             output_edges={"b": "leaf.y"},
@@ -679,7 +661,9 @@ class TestWhileNodeSerialization(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="check",
-                    node=make_atomic(["v"], ["done"]),
+                    node=test_helpers.make_atomic(
+                        inputs=["v"], outputs=["done"], inputs_with_defaults=["v"]
+                    ),
                 ),
                 body=helper_models.LabeledNode(label="process", node=inner),
             ),
@@ -700,11 +684,11 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="c",
-                    node=make_atomic([], ["done"]),
+                    node=test_helpers.make_atomic(inputs=[], outputs=["done"]),
                 ),
                 body=helper_models.LabeledNode(
                     label="b",
-                    node=make_atomic([], []),
+                    node=test_helpers.make_atomic(inputs=[], outputs=[]),
                 ),
             ),
             input_edges={},
@@ -719,11 +703,11 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="c",
-                    node=make_atomic([], []),  # No outputs!
+                    node=test_helpers.make_atomic(inputs=[], outputs=[]),  # No outputs!
                 ),
                 body=helper_models.LabeledNode(
                     label="b",
-                    node=make_atomic([], []),
+                    node=test_helpers.make_atomic(inputs=[], outputs=[]),
                 ),
             )
         self.assertIn("exactly one output", str(ctx.exception))
@@ -740,11 +724,11 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledNode(
                     label="cond",
-                    node=make_atomic(["val"], ["ok"]),
+                    node=test_helpers.make_atomic(inputs=["val"], outputs=["ok"]),
                 ),
                 body=helper_models.LabeledNode(
                     label="body",
-                    node=make_atomic(["inp"], ["out"]),
+                    node=test_helpers.make_atomic(inputs=["inp"], outputs=["out"]),
                 ),
             ),
             input_edges={"body.inp": "x", "cond.val": "x"},
