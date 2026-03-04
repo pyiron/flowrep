@@ -985,5 +985,63 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
         self.assertEqual(child.reference.info.version, custom)
 
 
+class TestLocalImports(unittest.TestCase):
+    def test_local_imports(self):
+        def local_import(x, y):
+            import flowrep_static.local_library
+
+            sum_ = flowrep_static.local_library.my_add(x, y)
+            return sum_
+
+        def import_as(x, y):
+            import flowrep_static.local_library as ll
+
+            sum_ = ll.my_add(x, y)
+            return sum_
+
+        def import_from(x, y):
+            from flowrep_static import local_library
+
+            sum_ = local_library.my_add(x, y)
+            return sum_
+
+        def import_from_as(x, y):
+            from flowrep_static import local_library as ll
+
+            sum_ = ll.my_add(x, y)
+            return sum_
+
+        def import_function(x, y):
+            from flowrep_static.local_library import my_add
+
+            sum_ = my_add(x, y)
+            return sum_
+
+        def import_function_as(x, y):
+            from flowrep_static.local_library import my_add as ma
+
+            sum_ = ma(x, y)
+            return sum_
+
+        for wf_func in [
+            local_import,
+            import_as,
+            import_from,
+            import_from_as,
+            import_function,
+            import_function_as,
+        ]:
+            with self.subTest(wf_func.__name__):
+                node = workflow_parser.parse_workflow(wf_func)
+                self.assertEqual(
+                    node.nodes["my_add_0"].reference.info.module,
+                    "flowrep_static.local_library",
+                )
+                self.assertEqual(
+                    node.nodes["my_add_0"].reference.info.qualname,
+                    "my_add",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

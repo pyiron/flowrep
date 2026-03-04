@@ -852,5 +852,53 @@ class TestIfParserVersionPropagation(unittest.TestCase):
         self.assertIn("Could not find a version", str(ctx.exception))
 
 
+class TestIfParserLocalImport(unittest.TestCase):
+    def test_local_import_resolves(self):
+
+        def my_wf(x, y):
+            if library.my_condition(x, y):
+                from flowrep_static.local_library import my_add as ma
+
+                sum_ = ma(x, y)
+            else:
+                sum_ = library.my_add(x, y)
+            return sum_
+
+        node = workflow_parser.parse_workflow(my_wf)
+        self.assertIsInstance(node, workflow_model.WorkflowNode)
+
+    def test_local_imports_do_not_leak_to_sibling(self):
+
+        def my_wf(x, y):
+            if library.my_condition(x, y):
+                from flowrep_static.local_library import my_add as ma
+
+                sum_ = ma(x, y)
+            else:
+                sum_ = ma(x, y)
+            return sum_
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(my_wf)
+        self.assertIn("Could not find attribute 'ma'", str(ctx.exception))
+
+    def test_local_imports_do_not_leak_to_parent(self):
+
+        def my_wf(x, y):
+            if library.my_condition(x, y):
+                from flowrep_static.local_library import my_add as ma
+
+                sum_ = ma(x, y)
+            else:
+                sum_ = library.my_add(x, y)
+
+            bigger = ma(sum_, y)
+            return bigger
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(my_wf)
+        self.assertIn("Could not find attribute 'ma'", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
