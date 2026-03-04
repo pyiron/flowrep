@@ -269,7 +269,7 @@ def get_labeled_recipe(
     # the retrieved object had better be a function
     if hasattr(child_call, "flowrep_recipe"):
         child_recipe = child_call.flowrep_recipe
-        if hasattr(child_recipe, "source") and isinstance(
+        if hasattr(child_recipe, "reference") and isinstance(
             child_recipe.reference.info, versions.VersionInfo
         ):
             child_recipe.reference.info.validate_constraints(
