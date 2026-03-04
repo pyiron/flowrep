@@ -10,49 +10,9 @@ from flowrep.models.nodes import (
     while_model,
     workflow_model,
 )
-from flowrep.models.parsers import atomic_parser, try_parser, workflow_parser
+from flowrep.models.parsers import try_parser, workflow_parser
 
-# ---------------------------------------------------------------------------
-# Helper callables reachable from the test-module scope so that
-# object_scope.get_scope(wf) can resolve them during parsing.
-# ---------------------------------------------------------------------------
-
-
-@atomic_parser.atomic
-def identity(x):
-    return x
-
-
-def undecorated_identity(x):
-    """For checking parser propagation"""
-    return x
-
-
-@atomic_parser.atomic
-def my_add(a, b):
-    return a + b
-
-
-@atomic_parser.atomic
-def my_mul(a, b):
-    return a * b
-
-
-@atomic_parser.atomic
-def my_condition(m, n):
-    return m < n
-
-
-def multi_result(x):
-    """Undecorated; parsed on-the-fly with two outputs."""
-    a = x + 1
-    b = x - 1
-    return a, b
-
-
-def my_range(n):
-    return list(range(n))
-
+from flowrep_static import library
 
 # ===================================================================
 # Exception type parsing errors (tested via parse_workflow)
@@ -67,9 +27,9 @@ class TestParseExceptionTypeErrors(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except:  # noqa: E722
-                z = identity(x)
+                z = library.identity(x)
             return z
 
         with self.assertRaises(ValueError) as ctx:
@@ -81,9 +41,9 @@ class TestParseExceptionTypeErrors(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError as e:  # noqa: F841
-                z = identity(x)
+                z = library.identity(x)
             return z
 
         with self.assertRaises(NotImplementedError) as ctx:
@@ -95,9 +55,9 @@ class TestParseExceptionTypeErrors(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
-            except identity:
-                z = identity(x)
+                z = library.my_add(x, y)
+            except library.identity:
+                z = library.identity(x)
             return z
 
         with self.assertRaises(ValueError) as ctx:
@@ -117,11 +77,11 @@ class TestTryUnsupportedSyntax(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = identity(x)
+                z = library.identity(x)
             else:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         with self.assertRaises(NotImplementedError) as ctx:
@@ -133,11 +93,11 @@ class TestTryUnsupportedSyntax(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = identity(x)
+                z = library.identity(x)
             finally:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         with self.assertRaises(NotImplementedError) as ctx:
@@ -158,10 +118,10 @@ class TestTryBodyErrors(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = identity(x)
+                z = library.identity(x)
                 return z
             except ValueError:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             return z
 
         with self.assertRaises(TypeError) as ctx:
@@ -173,9 +133,9 @@ class TestTryBodyErrors(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = identity(x)
+                z = library.identity(x)
                 return z
             return z
 
@@ -206,9 +166,9 @@ class TestTryParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         tn = self._get_try_node(wf)
@@ -226,9 +186,9 @@ class TestTryParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         tn = self._get_try_node(wf)
@@ -244,11 +204,11 @@ class TestTryParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             except TypeError:
-                z = identity(x)
+                z = library.identity(x)
             return z
 
         tn = self._get_try_node(wf)
@@ -266,9 +226,9 @@ class TestTryParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         tn = self._get_try_node(wf)
@@ -284,11 +244,11 @@ class TestTryParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             except TypeError:
-                z = identity(x)
+                z = library.identity(x)
             return z
 
         tn = self._get_try_node(wf)
@@ -306,10 +266,10 @@ class TestTryParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             try:
-                a = my_add(x, y)
-                b = my_mul(x, y)  # noqa: F841
+                a = library.my_add(x, y)
+                b = library.my_mul(x, y)  # noqa: F841
             except ValueError:
-                a = my_mul(x, y)
+                a = library.my_mul(x, y)
             return a
 
         tn = self._get_try_node(wf)
@@ -327,9 +287,9 @@ class TestTryParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = identity(x)
+                z = library.identity(x)
             return z
 
         tn = self._get_try_node(wf)
@@ -341,9 +301,9 @@ class TestTryParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = identity(x)
+                z = library.identity(x)
             except ValueError:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             return z
 
         tn = self._get_try_node(wf)
@@ -362,9 +322,9 @@ class TestTryParserStructure(unittest.TestCase):
     def test_try_node_registered_in_parent(self):
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         node = self._parse(wf)
@@ -374,9 +334,9 @@ class TestTryParserStructure(unittest.TestCase):
     def test_try_body_label(self):
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -385,11 +345,11 @@ class TestTryParserStructure(unittest.TestCase):
     def test_except_body_labels(self):
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             except TypeError:
-                z = identity(x)
+                z = library.identity(x)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -401,9 +361,9 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -417,9 +377,9 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -432,9 +392,9 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except (ValueError, TypeError):
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -449,11 +409,11 @@ class TestTryParserStructure(unittest.TestCase):
     def test_multiple_outputs(self):
         def wf(x, y):
             try:
-                a = my_add(x, y)
-                b = my_mul(x, y)
+                a = library.my_add(x, y)
+                b = library.my_mul(x, y)
             except ValueError:
-                a = my_mul(x, y)
-                b = my_add(x, y)
+                a = library.my_mul(x, y)
+                b = library.my_add(x, y)
             return a, b
 
         tn = self._parse(wf).nodes["try_0"]
@@ -463,11 +423,11 @@ class TestTryParserStructure(unittest.TestCase):
         """Try node can consume sibling output from a preceding node."""
 
         def wf(a, b):
-            x = my_add(a, b)
+            x = library.my_add(a, b)
             try:
-                y = my_mul(x, b)
+                y = library.my_mul(x, b)
             except ValueError:
-                y = my_add(x, b)
+                y = library.my_add(x, b)
             return y
 
         node = self._parse(wf)
@@ -481,10 +441,10 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
-            result = identity(z)
+                z = library.my_mul(x, y)
+            result = library.identity(z)
             return result
 
         node = self._parse(wf)
@@ -496,13 +456,13 @@ class TestTryParserStructure(unittest.TestCase):
     def test_multiple_try_nodes_get_unique_labels(self):
         def wf(x, y):
             try:
-                a = my_add(x, y)
+                a = library.my_add(x, y)
             except ValueError:
-                a = my_mul(x, y)
+                a = library.my_mul(x, y)
             try:
-                b = identity(a)
+                b = library.identity(a)
             except TypeError:
-                b = my_add(a, y)
+                b = library.my_add(a, y)
             return b
 
         node = self._parse(wf)
@@ -514,13 +474,13 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(x, y):
             try:
-                a = my_add(x, y)
+                a = library.my_add(x, y)
             except ValueError:
-                a = my_mul(x, y)
+                a = library.my_mul(x, y)
             try:
-                b = identity(a)
+                b = library.identity(a)
             except TypeError:
-                b = my_add(a, y)
+                b = library.my_add(a, y)
             return b
 
         node = self._parse(wf)
@@ -538,11 +498,11 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 results = []
                 for x in xs:
-                    v = identity(x)
+                    v = library.identity(x)
                     results.append(v)
-                z = identity(results)
+                z = library.identity(results)
             except ValueError:
-                z = identity(y)
+                z = library.identity(y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -556,11 +516,11 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(x, y, bound):
             try:
-                while my_condition(x, bound):
-                    x = my_add(x, y)
-                z = identity(x)
+                while library.my_condition(x, bound):
+                    x = library.my_add(x, y)
+                z = library.identity(x)
             except ValueError:
-                z = identity(y)
+                z = library.identity(y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -576,12 +536,12 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(x, y):
             try:
-                if my_condition(x, y):  # noqa: SIM108
-                    z = my_add(x, y)
+                if library.my_condition(x, y):  # noqa: SIM108
+                    z = library.my_add(x, y)
                 else:
-                    z = my_mul(x, y)
+                    z = library.my_mul(x, y)
             except ValueError:
-                z = identity(x)
+                z = library.identity(x)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -596,11 +556,11 @@ class TestTryParserStructure(unittest.TestCase):
         def wf(x, y):
             try:
                 try:
-                    z = my_add(x, y)
+                    z = library.my_add(x, y)
                 except TypeError:
-                    z = identity(x)
+                    z = library.identity(x)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -617,13 +577,13 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(xs, y):
             try:
-                z = identity(y)
+                z = library.identity(y)
             except ValueError:
                 results = []
                 for x in xs:
-                    v = identity(x)
+                    v = library.identity(x)
                     results.append(v)
-                z = identity(results)
+                z = library.identity(results)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -640,11 +600,11 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(x, y, bound):
             try:
-                z = identity(y)
+                z = library.identity(y)
             except ValueError:
-                while my_condition(x, bound):
-                    x = my_add(x, y)
-                z = identity(x)
+                while library.my_condition(x, bound):
+                    x = library.my_add(x, y)
+                z = library.identity(x)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -663,12 +623,12 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = identity(x)
+                z = library.identity(x)
             except ValueError:
-                if my_condition(x, y):  # noqa: SIM108
-                    z = my_add(x, y)
+                if library.my_condition(x, y):  # noqa: SIM108
+                    z = library.my_add(x, y)
                 else:
-                    z = my_mul(x, y)
+                    z = library.my_mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -689,9 +649,9 @@ class TestTryNodeRoundTrip(unittest.TestCase):
     def test_simple_try_except_round_trip(self):
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         tn = workflow_parser.parse_workflow(wf).nodes["try_0"]
@@ -704,11 +664,11 @@ class TestTryNodeRoundTrip(unittest.TestCase):
     def test_multi_except_round_trip(self):
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             except TypeError:
-                z = identity(x)
+                z = library.identity(x)
             return z
 
         tn = workflow_parser.parse_workflow(wf).nodes["try_0"]
@@ -721,9 +681,9 @@ class TestTryNodeRoundTrip(unittest.TestCase):
     def test_tuple_exceptions_round_trip(self):
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except (ValueError, TypeError):
-                z = my_mul(x, y)
+                z = library.my_mul(x, y)
             return z
 
         tn = workflow_parser.parse_workflow(wf).nodes["try_0"]
@@ -738,10 +698,10 @@ class TestTryNodeRoundTrip(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = my_add(x, y)
+                z = library.my_add(x, y)
             except ValueError:
-                z = my_mul(x, y)
-            result = identity(z)
+                z = library.my_mul(x, y)
+            result = library.identity(z)
             return result
 
         node = workflow_parser.parse_workflow(wf)
@@ -754,11 +714,11 @@ class TestTryNodeRoundTrip(unittest.TestCase):
     def test_multi_output_try_round_trip(self):
         def wf(x, y):
             try:
-                a = my_add(x, y)
-                b = my_mul(x, y)
+                a = library.my_add(x, y)
+                b = library.my_mul(x, y)
             except ValueError:
-                a = my_mul(x, y)
-                b = my_add(x, y)
+                a = library.my_mul(x, y)
+                b = library.my_add(x, y)
             return a, b
 
         node = workflow_parser.parse_workflow(wf)
@@ -778,7 +738,7 @@ class TestTryParserVersionPropagation(unittest.TestCase):
     """Version scraping/constraints propagate into try/except body child nodes."""
 
     def _pkg(self) -> str:
-        return undecorated_identity.__module__.split(".")[0]
+        return library.undecorated_identity.__module__.split(".")[0]
 
     def test_version_scraping_propagates_into_try_body(self):
         """Undecorated child inside a try body receives the scraping map."""
@@ -786,9 +746,9 @@ class TestTryParserVersionPropagation(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = undecorated_identity(x)
+                z = library.undecorated_identity(x)
             except ValueError:
-                z = identity(y)
+                z = library.identity(y)
             return z
 
         node = workflow_parser.parse_workflow(
@@ -805,9 +765,9 @@ class TestTryParserVersionPropagation(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = identity(x)
+                z = library.identity(x)
             except ValueError:
-                z = undecorated_identity(y)
+                z = library.undecorated_identity(y)
             return z
 
         node = workflow_parser.parse_workflow(
@@ -824,9 +784,9 @@ class TestTryParserVersionPropagation(unittest.TestCase):
 
         def wf(x, y):
             try:
-                z = identity(x)
+                z = library.identity(x)
             except ValueError:
-                z = undecorated_identity(y)
+                z = library.undecorated_identity(y)
             return z
 
         node = workflow_parser.parse_workflow(
@@ -845,9 +805,9 @@ class TestTryParserVersionPropagation(unittest.TestCase):
     def test_version_constraints_propagate_to_children(self):
         def wf(x, y):
             try:
-                z = undecorated_identity(x)
+                z = library.undecorated_identity(x)
             except ValueError:
-                z = undecorated_identity(y)
+                z = library.undecorated_identity(y)
             return z
 
         with self.assertRaises(ValueError) as ctx:
