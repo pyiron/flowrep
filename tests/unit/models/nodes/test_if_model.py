@@ -16,7 +16,7 @@ def _reference(
     module: str = "mod",
     qualname: str = "func",
     version: str | None = None,
-    inputs_with_defaults: list[bool] | None = None,
+    inputs_with_defaults: list[str] | None = None,
 ) -> base_models.PythonReference:
     return base_models.PythonReference(
         info=versions.VersionInfo(module=module, qualname=qualname, version=version),
