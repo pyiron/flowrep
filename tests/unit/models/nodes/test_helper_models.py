@@ -15,11 +15,13 @@ def _reference(
     module: str = "mod",
     qualname: str = "func",
     version: str | None = None,
-    has_default: list[str] = None,
+    inputs_with_defaults: list[str] = None,
 ) -> base_models.PythonReference:
     return base_models.PythonReference(
         info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        has_default=[] if has_default is None else has_default,
+        inputs_with_defaults=(
+            [] if inputs_with_defaults is None else inputs_with_defaults
+        ),
     )
 
 

@@ -16,11 +16,11 @@ def _reference(
     module: str = "mod",
     qualname: str = "func",
     version: str | None = None,
-    has_default: list[bool] | None = None,
+    inputs_with_defaults: list[bool] | None = None,
 ) -> base_models.PythonReference:
     return base_models.PythonReference(
         info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        has_default=has_default or [],
+        inputs_with_defaults=inputs_with_defaults or [],
     )
 
 
@@ -37,7 +37,7 @@ class TestForNodeBasic(unittest.TestCase):
             body_node=helper_models.LabeledNode(
                 label="body",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(has_default=["item"]),
+                    reference=_reference(inputs_with_defaults=["item"]),
                     inputs=["item"],
                     outputs=["result"],
                 ),
@@ -317,7 +317,7 @@ class TestForNodeInputEdges(unittest.TestCase):
                 body_node=helper_models.LabeledNode(
                     label="body",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(has_default=["item"]),
+                        reference=_reference(inputs_with_defaults=["item"]),
                         inputs=["item"],
                         outputs=["result"],
                     ),

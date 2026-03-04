@@ -21,7 +21,7 @@ def _reference_dict(
     module: str = "mod",
     qualname: str = "func",
     version: str | None = None,
-    has_default: list[str] = None,
+    inputs_with_defaults: list[str] = None,
 ) -> dict:
     return {
         "info": {
@@ -29,7 +29,9 @@ def _reference_dict(
             "qualname": qualname,
             "version": version,
         },
-        "has_default": [] if has_default is None else has_default,
+        "inputs_with_defaults": (
+            [] if inputs_with_defaults is None else inputs_with_defaults
+        ),
     }
 
 
@@ -136,7 +138,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "outputs": ["result"],
                                     "reference": _reference_dict(
                                         qualname="check",
-                                        has_default=["x"],
+                                        inputs_with_defaults=["x"],
                                     ),
                                     "unpack_mode": "tuple",
                                 },
@@ -176,7 +178,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "outputs": ["result"],
                                     "reference": _reference_dict(
                                         qualname="check",
-                                        has_default=["x"],
+                                        inputs_with_defaults=["x"],
                                     ),
                                     "unpack_mode": "tuple",
                                 },

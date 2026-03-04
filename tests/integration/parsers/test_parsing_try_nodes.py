@@ -100,7 +100,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "simple_try_except",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(simple_try_except),
     }
@@ -206,7 +206,7 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "try_multi_except",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(try_multi_except),
     }
@@ -295,7 +295,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "try_with_context",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(try_with_context),
     }
@@ -395,7 +395,7 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "multi_output_try",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(multi_output_try),
     }
@@ -480,7 +480,7 @@ tuple_exc_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "try_tuple_exceptions",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(try_tuple_exceptions),
     }

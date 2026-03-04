@@ -101,7 +101,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "simple_if_else",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(simple_if_else),
     }
@@ -213,7 +213,7 @@ elif_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "if_elif_else",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(if_elif_else),
     }
@@ -300,7 +300,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "if_with_context",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(if_with_context),
     }
@@ -406,7 +406,7 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "multi_output_if",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(multi_output_if),
     }
@@ -475,7 +475,7 @@ no_else_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "if_no_else",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(if_no_else),
     }

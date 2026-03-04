@@ -759,15 +759,15 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
 
 
 class TestParseWorkflowHasDefault(unittest.TestCase):
-    """Tests that parse_workflow populates has_default on the workflow and children."""
+    """Tests that parse_workflow populates inputs_with_defaults on the workflow and children."""
 
-    def test_workflow_has_default_from_signature(self):
+    def test_workflow_inputs_with_defaults_from_signature(self):
         def wf(a, b=5):
             c = add(a, b)
             return c
 
         node = workflow_parser.parse_workflow(wf)
-        self.assertEqual(node.reference.has_default, ["b"])
+        self.assertEqual(node.reference.inputs_with_defaults, ["b"])
 
     def test_workflow_no_defaults(self):
         def wf(a, b):
@@ -775,7 +775,7 @@ class TestParseWorkflowHasDefault(unittest.TestCase):
             return c
 
         node = workflow_parser.parse_workflow(wf)
-        self.assertEqual(node.reference.has_default, [])
+        self.assertEqual(node.reference.inputs_with_defaults, [])
 
     def test_workflow_all_defaults(self):
         def wf(a=1, b=2):
@@ -783,37 +783,37 @@ class TestParseWorkflowHasDefault(unittest.TestCase):
             return c
 
         node = workflow_parser.parse_workflow(wf)
-        self.assertEqual(node.reference.has_default, ["a", "b"])
+        self.assertEqual(node.reference.inputs_with_defaults, ["a", "b"])
 
-    def test_child_node_has_default_populated(self):
-        """Undecorated children parsed on-the-fly should carry has_default."""
+    def test_child_node_inputs_with_defaults_populated(self):
+        """Undecorated children parsed on-the-fly should carry inputs_with_defaults."""
 
         def wf(x):
-            y = add(x)  # add has x=2.0, y=1 → has_default=["x", "y"]
+            y = add(x)  # add has x=2.0, y=1 → inputs_with_defaults=["x", "y"]
             return y
 
         node = workflow_parser.parse_workflow(wf)
         child = node.nodes["add_0"]
-        self.assertEqual(child.reference.has_default, ["x", "y"])
+        self.assertEqual(child.reference.inputs_with_defaults, ["x", "y"])
 
     def test_child_mixed_defaults(self):
         def wf(x):
-            y = multiply(x)  # multiply has (x, y=5) → has_default=["y"]
+            y = multiply(x)  # multiply has (x, y=5) → inputs_with_defaults=["y"]
             return y
 
         node = workflow_parser.parse_workflow(wf)
         child = node.nodes["multiply_0"]
-        self.assertEqual(child.reference.has_default, ["y"])
+        self.assertEqual(child.reference.inputs_with_defaults, ["y"])
 
-    def test_decorator_preserves_has_default(self):
+    def test_decorator_preserves_inputs_with_defaults(self):
         @workflow_parser.workflow
         def wf(a, b=10):
             c = add(a, b)
             return c
 
-        self.assertEqual(wf.flowrep_recipe.reference.has_default, ["b"])
+        self.assertEqual(wf.flowrep_recipe.reference.inputs_with_defaults, ["b"])
 
-    def test_roundtrip_preserves_has_default(self):
+    def test_roundtrip_preserves_inputs_with_defaults(self):
         def wf(a, b=5):
             c = add(a, b)
             return c
@@ -823,7 +823,7 @@ class TestParseWorkflowHasDefault(unittest.TestCase):
             with self.subTest(mode=mode):
                 data = node.model_dump(mode=mode)
                 restored = workflow_model.WorkflowNode.model_validate(data)
-                self.assertEqual(restored.reference.has_default, ["b"])
+                self.assertEqual(restored.reference.inputs_with_defaults, ["b"])
 
 
 class TestParseWorkflowSourceCode(unittest.TestCase):

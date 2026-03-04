@@ -289,7 +289,7 @@ full_composite_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "full_composite",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(full_composite),
     }

@@ -20,7 +20,7 @@ def make_atomic(
     return atomic_model.AtomicNode(
         reference=base_models.PythonReference(
             info=versions.VersionInfo(module="mod", qualname="func", version=None),
-            has_default=inputs if defaults is None else defaults,
+            inputs_with_defaults=inputs if defaults is None else defaults,
         ),
         inputs=inputs,
         outputs=outputs,

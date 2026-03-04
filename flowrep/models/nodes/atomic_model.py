@@ -57,8 +57,8 @@ class AtomicNode(base_models.NodeModel):
     unpack_mode: UnpackMode = UnpackMode.TUPLE
 
     @property
-    def has_default(self) -> base_models.Labels:
-        return self.reference.has_default
+    def inputs_with_defaults(self) -> base_models.Labels:
+        return self.reference.inputs_with_defaults
 
     @property
     def fully_qualified_name(self) -> str:

@@ -16,18 +16,18 @@ def _reference(
     module: str = "mod",
     qualname: str = "func",
     version: str | None = None,
-    has_default: list[bool] | None = None,
+    inputs_with_defaults: list[bool] | None = None,
 ) -> base_models.PythonReference:
     return base_models.PythonReference(
         info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        has_default=has_default or [],
+        inputs_with_defaults=inputs_with_defaults or [],
     )
 
 
 def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
         reference=_reference(
-            qualname="check", has_default=["x"] if inputs is None else None
+            qualname="check", inputs_with_defaults=["x"] if inputs is None else None
         ),
         inputs=inputs or ["x"],
         outputs=outputs or ["result"],
@@ -37,7 +37,7 @@ def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 def _make_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
         reference=_reference(
-            qualname="handle", has_default=["x"] if inputs is None else None
+            qualname="handle", inputs_with_defaults=["x"] if inputs is None else None
         ),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],

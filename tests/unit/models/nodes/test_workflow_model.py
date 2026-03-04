@@ -11,17 +11,19 @@ def _reference(
     module: str = "mod",
     qualname: str = "func",
     version: str | None = None,
-    has_default: list[str] = None,
+    inputs_with_defaults: list[str] = None,
 ) -> base_models.PythonReference:
     return base_models.PythonReference(
         info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        has_default=[] if has_default is None else has_default,
+        inputs_with_defaults=(
+            [] if inputs_with_defaults is None else inputs_with_defaults
+        ),
     )
 
 
 def _make_child() -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(has_default=["inp"]),
+        reference=_reference(inputs_with_defaults=["inp"]),
         inputs=["inp"],
         outputs=["out"],
     )
@@ -298,12 +300,16 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 outputs=[],
                 nodes={
                     "a": atomic_model.AtomicNode(
-                        reference=_reference(qualname="f", has_default=["inp"]),
+                        reference=_reference(
+                            qualname="f", inputs_with_defaults=["inp"]
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
                     "b": atomic_model.AtomicNode(
-                        reference=_reference(qualname="g", has_default=["inp"]),
+                        reference=_reference(
+                            qualname="g", inputs_with_defaults=["inp"]
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
@@ -327,12 +333,16 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 outputs=[],
                 nodes={
                     "a": atomic_model.AtomicNode(
-                        reference=_reference(qualname="f", has_default=["inp"]),
+                        reference=_reference(
+                            qualname="f", inputs_with_defaults=["inp"]
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
                     "b": atomic_model.AtomicNode(
-                        reference=_reference(qualname="g", has_default=["inp"]),
+                        reference=_reference(
+                            qualname="g", inputs_with_defaults=["inp"]
+                        ),
                         inputs=["inp"],
                         outputs=["out"],
                     ),
@@ -593,7 +603,7 @@ class TestNestedWorkflow(unittest.TestCase):
                             "bad": atomic_model.AtomicNode(
                                 reference={
                                     "info": "Not a VersionInfo",
-                                    "has_default": [],
+                                    "inputs_with_defaults": [],
                                 },
                                 inputs=[],
                                 outputs=[],
@@ -865,7 +875,7 @@ class TestWorkflowNodeSource(unittest.TestCase):
 
 
 class TestWorkflowNodeHasDefault(unittest.TestCase):
-    """Tests for reference.has_default ⊆ inputs validation."""
+    """Tests for reference.inputs_with_defaults ⊆ inputs validation."""
 
     def _minimal_wf(self, **overrides):
         defaults = dict(
@@ -883,25 +893,25 @@ class TestWorkflowNodeHasDefault(unittest.TestCase):
         wf = self._minimal_wf()
         self.assertIsNone(wf.reference)
 
-    def test_reference_with_empty_has_default(self):
+    def test_reference_with_empty_inputs_with_defaults(self):
         wf = self._minimal_wf(
             inputs=["a"],
-            reference=_reference(has_default=[]),
+            reference=_reference(inputs_with_defaults=[]),
         )
-        self.assertEqual(wf.reference.has_default, [])
+        self.assertEqual(wf.reference.inputs_with_defaults, [])
 
     def test_valid_subset(self):
         wf = self._minimal_wf(
             inputs=["a", "b"],
-            reference=_reference(has_default=["b"]),
+            reference=_reference(inputs_with_defaults=["b"]),
         )
-        self.assertEqual(wf.reference.has_default, ["b"])
+        self.assertEqual(wf.reference.inputs_with_defaults, ["b"])
 
     def test_not_subset_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             self._minimal_wf(
                 inputs=["a"],
-                reference=_reference(has_default=["a", "z"]),
+                reference=_reference(inputs_with_defaults=["a", "z"]),
             )
         self.assertIn("z", str(ctx.exception))
 

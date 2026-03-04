@@ -954,28 +954,28 @@ class TestAtomicDecoratorVersionParams(unittest.TestCase):
 
 
 class TestParseAtomicHasDefault(unittest.TestCase):
-    """Tests that parse_atomic populates reference.has_default from the signature."""
+    """Tests that parse_atomic populates reference.inputs_with_defaults from the signature."""
 
     def test_no_defaults(self):
         def func(a, b):
             return a, b
 
         node = atomic_parser.parse_atomic(func)
-        self.assertEqual(node.reference.has_default, [])
+        self.assertEqual(node.reference.inputs_with_defaults, [])
 
     def test_all_defaults(self):
         def func(a=1, b=2):
             return a, b
 
         node = atomic_parser.parse_atomic(func)
-        self.assertEqual(node.reference.has_default, ["a", "b"])
+        self.assertEqual(node.reference.inputs_with_defaults, ["a", "b"])
 
     def test_mixed_defaults(self):
         def func(a, b, c=3, d="x"):
             return a, b
 
         node = atomic_parser.parse_atomic(func)
-        self.assertEqual(node.reference.has_default, ["c", "d"])
+        self.assertEqual(node.reference.inputs_with_defaults, ["c", "d"])
 
     def test_no_params(self):
         def func():
@@ -984,16 +984,16 @@ class TestParseAtomicHasDefault(unittest.TestCase):
         node = atomic_parser.parse_atomic(
             func, unpack_mode=atomic_model.UnpackMode.NONE
         )
-        self.assertEqual(node.reference.has_default, [])
+        self.assertEqual(node.reference.inputs_with_defaults, [])
 
-    def test_decorator_preserves_has_default(self):
+    def test_decorator_preserves_inputs_with_defaults(self):
         @atomic_parser.atomic
         def func(x, y=10):
             return x
 
-        self.assertEqual(func.flowrep_recipe.reference.has_default, ["y"])
+        self.assertEqual(func.flowrep_recipe.reference.inputs_with_defaults, ["y"])
 
-    def test_roundtrip_preserves_has_default(self):
+    def test_roundtrip_preserves_inputs_with_defaults(self):
         def func(a, b=2, c=3):
             return a, b, c
 
@@ -1002,7 +1002,7 @@ class TestParseAtomicHasDefault(unittest.TestCase):
             with self.subTest(mode=mode):
                 data = node.model_dump(mode=mode)
                 restored = atomic_model.AtomicNode.model_validate(data)
-                self.assertEqual(restored.reference.has_default, ["b", "c"])
+                self.assertEqual(restored.reference.inputs_with_defaults, ["b", "c"])
 
 
 class TestParseAtomicSourceCode(unittest.TestCase):

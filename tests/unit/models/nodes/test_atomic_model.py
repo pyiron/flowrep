@@ -13,11 +13,11 @@ def _reference(
     module: str = "mod",
     qualname: str = "func",
     version: str | None = None,
-    has_default: list[str] | None = None,
+    inputs_with_defaults: list[str] | None = None,
 ) -> base_models.PythonReference:
     return base_models.PythonReference(
         info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        has_default=has_default or [],
+        inputs_with_defaults=inputs_with_defaults or [],
     )
 
 
@@ -227,7 +227,7 @@ class TestAtomicNodeSerialization(unittest.TestCase):
             data["reference"],
             {
                 "info": {"module": "pkg.mod", "qualname": "func", "version": "2.0.0"},
-                "has_default": [],
+                "inputs_with_defaults": [],
             },
         )
         self.assertEqual(data["inputs"], ["x", "y"])
@@ -249,37 +249,37 @@ class TestAtomicNodeSerialization(unittest.TestCase):
 
 
 class TestAtomicNodeHasDefault(unittest.TestCase):
-    """Tests for reference.has_default ⊆ inputs validation."""
+    """Tests for reference.inputs_with_defaults ⊆ inputs validation."""
 
-    def test_empty_has_default(self):
-        """Empty has_default is trivially valid."""
+    def test_empty_inputs_with_defaults(self):
+        """Empty inputs_with_defaults is trivially valid."""
         node = atomic_model.AtomicNode(
             reference=_reference(),
             inputs=["a", "b"],
             outputs=[],
         )
-        self.assertEqual(node.reference.has_default, [])
+        self.assertEqual(node.reference.inputs_with_defaults, [])
 
     def test_valid_subset(self):
-        ref = _reference(has_default=["b"])
+        ref = _reference(inputs_with_defaults=["b"])
         node = atomic_model.AtomicNode(
             reference=ref,
             inputs=["a", "b"],
             outputs=[],
         )
-        self.assertEqual(node.reference.has_default, ["b"])
+        self.assertEqual(node.reference.inputs_with_defaults, ["b"])
 
     def test_full_match(self):
-        ref = _reference(has_default=["a", "b"])
+        ref = _reference(inputs_with_defaults=["a", "b"])
         node = atomic_model.AtomicNode(
             reference=ref,
             inputs=["a", "b"],
             outputs=[],
         )
-        self.assertEqual(node.reference.has_default, ["a", "b"])
+        self.assertEqual(node.reference.inputs_with_defaults, ["a", "b"])
 
     def test_not_subset_rejected(self):
-        ref = _reference(has_default=["a", "c"])
+        ref = _reference(inputs_with_defaults=["a", "c"])
         with self.assertRaises(pydantic.ValidationError) as ctx:
             atomic_model.AtomicNode(
                 reference=ref,
@@ -288,8 +288,8 @@ class TestAtomicNodeHasDefault(unittest.TestCase):
             )
         self.assertIn("c", str(ctx.exception))
 
-    def test_no_inputs_with_has_default_rejected(self):
-        ref = _reference(has_default=["x"])
+    def test_no_inputs_with_inputs_with_defaults_rejected(self):
+        ref = _reference(inputs_with_defaults=["x"])
         with self.assertRaises(pydantic.ValidationError):
             atomic_model.AtomicNode(
                 reference=ref,

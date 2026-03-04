@@ -128,7 +128,8 @@ def parse_atomic(
     source_code = parser_helpers.get_available_source_code(func)
     return atomic_model.AtomicNode(
         reference=base_models.PythonReference(
-            info=info, has_default=[label for label, hd in input_info.items() if hd]
+            info=info,
+            inputs_with_defaults=[label for label, hd in input_info.items() if hd],
         ),
         source_code=source_code,
         inputs=list(input_info),

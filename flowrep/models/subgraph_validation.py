@@ -15,7 +15,7 @@ class NodeProtocol(Protocol):
     outputs: base_models.Labels
 
     @property
-    def has_default(self) -> base_models.Labels: ...
+    def inputs_with_defaults(self) -> base_models.Labels: ...
 
     def validate_internal_data_completeness(self): ...
 
@@ -176,7 +176,7 @@ def validate_nodes_are_fully_sourced(
     for label, node in nodes.items():
         for port in node.inputs:
             target = edge_models.TargetHandle(node=label, port=port)
-            if port not in node.has_default and target not in context:
+            if port not in node.inputs_with_defaults and target not in context:
                 raise ValueError(
                     f"Could not find a source or default for the target: {label}.{port}"
                 )

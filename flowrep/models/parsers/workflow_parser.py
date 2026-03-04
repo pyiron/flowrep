@@ -124,7 +124,7 @@ def parse_workflow(
     inputs = list(input_info)
     reference = base_models.PythonReference(
         info=info,
-        has_default=[label for label, hd in input_info.items() if hd],
+        inputs_with_defaults=[label for label, hd in input_info.items() if hd],
     )
     state = _WorkflowFunctionParser(
         object_scope.get_scope(func),

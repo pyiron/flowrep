@@ -88,7 +88,7 @@ single_iteration_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "single_iteration",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(single_iteration),
     }
@@ -188,7 +188,7 @@ zbat_wf_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "zipped_broadcast_and_transferred",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(
             zipped_broadcast_and_transferred
@@ -298,7 +298,7 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "nested",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(nested),
     }
@@ -424,7 +424,7 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "nested_with_passed_input",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(
             nested_with_passed_input

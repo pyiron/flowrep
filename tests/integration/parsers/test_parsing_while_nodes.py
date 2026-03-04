@@ -92,7 +92,7 @@ simple_while_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "simple_while",
                 "version": None,
             },
-            "has_default": ["a", "b", "c"],
+            "inputs_with_defaults": ["a", "b", "c"],
         },
         "source_code": parser_helpers.get_available_source_code(simple_while),
     }
@@ -211,7 +211,7 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "nested_while",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(nested_while),
     }
@@ -297,7 +297,7 @@ multi_reassign_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "multi_reassign",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(multi_reassign),
     }
@@ -388,7 +388,7 @@ sequential_whiles_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "sequential_whiles",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(sequential_whiles),
     }
@@ -465,7 +465,7 @@ chained_body_node = workflow_model.WorkflowNode.model_validate(
                 "qualname": "chained_body",
                 "version": None,
             },
-            "has_default": [],
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(chained_body),
     }
