@@ -1,25 +1,11 @@
 import ast
 import unittest
 
-from pyiron_snippets import versions
-
-from flowrep.models import base_models, edge_models
+from flowrep.models import edge_models
 from flowrep.models.nodes import atomic_model, helper_models
 from flowrep.models.parsers import parser_helpers, symbol_scope
 
-
-def _reference(
-    module: str = "mod",
-    qualname: str = "func",
-    version: str | None = None,
-    inputs_with_defaults: list[str] = None,
-) -> base_models.PythonReference:
-    return base_models.PythonReference(
-        info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        inputs_with_defaults=(
-            [] if inputs_with_defaults is None else inputs_with_defaults
-        ),
-    )
+from flowrep_static import makers
 
 
 class TestEnsureFunction(unittest.TestCase):
@@ -204,7 +190,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         return helper_models.LabeledNode(
             label=label,
             node=atomic_model.AtomicNode(
-                reference=_reference(module="test.module", qualname="func"),
+                reference=makers.make_reference(module="test.module", qualname="func"),
                 inputs=inputs,
                 outputs=outputs,
             ),

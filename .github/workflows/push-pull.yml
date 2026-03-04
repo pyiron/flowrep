@@ -26,3 +26,5 @@ jobs:
       alternate-tests-env-files: .ci_support/lower-bounds.yml
       alternate-tests-python-version: '3.11'
       alternate-tests-dir: tests/unit
+      # Make sure the static module can be found at test time
+      extra-python-paths: tests

@@ -1,29 +1,18 @@
 import unittest
 
 import pydantic
-from pyiron_snippets import versions
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import atomic_model, workflow_model
 
-
-def _reference(
-    module: str = "mod",
-    qualname: str = "func",
-    version: str | None = None,
-    inputs_with_defaults: list[str] = None,
-) -> base_models.PythonReference:
-    return base_models.PythonReference(
-        info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        inputs_with_defaults=(
-            [] if inputs_with_defaults is None else inputs_with_defaults
-        ),
-    )
+from flowrep_static import makers
 
 
-def _make_child() -> atomic_model.AtomicNode:
+def _make_child(with_defaults: bool) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        reference=_reference(inputs_with_defaults=["inp"]),
+        reference=makers.make_reference(
+            inputs_with_defaults=["inp"] if with_defaults else None,
+        ),
         inputs=["inp"],
         outputs=["out"],
     )
@@ -56,7 +45,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
         wf = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
-            nodes={"child": _make_child()},
+            nodes={"child": _make_child(with_defaults=True)},
             input_edges={
                 edge_models.TargetHandle(
                     node="child", port="inp"
@@ -77,7 +66,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
-                nodes={"child": _make_child()},
+                nodes={"child": _make_child(with_defaults=True)},
                 input_edges={
                     edge_models.TargetHandle(
                         node="child", port="inp"
@@ -94,7 +83,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
-                nodes={"child": _make_child()},
+                nodes={"child": _make_child(with_defaults=True)},
                 input_edges={
                     edge_models.TargetHandle(
                         node="nonexistent", port="inp"
@@ -112,7 +101,7 @@ class TestWorkflowNodeInputEdges(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
-                nodes={"child": _make_child()},
+                nodes={"child": _make_child(with_defaults=True)},
                 input_edges={
                     edge_models.TargetHandle(
                         node="child", port="wrong"
@@ -133,7 +122,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
         wf = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
-            nodes={"child": _make_child()},
+            nodes={"child": _make_child(with_defaults=True)},
             input_edges={
                 edge_models.TargetHandle(
                     node="child", port="inp"
@@ -168,7 +157,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
-                nodes={"child": _make_child()},
+                nodes={"child": _make_child(with_defaults=True)},
                 input_edges={},
                 edges={},
                 output_edges={
@@ -186,7 +175,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
-                nodes={"child": _make_child()},
+                nodes={"child": _make_child(with_defaults=True)},
                 input_edges={},
                 edges={},
                 output_edges={
@@ -204,7 +193,7 @@ class TestWorkflowNodeOutputEdges(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=["y"],
-                nodes={"child": _make_child()},
+                nodes={"child": _make_child(with_defaults=True)},
                 input_edges={},
                 edges={},
                 output_edges={
@@ -227,16 +216,8 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "a": atomic_model.AtomicNode(
-                    reference=_reference(qualname="f"),
-                    inputs=["inp"],
-                    outputs=["out"],
-                ),
-                "b": atomic_model.AtomicNode(
-                    reference=_reference(qualname="g"),
-                    inputs=["inp"],
-                    outputs=["out"],
-                ),
+                "a": _make_child(with_defaults=False),
+                "b": _make_child(with_defaults=False),
             },
             input_edges={
                 edge_models.TargetHandle(node="a", port="inp"): edge_models.InputSource(
@@ -262,7 +243,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=[],
-                nodes={"child": _make_child()},
+                nodes={"child": _make_child(with_defaults=True)},
                 input_edges={},
                 edges={
                     edge_models.TargetHandle(
@@ -280,7 +261,7 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=[],
-                nodes={"child": _make_child()},
+                nodes={"child": _make_child(with_defaults=True)},
                 input_edges={},
                 edges={
                     edge_models.TargetHandle(
@@ -299,20 +280,8 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=[],
                 nodes={
-                    "a": atomic_model.AtomicNode(
-                        reference=_reference(
-                            qualname="f", inputs_with_defaults=["inp"]
-                        ),
-                        inputs=["inp"],
-                        outputs=["out"],
-                    ),
-                    "b": atomic_model.AtomicNode(
-                        reference=_reference(
-                            qualname="g", inputs_with_defaults=["inp"]
-                        ),
-                        inputs=["inp"],
-                        outputs=["out"],
-                    ),
+                    "a": _make_child(with_defaults=True),
+                    "b": _make_child(with_defaults=True),
                 },
                 input_edges={},
                 edges={
@@ -332,20 +301,8 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
                 inputs=["x"],
                 outputs=[],
                 nodes={
-                    "a": atomic_model.AtomicNode(
-                        reference=_reference(
-                            qualname="f", inputs_with_defaults=["inp"]
-                        ),
-                        inputs=["inp"],
-                        outputs=["out"],
-                    ),
-                    "b": atomic_model.AtomicNode(
-                        reference=_reference(
-                            qualname="g", inputs_with_defaults=["inp"]
-                        ),
-                        inputs=["inp"],
-                        outputs=["out"],
-                    ),
+                    "a": _make_child(with_defaults=True),
+                    "b": _make_child(with_defaults=True),
                 },
                 input_edges={},
                 edges={
@@ -368,13 +325,7 @@ class TestWorkflowNodeFullySourcing(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=[],
-                nodes={
-                    "child": atomic_model.AtomicNode(
-                        reference=_reference(),  # no defaults
-                        inputs=["inp"],
-                        outputs=["out"],
-                    ),
-                },
+                nodes={"child": _make_child(with_defaults=False)},
                 input_edges={},
                 edges={},
                 output_edges={},
@@ -386,13 +337,7 @@ class TestWorkflowNodeFullySourcing(unittest.TestCase):
         wf = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=[],
-            nodes={
-                "child": atomic_model.AtomicNode(
-                    reference=_reference(inputs_with_defaults=["inp"]),
-                    inputs=["inp"],
-                    outputs=["out"],
-                ),
-            },
+            nodes={"child": _make_child(with_defaults=True)},
             input_edges={},
             edges={},
             output_edges={},
@@ -406,15 +351,9 @@ class TestWorkflowNodeFullySourcing(unittest.TestCase):
                 inputs=["x"],
                 outputs=[],
                 nodes={
-                    "a": atomic_model.AtomicNode(
-                        reference=_reference(),  # no defaults
-                        inputs=["p"],
-                        outputs=["q"],
-                    ),
-                    "b": atomic_model.AtomicNode(
-                        reference=_reference(inputs_with_defaults=["r"]),
-                        inputs=["r"],
-                        outputs=["s"],
+                    "a": makers.make_atomic(inputs=["p"], outputs=["q"]),
+                    "b": makers.make_atomic(
+                        inputs=["r"], outputs=["s"], inputs_with_defaults=["r"]
                     ),
                 },
                 input_edges={},
@@ -438,11 +377,9 @@ class TestWorkflowNodeFullySourcing(unittest.TestCase):
                         inputs=["inner_in"],
                         outputs=["inner_out"],
                         nodes={
-                            "leaf": atomic_model.AtomicNode(
-                                reference=_reference(),  # no defaults
-                                inputs=["a", "b"],
-                                outputs=["y"],
-                            )
+                            "leaf": makers.make_atomic(
+                                inputs=["a", "b"], outputs=["y"]  # no defaults
+                            ),
                         },
                         input_edges={
                             edge_models.TargetHandle(
@@ -478,14 +415,8 @@ class TestWorkflowNodeFullySourcing(unittest.TestCase):
             workflow_model.WorkflowNode(
                 inputs=["x"],
                 outputs=[],
-                reference=_reference(inputs_with_defaults=["x"]),
-                nodes={
-                    "child": atomic_model.AtomicNode(
-                        reference=_reference(),  # child has no defaults
-                        inputs=["inp"],
-                        outputs=["out"],
-                    ),
-                },
+                reference=makers.make_reference(inputs_with_defaults=["x"]),
+                nodes={"child": _make_child(with_defaults=False)},
                 input_edges={},
                 edges={},
                 output_edges={},
@@ -502,11 +433,9 @@ class TestWorkflowNodeMultiplePorts(unittest.TestCase):
             inputs=["a", "b"],
             outputs=["x", "y"],
             nodes={
-                "node1": atomic_model.AtomicNode(
-                    reference=_reference(),
-                    inputs=["in1", "in2"],
-                    outputs=["out1", "out2"],
-                )
+                "node1": makers.make_atomic(
+                    inputs=["in1", "in2"], outputs=["out1", "out2"]
+                ),
             },
             input_edges={
                 edge_models.TargetHandle(
@@ -551,13 +480,7 @@ class TestWorkflowNodeReservedNames(unittest.TestCase):
                     workflow_model.WorkflowNode(
                         inputs=["a"],
                         outputs=["b"],
-                        nodes={
-                            invalid_label: atomic_model.AtomicNode(
-                                reference=_reference(),
-                                inputs=[],
-                                outputs=[],
-                            )
-                        },
+                        nodes={invalid_label: makers.make_atomic()},
                         input_edges={},
                         edges={},
                         output_edges={},
@@ -576,16 +499,10 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "a": atomic_model.AtomicNode(
-                        reference=_reference(qualname="f"),
-                        inputs=["inp", "feedback"],
-                        outputs=["out"],
+                    "a": makers.make_atomic(
+                        inputs=["inp", "feedback"], outputs=["out"]
                     ),
-                    "b": atomic_model.AtomicNode(
-                        reference=_reference(qualname="g"),
-                        inputs=["inp"],
-                        outputs=["out", "out2"],
-                    ),
+                    "b": makers.make_atomic(inputs=["inp"], outputs=["out", "out2"]),
                 },
                 input_edges={
                     edge_models.TargetHandle(
@@ -615,11 +532,9 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
                 inputs=["x"],
                 outputs=["y"],
                 nodes={
-                    "a": atomic_model.AtomicNode(
-                        reference=_reference(),
-                        inputs=["inp", "feedback"],
-                        outputs=["out", "out2"],
-                    )
+                    "a": makers.make_atomic(
+                        inputs=["inp", "feedback"], outputs=["out", "out2"]
+                    ),
                 },
                 input_edges={
                     edge_models.TargetHandle(
@@ -645,21 +560,9 @@ class TestWorkflowNodeAcyclic(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "a": atomic_model.AtomicNode(
-                    reference=_reference(qualname="f"),
-                    inputs=["inp"],
-                    outputs=["out"],
-                ),
-                "b": atomic_model.AtomicNode(
-                    reference=_reference(qualname="g"),
-                    inputs=["inp"],
-                    outputs=["out"],
-                ),
-                "c": atomic_model.AtomicNode(
-                    reference=_reference(qualname="h"),
-                    inputs=["inp"],
-                    outputs=["out"],
-                ),
+                "a": _make_child(with_defaults=False),
+                "b": _make_child(with_defaults=False),
+                "c": _make_child(with_defaults=False),
             },
             input_edges={
                 edge_models.TargetHandle(node="a", port="inp"): edge_models.InputSource(
@@ -691,7 +594,7 @@ class TestNestedWorkflow(unittest.TestCase):
         inner = workflow_model.WorkflowNode(
             inputs=["a"],
             outputs=["b"],
-            nodes={"leaf": _make_child()},
+            nodes={"leaf": _make_child(with_defaults=True)},
             input_edges={
                 edge_models.TargetHandle(
                     node="leaf", port="inp"
@@ -735,10 +638,7 @@ class TestNestedWorkflow(unittest.TestCase):
                         outputs=["b"],
                         nodes={
                             "bad": atomic_model.AtomicNode(
-                                reference={
-                                    "info": "Not a VersionInfo",
-                                    "inputs_with_defaults": [],
-                                },
+                                reference="Not a PythonReference",
                                 inputs=[],
                                 outputs=[],
                             )
@@ -758,22 +658,16 @@ class TestNestedWorkflow(unittest.TestCase):
         inner = workflow_model.WorkflowNode(
             inputs=["inner_in"],
             outputs=["inner_out"],
-            nodes={
-                "leaf": atomic_model.AtomicNode(
-                    reference=_reference(),
-                    inputs=["x"],
-                    outputs=["y"],
-                )
-            },
+            nodes={"leaf": _make_child(with_defaults=False)},
             input_edges={
                 edge_models.TargetHandle(
-                    node="leaf", port="x"
+                    node="leaf", port="inp"
                 ): edge_models.InputSource(port="inner_in"),
             },
             edges={},
             output_edges={
                 edge_models.OutputTarget(port="inner_out"): edge_models.SourceHandle(
-                    node="leaf", port="y"
+                    node="leaf", port="out"
                 ),
             },
         )
@@ -801,22 +695,16 @@ class TestNestedWorkflow(unittest.TestCase):
         inner = workflow_model.WorkflowNode(
             inputs=["inner_in"],
             outputs=["inner_out"],
-            nodes={
-                "leaf": atomic_model.AtomicNode(
-                    reference=_reference(),
-                    inputs=["x"],
-                    outputs=["y"],
-                )
-            },
+            nodes={"leaf": _make_child(with_defaults=False)},
             input_edges={
                 edge_models.TargetHandle(
-                    node="leaf", port="x"
+                    node="leaf", port="inp"
                 ): edge_models.InputSource(port="inner_in"),
             },
             edges={},
             output_edges={
                 edge_models.OutputTarget(port="inner_out"): edge_models.SourceHandle(
-                    node="leaf", port="y"
+                    node="leaf", port="out"
                 ),
             },
         )
@@ -866,13 +754,7 @@ class TestEmptyWorkflow(unittest.TestCase):
         wf = workflow_model.WorkflowNode(
             inputs=[],
             outputs=[],
-            nodes={
-                "n": atomic_model.AtomicNode(
-                    reference=_reference(),
-                    inputs=[],
-                    outputs=[],
-                )
-            },
+            nodes={"n": makers.make_atomic()},
             input_edges={},
             edges={},
             output_edges={},
@@ -887,7 +769,7 @@ class TestWorkflowNodeSerialization(unittest.TestCase):
         original = workflow_model.WorkflowNode(
             inputs=["x"],
             outputs=["y"],
-            nodes={"n": _make_child()},
+            nodes={"n": _make_child(with_defaults=True)},
             input_edges={
                 edge_models.TargetHandle(node="n", port="inp"): edge_models.InputSource(
                     port="x"
@@ -917,16 +799,11 @@ class TestWorkflowNodeSerialization(unittest.TestCase):
             inputs=["x", "y"],
             outputs=["z", "w"],
             nodes={
-                "a": atomic_model.AtomicNode(
-                    reference=_reference(qualname="f"),
+                "a": makers.make_atomic(
                     inputs=["i1", "i2"],
                     outputs=["o1", "o2"],
                 ),
-                "b": atomic_model.AtomicNode(
-                    reference=_reference(qualname="g"),
-                    inputs=["inp"],
-                    outputs=["out"],
-                ),
+                "b": _make_child(with_defaults=False),
             },
             input_edges={
                 edge_models.TargetHandle(node="a", port="i1"): edge_models.InputSource(
@@ -986,11 +863,13 @@ class TestWorkflowNodeSource(unittest.TestCase):
         self.assertIsNone(wf.reference)
 
     def test_accepts_valid_reference(self):
-        wf = self._minimal_wf(reference=_reference("mod", "func", "1.2.3"))
+        wf = self._minimal_wf(reference=makers.make_reference("mod", "func", "1.2.3"))
         self.assertEqual(wf.fully_qualified_name, "mod.func")
 
     def test_roundtrip_with_reference(self):
-        original = self._minimal_wf(reference=_reference("mod", "func", "1.2.3"))
+        original = self._minimal_wf(
+            reference=makers.make_reference("mod", "func", "1.2.3")
+        )
         for mode in ["python", "json"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
@@ -1030,14 +909,14 @@ class TestWorkflowNodeHasDefault(unittest.TestCase):
     def test_reference_with_empty_inputs_with_defaults(self):
         wf = self._minimal_wf(
             inputs=["a"],
-            reference=_reference(inputs_with_defaults=[]),
+            reference=makers.make_reference(inputs_with_defaults=[]),
         )
         self.assertEqual(wf.reference.inputs_with_defaults, [])
 
     def test_valid_subset(self):
         wf = self._minimal_wf(
             inputs=["a", "b"],
-            reference=_reference(inputs_with_defaults=["b"]),
+            reference=makers.make_reference(inputs_with_defaults=["b"]),
         )
         self.assertEqual(wf.reference.inputs_with_defaults, ["b"])
 
@@ -1045,7 +924,7 @@ class TestWorkflowNodeHasDefault(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             self._minimal_wf(
                 inputs=["a"],
-                reference=_reference(inputs_with_defaults=["a", "z"]),
+                reference=makers.make_reference(inputs_with_defaults=["a", "z"]),
             )
         self.assertIn("z", str(ctx.exception))
 

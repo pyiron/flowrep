@@ -16,6 +16,8 @@ from flowrep.models.parsers import (
     workflow_parser,
 )
 
+from flowrep_static import library
+
 
 def add(x: float = 2.0, y: float = 1) -> float:
     return x + y
@@ -70,16 +72,6 @@ def outer_workflow(a, b):
     y = inner_macro(a, b)
     z: float = add(y, b)  # ast.AnnAssignment
     return z
-
-
-@atomic_parser.atomic
-def _wp_add(a, b):
-    return a + b
-
-
-@atomic_parser.atomic
-def _wp_identity(x):
-    return x
 
 
 # Name that is guaranteed not to collide with a real package or stdlib module.
@@ -723,7 +715,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_version_is_populated(self):
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(my_wf)
@@ -733,7 +725,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_fqn_is_populated(self):
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(my_wf)
@@ -742,7 +734,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_forbid_main_raises(self):
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         my_wf.__module__ = "__main__"
@@ -752,7 +744,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_forbid_locals_raises(self):
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         my_wf.__qualname__ = "outer.<locals>.my_wf"
@@ -765,7 +757,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         try:
 
             def my_wf(x):
-                y = _wp_identity(x)
+                y = library.identity(x)
                 return y
 
             my_wf.__module__ = _UNVERSIONED_MODULE_NAME
@@ -777,7 +769,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_version_scraping_is_forwarded(self):
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         custom_version = "99.0.0"
@@ -792,8 +784,8 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         top-level fqn/version — those are for the enclosing workflow only."""
 
         def my_wf(a, b):
-            x = _wp_add(a, b)
-            y = _wp_identity(x)
+            x = library.my_add(a, b)
+            y = library.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(my_wf)
@@ -815,7 +807,7 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
             }
         )
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         self.assertEqual(my_wf.flowrep_recipe.reference.info.version, custom_version)
@@ -825,7 +817,7 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
 
             @workflow_parser.workflow(forbid_locals=True)
             def inner(x):
-                y = _wp_identity(x)
+                y = library.identity(x)
                 return y
 
 
@@ -954,14 +946,14 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
         custom = "99.99.99"
 
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(
             my_wf, version_scraping={self._pkg(): lambda _: custom}
         )
-        child = node.nodes["_wp_identity_0"]
-        # _wp_identity was decorated at import time; its recipe is fixed
+        child = node.nodes["identity_0"]
+        # library.identity was decorated at import time; its recipe is fixed
         self.assertNotEqual(child.reference.info.version, custom)
 
     def test_scraping_propagates_through_chained_nodes(self):

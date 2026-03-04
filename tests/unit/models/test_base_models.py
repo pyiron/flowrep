@@ -4,9 +4,10 @@ import unittest
 from typing import Literal
 
 import pydantic
-from pyiron_snippets import versions
 
 from flowrep.models import base_models
+
+from flowrep_static import makers
 
 
 class _ValidTestNode(base_models.NodeModel):
@@ -294,24 +295,16 @@ class TestNodeModelMultipleSubclasses(unittest.TestCase):
 class TestPythonReference(unittest.TestCase):
     """Tests for PythonReference model."""
 
-    @staticmethod
-    def _make_ref(**overrides):
-        defaults = dict(
-            info=versions.VersionInfo(module="mod", qualname="func", version=None),
-        )
-        defaults.update(overrides)
-        return base_models.PythonReference(**defaults)
-
     def test_inputs_with_defaults_defaults_to_empty(self):
-        ref = self._make_ref()
+        ref = makers.make_reference()
         self.assertEqual(ref.inputs_with_defaults, [])
 
     def test_inputs_with_defaults_accepted(self):
-        ref = self._make_ref(inputs_with_defaults=["a", "b"])
+        ref = makers.make_reference(inputs_with_defaults=["a", "b"])
         self.assertEqual(ref.inputs_with_defaults, ["a", "b"])
 
     def test_roundtrip(self):
-        original = self._make_ref(inputs_with_defaults=["x", "y"])
+        original = makers.make_reference(inputs_with_defaults=["x", "y"])
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)

@@ -11,54 +11,22 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 
+from flowrep_static import makers
+
 _VALUE_ERROR_INFO = versions.VersionInfo.of(ValueError)
 
 
-def _reference(
-    module: str = "mod",
-    qualname: str = "func",
-    version: str | None = None,
-    inputs_with_defaults: list[str] | None = None,
-) -> base_models.PythonReference:
-    return base_models.PythonReference(
-        info=versions.VersionInfo(module=module, qualname=qualname, version=version),
-        inputs_with_defaults=inputs_with_defaults or [],
-    )
-
-
-def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
-    return atomic_model.AtomicNode(
-        reference=_reference(
-            qualname="try_func", inputs_with_defaults=["x"] if inputs is None else None
-        ),
-        inputs=inputs or ["x"],
-        outputs=outputs or ["y"],
-    )
-
-
-def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
-    return atomic_model.AtomicNode(
-        reference=_reference(
-            qualname="handle_error",
-            inputs_with_defaults=["x"] if inputs is None else None,
-        ),
-        inputs=inputs or ["x"],
-        outputs=outputs or ["y"],
-    )
-
-
-def _make_exception_case(
+def _make_exception_cases(
     n: int,
     exceptions: list[versions.VersionInfo] | None = None,
-    inputs=None,
-    outputs=None,
-) -> helper_models.ExceptionCase:
-    return helper_models.ExceptionCase(
-        exceptions=exceptions or [_VALUE_ERROR_INFO],
-        body=helper_models.LabeledNode(
-            label=f"except_{n}", node=_make_except_body(inputs=inputs, outputs=outputs)
-        ),
-    )
+) -> list[helper_models.ExceptionCase]:
+    return [
+        helper_models.ExceptionCase(
+            exceptions=exceptions or [_VALUE_ERROR_INFO],
+            body=makers.make_labeled_with_defaults(label=f"except_{i}"),
+        )
+        for i in range(n)
+    ]
 
 
 def _make_input_edges(try_node, exception_cases):
@@ -82,8 +50,8 @@ def _make_prospective_output_edges(try_node, exception_cases):
 
 
 def _make_valid_try_node(n_exception_cases=1):
-    try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-    exception_cases = [_make_exception_case(n) for n in range(n_exception_cases)]
+    try_node = makers.make_labeled_with_defaults(label="try_body")
+    exception_cases = _make_exception_cases(n_exception_cases)
 
     return try_model.TryNode(
         inputs=["inp"],
@@ -122,12 +90,11 @@ class TestTryNodeBasicConstruction(unittest.TestCase):
 class TestTryNodeExceptionCasesValidation(unittest.TestCase):
     def test_empty_exception_cases_rejected(self):
         """TryNode must have at least one exception case."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
-                try_node=try_node,
+                try_node=makers.make_labeled_with_defaults(label="try_body"),
                 exception_cases=[],
                 input_edges={},
                 prospective_output_edges={edge_models.OutputTarget(port="out"): []},
@@ -136,20 +103,15 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
 
     def test_duplicate_labels_try_and_except_rejected(self):
         """Labels must be unique between try_node and exception cases."""
-        try_node = helper_models.LabeledNode(
-            label="shared_label", node=_make_try_body()
-        )
         exception_case = helper_models.ExceptionCase(
             exceptions=[_VALUE_ERROR_INFO],
-            body=helper_models.LabeledNode(
-                label="shared_label", node=_make_except_body()
-            ),  # Duplicate
+            body=makers.make_labeled_with_defaults(label="shared_label"),  # Dup
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
-                try_node=try_node,
+                try_node=makers.make_labeled_with_defaults(label="shared_label"),
                 exception_cases=[exception_case],
                 input_edges={},
                 prospective_output_edges={
@@ -162,22 +124,19 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
 
     def test_duplicate_labels_across_exception_cases_rejected(self):
         """Labels must be unique across exception cases."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         case0 = helper_models.ExceptionCase(
             exceptions=[_VALUE_ERROR_INFO],
-            body=helper_models.LabeledNode(label="handler", node=_make_except_body()),
+            body=makers.make_labeled_with_defaults(label="handler"),
         )
         case1 = helper_models.ExceptionCase(
             exceptions=[versions.VersionInfo.of(TypeError)],
-            body=helper_models.LabeledNode(
-                label="handler", node=_make_except_body()
-            ),  # Dup
+            body=makers.make_labeled_with_defaults(label="handler"),  # Duplicate
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
-                try_node=try_node,
+                try_node=makers.make_labeled_with_defaults(label="try_body"),
                 exception_cases=[case0, case1],
                 input_edges={},
                 prospective_output_edges={
@@ -218,7 +177,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             },
         )
 
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
+        try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_case = helper_models.ExceptionCase(
             exceptions=[_VALUE_ERROR_INFO],
             body=helper_models.LabeledNode(
@@ -244,8 +203,8 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
 class TestTryNodeInputEdgesValidation(unittest.TestCase):
     def test_input_edges_invalid_target_node(self):
         """input_edges targets must reference existing prospective nodes."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(0)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
@@ -266,8 +225,8 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
 
     def test_input_edges_can_target_try_node(self):
         """input_edges can target the try_node."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(0)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(1)
         node = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
@@ -286,8 +245,8 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
 
     def test_input_edges_can_target_exception_cases(self):
         """input_edges can target exception case bodies."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(n) for n in range(2)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(2)
         node = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
@@ -309,8 +268,8 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
 
     def test_input_edges_invalid_target_port(self):
         """input_edges target port must exist on the target node."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(0)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
@@ -332,8 +291,8 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
 
     def test_input_edges_invalid_source_port(self):
         """input_edges source port must exist on the TryNode inputs."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(0)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
@@ -362,12 +321,12 @@ class TestTryNodeFullySourcing(unittest.TestCase):
         try_node = helper_models.LabeledNode(
             label="try_body",
             node=atomic_model.AtomicNode(
-                reference=_reference(qualname="try_func"),  # no defaults
+                reference=makers.make_reference(qualname="try_func"),  # no defaults
                 inputs=["x", "extra"],
                 outputs=["y"],
             ),
         )
-        exception_cases = [_make_exception_case(0)]
+        exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
@@ -392,14 +351,15 @@ class TestTryNodeFullySourcing(unittest.TestCase):
 
     def test_except_body_unsourced_no_default_raises(self):
         """Exception body input without edge or default → rejected."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
         exception_cases = [
             helper_models.ExceptionCase(
                 exceptions=[_VALUE_ERROR_INFO],
                 body=helper_models.LabeledNode(
                     label="except_0",
                     node=atomic_model.AtomicNode(
-                        reference=_reference(qualname="handle_error"),  # no defaults
+                        reference=makers.make_reference(
+                            qualname="handle_error"
+                        ),  # no defaults
                         inputs=["x", "extra"],
                         outputs=["y"],
                     ),
@@ -410,7 +370,7 @@ class TestTryNodeFullySourcing(unittest.TestCase):
             try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
-                try_node=try_node,
+                try_node=makers.make_labeled_with_defaults(label="try_body"),
                 exception_cases=exception_cases,
                 input_edges={
                     edge_models.TargetHandle(
@@ -433,14 +393,14 @@ class TestTryNodeFullySourcing(unittest.TestCase):
         try_node = helper_models.LabeledNode(
             label="try_body",
             node=atomic_model.AtomicNode(
-                reference=_reference(
+                reference=makers.make_reference(
                     qualname="try_func", inputs_with_defaults=["extra"]
                 ),
                 inputs=["x", "extra"],
                 outputs=["y"],
             ),
         )
-        exception_cases = [_make_exception_case(0)]
+        exception_cases = _make_exception_cases(1)
         node = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
@@ -464,18 +424,14 @@ class TestTryNodeFullySourcing(unittest.TestCase):
 
     def test_mixed_try_edged_except_unsourced_raises(self):
         """Try body fully edged, except_1 missing edge and default → fails."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [
-            _make_exception_case(0),
+        exception_cases = _make_exception_cases(1) + [
             helper_models.ExceptionCase(
                 exceptions=[_VALUE_ERROR_INFO],
-                body=helper_models.LabeledNode(
-                    label="except_1",
-                    node=atomic_model.AtomicNode(
-                        reference=_reference(qualname="handle_error"),
-                        inputs=["x", "z"],
-                        outputs=["y"],
-                    ),
+                body=makers.make_labeled_atomic(
+                    "except_1",
+                    inputs=["x", "z"],
+                    outputs=["y"],
+                    qualname="handle_error",
                 ),
             ),
         ]
@@ -483,7 +439,7 @@ class TestTryNodeFullySourcing(unittest.TestCase):
             try_model.TryNode(
                 inputs=["inp"],
                 outputs=["out"],
-                try_node=try_node,
+                try_node=makers.make_labeled_with_defaults(label="try_body"),
                 exception_cases=exception_cases,
                 input_edges={
                     edge_models.TargetHandle(
@@ -510,8 +466,8 @@ class TestTryNodeFullySourcing(unittest.TestCase):
 class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
     def test_prospective_output_edges_invalid_source_node(self):
         """Sources must reference valid prospective nodes."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(0)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
@@ -531,10 +487,13 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
 
     def test_prospective_output_edges_duplicate_source_node_rejected(self):
         """Each prospective node can appear at most once per output."""
-        try_node = helper_models.LabeledNode(
-            label="try_body", node=_make_try_body(outputs=["y", "z"])
+        try_node = makers.make_labeled_atomic(
+            "try_node",
+            inputs=["x"],
+            outputs=["y", "z"],
+            inputs_with_defaults=["x"],
         )
-        exception_cases = [_make_exception_case(0)]
+        exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
@@ -557,8 +516,8 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
 
     def test_prospective_output_edges_keys_must_match_outputs(self):
         """prospective_output_edges keys must match TryNode outputs."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(0)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
@@ -579,8 +538,8 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
 
     def test_prospective_output_edges_extra_key_rejected(self):
         """prospective_output_edges cannot have keys not in outputs."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(0)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
@@ -603,8 +562,8 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
 
     def test_prospective_output_edges_empty_sources_rejected(self):
         """An output must have at least one source."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(0)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
@@ -620,8 +579,8 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
 
     def test_prospective_output_edges_partial_sources_allowed(self):
         """An output can have sources from only some prospective nodes."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(n) for n in range(3)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(3)
         node = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
@@ -642,8 +601,8 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
 
     def test_prospective_output_edges_all_sources_allowed(self):
         """An output can have sources from all prospective nodes."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(n) for n in range(2)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(2)
         node = try_model.TryNode(
             inputs=["inp"],
             outputs=["out"],
@@ -664,8 +623,8 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
 
     def test_prospective_output_edges_invalid_source_port(self):
         """prospective_output_edges source port must exist on the source node."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_cases = [_make_exception_case(0)]
+        try_node = makers.make_labeled_with_defaults(label="try_body")
+        exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             try_model.TryNode(
                 inputs=["inp"],
@@ -742,7 +701,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
             body=helper_models.LabeledNode(
                 label="handler",
                 node=atomic_model.AtomicNode(
-                    reference=_reference(qualname="handler"),
+                    reference=makers.make_reference(qualname="handler"),
                     inputs=["x"],
                     outputs=[],
                 ),
@@ -786,26 +745,6 @@ class TestTryNodeProspectiveNodes(unittest.TestCase):
         self.assertIn("except_2", prospective)
         self.assertEqual(len(prospective), 4)
 
-    def test_prospective_nodes_conflicting_labels_rejected(self):
-        """prospective_nodes rejects nodes with conflicting labels."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
-        exception_case = helper_models.ExceptionCase(
-            exceptions=[_VALUE_ERROR_INFO],
-            body=helper_models.LabeledNode(label="try_body", node=_make_except_body()),
-        )
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
-                inputs=["inp"],
-                outputs=[],
-                try_node=try_node,
-                exception_cases=[exception_case],
-                input_edges={},
-                prospective_output_edges={},
-            )
-        ctx_str = str(ctx.exception)
-        self.assertIn("must have unique elements", ctx_str)
-        self.assertIn("Duplicates", ctx_str)
-
 
 class TestTryNodeSerialization(unittest.TestCase):
     def test_roundtrip(self):
@@ -824,14 +763,14 @@ class TestTryNodeSerialization(unittest.TestCase):
 
     def test_roundtrip_multiple_exception_types(self):
         """Roundtrip with multiple exception types per case."""
-        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
+        try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_case = helper_models.ExceptionCase(
             exceptions=[
                 _VALUE_ERROR_INFO,
                 versions.VersionInfo.of(TypeError),
                 versions.VersionInfo.of(KeyError),
             ],
-            body=helper_models.LabeledNode(label="handler", node=_make_except_body()),
+            body=makers.make_labeled_with_defaults(label="handler"),
         )
         original = try_model.TryNode(
             inputs=["inp"],

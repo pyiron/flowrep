@@ -8,34 +8,9 @@ from flowrep.models.nodes import (
     while_model,
     workflow_model,
 )
-from flowrep.models.parsers import atomic_parser, while_parser, workflow_parser
+from flowrep.models.parsers import while_parser, workflow_parser
 
-
-@atomic_parser.atomic
-def identity(x):
-    return x
-
-
-def undecorated_identity(x):
-    """For checking parser propagation"""
-    return x
-
-
-@atomic_parser.atomic
-def my_add(a, b):
-    return a + b
-
-
-@atomic_parser.atomic
-def my_condition(m, n):
-    return m < n
-
-
-def multi_result(x):
-    """Undecorated; parsed on-the-fly with two outputs."""
-    a = x + 1
-    b = x - 1
-    return a, b
+from flowrep_static import library
 
 
 class TestParseWhileConditionErrors(unittest.TestCase):
@@ -46,7 +21,7 @@ class TestParseWhileConditionErrors(unittest.TestCase):
 
         def wf(x, flag):
             while flag:
-                x = identity(x)
+                x = library.identity(x)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -58,7 +33,7 @@ class TestParseWhileConditionErrors(unittest.TestCase):
 
         def wf(x, bound):
             while x < bound:
-                x = my_add(x, bound)
+                x = library.my_add(x, bound)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -69,8 +44,8 @@ class TestParseWhileConditionErrors(unittest.TestCase):
         """Condition function must return exactly one value."""
 
         def wf(x):
-            while multi_result(x):
-                x = identity(x)
+            while library.multi_result(x):
+                x = library.identity(x)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -88,8 +63,8 @@ class TestWhileParserErrors(unittest.TestCase):
         """ast.Return inside a while body is not handled → TypeError."""
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
                 return x
             return x
 
@@ -101,8 +76,8 @@ class TestWhileParserErrors(unittest.TestCase):
         """While body must reassign at least one symbol from the enclosing scope."""
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                y = identity(x)  # noqa: F841
+            while library.my_condition(x, bound):
+                y = library.identity(x)  # noqa: F841
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -113,10 +88,10 @@ class TestWhileParserErrors(unittest.TestCase):
         """while...else is not supported."""
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             else:
-                x = identity(x)
+                x = library.identity(x)
             return x
 
         with self.assertRaises((ValueError, NotImplementedError)):
@@ -141,8 +116,8 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
         """Condition node receives its inputs via input_edges."""
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -159,8 +134,8 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
         """Body node receives its inputs via input_edges."""
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -172,8 +147,8 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
         """Output edges source from the body node."""
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -189,8 +164,8 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
         """Same while-node input can feed both condition and body."""
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -203,8 +178,8 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
         """A symbol consumed in the body but not reassigned is broadcast."""
 
         def wf(x, step, bound):
-            while my_condition(x, bound):
-                x = my_add(x, step)
+            while library.my_condition(x, bound):
+                x = library.my_add(x, step)
             return x
 
         wn = self._get_while_node(wf)
@@ -217,8 +192,8 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
         """An input consumed only by the condition is not an output."""
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -229,8 +204,8 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
     def test_single_reassignment_becomes_output(self):
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -238,9 +213,9 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
     def test_multiple_reassignments_become_outputs(self):
         def wf(x, y, bound):
-            while my_condition(x, bound):
-                x = my_add(x, y)
-                y = identity(x)
+            while library.my_condition(x, bound):
+                x = library.my_add(x, y)
+                y = library.identity(x)
             return x, y
 
         wn = self._get_while_node(wf)
@@ -249,9 +224,9 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
     def test_reassignment_from_outer_scope_becomes_output(self):
         def wf(y, bound):
-            x = identity(y)
-            while my_condition(x, bound):
-                x = identity(x)
+            x = library.identity(y)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -265,8 +240,8 @@ class TestWhileParserStructure(unittest.TestCase):
 
     def test_while_node_registered_in_parent(self):
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         node = self._parse(wf)
@@ -275,8 +250,8 @@ class TestWhileParserStructure(unittest.TestCase):
 
     def test_condition_label(self):
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -284,8 +259,8 @@ class TestWhileParserStructure(unittest.TestCase):
 
     def test_body_label(self):
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -299,8 +274,8 @@ class TestWhileParserStructure(unittest.TestCase):
         """
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -308,8 +283,8 @@ class TestWhileParserStructure(unittest.TestCase):
 
     def test_outputs_subset_of_inputs(self):
         def wf(x, step, bound):
-            while my_condition(x, bound):
-                x = my_add(x, step)
+            while library.my_condition(x, bound):
+                x = library.my_add(x, step)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -319,9 +294,9 @@ class TestWhileParserStructure(unittest.TestCase):
         """While node can consume sibling output from a preceding node."""
 
         def wf(a, bound):
-            x = identity(a)
-            while my_condition(x, bound):
-                x = identity(x)
+            x = library.identity(a)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         node = self._parse(wf)
@@ -334,9 +309,9 @@ class TestWhileParserStructure(unittest.TestCase):
         """Output of while node feeds a downstream sibling."""
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
-            y = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
+            y = library.identity(x)
             return y
 
         node = self._parse(wf)
@@ -347,10 +322,10 @@ class TestWhileParserStructure(unittest.TestCase):
 
     def test_multiple_while_nodes_get_unique_labels(self):
         def wf(x, m, n):
-            while my_condition(x, m):
-                x = identity(x)
-            while my_condition(x, n):
-                x = identity(x)
+            while library.my_condition(x, m):
+                x = library.identity(x)
+            while library.my_condition(x, n):
+                x = library.identity(x)
             return x
 
         node = self._parse(wf)
@@ -361,9 +336,9 @@ class TestWhileParserStructure(unittest.TestCase):
         """When a symbol is reassigned, but not explicitly body or condition input."""
 
         def wf(x, bound, y):
-            while my_condition(x, bound):
-                x = my_add(x, x)
-                y = identity(x)
+            while library.my_condition(x, bound):
+                x = library.my_add(x, x)
+                y = library.identity(x)
             return y
 
         node = self._parse(wf)
@@ -374,13 +349,13 @@ class TestWhileParserStructure(unittest.TestCase):
         """A for-loop inside a while-body produces a ForNode in the body workflow."""
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                xs = identity(x)
+            while library.my_condition(x, bound):
+                xs = library.identity(x)
                 acc = []
                 for i in xs:
-                    v = identity(i)
+                    v = library.identity(i)
                     acc.append(v)
-                x = identity(acc)
+                x = library.identity(acc)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -395,11 +370,11 @@ class TestWhileParserStructure(unittest.TestCase):
         """An if-node inside a while-body produces an IfNode in the body workflow."""
 
         def wf(x, y, bound):
-            while my_condition(x, bound):
-                if my_condition(x, y):  # noqa: SIM108
-                    x = my_add(x, y)
+            while library.my_condition(x, bound):
+                if library.my_condition(x, y):  # noqa: SIM108
+                    x = library.my_add(x, y)
                 else:
-                    x = identity(x)
+                    x = library.identity(x)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -414,11 +389,11 @@ class TestWhileParserStructure(unittest.TestCase):
         """A try/except inside a while-body produces a TryNode in the body workflow."""
 
         def wf(x, y, bound):
-            while my_condition(x, bound):
+            while library.my_condition(x, bound):
                 try:
-                    x = my_add(x, y)
+                    x = library.my_add(x, y)
                 except ValueError:
-                    x = identity(x)
+                    x = library.identity(x)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -432,8 +407,8 @@ class TestWhileParserStructure(unittest.TestCase):
 class TestWhileParserRoundTrip(unittest.TestCase):
     def test_while_node_round_trip(self):
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = identity(x)
+            while library.my_condition(x, bound):
+                x = library.identity(x)
             return x
 
         wn = workflow_parser.parse_workflow(wf).nodes["while_0"]
@@ -447,9 +422,9 @@ class TestWhileParserRoundTrip(unittest.TestCase):
         """The whole workflow containing a while-node survives round-trip."""
 
         def wf(x, step, bound):
-            while my_condition(x, bound):
-                x = my_add(x, step)
-            y = identity(x)
+            while library.my_condition(x, bound):
+                x = library.my_add(x, step)
+            y = library.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -464,15 +439,15 @@ class TestWhileParserVersionPropagation(unittest.TestCase):
     """Version scraping/constraints propagate into while-loop body child nodes."""
 
     def _pkg(self) -> str:
-        return undecorated_identity.__module__.split(".")[0]
+        return library.undecorated_identity.__module__.split(".")[0]
 
     def test_version_scraping_propagates_into_while_body(self):
         """Undecorated child inside a while body receives the scraping map."""
         custom = "10.20.30"
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = undecorated_identity(x)
+            while library.my_condition(x, bound):
+                x = library.undecorated_identity(x)
             return x
 
         node = workflow_parser.parse_workflow(
@@ -490,8 +465,8 @@ class TestWhileParserVersionPropagation(unittest.TestCase):
         custom = "99.0.0"
 
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = undecorated_identity(x)
+            while library.my_condition(x, bound):
+                x = library.undecorated_identity(x)
             return x
 
         node = workflow_parser.parse_workflow(
@@ -507,8 +482,8 @@ class TestWhileParserVersionPropagation(unittest.TestCase):
 
     def test_version_constraints_propagate_to_condition(self):
         def wf(x, bound):
-            while my_condition(x, bound):
-                x = undecorated_identity(x)
+            while library.my_condition(x, bound):
+                x = library.undecorated_identity(x)
             return x
 
         with self.assertRaises(ValueError) as ctx:
