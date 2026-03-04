@@ -109,3 +109,10 @@ class IfNode(base_models.NodeModel):
         if len(v) < 1:
             raise ValueError("If nodes must have at least one explicit case")
         return v
+
+    @pydantic.model_validator(mode="after")
+    def validate_internal_data_completeness(self):
+        subgraph_validation.validate_nodes_are_fully_sourced(
+            self.prospective_nodes, self.input_edges
+        )
+        return self

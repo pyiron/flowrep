@@ -14,6 +14,11 @@ class NodeProtocol(Protocol):
     inputs: base_models.Labels
     outputs: base_models.Labels
 
+    @property
+    def inputs_with_defaults(self) -> base_models.Labels: ...
+
+    def validate_internal_data_completeness(self): ...
+
 
 NodesAlias = dict[base_models.Label, NodeProtocol]
 
@@ -162,3 +167,18 @@ def validate_acyclic_edges(
         raise ValueError(f"{message}: {cycles}. ")
     except nx.NetworkXNoCycle:
         pass
+
+
+def validate_nodes_are_fully_sourced(
+    nodes: NodesAlias,
+    context: Collection[edge_models.TargetHandle],
+):
+    for label, node in nodes.items():
+        for port in node.inputs:
+            target = edge_models.TargetHandle(node=label, port=port)
+            if port not in node.inputs_with_defaults and target not in context:
+                raise ValueError(
+                    f"Could not find a source or default for the target: {label}.{port}"
+                )
+    for node in nodes.values():
+        node.validate_internal_data_completeness()

@@ -283,10 +283,13 @@ full_composite_node = workflow_model.WorkflowNode.model_validate(
             "my_identity_0.x": "try_0.z",
         },
         "output_edges": {"result": "my_identity_0.x"},
-        "source": {
-            "module": "integration.parsers.test_parsing_composite_workflow",
-            "qualname": "full_composite",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_composite_workflow",
+                "qualname": "full_composite",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(full_composite),
     }

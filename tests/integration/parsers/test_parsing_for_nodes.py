@@ -82,10 +82,13 @@ single_iteration_node = workflow_model.WorkflowNode.model_validate(
             "l": "how_many_0.length",
             "vecs": "for_0.vecs",
         },
-        "source": {
-            "module": "integration.parsers.test_parsing_for_nodes",
-            "qualname": "single_iteration",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_for_nodes",
+                "qualname": "single_iteration",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(single_iteration),
     }
@@ -179,10 +182,13 @@ zbat_wf_node = workflow_model.WorkflowNode.model_validate(
             "d_accumulator": "for_0.d_accumulator",
             "sums": "for_0.sums",
         },
-        "source": {
-            "module": "integration.parsers.test_parsing_for_nodes",
-            "qualname": "zipped_broadcast_and_transferred",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_for_nodes",
+                "qualname": "zipped_broadcast_and_transferred",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(
             zipped_broadcast_and_transferred
@@ -286,10 +292,13 @@ nested_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"for_0.ns": "ns"},
         "edges": {},
         "output_edges": {"sq_sums": "for_0.sq_sums"},
-        "source": {
-            "module": "integration.parsers.test_parsing_for_nodes",
-            "qualname": "nested",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_for_nodes",
+                "qualname": "nested",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(nested),
     }
@@ -409,10 +418,13 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
         },
         "edges": {},
         "output_edges": {"sq_sums": "for_0.sq_sums"},
-        "source": {
-            "module": "integration.parsers.test_parsing_for_nodes",
-            "qualname": "nested_with_passed_input",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_for_nodes",
+                "qualname": "nested_with_passed_input",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
         "source_code": parser_helpers.get_available_source_code(
             nested_with_passed_input

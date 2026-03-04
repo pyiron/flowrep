@@ -4,7 +4,6 @@ from enum import StrEnum
 from typing import Literal
 
 import pydantic
-from pyiron_snippets import versions
 
 from flowrep.models import base_models
 
@@ -42,22 +41,28 @@ class AtomicNode(base_models.NodeModel):
         type: The node type -- always "atomic".
         inputs: The available input port names.
         outputs: The available output port names.
+        reference: Info about the underlying python function.
+        unpack_mode: How to handle return values from running functions in atomic nodes.
+
+    Properties:
         fully_qualified_name: The fully qualified name of the function to call, i.e.
             module and qualname as a dot-separated string.
-        version: The version of the module of the function (if any).
-        unpack_mode: How to handle return values from running functions in atomic nodes.
     """
 
     type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
         default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
-    source: versions.VersionInfo
+    reference: base_models.PythonReference
     source_code: str | None = None
     unpack_mode: UnpackMode = UnpackMode.TUPLE
 
     @property
+    def inputs_with_defaults(self) -> base_models.Labels:
+        return self.reference.inputs_with_defaults
+
+    @property
     def fully_qualified_name(self) -> str:
-        return self.source.fully_qualified_name
+        return self.reference.info.fully_qualified_name
 
     @pydantic.model_validator(mode="after")
     def check_outputs_when_not_unpacking(self):

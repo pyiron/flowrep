@@ -3,10 +3,11 @@ from __future__ import annotations
 import keyword
 from collections.abc import Hashable
 from enum import StrEnum
-from typing import Annotated, TypeVar
+from typing import Annotated, Self, TypeVar
 
 import pydantic
 import pydantic_core
+from pyiron_snippets import versions
 
 
 class RecipeElementType(StrEnum):
@@ -84,3 +85,27 @@ class NodeModel(pydantic.BaseModel):
                 )
             if not type_field.frozen:
                 raise TypeError(f"{cls.__name__} must mark 'type' as frozen")
+
+    @property
+    def inputs_with_defaults(self) -> Labels:
+        return []
+
+    @pydantic.model_validator(mode="after")
+    def _check_inputs_with_defaults_subset_of_inputs(self) -> Self:
+        ref = getattr(self, "reference", None)
+        if ref is not None and isinstance(ref, PythonReference):
+            invalid = set(ref.inputs_with_defaults) - set(self.inputs)
+            if invalid:
+                raise ValueError(
+                    f"`reference.inputs_with_defaults` contains labels not in `inputs`: {invalid}"
+                )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_internal_data_completeness(self):
+        return self
+
+
+class PythonReference(pydantic.BaseModel):
+    info: versions.VersionInfo
+    inputs_with_defaults: Labels = pydantic.Field(default_factory=list)

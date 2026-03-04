@@ -14,9 +14,14 @@ from flowrep.models.nodes import (
 )
 
 
-def make_atomic(inputs: list[str], outputs: list[str]) -> atomic_model.AtomicNode:
+def make_atomic(
+    inputs: list[str], outputs: list[str], defaults: list[str] | None = None
+) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        source=versions.VersionInfo(module="mod", qualname="func", version=None),
+        reference=base_models.PythonReference(
+            info=versions.VersionInfo(module="mod", qualname="func", version=None),
+            inputs_with_defaults=inputs if defaults is None else defaults,
+        ),
         inputs=inputs,
         outputs=outputs,
     )
@@ -243,6 +248,132 @@ class TestWhileNodeInputEdges(unittest.TestCase):
             )
         self.assertIn("Invalid input_edges target ports", str(ctx.exception))
         self.assertIn("missing", str(ctx.exception))
+
+
+class TestWhileNodeFullySourcing(unittest.TestCase):
+    """Tests for validate_internal_data_completeness on condition/body nodes."""
+
+    def test_condition_unsourced_no_default_raises(self):
+        """Condition input without edge or default → rejected."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            while_model.WhileNode(
+                inputs=["x"],
+                outputs=[],
+                case=helper_models.ConditionalCase(
+                    condition=helper_models.LabeledNode(
+                        label="cond",
+                        node=make_atomic(["val", "extra"], ["result"], defaults=[]),
+                    ),
+                    body=helper_models.LabeledNode(
+                        label="body",
+                        node=make_atomic(["inp"], ["out"]),
+                    ),
+                ),
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="cond", port="val"
+                    ): edge_models.InputSource(port="x"),
+                },
+                output_edges={},
+            )
+        self.assertIn("cond.extra", str(ctx.exception))
+
+    def test_condition_unsourced_with_default_passes(self):
+        """Condition input without edge but with default → accepted."""
+        wn = while_model.WhileNode(
+            inputs=["x"],
+            outputs=[],
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="cond",
+                    node=make_atomic(["val", "extra"], ["result"], defaults=["extra"]),
+                ),
+                body=helper_models.LabeledNode(
+                    label="body",
+                    node=make_atomic(["inp"], ["out"]),
+                ),
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="cond", port="val"
+                ): edge_models.InputSource(port="x"),
+            },
+            output_edges={},
+        )
+        self.assertIn("extra", wn.case.condition.node.inputs)
+
+    def test_body_unsourced_no_default_raises(self):
+        """Body input without edge or default → rejected."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            while_model.WhileNode(
+                inputs=["x"],
+                outputs=[],
+                case=helper_models.ConditionalCase(
+                    condition=helper_models.LabeledNode(
+                        label="cond",
+                        node=make_atomic(["val"], ["result"]),
+                    ),
+                    body=helper_models.LabeledNode(
+                        label="body",
+                        node=make_atomic(["inp", "extra"], ["out"], defaults=[]),
+                    ),
+                ),
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="body", port="inp"
+                    ): edge_models.InputSource(port="x"),
+                },
+                output_edges={},
+            )
+        self.assertIn("body.extra", str(ctx.exception))
+
+    def test_body_unsourced_with_default_passes(self):
+        """Body input without edge but with default → accepted."""
+        wn = while_model.WhileNode(
+            inputs=["x"],
+            outputs=[],
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="cond",
+                    node=make_atomic(["val"], ["result"]),
+                ),
+                body=helper_models.LabeledNode(
+                    label="body",
+                    node=make_atomic(["inp", "extra"], ["out"], defaults=["extra"]),
+                ),
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="body", port="inp"
+                ): edge_models.InputSource(port="x"),
+            },
+            output_edges={},
+        )
+        self.assertIn("extra", wn.case.body.node.inputs)
+
+    def test_one_node_edged_other_defaulted_passes(self):
+        """Condition fully edged, body relying on default → accepted."""
+        wn = while_model.WhileNode(
+            inputs=["x"],
+            outputs=[],
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="cond",
+                    node=make_atomic(["val"], ["result"], defaults=[]),
+                ),
+                body=helper_models.LabeledNode(
+                    label="body",
+                    node=make_atomic(["inp"], ["out"]),  # all defaulted
+                ),
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="cond", port="val"
+                ): edge_models.InputSource(port="x"),
+            },
+            output_edges={},
+        )
+        self.assertEqual(len(wn.input_edges), 1)
 
 
 class TestWhileNodeOutputEdges(unittest.TestCase):

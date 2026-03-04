@@ -120,11 +120,16 @@ def parse_workflow(
         require_version=require_version,
     )
     info = info_factory.of(func)
-    inputs = label_helpers.get_input_labels(func)
+    input_info = label_helpers.get_input_info(func)
+    inputs = list(input_info)
+    reference = base_models.PythonReference(
+        info=info,
+        inputs_with_defaults=[label for label, hd in input_info.items() if hd],
+    )
     state = _WorkflowFunctionParser(
         object_scope.get_scope(func),
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),
-        source=info,
+        source=reference,
         info_factory=info_factory,
         func=func,
         output_labels=output_labels,
@@ -171,7 +176,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         scope: object_scope.ScopeProxy,
         symbol_map: symbol_scope.SymbolScope,
         info_factory: versions.VersionInfoFactory,
-        source: versions.VersionInfo | None = None,
+        source: base_models.PythonReference | None = None,
     ):
         self.scope = scope
         self.symbol_map = symbol_map
@@ -211,7 +216,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             input_edges=self.input_edges,
             edges=self.edges,
             output_edges=self.output_edges,
-            source=self.source,
+            reference=self.source,
             source_code=source_code,
         )
 
@@ -320,7 +325,7 @@ class _WorkflowFunctionParser(WorkflowParser):
         symbol_map: symbol_scope.SymbolScope,
         info_factory: versions.VersionInfoFactory,
         *,
-        source: versions.VersionInfo | None = None,
+        source: base_models.PythonReference | None = None,
         func: FunctionType,
         output_labels: Collection[str],
     ):

@@ -14,9 +14,23 @@ from flowrep.models.nodes import (
 _VALUE_ERROR_INFO = versions.VersionInfo.of(ValueError)
 
 
+def _reference(
+    module: str = "mod",
+    qualname: str = "func",
+    version: str | None = None,
+    inputs_with_defaults: list[str] | None = None,
+) -> base_models.PythonReference:
+    return base_models.PythonReference(
+        info=versions.VersionInfo(module=module, qualname=qualname, version=version),
+        inputs_with_defaults=inputs_with_defaults or [],
+    )
+
+
 def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        source=versions.VersionInfo(module="mod", qualname="try_func", version=None),
+        reference=_reference(
+            qualname="try_func", inputs_with_defaults=["x"] if inputs is None else None
+        ),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
@@ -24,8 +38,9 @@ def _make_try_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 
 def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        source=versions.VersionInfo(
-            module="mod", qualname="handle_error", version=None
+        reference=_reference(
+            qualname="handle_error",
+            inputs_with_defaults=["x"] if inputs is None else None,
         ),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
@@ -181,8 +196,10 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             outputs=["y"],
             nodes={
                 "inner": atomic_model.AtomicNode(
-                    source=versions.VersionInfo(
-                        module="mod", qualname="f", version=None
+                    reference=base_models.PythonReference(
+                        info=versions.VersionInfo(
+                            module="mod", qualname="f", version=None
+                        )
                     ),
                     inputs=["a"],
                     outputs=["b"],
@@ -335,6 +352,159 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         exc_str = str(ctx.exception)
         self.assertIn("Invalid input_edges source ports", exc_str)
         self.assertIn("nonexistent", exc_str)
+
+
+class TestTryNodeFullySourcing(unittest.TestCase):
+    """Tests for validate_internal_data_completeness on try/except bodies."""
+
+    def test_try_body_unsourced_no_default_raises(self):
+        """Try body input without edge or default → rejected."""
+        try_node = helper_models.LabeledNode(
+            label="try_body",
+            node=atomic_model.AtomicNode(
+                reference=_reference(qualname="try_func"),  # no defaults
+                inputs=["x", "extra"],
+                outputs=["y"],
+            ),
+        )
+        exception_cases = [_make_exception_case(0)]
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            try_model.TryNode(
+                inputs=["inp"],
+                outputs=["out"],
+                try_node=try_node,
+                exception_cases=exception_cases,
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="try_body", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                    edge_models.TargetHandle(
+                        node="except_0", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                },
+                prospective_output_edges={
+                    edge_models.OutputTarget(port="out"): [
+                        edge_models.SourceHandle(node="try_body", port="y"),
+                    ]
+                },
+            )
+        self.assertIn("try_body.extra", str(ctx.exception))
+
+    def test_except_body_unsourced_no_default_raises(self):
+        """Exception body input without edge or default → rejected."""
+        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
+        exception_cases = [
+            helper_models.ExceptionCase(
+                exceptions=[_VALUE_ERROR_INFO],
+                body=helper_models.LabeledNode(
+                    label="except_0",
+                    node=atomic_model.AtomicNode(
+                        reference=_reference(qualname="handle_error"),  # no defaults
+                        inputs=["x", "extra"],
+                        outputs=["y"],
+                    ),
+                ),
+            )
+        ]
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            try_model.TryNode(
+                inputs=["inp"],
+                outputs=["out"],
+                try_node=try_node,
+                exception_cases=exception_cases,
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="try_body", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                    edge_models.TargetHandle(
+                        node="except_0", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                },
+                prospective_output_edges={
+                    edge_models.OutputTarget(port="out"): [
+                        edge_models.SourceHandle(node="try_body", port="y"),
+                    ]
+                },
+            )
+        self.assertIn("except_0.extra", str(ctx.exception))
+
+    def test_try_body_unsourced_with_default_passes(self):
+        """Try body input without edge but with default → accepted."""
+        try_node = helper_models.LabeledNode(
+            label="try_body",
+            node=atomic_model.AtomicNode(
+                reference=_reference(
+                    qualname="try_func", inputs_with_defaults=["extra"]
+                ),
+                inputs=["x", "extra"],
+                outputs=["y"],
+            ),
+        )
+        exception_cases = [_make_exception_case(0)]
+        node = try_model.TryNode(
+            inputs=["inp"],
+            outputs=["out"],
+            try_node=try_node,
+            exception_cases=exception_cases,
+            input_edges={
+                edge_models.TargetHandle(
+                    node="try_body", port="x"
+                ): edge_models.InputSource(port="inp"),
+                edge_models.TargetHandle(
+                    node="except_0", port="x"
+                ): edge_models.InputSource(port="inp"),
+            },
+            prospective_output_edges={
+                edge_models.OutputTarget(port="out"): [
+                    edge_models.SourceHandle(node="try_body", port="y"),
+                ]
+            },
+        )
+        self.assertIn("extra", node.try_node.node.inputs)
+
+    def test_mixed_try_edged_except_unsourced_raises(self):
+        """Try body fully edged, except_1 missing edge and default → fails."""
+        try_node = helper_models.LabeledNode(label="try_body", node=_make_try_body())
+        exception_cases = [
+            _make_exception_case(0),
+            helper_models.ExceptionCase(
+                exceptions=[_VALUE_ERROR_INFO],
+                body=helper_models.LabeledNode(
+                    label="except_1",
+                    node=atomic_model.AtomicNode(
+                        reference=_reference(qualname="handle_error"),
+                        inputs=["x", "z"],
+                        outputs=["y"],
+                    ),
+                ),
+            ),
+        ]
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            try_model.TryNode(
+                inputs=["inp"],
+                outputs=["out"],
+                try_node=try_node,
+                exception_cases=exception_cases,
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="try_body", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                    edge_models.TargetHandle(
+                        node="except_0", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                    edge_models.TargetHandle(
+                        node="except_1", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                    # except_1.z has no edge and no default
+                },
+                prospective_output_edges={
+                    edge_models.OutputTarget(port="out"): [
+                        edge_models.SourceHandle(node="try_body", port="y"),
+                    ]
+                },
+            )
+        exc_str = str(ctx.exception)
+        self.assertIn("except_1.z", exc_str)
 
 
 class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
@@ -516,7 +686,9 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
     def test_prospective_output_edges_valid_multiple_outputs(self):
         """prospective_output_edges works with multiple outputs."""
         body_node = atomic_model.AtomicNode(
-            source=versions.VersionInfo(module="mod", qualname="func", version=None),
+            reference=base_models.PythonReference(
+                info=versions.VersionInfo(module="mod", qualname="func", version=None)
+            ),
             inputs=["x"],
             outputs=["out1", "out2"],
         )
@@ -556,8 +728,10 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         try_node = helper_models.LabeledNode(
             label="try_body",
             node=atomic_model.AtomicNode(
-                source=versions.VersionInfo(
-                    module="mod", qualname="func", version=None
+                reference=base_models.PythonReference(
+                    info=versions.VersionInfo(
+                        module="mod", qualname="func", version=None
+                    )
                 ),
                 inputs=["x"],
                 outputs=[],
@@ -568,9 +742,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
             body=helper_models.LabeledNode(
                 label="handler",
                 node=atomic_model.AtomicNode(
-                    source=versions.VersionInfo(
-                        module="mod", qualname="handler", version=None
-                    ),
+                    reference=_reference(qualname="handler"),
                     inputs=["x"],
                     outputs=[],
                 ),
@@ -583,7 +755,10 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
             exception_cases=[exception_case],
             input_edges={
                 edge_models.TargetHandle(
-                    node="try_body", port="x"
+                    node=try_node.label, port="x"
+                ): edge_models.InputSource(port="inp"),
+                edge_models.TargetHandle(
+                    node=exception_case.body.label, port="x"
                 ): edge_models.InputSource(port="inp"),
             },
             prospective_output_edges={},

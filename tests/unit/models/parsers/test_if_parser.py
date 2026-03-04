@@ -832,7 +832,7 @@ class TestIfParserVersionPropagation(unittest.TestCase):
         if_node = node.nodes["if_0"]
         body = if_node.cases[0].body.node
         child = body.nodes["undecorated_identity_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
 
     def test_version_scraping_propagates_into_else_body(self):
         """Undecorated child inside an else body receives the scraping map."""
@@ -851,7 +851,7 @@ class TestIfParserVersionPropagation(unittest.TestCase):
         if_node = node.nodes["if_0"]
         else_body = if_node.else_case.node
         child = else_body.nodes["undecorated_identity_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
 
     def test_version_scraping_propagates_to_condition(self):
         """
@@ -874,10 +874,10 @@ class TestIfParserVersionPropagation(unittest.TestCase):
         if_node = node.nodes["if_0"]
         # condition is pre-decorated, and so keeps its own version
         condition_node = if_node.cases[0].condition.node
-        self.assertNotEqual(condition_node.source.version, custom)
+        self.assertNotEqual(condition_node.reference.info.version, custom)
         # body child is undecorated, and so picks up custom version
         body_child = if_node.cases[0].body.node.nodes["undecorated_identity_0"]
-        self.assertEqual(body_child.source.version, custom)
+        self.assertEqual(body_child.reference.info.version, custom)
 
     def test_version_constraints_propagate_to_condition(self):
         def wf(x, y):

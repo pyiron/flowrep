@@ -1,6 +1,7 @@
 import unittest
 
 import pydantic
+from pyiron_snippets import versions
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 from flowrep.models.nodes import (
@@ -11,14 +12,23 @@ from flowrep.models.nodes import (
 )
 
 
-def _source(module: str = "mod", qualname: str = "func", version: str | None = None):
-    """Shorthand for building a source dict in tests."""
-    return {"module": module, "qualname": qualname, "version": version}
+def _reference(
+    module: str = "mod",
+    qualname: str = "func",
+    version: str | None = None,
+    inputs_with_defaults: list[str] | None = None,
+) -> base_models.PythonReference:
+    return base_models.PythonReference(
+        info=versions.VersionInfo(module=module, qualname=qualname, version=version),
+        inputs_with_defaults=inputs_with_defaults or [],
+    )
 
 
 def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        source=_source(qualname="check"),
+        reference=_reference(
+            qualname="check", inputs_with_defaults=["x"] if inputs is None else None
+        ),
         inputs=inputs or ["x"],
         outputs=outputs or ["result"],
     )
@@ -26,7 +36,9 @@ def _make_condition(inputs=None, outputs=None) -> atomic_model.AtomicNode:
 
 def _make_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        source=_source(qualname="handle"),
+        reference=_reference(
+            qualname="handle", inputs_with_defaults=["x"] if inputs is None else None
+        ),
         inputs=inputs or ["x"],
         outputs=outputs or ["y"],
     )
@@ -49,13 +61,15 @@ def _make_else(inputs=None, outputs=None) -> helper_models.LabeledNode:
     )
 
 
-def _make_input_edges(cases, else_case=None):
-    edge_dict = {
-        edge_models.TargetHandle(
-            node=case.body.label, port="x"
-        ): edge_models.InputSource(port="inp")
-        for case in cases
-    }
+def _make_input_edges(cases, else_case=None) -> edge_models.InputEdges:
+    edge_dict: edge_models.InputEdges = {}
+    for case in cases:
+        edge_dict[edge_models.TargetHandle(node=case.body.label, port="x")] = (
+            edge_models.InputSource(port="inp")
+        )
+        edge_dict[edge_models.TargetHandle(node=case.condition.label, port="x")] = (
+            edge_models.InputSource(port="inp")
+        )
     if else_case is not None:
         edge_dict[edge_models.TargetHandle(node=else_case.label, port="x")] = (
             edge_models.InputSource(port="inp")
@@ -170,7 +184,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             outputs=["result"],
             nodes={
                 "inner": atomic_model.AtomicNode(
-                    source=_source(qualname="f"),
+                    reference=_reference(qualname="f"),
                     inputs=["a"],
                     outputs=["b"],
                 )
@@ -280,6 +294,184 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
             prospective_output_edges=_make_output_edges(cases, else_case),
         )
         self.assertEqual(len(node.input_edges), 1)
+
+
+class TestIfNodeFullySourcing(unittest.TestCase):
+    """Tests for validate_internal_data_completeness on if-node children."""
+
+    def test_body_unsourced_no_default_raises(self):
+        """Body input without edge or default → rejected."""
+        cases = [
+            helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="condition_0",
+                    node=_make_condition(),
+                ),
+                body=helper_models.LabeledNode(
+                    label="body_0",
+                    node=atomic_model.AtomicNode(
+                        reference=_reference(qualname="handle"),  # no defaults
+                        inputs=["x", "extra"],
+                        outputs=["y"],
+                    ),
+                ),
+            )
+        ]
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            if_model.IfNode(
+                inputs=["inp"],
+                outputs=["out"],
+                cases=cases,
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="condition_0", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                    edge_models.TargetHandle(
+                        node="body_0", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                },
+                prospective_output_edges={
+                    edge_models.OutputTarget(port="out"): [
+                        edge_models.SourceHandle(node="body_0", port="y"),
+                    ]
+                },
+            )
+        self.assertIn("body_0.extra", str(ctx.exception))
+
+    def test_condition_unsourced_no_default_raises(self):
+        """Condition input without edge or default → rejected."""
+        cases = [
+            helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="condition_0",
+                    node=atomic_model.AtomicNode(
+                        reference=_reference(qualname="check"),  # no defaults
+                        inputs=["x", "extra"],
+                        outputs=["result"],
+                    ),
+                ),
+                body=helper_models.LabeledNode(
+                    label="body_0",
+                    node=_make_body(),
+                ),
+            )
+        ]
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            if_model.IfNode(
+                inputs=["inp"],
+                outputs=["out"],
+                cases=cases,
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="condition_0", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                    edge_models.TargetHandle(
+                        node="body_0", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                },
+                prospective_output_edges={
+                    edge_models.OutputTarget(port="out"): [
+                        edge_models.SourceHandle(node="body_0", port="y"),
+                    ]
+                },
+            )
+        self.assertIn("condition_0.extra", str(ctx.exception))
+
+    def test_else_unsourced_no_default_raises(self):
+        """Else body input without edge or default → rejected."""
+        cases = [_make_case(0)]
+        else_case = helper_models.LabeledNode(
+            label="else_body",
+            node=atomic_model.AtomicNode(
+                reference=_reference(qualname="handle"),  # no defaults
+                inputs=["x", "extra"],
+                outputs=["y"],
+            ),
+        )
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            if_model.IfNode(
+                inputs=["inp"],
+                outputs=["out"],
+                cases=cases,
+                else_case=else_case,
+                input_edges={
+                    **_make_input_edges(cases),
+                    edge_models.TargetHandle(
+                        node="else_body", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                },
+                prospective_output_edges=_make_output_edges(cases, else_case),
+            )
+        self.assertIn("else_body.extra", str(ctx.exception))
+
+    def test_unsourced_with_default_passes(self):
+        """Node input without edge but with default → accepted."""
+        cases = [
+            helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="condition_0",
+                    node=_make_condition(),
+                ),
+                body=helper_models.LabeledNode(
+                    label="body_0",
+                    node=atomic_model.AtomicNode(
+                        reference=_reference(
+                            qualname="handle", inputs_with_defaults=["extra"]
+                        ),
+                        inputs=["x", "extra"],
+                        outputs=["y"],
+                    ),
+                ),
+            )
+        ]
+        node = if_model.IfNode(
+            inputs=["inp"],
+            outputs=["out"],
+            cases=cases,
+            input_edges={
+                edge_models.TargetHandle(
+                    node="condition_0", port="x"
+                ): edge_models.InputSource(port="inp"),
+                edge_models.TargetHandle(
+                    node="body_0", port="x"
+                ): edge_models.InputSource(port="inp"),
+            },
+            prospective_output_edges={
+                edge_models.OutputTarget(port="out"): [
+                    edge_models.SourceHandle(node="body_0", port="y"),
+                ]
+            },
+        )
+        self.assertIn("extra", node.cases[0].body.node.inputs)
+
+    def test_mixed_across_cases_unsourced_else_raises(self):
+        """Condition edged, body defaulted, else unsourced → fails on else."""
+        cases = [_make_case(0)]
+        else_case = helper_models.LabeledNode(
+            label="else_body",
+            node=atomic_model.AtomicNode(
+                reference=_reference(qualname="handle"),  # no defaults
+                inputs=["x", "z"],
+                outputs=["y"],
+            ),
+        )
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            if_model.IfNode(
+                inputs=["inp"],
+                outputs=["out"],
+                cases=cases,
+                else_case=else_case,
+                input_edges={
+                    **_make_input_edges(cases),
+                    edge_models.TargetHandle(
+                        node="else_body", port="x"
+                    ): edge_models.InputSource(port="inp"),
+                    # else_body.z has no edge and no default
+                },
+                prospective_output_edges=_make_output_edges(cases, else_case),
+            )
+        exc_str = str(ctx.exception)
+        self.assertIn("else_body.z", exc_str)
 
 
 class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
@@ -521,24 +713,26 @@ class TestIfNodeSerialization(unittest.TestCase):
                 data = original.model_dump(mode=mode)
                 restored = if_model.IfNode.model_validate(data)
                 self.assertEqual(len(restored.cases), 3)
-                self.assertEqual(len(restored.input_edges), 4)  # 3 bodies + 1 else
+                self.assertEqual(
+                    len(restored.input_edges), 7
+                )  # 3 bodies + 3 cases + 1 else
                 self.assertEqual(
                     len(
                         restored.prospective_output_edges[
                             edge_models.OutputTarget(port="out")
                         ]
                     ),
-                    4,
+                    4,  # 3 bodies + 1 else
                 )
 
     def test_roundtrip_with_condition_output(self):
         condition = atomic_model.AtomicNode(
-            source=_source(qualname="check"),
+            reference=_reference(qualname="check"),
             inputs=["x"],
             outputs=["a", "b"],
         )
         body = atomic_model.AtomicNode(
-            source=_source(qualname="handle"),
+            reference=_reference(qualname="handle"),
             inputs=["x"],
             outputs=["y"],
         )
@@ -678,7 +872,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
     def test_prospective_output_edges_valid_source_ports(self):
         """output_edges with valid source ports should pass."""
         body_node = atomic_model.AtomicNode(
-            source=_source(qualname="handle"),
+            reference=_reference(qualname="handle"),
             inputs=["x"],
             outputs=["out1", "out2"],
         )
@@ -709,7 +903,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
     def test_prospective_output_edges_valid_source_ports_with_else(self):
         """output_edges with valid source ports and else_case should pass."""
         body_node = atomic_model.AtomicNode(
-            source=_source(qualname="handle"),
+            reference=_reference(qualname="handle"),
             inputs=["x"],
             outputs=["out1", "out2"],
         )
@@ -721,12 +915,17 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
                 body=helper_models.LabeledNode(label="body", node=body_node),
             )
         ]
+        input_edges = _make_input_edges(cases)
+        else_case = helper_models.LabeledNode(label="else_case", node=body_node)
+        input_edges[edge_models.TargetHandle(node=else_case.label, port="x")] = (
+            edge_models.InputSource(port="inp")
+        )
         node = if_model.IfNode(
             inputs=["inp"],
             outputs=["a", "b"],
             cases=cases,
-            else_case=helper_models.LabeledNode(label="else_case", node=body_node),
-            input_edges=_make_input_edges(cases),
+            else_case=else_case,
+            input_edges=input_edges,
             prospective_output_edges={
                 edge_models.OutputTarget(port="a"): [
                     edge_models.SourceHandle(node="body", port="out1"),

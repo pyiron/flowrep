@@ -11,6 +11,20 @@ from flowrep.models.nodes import (
 )
 
 
+def _reference(
+    module: str = "mod",
+    qualname: str = "func",
+    version: str | None = None,
+    inputs_with_defaults: list[str] = None,
+) -> base_models.PythonReference:
+    return base_models.PythonReference(
+        info=versions.VersionInfo(module=module, qualname=qualname, version=version),
+        inputs_with_defaults=(
+            [] if inputs_with_defaults is None else inputs_with_defaults
+        ),
+    )
+
+
 def _make_atomic(
     module: str = "mod",
     qualname: str = "func",
@@ -18,7 +32,7 @@ def _make_atomic(
     outputs: list[str] | None = None,
 ) -> atomic_model.AtomicNode:
     return atomic_model.AtomicNode(
-        source=versions.VersionInfo(module=module, qualname=qualname, version=None),
+        reference=_reference(module, qualname),
         inputs=inputs or [],
         outputs=outputs or [],
     )
@@ -30,9 +44,7 @@ class TestConditionalCaseValidation(unittest.TestCase):
         return helper_models.LabeledNode(
             label="condition",
             node=atomic_model.AtomicNode(
-                source=versions.VersionInfo(
-                    module="mod", qualname="check", version=None
-                ),
+                reference=_reference("mod", "check"),
                 inputs=["x"],
                 outputs=outputs or ["result"],
             ),
@@ -43,9 +55,7 @@ class TestConditionalCaseValidation(unittest.TestCase):
         return helper_models.LabeledNode(
             label="body",
             node=atomic_model.AtomicNode(
-                source=versions.VersionInfo(
-                    module="mod", qualname="handle", version=None
-                ),
+                reference=_reference("mod", "handle"),
                 inputs=["x"],
                 outputs=["y"],
             ),
@@ -92,9 +102,7 @@ class TestExceptionCaseValidation(unittest.TestCase):
     @staticmethod
     def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicNode:
         return atomic_model.AtomicNode(
-            source=versions.VersionInfo(
-                module="mod", qualname="handle_error", version=None
-            ),
+            reference=_reference("mod", "handle_error"),
             inputs=inputs or ["x"],
             outputs=outputs or ["y"],
         )
@@ -147,9 +155,7 @@ class TestExceptionCaseSerialization(unittest.TestCase):
             body=helper_models.LabeledNode(
                 label="handler",
                 node=atomic_model.AtomicNode(
-                    source=versions.VersionInfo(
-                        module="mod", qualname="handle_error", version=None
-                    ),
+                    reference=_reference("mod", "handle_error"),
                     inputs=["x"],
                     outputs=["y"],
                 ),

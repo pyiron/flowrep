@@ -4,6 +4,7 @@ import unittest
 from typing import Literal
 
 import pydantic
+from pyiron_snippets import versions
 
 from flowrep.models import base_models
 
@@ -288,6 +289,47 @@ class TestNodeModelMultipleSubclasses(unittest.TestCase):
         b = _TypeB(inputs=[], outputs=[])
         self.assertEqual(a.type, base_models.RecipeElementType.ATOMIC)
         self.assertEqual(b.type, base_models.RecipeElementType.WORKFLOW)
+
+
+class TestPythonReference(unittest.TestCase):
+    """Tests for PythonReference model."""
+
+    @staticmethod
+    def _make_ref(**overrides):
+        defaults = dict(
+            info=versions.VersionInfo(module="mod", qualname="func", version=None),
+        )
+        defaults.update(overrides)
+        return base_models.PythonReference(**defaults)
+
+    def test_inputs_with_defaults_defaults_to_empty(self):
+        ref = self._make_ref()
+        self.assertEqual(ref.inputs_with_defaults, [])
+
+    def test_inputs_with_defaults_accepted(self):
+        ref = self._make_ref(inputs_with_defaults=["a", "b"])
+        self.assertEqual(ref.inputs_with_defaults, ["a", "b"])
+
+    def test_roundtrip(self):
+        original = self._make_ref(inputs_with_defaults=["x", "y"])
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = original.model_dump(mode=mode)
+                restored = base_models.PythonReference.model_validate(data)
+                self.assertEqual(
+                    original.inputs_with_defaults, restored.inputs_with_defaults
+                )
+                self.assertEqual(
+                    original.inputs_with_defaults, restored.inputs_with_defaults
+                )
+                self.assertEqual(
+                    original.info.fully_qualified_name,
+                    restored.info.fully_qualified_name,
+                )
+
+    def test_info_required(self):
+        with self.assertRaises(pydantic.ValidationError):
+            base_models.PythonReference()
 
 
 if __name__ == "__main__":
