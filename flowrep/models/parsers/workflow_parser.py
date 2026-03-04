@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import importlib
 from collections.abc import Callable, Collection
 from types import FunctionType
 from typing import cast
@@ -220,8 +221,23 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             source_code=source_code,
         )
 
-    def fork(self, new_symbol_map: symbol_scope.SymbolScope) -> WorkflowParser:
-        return WorkflowParser(self.scope, new_symbol_map, self.info_factory)
+    def fork(
+        self,
+        *,
+        new_symbol_map: symbol_scope.SymbolScope,
+        new_scope: object_scope.ScopeProxy,
+    ) -> WorkflowParser:
+        """Create a child walker with optionally replaced symbol map and scope.
+
+        Configuration (version scraping, constraints, etc.) is propagated
+        from this walker.  If *new_scope* is ``None``, ``self.scope`` is
+        reused (shared, not copied).
+        """
+        return WorkflowParser(
+            scope=new_scope,
+            symbol_map=new_symbol_map,
+            info_factory=self.info_factory,
+        )
 
     def walk(self, statements: list[ast.stmt]) -> None:
         for statement in statements:
@@ -298,6 +314,48 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             self._handle_appending_to_accumulator(cast(ast.Call, stmt.value))
         else:
             self.generic_visit(stmt)
+
+    def visit_Import(self, node: ast.Import) -> None:
+        """
+        Handle ``import foo`` and ``import foo as bar`` statements.
+
+        Resolves the imported module and registers it in the current
+        :class:`ScopeProxy` so that subsequent attribute-based calls
+        (e.g. ``foo.func(x)``) can be resolved.
+        """
+        for alias in node.names:
+            module = importlib.import_module(alias.name)
+            if alias.asname is not None:
+                # import numpy as np  →  register "np" → numpy module
+                self.scope.register(alias.asname, module)
+            else:
+                # import os.path  →  register "os" → os module (top-level only)
+                top_level_name = alias.name.split(".")[0]
+                top_level_module = importlib.import_module(top_level_name)
+                self.scope.register(top_level_name, top_level_module)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        """
+        Handle ``from foo import bar`` and ``from foo import bar as baz``.
+
+        Resolves each imported name and registers it in the current scope.
+        """
+        if node.module is None:
+            raise ValueError(
+                "Relative imports without a module name are not supported in "
+                "workflow definitions."
+            )
+        for alias in node.names:
+            if alias.name == "*":
+                raise ValueError(
+                    f"Star imports (from {node.module} import *) are not supported "
+                    f"in workflow definitions.  Import specific names instead."
+                )
+        module = importlib.import_module(node.module)
+        for alias in node.names:
+            obj = getattr(module, alias.name)
+            local_name = alias.asname if alias.asname is not None else alias.name
+            self.scope.register(local_name, obj)
 
     def _handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
         used_accumulator = cast(
