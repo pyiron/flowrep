@@ -72,7 +72,8 @@ class WorkflowNode(base_models.NodeModel):
         subgraph_validation.validate_sibling_edges(self.edges, self.nodes)
         subgraph_validation.validate_acyclic_edges(
             self.edges,
-            message="Workflow models must be acyclic (DAG), but found cycle(s)",
+            message=f"Workflow models must be acyclic (DAG), but found cycle(s)"
+            f"among {self.edges}",
         )
         return self
 
