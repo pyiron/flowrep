@@ -340,10 +340,10 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
 
         Resolves each imported name and registers it in the current scope.
         """
-        if node.module is None:
+        if node.level > 0:
             raise ValueError(
-                "Relative imports without a module name are not supported in "
-                "workflow definitions."
+                f"Relative imports are not supported in workflow definitions. "
+                f"Encountered importing from {node.module}."
             )
         module = importlib.import_module(node.module)
         for alias in node.names:

@@ -1042,6 +1042,18 @@ class TestLocalImports(unittest.TestCase):
                     "my_add",
                 )
 
+    def test_local_import_raises(self):
+        def import_from_sibling(x, y):
+            from .test_for_parser import pair
+
+            a, b = pair(x, y)
+            return a, b
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(import_from_sibling)
+        self.assertIn("Relative imports are not supported", str(ctx.exception))
+        self.assertIn("test_for_parser", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
