@@ -287,43 +287,5 @@ class TestAtomicNodeHasDefault(unittest.TestCase):
             )
 
 
-class TestAtomicNodeSourceCode(unittest.TestCase):
-    """Tests for the optional source_code field."""
-
-    def test_defaults_to_none(self):
-        node = atomic_model.AtomicNode(
-            reference=makers.make_reference(), inputs=[], outputs=[]
-        )
-        self.assertIsNone(node.source_code)
-
-    def test_accepts_string(self):
-        node = atomic_model.AtomicNode(
-            reference=makers.make_reference(),
-            inputs=[],
-            outputs=[],
-            source_code="def func(): pass",
-        )
-        self.assertEqual(node.source_code, "def func(): pass")
-
-    def test_roundtrip(self):
-        original = atomic_model.AtomicNode(
-            reference=makers.make_reference(),
-            inputs=["a"],
-            outputs=["b"],
-            source_code="def func(a):\n    return a",
-        )
-        for mode in ["json", "python"]:
-            with self.subTest(mode=mode):
-                data = original.model_dump(mode=mode)
-                restored = atomic_model.AtomicNode.model_validate(data)
-                self.assertEqual(original.source_code, restored.source_code)
-
-    def test_json_structure_null_when_absent(self):
-        node = atomic_model.AtomicNode(
-            reference=makers.make_reference(), inputs=[], outputs=[]
-        )
-        self.assertIsNone(node.model_dump(mode="json")["source_code"])
-
-
 if __name__ == "__main__":
     unittest.main()

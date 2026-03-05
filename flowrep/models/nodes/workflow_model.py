@@ -44,7 +44,6 @@ class WorkflowNode(base_models.NodeModel):
     edges: edge_models.Edges
     output_edges: edge_models.OutputEdges
     reference: base_models.PythonReference | None = None
-    source_code: str | None = None
 
     @property
     def inputs_with_defaults(self) -> base_models.Labels:

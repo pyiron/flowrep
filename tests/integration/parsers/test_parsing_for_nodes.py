@@ -1,7 +1,7 @@
 import unittest
 
 from flowrep.models.nodes import for_model, workflow_model
-from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
+from flowrep.models.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library
 
@@ -82,7 +82,6 @@ single_iteration_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(single_iteration),
     }
 )
 
@@ -182,9 +181,6 @@ zbat_wf_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(
-            zipped_broadcast_and_transferred
-        ),
     }
 )
 
@@ -292,7 +288,6 @@ nested_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(nested),
     }
 )
 
@@ -418,9 +413,6 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(
-            nested_with_passed_input
-        ),
     }
 )
 

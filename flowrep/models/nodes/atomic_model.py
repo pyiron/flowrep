@@ -53,7 +53,6 @@ class AtomicNode(base_models.NodeModel):
         default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
     reference: base_models.PythonReference
-    source_code: str | None = None
     unpack_mode: UnpackMode = UnpackMode.TUPLE
 
     @property

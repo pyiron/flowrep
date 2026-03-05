@@ -929,36 +929,5 @@ class TestWorkflowNodeHasDefault(unittest.TestCase):
         self.assertIn("z", str(ctx.exception))
 
 
-class TestWorkflowNodeSourceCode(unittest.TestCase):
-    """Tests for the optional source_code field."""
-
-    def _minimal_wf(self, **overrides):
-        defaults = dict(
-            inputs=[],
-            outputs=[],
-            nodes={},
-            input_edges={},
-            edges={},
-            output_edges={},
-        )
-        defaults.update(overrides)
-        return workflow_model.WorkflowNode(**defaults)
-
-    def test_defaults_to_none(self):
-        self.assertIsNone(self._minimal_wf().source_code)
-
-    def test_accepts_string(self):
-        wf = self._minimal_wf(source_code="def wf(): pass")
-        self.assertEqual(wf.source_code, "def wf(): pass")
-
-    def test_roundtrip(self):
-        original = self._minimal_wf(source_code="def wf(x):\n    return x")
-        for mode in ["json", "python"]:
-            with self.subTest(mode=mode):
-                data = original.model_dump(mode=mode)
-                restored = workflow_model.WorkflowNode.model_validate(data)
-                self.assertEqual(original.source_code, restored.source_code)
-
-
 if __name__ == "__main__":
     unittest.main()
