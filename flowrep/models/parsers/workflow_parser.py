@@ -340,7 +340,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
 
         Resolves each imported name and registers it in the current scope.
         """
-        if node.level > 0:
+        if node.module is None or node.level > 0:
             raise ValueError(
                 f"Relative imports are not supported in workflow definitions. "
                 f"Encountered importing from {node.module}."
