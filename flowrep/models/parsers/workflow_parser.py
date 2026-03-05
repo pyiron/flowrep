@@ -345,12 +345,6 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                 "Relative imports without a module name are not supported in "
                 "workflow definitions."
             )
-        for alias in node.names:
-            if alias.name == "*":
-                raise ValueError(
-                    f"Star imports (from {node.module} import *) are not supported "
-                    f"in workflow definitions.  Import specific names instead."
-                )
         module = importlib.import_module(node.module)
         for alias in node.names:
             obj = getattr(module, alias.name)
