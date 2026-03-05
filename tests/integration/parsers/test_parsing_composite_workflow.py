@@ -3,7 +3,7 @@ import unittest
 from pyiron_snippets import versions
 
 from flowrep.models.nodes import workflow_model
-from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
+from flowrep.models.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library
 
@@ -267,7 +267,6 @@ full_composite_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(full_composite),
     }
 )
 

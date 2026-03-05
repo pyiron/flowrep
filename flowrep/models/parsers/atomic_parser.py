@@ -125,13 +125,11 @@ def parse_atomic(
             f"unpacking mode '{unpack_mode}', got but got {output_labels}."
         )
 
-    source_code = parser_helpers.get_available_source_code(func)
     return atomic_model.AtomicNode(
         reference=base_models.PythonReference(
             info=info,
             inputs_with_defaults=[label for label, hd in input_info.items() if hd],
         ),
-        source_code=source_code,
         inputs=list(input_info),
         outputs=(
             list(output_labels) if len(output_labels) > 0 else scraped_output_labels

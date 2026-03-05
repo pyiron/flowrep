@@ -3,7 +3,7 @@ import unittest
 from pyiron_snippets import versions
 
 from flowrep.models.nodes import workflow_model
-from flowrep.models.parsers import parser_helpers, workflow_parser
+from flowrep.models.parsers import workflow_parser
 
 from flowrep_static import library
 
@@ -88,7 +88,6 @@ simple_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(simple_try_except),
     }
 )
 
@@ -194,7 +193,6 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(try_multi_except),
     }
 )
 
@@ -283,7 +281,6 @@ context_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(try_with_context),
     }
 )
 
@@ -383,7 +380,6 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(multi_output_try),
     }
 )
 
@@ -468,7 +464,6 @@ tuple_exc_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(try_tuple_exceptions),
     }
 )
 

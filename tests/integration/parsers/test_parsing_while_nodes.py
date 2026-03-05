@@ -1,7 +1,7 @@
 import unittest
 
 from flowrep.models.nodes import while_model, workflow_model
-from flowrep.models.parsers import parser_helpers, workflow_parser
+from flowrep.models.parsers import workflow_parser
 
 from flowrep_static import library
 
@@ -81,7 +81,6 @@ simple_while_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": ["a", "b", "c"],
         },
-        "source_code": parser_helpers.get_available_source_code(simple_while),
     }
 )
 
@@ -200,7 +199,6 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(nested_while),
     }
 )
 
@@ -286,7 +284,6 @@ multi_reassign_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(multi_reassign),
     }
 )
 
@@ -379,7 +376,6 @@ sequential_whiles_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(sequential_whiles),
     }
 )
 
@@ -456,7 +452,6 @@ chained_body_node = workflow_model.WorkflowNode.model_validate(
             },
             "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(chained_body),
     }
 )
 
