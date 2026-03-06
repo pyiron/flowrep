@@ -34,7 +34,7 @@ _PORT_SANITIZE_PREFIX: str = "flowrep_sanitized_"
 
 def _needs_sanitization(port: str) -> bool:
     """Return ``True`` if *port* is not a valid flowrep :class:`Label`."""
-    return not base_models._valid_label(port)
+    return not base_models.is_valid_label(port)
 
 
 def _sanitize_port(port: str) -> str:
