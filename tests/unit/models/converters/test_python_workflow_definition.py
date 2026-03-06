@@ -765,5 +765,65 @@ class TestRoundTripEdgeNodeCounts(unittest.TestCase):
         self._assert_counts_preserved("quantum_espresso-workflow.json")
 
 
+class TestPassThroughEdge(unittest.TestCase):
+    """A workflow input wired directly to a workflow output, bypassing all nodes."""
+
+    def test_flowrep_to_pwd_roundtrip(self):
+        wf = workflow_model.WorkflowNode(
+            inputs=["x", "passthrough"],
+            outputs=["z", "echoed"],
+            nodes={
+                "func_0": makers.make_atomic(
+                    inputs=["a"],
+                    outputs=["b"],
+                    module="mod",
+                    qualname="func",
+                ),
+            },
+            input_edges={
+                edge_models.TargetHandle(node="func_0", port="a"): (
+                    edge_models.InputSource(port="x")
+                ),
+            },
+            edges={},
+            output_edges={
+                edge_models.OutputTarget(port="z"): edge_models.SourceHandle(
+                    node="func_0", port="b"
+                ),
+                edge_models.OutputTarget(port="echoed"): edge_models.InputSource(
+                    port="passthrough"
+                ),
+            },
+        )
+        pwd_wf = pwd_conv.flowrep2pwd(wf, x=1, passthrough="hello")
+        fr_rt, defaults_rt = pwd_conv.pwd2flowrep(pwd_wf)
+
+        _assert_flowrep_roundtrip_equal(
+            self, wf, fr_rt, {"x": 1, "passthrough": "hello"}, defaults_rt
+        )
+
+    def test_pwd_passthrough_structure(self):
+        """The pwd representation should have a direct input→output edge."""
+        wf = workflow_model.WorkflowNode(
+            inputs=["x"],
+            outputs=["x_out"],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={
+                edge_models.OutputTarget(port="x_out"): edge_models.InputSource(
+                    port="x"
+                ),
+            },
+        )
+        pwd_wf = pwd_conv.flowrep2pwd(wf, x=42)
+
+        # Should have exactly one input node, one output node, one edge
+        self.assertEqual(len(pwd_wf.nodes), 2)
+        self.assertEqual(len(pwd_wf.edges), 1)
+        self.assertEqual(pwd_wf.edges[0].sourcePort, pwd_models.INTERNAL_DEFAULT_HANDLE)
+        self.assertIsNone(pwd_wf.edges[0].targetPort)
+
+
 if __name__ == "__main__":
     unittest.main()
