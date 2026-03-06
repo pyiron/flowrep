@@ -10,19 +10,23 @@ from __future__ import annotations
 
 from typing import Any
 
-import python_workflow_definition
-from pyiron_snippets import versions
-from python_workflow_definition import models as pwd
+from pyiron_snippets import import_alarm, versions
 
 from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import atomic_model, workflow_model
 from flowrep.models.parsers import label_helpers
 
+with import_alarm.ImportAlarm(
+    "This converter requires the 'python-workflow-definition' package. "
+) as _import_alarm:
+    from python_workflow_definition import __version__ as pwd_version
+    from python_workflow_definition import models as pwd
+
 # pwd encodes a single unnamed output as ``sourcePort: null``; its validator
 # maps that to :data:`pwd.INTERNAL_DEFAULT_HANDLE` (``"__result__"``).
 # We reuse the same string as a flowrep output-port name so that the
 # representation round-trips without ambiguity.
-_DEFAULT_OUTPUT_PORT: str = pwd.INTERNAL_DEFAULT_HANDLE
+_DEFAULT_OUTPUT_PORT: str = "__result__"
 
 # Port names in pwd edges may not be valid Python identifiers (e.g. ``"0"``
 # used by ``python_workflow_definition.shared.get_list``).  Flowrep requires
@@ -59,6 +63,7 @@ def _desanitize_port(port: str) -> str:
     return port
 
 
+@_import_alarm
 def pwd2flowrep(
     wf: pwd.PythonWorkflowDefinitionWorkflow,
 ) -> tuple[workflow_model.WorkflowNode, dict[str, pwd.AllowableDefaults]]:
@@ -107,11 +112,13 @@ def pwd2flowrep(
     return result, defaults
 
 
+@_import_alarm
 def flowrep2pwd(
     wf: workflow_model.WorkflowNode,
     **terminal_inputs: pwd.AllowableDefaults,
 ) -> pwd.PythonWorkflowDefinitionWorkflow:
-    """Convert a flowrep :class:`WorkflowNode` to *python-workflow-definition*.
+    """
+    Convert a flowrep :class:`WorkflowNode` to *python-workflow-definition*.
 
     Every child of *wf* must be an :class:`AtomicNode` (the pwd format does not
     support nested sub-graphs).  A default value must be supplied for **every**
@@ -182,7 +189,7 @@ def flowrep2pwd(
     pwd_edges = _build_pwd_edges(wf, input_node_ids, output_node_ids, func_node_ids)
 
     return pwd.PythonWorkflowDefinitionWorkflow(
-        version=python_workflow_definition.__version__,
+        version=pwd_version,
         nodes=pwd_nodes,
         edges=pwd_edges,
     )
