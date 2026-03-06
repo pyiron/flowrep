@@ -1,9 +1,6 @@
 import collections
-import itertools
 from collections.abc import Collection
 from typing import Protocol, runtime_checkable
-
-import networkx as nx
 
 from flowrep.models import base_models, edge_models
 
@@ -155,18 +152,33 @@ def validate_sibling_edges(
 def validate_acyclic_edges(
     edges: edge_models.Edges, message="Edges contain cycle(s)"
 ) -> None:
-    g = nx.DiGraph()
-    g.add_nodes_from({h.node for h in itertools.chain(edges, edges.values())})
+    # Build adjacency list and in-degree count
+    in_degree: dict[str, int] = {}
+    successors: dict[str, list[str]] = {}
 
     for target, source in edges.items():
-        if target.node is not None and source.node is not None:
-            g.add_edge(source.node, target.node)
+        if target.node is None or source.node is None:
+            continue
+        s, t = source.node, target.node
+        in_degree.setdefault(s, 0)
+        in_degree.setdefault(t, 0)
+        successors.setdefault(s, [])
+        in_degree[t] += 1
+        successors[s].append(t)
 
-    try:
-        cycles = list(nx.find_cycle(g, orientation="original"))
-        raise ValueError(f"{message}: {cycles}. ")
-    except nx.NetworkXNoCycle:
-        pass
+    # Kahn's algorithm
+    queue = [n for n, d in in_degree.items() if d == 0]
+    visited = 0
+    while queue:
+        node = queue.pop()
+        visited += 1
+        for neighbor in successors.get(node, ()):
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+
+    if visited != len(in_degree):
+        raise ValueError(f"{message}")
 
 
 def validate_nodes_are_fully_sourced(

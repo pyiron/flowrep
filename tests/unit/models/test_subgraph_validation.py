@@ -368,6 +368,29 @@ class TestValidateAcyclicEdges(unittest.TestCase):
     def test_empty_edges(self):
         subgraph_validation.validate_acyclic_edges({})
 
+    def test_edges_with_none_node_skipped(self):
+        """
+        Edges involving InputSource/OutputTarget (node=None) are skipped.
+
+        In practical use, we shouldn't hit this because we validate the cyclicity of
+        `Edges` types -- which are all handle-to-handle and don't involve input sources
+        or output targets for negotiating data flow between a subgraph and its parent.
+        However, for completeness, we make sure that these are ignored. Between a
+        child handle and the parent IO it is topologically impossible to be circular,
+        and between a parent output target and parent input source it just represents
+        pass-through data -- also safe.
+        """
+        edges = {
+            edge_models.TargetHandle(node="b", port="inp"): edge_models.InputSource(
+                port="x"
+            ),
+            edge_models.OutputTarget(port="x"): edge_models.SourceHandle(
+                node="b", port="out"
+            ),
+        }
+        # Should not raise -- the None-node edge is simply ignored.
+        subgraph_validation.validate_acyclic_edges(edges)  # type: ignore[arg-type]
+
 
 class TestRuntimeCheckableProtocols(unittest.TestCase):
     """Tests for runtime_checkable protocol isinstance checks."""
