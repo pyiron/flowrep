@@ -16,6 +16,7 @@ from python_workflow_definition import models as pwd
 
 from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import atomic_model, workflow_model
+from flowrep.models.parsers import label_helpers
 
 # pwd encodes a single unnamed output as ``sourcePort: null``; its validator
 # maps that to :data:`pwd.INTERNAL_DEFAULT_HANDLE` (``"__result__"``).
@@ -225,7 +226,7 @@ def _build_label_map(
         base = fn_node.value.rsplit(".", 1)[-1]
         idx = counts.get(base, 0)
         counts[base] = idx + 1
-        label_map[node_id] = f"{base}_{idx}"
+        label_map[node_id] = label_helpers.index_label(base, idx)
     return label_map
 
 
