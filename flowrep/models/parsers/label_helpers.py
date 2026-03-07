@@ -151,15 +151,19 @@ def get_input_info(func: FunctionType) -> dict[str, bool]:
     }
 
 
+def index_label(prefix: str, index: int) -> str:
+    return f"{prefix}_{index}"
+
+
 def default_output_label(i: int) -> str:
-    return f"output_{i}"
+    return index_label("output", i)
 
 
 def unique_suffix(name: str, references: Iterable[str]) -> str:
     # This is obviously horribly inefficient, but fix that later
     i = 0
-    new_name = f"{name}_{i}"
+    new_name = index_label(name, i)
     while new_name in references:
         i += 1
-        new_name = f"{name}_{i}"
+        new_name = index_label(name, i)
     return new_name

@@ -200,21 +200,21 @@ class TestValidLabelFunction(unittest.TestCase):
         valid = ["x", "foo_bar", "_private", "CamelCase"]
         for label in valid:
             with self.subTest(label=label):
-                self.assertTrue(base_models._valid_label(label))
+                self.assertTrue(base_models.is_valid_label(label))
 
     def test_keywords_return_false(self):
-        self.assertFalse(base_models._valid_label("for"))
-        self.assertFalse(base_models._valid_label("class"))
+        self.assertFalse(base_models.is_valid_label("for"))
+        self.assertFalse(base_models.is_valid_label("class"))
 
     def test_reserved_names_return_false(self):
         for reserved in base_models.RESERVED_NAMES:
             with self.subTest(reserved=reserved):
-                self.assertFalse(base_models._valid_label(reserved))
+                self.assertFalse(base_models.is_valid_label(reserved))
 
     def test_non_identifiers_return_false(self):
-        self.assertFalse(base_models._valid_label("1bad"))
-        self.assertFalse(base_models._valid_label(""))
-        self.assertFalse(base_models._valid_label("a-b"))
+        self.assertFalse(base_models.is_valid_label("1bad"))
+        self.assertFalse(base_models.is_valid_label(""))
+        self.assertFalse(base_models.is_valid_label("a-b"))
 
 
 class TestValidateUniqueFunction(unittest.TestCase):
