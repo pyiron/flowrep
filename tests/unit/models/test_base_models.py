@@ -7,6 +7,8 @@ import pydantic
 
 from flowrep.models import base_models
 
+from flowrep_static import makers
+
 
 class _ValidTestNode(base_models.NodeModel):
     """Minimal valid NodeModel subclass for testing base class behavior."""
@@ -198,21 +200,21 @@ class TestValidLabelFunction(unittest.TestCase):
         valid = ["x", "foo_bar", "_private", "CamelCase"]
         for label in valid:
             with self.subTest(label=label):
-                self.assertTrue(base_models._valid_label(label))
+                self.assertTrue(base_models.is_valid_label(label))
 
     def test_keywords_return_false(self):
-        self.assertFalse(base_models._valid_label("for"))
-        self.assertFalse(base_models._valid_label("class"))
+        self.assertFalse(base_models.is_valid_label("for"))
+        self.assertFalse(base_models.is_valid_label("class"))
 
     def test_reserved_names_return_false(self):
         for reserved in base_models.RESERVED_NAMES:
             with self.subTest(reserved=reserved):
-                self.assertFalse(base_models._valid_label(reserved))
+                self.assertFalse(base_models.is_valid_label(reserved))
 
     def test_non_identifiers_return_false(self):
-        self.assertFalse(base_models._valid_label("1bad"))
-        self.assertFalse(base_models._valid_label(""))
-        self.assertFalse(base_models._valid_label("a-b"))
+        self.assertFalse(base_models.is_valid_label("1bad"))
+        self.assertFalse(base_models.is_valid_label(""))
+        self.assertFalse(base_models.is_valid_label("a-b"))
 
 
 class TestValidateUniqueFunction(unittest.TestCase):
@@ -288,6 +290,39 @@ class TestNodeModelMultipleSubclasses(unittest.TestCase):
         b = _TypeB(inputs=[], outputs=[])
         self.assertEqual(a.type, base_models.RecipeElementType.ATOMIC)
         self.assertEqual(b.type, base_models.RecipeElementType.WORKFLOW)
+
+
+class TestPythonReference(unittest.TestCase):
+    """Tests for PythonReference model."""
+
+    def test_inputs_with_defaults_defaults_to_empty(self):
+        ref = makers.make_reference()
+        self.assertEqual(ref.inputs_with_defaults, [])
+
+    def test_inputs_with_defaults_accepted(self):
+        ref = makers.make_reference(inputs_with_defaults=["a", "b"])
+        self.assertEqual(ref.inputs_with_defaults, ["a", "b"])
+
+    def test_roundtrip(self):
+        original = makers.make_reference(inputs_with_defaults=["x", "y"])
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = original.model_dump(mode=mode)
+                restored = base_models.PythonReference.model_validate(data)
+                self.assertEqual(
+                    original.inputs_with_defaults, restored.inputs_with_defaults
+                )
+                self.assertEqual(
+                    original.inputs_with_defaults, restored.inputs_with_defaults
+                )
+                self.assertEqual(
+                    original.info.fully_qualified_name,
+                    restored.info.fully_qualified_name,
+                )
+
+    def test_info_required(self):
+        with self.assertRaises(pydantic.ValidationError):
+            base_models.PythonReference()
 
 
 if __name__ == "__main__":

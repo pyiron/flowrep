@@ -1,9 +1,6 @@
 import collections
-import itertools
 from collections.abc import Collection
 from typing import Protocol, runtime_checkable
-
-import networkx as nx
 
 from flowrep.models import base_models, edge_models
 
@@ -13,6 +10,11 @@ ProspectiveOutputEdges = dict[edge_models.OutputTarget, list[edge_models.SourceH
 class NodeProtocol(Protocol):
     inputs: base_models.Labels
     outputs: base_models.Labels
+
+    @property
+    def inputs_with_defaults(self) -> base_models.Labels: ...
+
+    def validate_internal_data_completeness(self): ...
 
 
 NodesAlias = dict[base_models.Label, NodeProtocol]
@@ -150,15 +152,45 @@ def validate_sibling_edges(
 def validate_acyclic_edges(
     edges: edge_models.Edges, message="Edges contain cycle(s)"
 ) -> None:
-    g = nx.DiGraph()
-    g.add_nodes_from({h.node for h in itertools.chain(edges, edges.values())})
+    # Build adjacency list and in-degree count
+    in_degree: dict[str, int] = {}
+    successors: dict[str, list[str]] = {}
 
     for target, source in edges.items():
-        if target.node is not None and source.node is not None:
-            g.add_edge(source.node, target.node)
+        if target.node is None or source.node is None:
+            continue
+        s, t = source.node, target.node
+        in_degree.setdefault(s, 0)
+        in_degree.setdefault(t, 0)
+        successors.setdefault(s, [])
+        in_degree[t] += 1
+        successors[s].append(t)
 
-    try:
-        cycles = list(nx.find_cycle(g, orientation="original"))
-        raise ValueError(f"{message}: {cycles}. ")
-    except nx.NetworkXNoCycle:
-        pass
+    # Kahn's algorithm
+    queue = [n for n, d in in_degree.items() if d == 0]
+    visited = 0
+    while queue:
+        node = queue.pop()
+        visited += 1
+        for neighbor in successors.get(node, ()):
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+
+    if visited != len(in_degree):
+        raise ValueError(f"{message}")
+
+
+def validate_nodes_are_fully_sourced(
+    nodes: NodesAlias,
+    context: Collection[edge_models.TargetHandle],
+):
+    for label, node in nodes.items():
+        for port in node.inputs:
+            target = edge_models.TargetHandle(node=label, port=port)
+            if port not in node.inputs_with_defaults and target not in context:
+                raise ValueError(
+                    f"Could not find a source or default for the target: {label}.{port}"
+                )
+    for node in nodes.values():
+        node.validate_internal_data_completeness()

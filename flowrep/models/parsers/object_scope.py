@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ast
 import builtins
 import inspect
@@ -18,6 +20,27 @@ class ScopeProxy:
             return self._d[name]
         except KeyError:
             raise AttributeError(name) from None
+
+    def register(self, name: str, obj: object) -> None:
+        """
+        Add a name → object binding to this scope.
+
+        Used by the parser when encountering ``import`` statements inside
+        function bodies.  The binding is visible to all subsequent symbol
+        resolutions within this scope (or any scope that shares the same
+        backing namespace).
+        """
+        self._d[name] = obj
+
+    def fork(self) -> ScopeProxy:
+        """
+        Create a shallow copy of this scope.
+
+        Modifications to the fork (e.g. registering new imports) do *not*
+        affect the parent.  Used when walking conditional branches so that
+        branch-local imports don't leak into sibling branches.
+        """
+        return ScopeProxy(dict(self._d))
 
 
 def get_scope(func: FunctionType, extra_modules: dict | None = None) -> ScopeProxy:

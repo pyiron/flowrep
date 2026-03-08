@@ -10,10 +10,7 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 
-
-def _source(module: str = "mod", qualname: str = "func", version: str | None = None):
-    """Shorthand for building a source dict in tests."""
-    return {"module": module, "qualname": qualname, "version": version}
+from flowrep_static import makers
 
 
 class TestForNodeBasic(unittest.TestCase):
@@ -26,13 +23,11 @@ class TestForNodeBasic(unittest.TestCase):
         node = for_model.ForNode(
             inputs=[],
             outputs=[],
-            body_node=helper_models.LabeledNode(
-                label="body",
-                node=atomic_model.AtomicNode(
-                    source=_source(),
-                    inputs=["item"],
-                    outputs=["result"],
-                ),
+            body_node=makers.make_labeled_atomic(
+                "body",
+                inputs=["item"],
+                outputs=["result"],
+                inputs_with_defaults=["item"],
             ),
             input_edges={},
             output_edges={},
@@ -44,13 +39,10 @@ class TestForNodeBasic(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results"],
-            body_node=helper_models.LabeledNode(
-                label="body",
-                node=atomic_model.AtomicNode(
-                    source=_source(),
-                    inputs=["item"],
-                    outputs=["result"],
-                ),
+            body_node=makers.make_labeled_atomic(
+                "body",
+                inputs=["item"],
+                outputs=["result"],
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -72,13 +64,10 @@ class TestForNodeBasic(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["xs", "ys"],
             outputs=["results"],
-            body_node=helper_models.LabeledNode(
-                label="body",
-                node=atomic_model.AtomicNode(
-                    source=_source(),
-                    inputs=["x", "y"],
-                    outputs=["result"],
-                ),
+            body_node=makers.make_labeled_atomic(
+                "body",
+                inputs=["x", "y"],
+                outputs=["result"],
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -102,13 +91,10 @@ class TestForNodeBasic(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["outer", "inner1", "inner2"],
             outputs=["results"],
-            body_node=helper_models.LabeledNode(
-                label="body",
-                node=atomic_model.AtomicNode(
-                    source=_source(),
-                    inputs=["a", "b", "c"],
-                    outputs=["out"],
-                ),
+            body_node=makers.make_labeled_atomic(
+                "body",
+                inputs=["a", "b", "c"],
+                outputs=["out"],
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -139,13 +125,10 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
             for_model.ForNode(
                 inputs=["x"],
                 outputs=["y"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["inp"],
-                        outputs=["out"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["inp"],
+                    outputs=["out"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -167,13 +150,10 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -194,13 +174,10 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
             for_model.ForNode(
                 inputs=["xs"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["x"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["x"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -221,13 +198,10 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -250,13 +224,10 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -279,13 +250,10 @@ class TestForNodeInputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -306,13 +274,11 @@ class TestForNodeInputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
+                    inputs_with_defaults=["item"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -333,13 +299,10 @@ class TestForNodeInputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -356,19 +319,100 @@ class TestForNodeInputEdges(unittest.TestCase):
         self.assertIn("nonexistent", str(ctx.exception))
 
 
+class TestForNodeFullySourcing(unittest.TestCase):
+    """Tests for validate_internal_data_completeness on for-node body."""
+
+    def test_body_unsourced_no_default_raises(self):
+        """Body input without edge or default → rejected."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            for_model.ForNode(
+                inputs=["xs"],
+                outputs=["results"],
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["x", "extra"],
+                    outputs=["result"],
+                ),
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="body", port="x"
+                    ): edge_models.InputSource(port="xs"),
+                },
+                output_edges={
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
+                        node="body", port="result"
+                    ),
+                },
+                nested_ports=["x"],
+            )
+        self.assertIn("body.extra", str(ctx.exception))
+
+    def test_body_unsourced_with_default_passes(self):
+        """Body input without edge but with default → accepted."""
+        node = for_model.ForNode(
+            inputs=["xs"],
+            outputs=["results"],
+            body_node=makers.make_labeled_atomic(
+                "body",
+                inputs=["x", "extra"],
+                outputs=["result"],
+                inputs_with_defaults=["extra"],
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="body", port="x"
+                ): edge_models.InputSource(port="xs"),
+            },
+            output_edges={
+                edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
+                    node="body", port="result"
+                ),
+            },
+            nested_ports=["x"],
+        )
+        self.assertIn("extra", node.body_node.node.inputs)
+
+    def test_body_mixed_sourcing_one_unsourced_raises(self):
+        """Multiple body inputs: edged, defaulted, and unsourced → fails."""
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            for_model.ForNode(
+                inputs=["xs"],
+                outputs=["results"],
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["x", "y", "z"],
+                    outputs=["result"],
+                    inputs_with_defaults=["y"],
+                ),
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="body", port="x"
+                    ): edge_models.InputSource(port="xs"),
+                    # y: no edge, but has default — ok
+                    # z: no edge, no default — fail
+                },
+                output_edges={
+                    edge_models.OutputTarget(port="results"): edge_models.SourceHandle(
+                        node="body", port="result"
+                    ),
+                },
+                nested_ports=["x"],
+            )
+        exc_str = str(ctx.exception)
+        self.assertIn("body.z", exc_str)
+        self.assertNotIn("body.y", exc_str)
+
+
 class TestForNodeOutputEdges(unittest.TestCase):
     def test_output_edge_wrong_source_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -390,13 +434,10 @@ class TestForNodeOutputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -417,13 +458,10 @@ class TestForNodeOutputEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -446,13 +484,10 @@ class TestForNodeTransferEdges(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["items", "broadcast"],
             outputs=["results", "original_items"],
-            body_node=helper_models.LabeledNode(
-                label="body",
-                node=atomic_model.AtomicNode(
-                    source=_source(),
-                    inputs=["item", "static"],
-                    outputs=["result"],
-                ),
+            body_node=makers.make_labeled_atomic(
+                "body",
+                inputs=["item", "static"],
+                outputs=["result"],
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -480,13 +515,10 @@ class TestForNodeTransferEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results", "forwarded"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -512,13 +544,10 @@ class TestForNodeTransferEdges(unittest.TestCase):
             for_model.ForNode(
                 inputs=["items"],
                 outputs=["results"],
-                body_node=helper_models.LabeledNode(
-                    label="body",
-                    node=atomic_model.AtomicNode(
-                        source=_source(),
-                        inputs=["item"],
-                        outputs=["result"],
-                    ),
+                body_node=makers.make_labeled_atomic(
+                    "body",
+                    inputs=["item"],
+                    outputs=["result"],
                 ),
                 input_edges={
                     edge_models.TargetHandle(
@@ -544,13 +573,10 @@ class TestForNodeSerialization(unittest.TestCase):
         original = for_model.ForNode(
             inputs=["items", "multiplier"],
             outputs=["results", "original_items"],
-            body_node=helper_models.LabeledNode(
-                label="body",
-                node=atomic_model.AtomicNode(
-                    source=_source(),
-                    inputs=["item", "mult"],
-                    outputs=["result"],
-                ),
+            body_node=makers.make_labeled_atomic(
+                "body",
+                inputs=["item", "mult"],
+                outputs=["result"],
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -590,11 +616,10 @@ class TestForNodeComposition(unittest.TestCase):
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "leaf": atomic_model.AtomicNode(
-                    source=_source(),
+                "leaf": makers.make_atomic(
                     inputs=["inp"],
                     outputs=["out"],
-                )
+                ),
             },
             input_edges={
                 edge_models.TargetHandle(
@@ -634,13 +659,10 @@ class TestForNodeComposition(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results"],
-            body_node=helper_models.LabeledNode(
-                label="body",
-                node=atomic_model.AtomicNode(
-                    source=_source(),
-                    inputs=["item"],
-                    outputs=["result"],
-                ),
+            body_node=makers.make_labeled_atomic(
+                "body",
+                inputs=["item"],
+                outputs=["result"],
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -680,13 +702,8 @@ class TestForNodeComposition(unittest.TestCase):
         for_node = for_model.ForNode(
             inputs=["items"],
             outputs=["results"],
-            body_node=helper_models.LabeledNode(
-                label="body",
-                node=atomic_model.AtomicNode(
-                    source=_source(qualname="transform"),
-                    inputs=["item"],
-                    outputs=["result"],
-                ),
+            body_node=makers.make_labeled_atomic(
+                "body", inputs=["item"], outputs=["result"], qualname="transform"
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -705,16 +722,16 @@ class TestForNodeComposition(unittest.TestCase):
             inputs=["raw_data"],
             outputs=["final"],
             nodes={
-                "preprocess": atomic_model.AtomicNode(
-                    source=_source(qualname="preprocess"),
+                "preprocess": makers.make_atomic(
                     inputs=["data"],
                     outputs=["items"],
+                    qualname="preprocess",
                 ),
                 "for_node": for_node,
-                "postprocess": atomic_model.AtomicNode(
-                    source=_source(qualname="postprocess"),
+                "postprocess": makers.make_atomic(
                     inputs=["results"],
                     outputs=["output"],
+                    qualname="postprocess",
                 ),
             },
             input_edges={
@@ -746,16 +763,10 @@ class TestForNodeComposition(unittest.TestCase):
 class TestForNodeOutputProperties(unittest.TestCase):
     """Tests for outputs from input sources."""
 
-    def _make_body(self, inputs, outputs):
-        return {
-            "label": "body",
-            "node": {
-                "type": "atomic",
-                "inputs": inputs,
-                "outputs": outputs,
-                "source": _source(),
-            },
-        }
+    def _make_body(self, inputs, outputs) -> dict:
+        return makers.make_labeled_atomic(
+            "body", inputs=inputs, outputs=outputs
+        ).model_dump(mode="json")
 
     def test_body_outputs_appear_in_neither(self):
         """SourceHandle outputs are neither pass-through nor transferred."""

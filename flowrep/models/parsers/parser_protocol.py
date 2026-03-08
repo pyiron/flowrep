@@ -36,7 +36,12 @@ class BodyWalker(Protocol):
 
     def build_model(self) -> workflow_model.WorkflowNode: ...
 
-    def fork(self, *, new_symbol_map: symbol_scope.SymbolScope) -> BodyWalker: ...
+    def fork(
+        self,
+        *,
+        new_symbol_map: symbol_scope.SymbolScope,
+        new_scope: object_scope.ScopeProxy,
+    ) -> BodyWalker: ...
 
     def walk(self, statements: list[ast.stmt]) -> None: ...
 

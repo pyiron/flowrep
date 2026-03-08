@@ -10,3 +10,5 @@ jobs:
   codeql:
     uses: pyiron/actions/.github/workflows/tests-and-coverage.yml@actions-4.0.8
     secrets: inherit
+    with:
+      extra-python-paths: tests

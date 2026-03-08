@@ -1,29 +1,16 @@
 import unittest
 
 from flowrep.models.nodes import while_model, workflow_model
-from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
+from flowrep.models.parsers import workflow_parser
 
-
-@atomic_parser.atomic
-def my_unity(x):
-    return x
-
-
-@atomic_parser.atomic
-def my_add(a, b):
-    return a + b
-
-
-@atomic_parser.atomic
-def my_condition(m, n):
-    return m < n
+from flowrep_static import library
 
 
 def simple_while(a=10, b=20, c=40):
-    x = my_unity(a)
-    while my_condition(x, c):
-        x = my_add(x, b)
-    y = my_unity(x)
+    x = library.identity(a)
+    while library.my_condition(x, c):
+        x = library.my_add(x, b)
+    y = library.identity(x)
     return y
 
 
@@ -34,7 +21,7 @@ simple_while_while_node_body = workflow_model.WorkflowNode.model_validate(
         "type": "workflow",
         "inputs": ["x", "b"],
         "outputs": ["x"],
-        "nodes": {"my_add_0": my_add.flowrep_recipe},
+        "nodes": {"my_add_0": library.my_add.flowrep_recipe},
         "input_edges": {"my_add_0.a": "x", "my_add_0.b": "b"},
         "edges": {},
         "output_edges": {"x": "my_add_0.output_0"},
@@ -49,7 +36,7 @@ simple_while_while_node = while_model.WhileNode.model_validate(
         "case": {
             "condition": {
                 "label": "condition",
-                "node": my_condition.flowrep_recipe,
+                "node": library.my_condition.flowrep_recipe,
             },
             "body": {
                 "label": "body",
@@ -72,37 +59,39 @@ simple_while_node = workflow_model.WorkflowNode.model_validate(
         "inputs": ["a", "b", "c"],
         "outputs": ["y"],
         "nodes": {
-            "my_unity_0": my_unity.flowrep_recipe,
+            "identity_0": library.identity.flowrep_recipe,
             "while_0": simple_while_while_node,
-            "my_unity_1": my_unity.flowrep_recipe,
+            "identity_1": library.identity.flowrep_recipe,
         },
         "input_edges": {
-            "my_unity_0.x": "a",
+            "identity_0.x": "a",
             "while_0.c": "c",  # Re-ordering is sensible because the while node
             "while_0.b": "b",  # has inputs in the order of appearance
         },
         "edges": {
-            "while_0.x": "my_unity_0.x",
-            "my_unity_1.x": "while_0.x",
+            "while_0.x": "identity_0.x",
+            "identity_1.x": "while_0.x",
         },
-        "output_edges": {"y": "my_unity_1.x"},
-        "source": {
-            "module": "integration.parsers.test_parsing_while_nodes",
-            "qualname": "simple_while",
-            "version": None,
+        "output_edges": {"y": "identity_1.x"},
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_while_nodes",
+                "qualname": "simple_while",
+                "version": None,
+            },
+            "inputs_with_defaults": ["a", "b", "c"],
         },
-        "source_code": parser_helpers.get_available_source_code(simple_while),
     }
 )
 
 
 def nested_while(x, m, n, a):
-    y = my_unity(x)  # Initial value for y must be available
+    y = library.identity(x)  # Initial value for y must be available
     # since we return it from a while node
-    while my_condition(x, m):
-        x = my_add(x, a)
-        while my_condition(y, n):
-            y = my_add(y, x)
+    while library.my_condition(x, m):
+        x = library.my_add(x, a)
+        while library.my_condition(y, n):
+            y = library.my_add(y, x)
     return x, y
 
 
@@ -112,7 +101,7 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
         "inputs": ["x", "m", "n", "a"],
         "outputs": ["x", "y"],
         "nodes": {
-            "my_unity_0": my_unity.flowrep_recipe,
+            "identity_0": library.identity.flowrep_recipe,
             "while_0": {
                 "type": "while",
                 "inputs": ["x", "m", "a", "y", "n"],
@@ -120,7 +109,7 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
                 "case": {
                     "condition": {
                         "label": "condition",
-                        "node": my_condition.flowrep_recipe,
+                        "node": library.my_condition.flowrep_recipe,
                     },
                     "body": {
                         "label": "body",
@@ -129,7 +118,7 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
                             "inputs": ["x", "a", "y", "n"],
                             "outputs": ["x", "y"],
                             "nodes": {
-                                "my_add_0": my_add.flowrep_recipe,
+                                "my_add_0": library.my_add.flowrep_recipe,
                                 "while_0": {
                                     "type": "while",
                                     "inputs": ["y", "n", "x"],
@@ -137,7 +126,7 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
                                     "case": {
                                         "condition": {
                                             "label": "condition",
-                                            "node": my_condition.flowrep_recipe,
+                                            "node": library.my_condition.flowrep_recipe,
                                         },
                                         "body": {
                                             "label": "body",
@@ -146,7 +135,7 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
                                                 "inputs": ["y", "x"],
                                                 "outputs": ["y"],
                                                 "nodes": {
-                                                    "my_add_0": my_add.flowrep_recipe,
+                                                    "my_add_0": library.my_add.flowrep_recipe,
                                                 },
                                                 "input_edges": {
                                                     "my_add_0.a": "y",
@@ -194,28 +183,30 @@ nest_while_node = workflow_model.WorkflowNode.model_validate(
             },
         },
         "input_edges": {
-            "my_unity_0.x": "x",
+            "identity_0.x": "x",
             "while_0.x": "x",
             "while_0.m": "m",
             "while_0.a": "a",
             "while_0.n": "n",
         },
-        "edges": {"while_0.y": "my_unity_0.x"},
+        "edges": {"while_0.y": "identity_0.x"},
         "output_edges": {"x": "while_0.x", "y": "while_0.y"},
-        "source": {
-            "module": "integration.parsers.test_parsing_while_nodes",
-            "qualname": "nested_while",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_while_nodes",
+                "qualname": "nested_while",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(nested_while),
     }
 )
 
 
 def multi_reassign(x, y, bound):
-    while my_condition(x, bound):
-        x = my_add(x, y)
-        y = my_add(y, x)  # Gets internal edge to first my_add
+    while library.my_condition(x, bound):
+        x = library.my_add(x, y)
+        y = library.my_add(y, x)  # Gets internal edge to first library.my_add
     return x, y
 
 
@@ -225,8 +216,8 @@ multi_reassign_body = workflow_model.WorkflowNode.model_validate(
         "inputs": ["x", "y"],
         "outputs": ["x", "y"],
         "nodes": {
-            "my_add_0": my_add.flowrep_recipe,
-            "my_add_1": my_add.flowrep_recipe,
+            "my_add_0": library.my_add.flowrep_recipe,
+            "my_add_1": library.my_add.flowrep_recipe,
         },
         "input_edges": {
             "my_add_0.a": "x",
@@ -256,7 +247,7 @@ multi_reassign_node = workflow_model.WorkflowNode.model_validate(
                 "case": {
                     "condition": {
                         "label": "condition",
-                        "node": my_condition.flowrep_recipe,
+                        "node": library.my_condition.flowrep_recipe,
                     },
                     "body": {
                         "label": "body",
@@ -285,21 +276,25 @@ multi_reassign_node = workflow_model.WorkflowNode.model_validate(
             "x": "while_0.x",
             "y": "while_0.y",
         },
-        "source": {
-            "module": "integration.parsers.test_parsing_while_nodes",
-            "qualname": "multi_reassign",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_while_nodes",
+                "qualname": "multi_reassign",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(multi_reassign),
     }
 )
 
 
 def sequential_whiles(x, y, m, n):
-    while my_condition(x, m):
-        x = my_add(x, y)
-    while my_condition(x, n):  # Fully sequential -- gets a sibling edge to first while
-        x = my_add(x, y)
+    while library.my_condition(x, m):
+        x = library.my_add(x, y)
+    while library.my_condition(
+        x, n
+    ):  # Fully sequential -- gets a sibling edge to first while
+        x = library.my_add(x, y)
     return x
 
 
@@ -308,7 +303,7 @@ seq_while_body = workflow_model.WorkflowNode.model_validate(
         "type": "workflow",
         "inputs": ["x", "y"],
         "outputs": ["x"],
-        "nodes": {"my_add_0": my_add.flowrep_recipe},
+        "nodes": {"my_add_0": library.my_add.flowrep_recipe},
         "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
         "edges": {},
         "output_edges": {"x": "my_add_0.output_0"},
@@ -328,7 +323,7 @@ sequential_whiles_node = workflow_model.WorkflowNode.model_validate(
                 "case": {
                     "condition": {
                         "label": "condition",
-                        "node": my_condition.flowrep_recipe,
+                        "node": library.my_condition.flowrep_recipe,
                     },
                     "body": {"label": "body", "node": seq_while_body},
                 },
@@ -347,7 +342,7 @@ sequential_whiles_node = workflow_model.WorkflowNode.model_validate(
                 "case": {
                     "condition": {
                         "label": "condition",
-                        "node": my_condition.flowrep_recipe,
+                        "node": library.my_condition.flowrep_recipe,
                     },
                     "body": {"label": "body", "node": seq_while_body},
                 },
@@ -373,20 +368,22 @@ sequential_whiles_node = workflow_model.WorkflowNode.model_validate(
         "output_edges": {
             "x": "while_1.x",
         },
-        "source": {
-            "module": "integration.parsers.test_parsing_while_nodes",
-            "qualname": "sequential_whiles",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_while_nodes",
+                "qualname": "sequential_whiles",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(sequential_whiles),
     }
 )
 
 
 def chained_body(x, a, b, bound):
-    while my_condition(x, bound):
-        tmp = my_add(x, a)  # Internally created variable creates internal edge
-        x = my_add(tmp, b)
+    while library.my_condition(x, bound):
+        tmp = library.my_add(x, a)  # Internally created variable creates internal edge
+        x = library.my_add(tmp, b)
     return x
 
 
@@ -403,7 +400,7 @@ chained_body_node = workflow_model.WorkflowNode.model_validate(
                 "case": {
                     "condition": {
                         "label": "condition",
-                        "node": my_condition.flowrep_recipe,
+                        "node": library.my_condition.flowrep_recipe,
                     },
                     "body": {
                         "label": "body",
@@ -412,8 +409,8 @@ chained_body_node = workflow_model.WorkflowNode.model_validate(
                             "inputs": ["x", "a", "b"],
                             "outputs": ["x"],
                             "nodes": {
-                                "my_add_0": my_add.flowrep_recipe,
-                                "my_add_1": my_add.flowrep_recipe,
+                                "my_add_0": library.my_add.flowrep_recipe,
+                                "my_add_1": library.my_add.flowrep_recipe,
                             },
                             "input_edges": {
                                 "my_add_0.a": "x",
@@ -447,12 +444,14 @@ chained_body_node = workflow_model.WorkflowNode.model_validate(
         },
         "edges": {},
         "output_edges": {"x": "while_0.x"},
-        "source": {
-            "module": "integration.parsers.test_parsing_while_nodes",
-            "qualname": "chained_body",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_while_nodes",
+                "qualname": "chained_body",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(chained_body),
     }
 )
 

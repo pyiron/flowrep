@@ -16,7 +16,10 @@ jobs:
       do-codecov: true
       # Run mypy, ensuring it has access to pydantic
       do-mypy: true
-      mypy-env-files: .ci_support/environment.yml
+      tests-env-files: .ci_support/environment.yml .ci_support/environment-pwd.yml
+      docs-env-files: .ci_support/environment.yml .ci_support/environment-pwd.yml
+      notebooks-env-files: .ci_support/environment.yml .ci_support/environment-pwd.yml
+      mypy-env-files: .ci_support/environment.yml .ci_support/environment-pwd.yml
       # The test matrix supports up to four python versions
       python-version-alt3: 'exclude'
       python-version-alt2: '3.11'
@@ -26,3 +29,5 @@ jobs:
       alternate-tests-env-files: .ci_support/lower-bounds.yml
       alternate-tests-python-version: '3.11'
       alternate-tests-dir: tests/unit
+      # Make sure the static module can be found at test time
+      extra-python-paths: tests

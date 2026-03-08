@@ -73,13 +73,26 @@ class WalkedBranch:
 
 
 def walk_branch(
-    walker: parser_protocol.BodyWalker, label: str, stmts: list[ast.stmt]
+    walker: parser_protocol.BodyWalker,
+    label: str,
+    stmts: list[ast.stmt],
 ) -> WalkedBranch:
-    fork = walker.symbol_map.fork()
-    branch_walker = walker.fork(new_symbol_map=fork)
+    """
+    Fork a walker and walk a conditional branch body.
+
+    Both the :class:`SymbolScope` and the :class:`ScopeProxy` are forked so
+    that symbol assignments *and* import-based scope extensions in one branch
+    do not leak into sibling or parent branches.
+    """
+    symbol_fork = walker.symbol_map.fork()
+    scope_fork = walker.scope.fork()
+    branch_walker = walker.fork(
+        new_symbol_map=symbol_fork,
+        new_scope=scope_fork,
+    )
     branch_walker.walk(stmts)
-    assigned = fork.assigned_symbols
-    fork.produce_symbols(assigned)
+    assigned = symbol_fork.assigned_symbols
+    symbol_fork.produce_symbols(assigned)
     return WalkedBranch(label, branch_walker, assigned)
 
 
