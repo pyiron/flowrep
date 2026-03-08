@@ -43,8 +43,9 @@ class ScopeProxy:
         return ScopeProxy(dict(self._d))
 
 
-def get_scope(func: FunctionType) -> ScopeProxy:
-    return ScopeProxy(inspect.getmodule(func).__dict__ | vars(builtins))
+def get_scope(func: FunctionType, extra_modules: dict | None = None) -> ScopeProxy:
+    extra_modules = extra_modules or {}
+    return ScopeProxy(inspect.getmodule(func).__dict__ | vars(builtins) | extra_modules)
 
 
 def resolve_attribute_to_object(attribute: str, scope: ScopeProxy | object) -> object:
