@@ -96,3 +96,10 @@ class TryNode(base_models.NodeModel):
             self.prospective_output_edges, self.outputs
         )
         return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_internal_data_completeness(self):
+        subgraph_validation.validate_nodes_are_fully_sourced(
+            self.prospective_nodes, self.input_edges
+        )
+        return self

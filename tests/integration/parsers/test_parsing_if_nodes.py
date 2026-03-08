@@ -1,36 +1,17 @@
 import unittest
 
 from flowrep.models.nodes import workflow_model
-from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
+from flowrep.models.parsers import workflow_parser
 
-
-# Reusable atomics (same as other test files)
-@atomic_parser.atomic
-def my_cond(m, n):
-    return m < n
-
-
-@atomic_parser.atomic
-def my_add(a, b):
-    return a + b
-
-
-@atomic_parser.atomic
-def my_mul(a, b):
-    return a * b
-
-
-@atomic_parser.atomic
-def my_identity(x):
-    return x
+from flowrep_static import library
 
 
 # 1. Simple if/else — single symbol assigned in both branches
 def simple_if_else(x, y):
-    if my_cond(x, y):  # noqa: SIM108
-        z = my_add(x, y)
+    if library.my_condition(x, y):  # noqa: SIM108
+        z = library.my_add(x, y)
     else:
-        z = my_mul(x, y)
+        z = library.my_mul(x, y)
     return z
 
 
@@ -48,7 +29,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
                     {
                         "condition": {
                             "label": "condition_0",
-                            "node": my_cond.flowrep_recipe,
+                            "node": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_0",
@@ -57,7 +38,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_add_0": my_add.flowrep_recipe,
+                                    "my_add_0": library.my_add.flowrep_recipe,
                                 },
                                 "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
                                 "edges": {},
@@ -74,7 +55,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_mul_0": my_mul.flowrep_recipe,
+                            "my_mul_0": library.my_mul.flowrep_recipe,
                         },
                         "input_edges": {"my_mul_0.a": "x", "my_mul_0.b": "y"},
                         "edges": {},
@@ -95,24 +76,26 @@ simple_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"if_0.x": "x", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "if_0.z"},
-        "source": {
-            "module": "integration.parsers.test_parsing_if_nodes",
-            "qualname": "simple_if_else",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_if_nodes",
+                "qualname": "simple_if_else",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(simple_if_else),
     }
 )
 
 
 # 2. if/elif/else chain
 def if_elif_else(x, y, flag):
-    if my_cond(x, flag):
-        z = my_add(x, y)
-    elif my_cond(y, flag):
-        z = my_mul(x, y)
+    if library.my_condition(x, flag):
+        z = library.my_add(x, y)
+    elif library.my_condition(y, flag):
+        z = library.my_mul(x, y)
     else:
-        z = my_add(y, flag)
+        z = library.my_add(y, flag)
     return z
 
 
@@ -130,7 +113,7 @@ elif_node = workflow_model.WorkflowNode.model_validate(
                     {
                         "condition": {
                             "label": "condition_0",
-                            "node": my_cond.flowrep_recipe,
+                            "node": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_0",
@@ -139,7 +122,7 @@ elif_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_add_0": my_add.flowrep_recipe,
+                                    "my_add_0": library.my_add.flowrep_recipe,
                                 },
                                 "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
                                 "edges": {},
@@ -151,7 +134,7 @@ elif_node = workflow_model.WorkflowNode.model_validate(
                     {
                         "condition": {
                             "label": "condition_1",
-                            "node": my_cond.flowrep_recipe,
+                            "node": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_1",
@@ -160,7 +143,7 @@ elif_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_mul_0": my_mul.flowrep_recipe,
+                                    "my_mul_0": library.my_mul.flowrep_recipe,
                                 },
                                 "input_edges": {"my_mul_0.a": "x", "my_mul_0.b": "y"},
                                 "edges": {},
@@ -177,7 +160,7 @@ elif_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["y", "flag"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": my_add.flowrep_recipe,
+                            "my_add_0": library.my_add.flowrep_recipe,
                         },
                         "input_edges": {"my_add_0.a": "y", "my_add_0.b": "flag"},
                         "edges": {},
@@ -204,24 +187,26 @@ elif_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"if_0.x": "x", "if_0.flag": "flag", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "if_0.z"},
-        "source": {
-            "module": "integration.parsers.test_parsing_if_nodes",
-            "qualname": "if_elif_else",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_if_nodes",
+                "qualname": "if_elif_else",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(if_elif_else),
     }
 )
 
 
 # 3. if-node embedded between upstream and downstream siblings
 def if_with_context(a, b):
-    x = my_add(a, b)
-    if my_cond(x, b):  # noqa: SIM108
-        y = my_mul(x, b)
+    x = library.my_add(a, b)
+    if library.my_condition(x, b):  # noqa: SIM108
+        y = library.my_mul(x, b)
     else:
-        y = my_add(x, b)
-    z = my_identity(y)
+        y = library.my_add(x, b)
+    z = library.identity(y)
     return z
 
 
@@ -231,7 +216,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
         "inputs": ["a", "b"],
         "outputs": ["z"],
         "nodes": {
-            "my_add_0": my_add.flowrep_recipe,
+            "my_add_0": library.my_add.flowrep_recipe,
             "if_0": {
                 "type": "if",
                 "inputs": ["x", "b"],
@@ -240,7 +225,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
                     {
                         "condition": {
                             "label": "condition_0",
-                            "node": my_cond.flowrep_recipe,
+                            "node": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_0",
@@ -249,7 +234,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "b"],
                                 "outputs": ["y"],
                                 "nodes": {
-                                    "my_mul_0": my_mul.flowrep_recipe,
+                                    "my_mul_0": library.my_mul.flowrep_recipe,
                                 },
                                 "input_edges": {"my_mul_0.a": "x", "my_mul_0.b": "b"},
                                 "edges": {},
@@ -266,7 +251,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["x", "b"],
                         "outputs": ["y"],
                         "nodes": {
-                            "my_add_0": my_add.flowrep_recipe,
+                            "my_add_0": library.my_add.flowrep_recipe,
                         },
                         "input_edges": {"my_add_0.a": "x", "my_add_0.b": "b"},
                         "edges": {},
@@ -283,29 +268,31 @@ context_node = workflow_model.WorkflowNode.model_validate(
                 },
                 "prospective_output_edges": {"y": ["body_0.y", "else_body.y"]},
             },
-            "my_identity_0": my_identity.flowrep_recipe,
+            "identity_0": library.identity.flowrep_recipe,
         },
         "input_edges": {"my_add_0.a": "a", "my_add_0.b": "b", "if_0.b": "b"},
-        "edges": {"if_0.x": "my_add_0.output_0", "my_identity_0.x": "if_0.y"},
-        "output_edges": {"z": "my_identity_0.x"},
-        "source": {
-            "module": "integration.parsers.test_parsing_if_nodes",
-            "qualname": "if_with_context",
-            "version": None,
+        "edges": {"if_0.x": "my_add_0.output_0", "identity_0.x": "if_0.y"},
+        "output_edges": {"z": "identity_0.x"},
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_if_nodes",
+                "qualname": "if_with_context",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(if_with_context),
     }
 )
 
 
 # 4. Multiple outputs from if branches
 def multi_output_if(x, y):
-    if my_cond(x, y):
-        a = my_add(x, y)
-        b = my_mul(x, y)
+    if library.my_condition(x, y):
+        a = library.my_add(x, y)
+        b = library.my_mul(x, y)
     else:
-        a = my_mul(x, y)
-        b = my_add(x, y)
+        a = library.my_mul(x, y)
+        b = library.my_add(x, y)
     return a, b
 
 
@@ -323,7 +310,7 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
                     {
                         "condition": {
                             "label": "condition_0",
-                            "node": my_cond.flowrep_recipe,
+                            "node": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_0",
@@ -332,8 +319,8 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["a", "b"],
                                 "nodes": {
-                                    "my_add_0": my_add.flowrep_recipe,
-                                    "my_mul_0": my_mul.flowrep_recipe,
+                                    "my_add_0": library.my_add.flowrep_recipe,
+                                    "my_mul_0": library.my_mul.flowrep_recipe,
                                 },
                                 "input_edges": {
                                     "my_add_0.a": "x",
@@ -358,8 +345,8 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["x", "y"],
                         "outputs": ["a", "b"],
                         "nodes": {
-                            "my_mul_0": my_mul.flowrep_recipe,
-                            "my_add_0": my_add.flowrep_recipe,
+                            "my_mul_0": library.my_mul.flowrep_recipe,
+                            "my_add_0": library.my_add.flowrep_recipe,
                         },
                         "input_edges": {
                             "my_mul_0.a": "x",
@@ -391,12 +378,14 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"if_0.x": "x", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"a": "if_0.a", "b": "if_0.b"},
-        "source": {
-            "module": "integration.parsers.test_parsing_if_nodes",
-            "qualname": "multi_output_if",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_if_nodes",
+                "qualname": "multi_output_if",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(multi_output_if),
     }
 )
 
@@ -404,9 +393,9 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
 # 5. if without else — output may be non-data;
 #    symbol must pre-exist so the WfMS has a fallback
 def if_no_else(x, y):
-    z = my_identity(x)
-    if my_cond(x, y):
-        z = my_add(x, y)
+    z = library.identity(x)
+    if library.my_condition(x, y):
+        z = library.my_add(x, y)
     return z
 
 
@@ -416,7 +405,7 @@ no_else_node = workflow_model.WorkflowNode.model_validate(
         "inputs": ["x", "y"],
         "outputs": ["z"],
         "nodes": {
-            "my_identity_0": my_identity.flowrep_recipe,
+            "identity_0": library.identity.flowrep_recipe,
             "if_0": {
                 "type": "if",
                 "inputs": ["x", "y"],
@@ -425,7 +414,7 @@ no_else_node = workflow_model.WorkflowNode.model_validate(
                     {
                         "condition": {
                             "label": "condition_0",
-                            "node": my_cond.flowrep_recipe,
+                            "node": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_0",
@@ -434,7 +423,7 @@ no_else_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_add_0": my_add.flowrep_recipe,
+                                    "my_add_0": library.my_add.flowrep_recipe,
                                 },
                                 "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
                                 "edges": {},
@@ -454,15 +443,17 @@ no_else_node = workflow_model.WorkflowNode.model_validate(
                 "prospective_output_edges": {"z": ["body_0.z"]},
             },
         },
-        "input_edges": {"my_identity_0.x": "x", "if_0.x": "x", "if_0.y": "y"},
+        "input_edges": {"identity_0.x": "x", "if_0.x": "x", "if_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "if_0.z"},
-        "source": {
-            "module": "integration.parsers.test_parsing_if_nodes",
-            "qualname": "if_no_else",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_if_nodes",
+                "qualname": "if_no_else",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(if_no_else),
     }
 )
 

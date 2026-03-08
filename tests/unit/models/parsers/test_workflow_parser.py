@@ -3,6 +3,7 @@ import types
 import unittest
 from typing import Annotated, Any
 
+import pydantic
 from pyiron_snippets import versions
 
 from flowrep.models import edge_models
@@ -14,6 +15,8 @@ from flowrep.models.parsers import (
     symbol_scope,
     workflow_parser,
 )
+
+from flowrep_static import library
 
 
 def add(x: float = 2.0, y: float = 1) -> float:
@@ -57,7 +60,7 @@ class Outer:
 
 
 @workflow_parser.workflow
-def inner_macro(a, b):
+def inner_macro(a, b=10):
     c, d = operation(a, b)
     e = add(c, y=d)
     f = multiply(e)
@@ -69,16 +72,6 @@ def outer_workflow(a, b):
     y = inner_macro(a, b)
     z: float = add(y, b)  # ast.AnnAssignment
     return z
-
-
-@atomic_parser.atomic
-def _wp_add(a, b):
-    return a + b
-
-
-@atomic_parser.atomic
-def _wp_identity(x):
-    return x
 
 
 # Name that is guaranteed not to collide with a real package or stdlib module.
@@ -316,6 +309,76 @@ class TestParseWorkflowNested(unittest.TestCase):
         self.assertIn(target, node.edges)
         self.assertEqual(node.edges[target].node, "inner_macro_0")
         self.assertEqual(node.edges[target].port, "f")
+
+
+class TestNestedWorkflowFullySourcing(unittest.TestCase):
+    """
+    Defaults on nested macro inputs save (or fail) fully-sourced validation.
+
+    ``inner_macro(a, b=10)`` carries ``inputs_with_defaults=["b"]``, so callers
+    that omit ``b`` are rescued by the default.  Omitting ``a`` (which has no
+    default) must fail.
+    """
+
+    def test_nested_macro_default_saves_unsourced_input(self):
+        """inner_macro(a) passes because b=10 provides a default."""
+
+        def wf(a):
+            f = inner_macro(a)
+            return f
+
+        node = workflow_parser.parse_workflow(wf)
+        inner = node.nodes["inner_macro_0"]
+        # b was never wired — only a has an input edge
+        wired_ports = {t.port for t in node.input_edges if t.node == "inner_macro_0"}
+        self.assertIn("a", wired_ports)
+        self.assertNotIn("b", wired_ports)
+        # …but b is in the defaults, which is why validation passed
+        self.assertIn("b", inner.inputs_with_defaults)
+
+    def test_nested_macro_unsourced_no_default_raises(self):
+        """inner_macro(b=x) fails because a has no edge and no default."""
+
+        def wf(x):
+            f = inner_macro(b=x)
+            return f
+
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("inner_macro_0.a", str(ctx.exception))
+
+    def test_nested_macro_all_args_supplied_passes(self):
+        """inner_macro(a, b) passes when all inputs are wired."""
+
+        def wf(a, b):
+            f = inner_macro(a, b)
+            return f
+
+        node = workflow_parser.parse_workflow(wf)
+        wired_ports = {t.port for t in node.input_edges if t.node == "inner_macro_0"}
+        self.assertEqual(wired_ports, {"a", "b"})
+
+    def test_doubly_nested_unsourced_raises(self):
+        """outer_workflow(a) fails — outer_workflow needs both a and b."""
+
+        def wf(a):
+            z = outer_workflow(a)
+            return z
+
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("outer_workflow_0.b", str(ctx.exception))
+
+    def test_doubly_nested_all_args_passes(self):
+        """outer_workflow(a, b) passes when both inputs are provided."""
+
+        def wf(a, b):
+            z = outer_workflow(a, b)
+            return z
+
+        node = workflow_parser.parse_workflow(wf)
+        wired_ports = {t.port for t in node.input_edges if t.node == "outer_workflow_0"}
+        self.assertEqual(wired_ports, {"a", "b"})
 
 
 class TestParseWorkflowOutputLabels(unittest.TestCase):
@@ -652,17 +715,17 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_version_is_populated(self):
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(my_wf)
         # The workflow function is defined in this test module; version depends
         # on whether this package exposes __version__
-        self.assertIsInstance(node.source.version, (str, type(None)))
+        self.assertIsInstance(node.reference.info.version, (str, type(None)))
 
     def test_fqn_is_populated(self):
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(my_wf)
@@ -671,7 +734,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_forbid_main_raises(self):
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         my_wf.__module__ = "__main__"
@@ -681,7 +744,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_forbid_locals_raises(self):
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         my_wf.__qualname__ = "outer.<locals>.my_wf"
@@ -694,7 +757,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         try:
 
             def my_wf(x):
-                y = _wp_identity(x)
+                y = library.identity(x)
                 return y
 
             my_wf.__module__ = _UNVERSIONED_MODULE_NAME
@@ -706,7 +769,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_version_scraping_is_forwarded(self):
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         custom_version = "99.0.0"
@@ -714,15 +777,15 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         pkg = my_wf.__module__.split(".")[0]
         scraping = {pkg: lambda _name: custom_version}
         node = workflow_parser.parse_workflow(my_wf, version_scraping=scraping)
-        self.assertEqual(node.source.version, custom_version)
+        self.assertEqual(node.reference.info.version, custom_version)
 
     def test_child_nodes_not_affected_by_workflow_version_params(self):
         """Sub-workflow bodies built during parsing should not carry the
         top-level fqn/version — those are for the enclosing workflow only."""
 
         def my_wf(a, b):
-            x = _wp_add(a, b)
-            y = _wp_identity(x)
+            x = library.my_add(a, b)
+            y = library.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(my_wf)
@@ -744,50 +807,86 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
             }
         )
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
-        self.assertEqual(my_wf.flowrep_recipe.source.version, custom_version)
+        self.assertEqual(my_wf.flowrep_recipe.reference.info.version, custom_version)
 
     def test_decorator_forbid_locals_on_inner_function(self):
         with self.assertRaises(ValueError):
 
             @workflow_parser.workflow(forbid_locals=True)
             def inner(x):
-                y = _wp_identity(x)
+                y = library.identity(x)
                 return y
 
 
-class TestParseWorkflowSourceCode(unittest.TestCase):
-    def test_source_code_populated(self):
-        def my_wf(x):
-            y = add(x)
+class TestParseWorkflowHasDefault(unittest.TestCase):
+    """Tests that parse_workflow populates inputs_with_defaults on the workflow and children."""
+
+    def test_workflow_inputs_with_defaults_from_signature(self):
+        def wf(a, b=5):
+            c = add(a, b)
+            return c
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.reference.inputs_with_defaults, ["b"])
+
+    def test_workflow_no_defaults(self):
+        def wf(a, b):
+            c = add(a, b)
+            return c
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.reference.inputs_with_defaults, [])
+
+    def test_workflow_all_defaults(self):
+        def wf(a=1, b=2):
+            c = add(a, b)
+            return c
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.reference.inputs_with_defaults, ["a", "b"])
+
+    def test_child_node_inputs_with_defaults_populated(self):
+        """Undecorated children parsed on-the-fly should carry inputs_with_defaults."""
+
+        def wf(x):
+            y = add(x)  # add has x=2.0, y=1 → inputs_with_defaults=["x", "y"]
             return y
 
-        node = workflow_parser.parse_workflow(my_wf)
-        self.assertIsNotNone(node.source_code)
-        self.assertIn("def my_wf", node.source_code)
+        node = workflow_parser.parse_workflow(wf)
+        child = node.nodes["add_0"]
+        self.assertEqual(child.reference.inputs_with_defaults, ["x", "y"])
 
-    def test_decorator_populates_source_code(self):
+    def test_child_mixed_defaults(self):
+        def wf(x):
+            y = multiply(x)  # multiply has (x, y=5) → inputs_with_defaults=["y"]
+            return y
+
+        node = workflow_parser.parse_workflow(wf)
+        child = node.nodes["multiply_0"]
+        self.assertEqual(child.reference.inputs_with_defaults, ["y"])
+
+    def test_decorator_preserves_inputs_with_defaults(self):
         @workflow_parser.workflow
-        def decorated_wf(x):
-            y = add(x)
-            return y
+        def wf(a, b=10):
+            c = add(a, b)
+            return c
 
-        self.assertIsNotNone(decorated_wf.flowrep_recipe.source_code)
-        self.assertIn("def decorated_wf", decorated_wf.flowrep_recipe.source_code)
+        self.assertEqual(wf.flowrep_recipe.reference.inputs_with_defaults, ["b"])
 
-    def test_source_code_roundtrips(self):
-        def my_wf(x):
-            y = add(x)
-            return y
+    def test_roundtrip_preserves_inputs_with_defaults(self):
+        def wf(a, b=5):
+            c = add(a, b)
+            return c
 
-        node = workflow_parser.parse_workflow(my_wf)
+        node = workflow_parser.parse_workflow(wf)
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = node.model_dump(mode=mode)
                 restored = workflow_model.WorkflowNode.model_validate(data)
-                self.assertEqual(node.source_code, restored.source_code)
+                self.assertEqual(restored.reference.inputs_with_defaults, ["b"])
 
 
 class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
@@ -808,22 +907,22 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
             my_wf, version_scraping={self._pkg(): lambda _: custom}
         )
         child = node.nodes["add_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
 
     def test_scraping_does_not_override_prebuilt_recipe(self):
         """A function already decorated with @atomic keeps its own recipe."""
         custom = "99.99.99"
 
         def my_wf(x):
-            y = _wp_identity(x)
+            y = library.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(
             my_wf, version_scraping={self._pkg(): lambda _: custom}
         )
-        child = node.nodes["_wp_identity_0"]
-        # _wp_identity was decorated at import time; its recipe is fixed
-        self.assertNotEqual(child.source.version, custom)
+        child = node.nodes["identity_0"]
+        # library.identity was decorated at import time; its recipe is fixed
+        self.assertNotEqual(child.reference.info.version, custom)
 
     def test_scraping_propagates_through_chained_nodes(self):
         """Multiple undecorated children all receive the scraping map."""
@@ -837,8 +936,8 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
         node = workflow_parser.parse_workflow(
             my_wf, version_scraping={self._pkg(): lambda _: custom}
         )
-        self.assertEqual(node.nodes["add_0"].source.version, custom)
-        self.assertEqual(node.nodes["multiply_0"].source.version, custom)
+        self.assertEqual(node.nodes["add_0"].reference.info.version, custom)
+        self.assertEqual(node.nodes["multiply_0"].reference.info.version, custom)
 
     def test_decorator_propagates_scraping_to_children(self):
         """@workflow decorator forwards version_scraping to child nodes."""
@@ -851,7 +950,77 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
             return y
 
         child = my_wf.flowrep_recipe.nodes["add_0"]
-        self.assertEqual(child.source.version, custom)
+        self.assertEqual(child.reference.info.version, custom)
+
+
+class TestLocalImports(unittest.TestCase):
+    def test_local_imports(self):
+        def local_import(x, y):
+            import flowrep_static.local_library
+
+            sum_ = flowrep_static.local_library.my_add(x, y)
+            return sum_
+
+        def import_as(x, y):
+            import flowrep_static.local_library as ll
+
+            sum_ = ll.my_add(x, y)
+            return sum_
+
+        def import_from(x, y):
+            from flowrep_static import local_library
+
+            sum_ = local_library.my_add(x, y)
+            return sum_
+
+        def import_from_as(x, y):
+            from flowrep_static import local_library as ll
+
+            sum_ = ll.my_add(x, y)
+            return sum_
+
+        def import_function(x, y):
+            from flowrep_static.local_library import my_add
+
+            sum_ = my_add(x, y)
+            return sum_
+
+        def import_function_as(x, y):
+            from flowrep_static.local_library import my_add as ma
+
+            sum_ = ma(x, y)
+            return sum_
+
+        for wf_func in [
+            local_import,
+            import_as,
+            import_from,
+            import_from_as,
+            import_function,
+            import_function_as,
+        ]:
+            with self.subTest(wf_func.__name__):
+                node = workflow_parser.parse_workflow(wf_func)
+                self.assertEqual(
+                    node.nodes["my_add_0"].reference.info.module,
+                    "flowrep_static.local_library",
+                )
+                self.assertEqual(
+                    node.nodes["my_add_0"].reference.info.qualname,
+                    "my_add",
+                )
+
+    def test_local_import_raises(self):
+        def import_from_sibling(x, y):
+            from .test_for_parser import pair
+
+            a, b = pair(x, y)
+            return a, b
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(import_from_sibling)
+        self.assertIn("Relative imports are not supported", str(ctx.exception))
+        self.assertIn("test_for_parser", str(ctx.exception))
 
 
 if __name__ == "__main__":

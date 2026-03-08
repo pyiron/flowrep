@@ -1,31 +1,22 @@
 import unittest
 
+from pyiron_snippets import versions
+
 from flowrep.models.nodes import workflow_model
-from flowrep.models.parsers import atomic_parser, parser_helpers, workflow_parser
+from flowrep.models.parsers import workflow_parser
 
+from flowrep_static import library
 
-# Reusable atomics (same as other test files)
-@atomic_parser.atomic
-def my_add(a, b):
-    return a + b
-
-
-@atomic_parser.atomic
-def my_mul(a, b):
-    return a * b
-
-
-@atomic_parser.atomic
-def my_identity(x):
-    return x
+_VALUE_ERROR_INFO = versions.VersionInfo.of(ValueError)
+_TYPE_ERROR_INFO = versions.VersionInfo.of(TypeError)
 
 
 # 1. Simple try/except — single symbol assigned in both branches
 def simple_try_except(x, y):
     try:
-        z = my_add(x, y)
+        z = library.my_add(x, y)
     except ValueError:
-        z = my_mul(x, y)
+        z = library.my_mul(x, y)
     return z
 
 
@@ -46,7 +37,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": my_add.flowrep_recipe,
+                            "my_add_0": library.my_add.flowrep_recipe,
                         },
                         "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
                         "edges": {},
@@ -55,7 +46,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
                 },
                 "exception_cases": [
                     {
-                        "exceptions": ["builtins.ValueError"],
+                        "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
                             "node": {
@@ -63,7 +54,7 @@ simple_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_mul_0": my_mul.flowrep_recipe,
+                                    "my_mul_0": library.my_mul.flowrep_recipe,
                                 },
                                 "input_edges": {
                                     "my_mul_0.a": "x",
@@ -89,12 +80,14 @@ simple_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"try_0.x": "x", "try_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "try_0.z"},
-        "source": {
-            "module": "integration.parsers.test_parsing_try_nodes",
-            "qualname": "simple_try_except",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_try_nodes",
+                "qualname": "simple_try_except",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(simple_try_except),
     }
 )
 
@@ -102,11 +95,11 @@ simple_node = workflow_model.WorkflowNode.model_validate(
 # 2. try with multiple except handlers
 def try_multi_except(x, y):
     try:
-        z = my_add(x, y)
+        z = library.my_add(x, y)
     except ValueError:
-        z = my_mul(x, y)
+        z = library.my_mul(x, y)
     except TypeError:
-        z = my_identity(x)
+        z = library.identity(x)
     return z
 
 
@@ -127,7 +120,7 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": my_add.flowrep_recipe,
+                            "my_add_0": library.my_add.flowrep_recipe,
                         },
                         "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
                         "edges": {},
@@ -136,7 +129,7 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
                 },
                 "exception_cases": [
                     {
-                        "exceptions": ["builtins.ValueError"],
+                        "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
                             "node": {
@@ -144,7 +137,7 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_mul_0": my_mul.flowrep_recipe,
+                                    "my_mul_0": library.my_mul.flowrep_recipe,
                                 },
                                 "input_edges": {
                                     "my_mul_0.a": "x",
@@ -156,7 +149,7 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
                         },
                     },
                     {
-                        "exceptions": ["builtins.TypeError"],
+                        "exceptions": [_TYPE_ERROR_INFO],
                         "body": {
                             "label": "except_body_1",
                             "node": {
@@ -164,11 +157,11 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_identity_0": my_identity.flowrep_recipe,
+                                    "identity_0": library.identity.flowrep_recipe,
                                 },
-                                "input_edges": {"my_identity_0.x": "x"},
+                                "input_edges": {"identity_0.x": "x"},
                                 "edges": {},
-                                "output_edges": {"z": "my_identity_0.x"},
+                                "output_edges": {"z": "identity_0.x"},
                             },
                         },
                     },
@@ -192,24 +185,26 @@ multi_except_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"try_0.x": "x", "try_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "try_0.z"},
-        "source": {
-            "module": "integration.parsers.test_parsing_try_nodes",
-            "qualname": "try_multi_except",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_try_nodes",
+                "qualname": "try_multi_except",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(try_multi_except),
     }
 )
 
 
 # 3. try-node embedded between upstream and downstream siblings
 def try_with_context(a, b):
-    x = my_add(a, b)
+    x = library.my_add(a, b)
     try:
-        y = my_mul(x, b)
+        y = library.my_mul(x, b)
     except ValueError:
-        y = my_add(x, b)
-    z = my_identity(y)
+        y = library.my_add(x, b)
+    z = library.identity(y)
     return z
 
 
@@ -219,7 +214,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
         "inputs": ["a", "b"],
         "outputs": ["z"],
         "nodes": {
-            "my_add_0": my_add.flowrep_recipe,
+            "my_add_0": library.my_add.flowrep_recipe,
             "try_0": {
                 "type": "try",
                 "inputs": ["x", "b"],
@@ -231,7 +226,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["x", "b"],
                         "outputs": ["y"],
                         "nodes": {
-                            "my_mul_0": my_mul.flowrep_recipe,
+                            "my_mul_0": library.my_mul.flowrep_recipe,
                         },
                         "input_edges": {"my_mul_0.a": "x", "my_mul_0.b": "b"},
                         "edges": {},
@@ -240,7 +235,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
                 },
                 "exception_cases": [
                     {
-                        "exceptions": ["builtins.ValueError"],
+                        "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
                             "node": {
@@ -248,7 +243,7 @@ context_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "b"],
                                 "outputs": ["y"],
                                 "nodes": {
-                                    "my_add_0": my_add.flowrep_recipe,
+                                    "my_add_0": library.my_add.flowrep_recipe,
                                 },
                                 "input_edges": {
                                     "my_add_0.a": "x",
@@ -270,20 +265,22 @@ context_node = workflow_model.WorkflowNode.model_validate(
                     "y": ["try_body.y", "except_body_0.y"],
                 },
             },
-            "my_identity_0": my_identity.flowrep_recipe,
+            "identity_0": library.identity.flowrep_recipe,
         },
         "input_edges": {"my_add_0.a": "a", "my_add_0.b": "b", "try_0.b": "b"},
         "edges": {
             "try_0.x": "my_add_0.output_0",
-            "my_identity_0.x": "try_0.y",
+            "identity_0.x": "try_0.y",
         },
-        "output_edges": {"z": "my_identity_0.x"},
-        "source": {
-            "module": "integration.parsers.test_parsing_try_nodes",
-            "qualname": "try_with_context",
-            "version": None,
+        "output_edges": {"z": "identity_0.x"},
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_try_nodes",
+                "qualname": "try_with_context",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(try_with_context),
     }
 )
 
@@ -291,11 +288,11 @@ context_node = workflow_model.WorkflowNode.model_validate(
 # 4. Multiple outputs from try/except branches
 def multi_output_try(x, y):
     try:
-        a = my_add(x, y)
-        b = my_mul(x, y)
+        a = library.my_add(x, y)
+        b = library.my_mul(x, y)
     except ValueError:
-        a = my_mul(x, y)
-        b = my_add(x, y)
+        a = library.my_mul(x, y)
+        b = library.my_add(x, y)
     return a, b
 
 
@@ -316,8 +313,8 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["x", "y"],
                         "outputs": ["a", "b"],
                         "nodes": {
-                            "my_add_0": my_add.flowrep_recipe,
-                            "my_mul_0": my_mul.flowrep_recipe,
+                            "my_add_0": library.my_add.flowrep_recipe,
+                            "my_mul_0": library.my_mul.flowrep_recipe,
                         },
                         "input_edges": {
                             "my_add_0.a": "x",
@@ -334,7 +331,7 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
                 },
                 "exception_cases": [
                     {
-                        "exceptions": ["builtins.ValueError"],
+                        "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
                             "node": {
@@ -342,8 +339,8 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["a", "b"],
                                 "nodes": {
-                                    "my_mul_0": my_mul.flowrep_recipe,
-                                    "my_add_0": my_add.flowrep_recipe,
+                                    "my_mul_0": library.my_mul.flowrep_recipe,
+                                    "my_add_0": library.my_add.flowrep_recipe,
                                 },
                                 "input_edges": {
                                     "my_mul_0.a": "x",
@@ -375,12 +372,14 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"try_0.x": "x", "try_0.y": "y"},
         "edges": {},
         "output_edges": {"a": "try_0.a", "b": "try_0.b"},
-        "source": {
-            "module": "integration.parsers.test_parsing_try_nodes",
-            "qualname": "multi_output_try",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_try_nodes",
+                "qualname": "multi_output_try",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(multi_output_try),
     }
 )
 
@@ -388,9 +387,9 @@ multi_output_node = workflow_model.WorkflowNode.model_validate(
 # 5. Tuple exception types in a single handler
 def try_tuple_exceptions(x, y):
     try:
-        z = my_add(x, y)
+        z = library.my_add(x, y)
     except (ValueError, TypeError):
-        z = my_mul(x, y)
+        z = library.my_mul(x, y)
     return z
 
 
@@ -411,7 +410,7 @@ tuple_exc_node = workflow_model.WorkflowNode.model_validate(
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": my_add.flowrep_recipe,
+                            "my_add_0": library.my_add.flowrep_recipe,
                         },
                         "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
                         "edges": {},
@@ -421,8 +420,8 @@ tuple_exc_node = workflow_model.WorkflowNode.model_validate(
                 "exception_cases": [
                     {
                         "exceptions": [
-                            "builtins.ValueError",
-                            "builtins.TypeError",
+                            _VALUE_ERROR_INFO,
+                            _TYPE_ERROR_INFO,
                         ],
                         "body": {
                             "label": "except_body_0",
@@ -431,7 +430,7 @@ tuple_exc_node = workflow_model.WorkflowNode.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_mul_0": my_mul.flowrep_recipe,
+                                    "my_mul_0": library.my_mul.flowrep_recipe,
                                 },
                                 "input_edges": {
                                     "my_mul_0.a": "x",
@@ -457,12 +456,14 @@ tuple_exc_node = workflow_model.WorkflowNode.model_validate(
         "input_edges": {"try_0.x": "x", "try_0.y": "y"},
         "edges": {},
         "output_edges": {"z": "try_0.z"},
-        "source": {
-            "module": "integration.parsers.test_parsing_try_nodes",
-            "qualname": "try_tuple_exceptions",
-            "version": None,
+        "reference": {
+            "info": {
+                "module": "integration.parsers.test_parsing_try_nodes",
+                "qualname": "try_tuple_exceptions",
+                "version": None,
+            },
+            "inputs_with_defaults": [],
         },
-        "source_code": parser_helpers.get_available_source_code(try_tuple_exceptions),
     }
 )
 

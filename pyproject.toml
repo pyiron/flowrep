@@ -39,6 +39,11 @@ Homepage = "https://pyiron.org/"
 Documentation = "https://flowrep.readthedocs.io"
 Repository = "https://github.com/pyiron/flowrep"
 
+[project.optional-dependencies]
+pwd = [
+    "python-workflow-definition==0.1.4",
+]
+
 [tool.hatch.build]
 include = [
     "flowrep"
@@ -83,6 +88,9 @@ ignore = ["E501"] #ignore line-length violations
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # Ignore unused imports in init files -- we specify APIs this way
+
+[tool.ruff.lint.isort]
+known-local-folder = ["flowrep_static"]
 
 [tool.black]
 extend-exclude = '''

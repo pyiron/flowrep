@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import importlib
 from collections.abc import Callable, Collection
 from types import FunctionType
 from typing import cast
@@ -120,11 +121,16 @@ def parse_workflow(
         require_version=require_version,
     )
     info = info_factory.of(func)
-    inputs = label_helpers.get_input_labels(func)
+    input_info = label_helpers.get_input_info(func)
+    inputs = list(input_info)
+    reference = base_models.PythonReference(
+        info=info,
+        inputs_with_defaults=[label for label, hd in input_info.items() if hd],
+    )
     state = _WorkflowFunctionParser(
         object_scope.get_scope(func),
         symbol_scope.SymbolScope({p: edge_models.InputSource(port=p) for p in inputs}),
-        source=info,
+        source=reference,
         info_factory=info_factory,
         func=func,
         output_labels=output_labels,
@@ -136,8 +142,7 @@ def parse_workflow(
     if not state.found_return:
         raise ValueError("Workflow python definitions must have a return statement.")
 
-    source_code = parser_helpers.get_available_source_code(func)
-    return state.build_model(inputs_override=inputs, source_code=source_code)
+    return state.build_model(inputs_override=inputs)
 
 
 def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
@@ -171,7 +176,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         scope: object_scope.ScopeProxy,
         symbol_map: symbol_scope.SymbolScope,
         info_factory: versions.VersionInfoFactory,
-        source: versions.VersionInfo | None = None,
+        source: base_models.PythonReference | None = None,
     ):
         self.scope = scope
         self.symbol_map = symbol_map
@@ -202,7 +207,6 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
     def build_model(
         self,
         inputs_override: list[str] | None = None,
-        source_code: str | None = None,
     ) -> workflow_model.WorkflowNode:
         return workflow_model.WorkflowNode(
             inputs=self.inputs if inputs_override is None else inputs_override,
@@ -211,12 +215,26 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             input_edges=self.input_edges,
             edges=self.edges,
             output_edges=self.output_edges,
-            source=self.source,
-            source_code=source_code,
+            reference=self.source,
         )
 
-    def fork(self, new_symbol_map: symbol_scope.SymbolScope) -> WorkflowParser:
-        return WorkflowParser(self.scope, new_symbol_map, self.info_factory)
+    def fork(
+        self,
+        *,
+        new_symbol_map: symbol_scope.SymbolScope,
+        new_scope: object_scope.ScopeProxy,
+    ) -> WorkflowParser:
+        """Create a child walker with optionally replaced symbol map and scope.
+
+        Configuration (version scraping, constraints, etc.) is propagated
+        from this walker.  If *new_scope* is ``None``, ``self.scope`` is
+        reused (shared, not copied).
+        """
+        return WorkflowParser(
+            scope=new_scope,
+            symbol_map=new_symbol_map,
+            info_factory=self.info_factory,
+        )
 
     def walk(self, statements: list[ast.stmt]) -> None:
         for statement in statements:
@@ -294,6 +312,42 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         else:
             self.generic_visit(stmt)
 
+    def visit_Import(self, node: ast.Import) -> None:
+        """
+        Handle ``import foo`` and ``import foo as bar`` statements.
+
+        Resolves the imported module and registers it in the current
+        :class:`ScopeProxy` so that subsequent attribute-based calls
+        (e.g. ``foo.func(x)``) can be resolved.
+        """
+        for alias in node.names:
+            module = importlib.import_module(alias.name)
+            if alias.asname is not None:
+                # import numpy as np  →  register "np" → numpy module
+                self.scope.register(alias.asname, module)
+            else:
+                # import os.path  →  register "os" → os module (top-level only)
+                top_level_name = alias.name.split(".")[0]
+                top_level_module = importlib.import_module(top_level_name)
+                self.scope.register(top_level_name, top_level_module)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        """
+        Handle ``from foo import bar`` and ``from foo import bar as baz``.
+
+        Resolves each imported name and registers it in the current scope.
+        """
+        if node.module is None or node.level > 0:
+            raise ValueError(
+                f"Relative imports are not supported in workflow definitions. "
+                f"Encountered importing from {node.module}."
+            )
+        module = importlib.import_module(node.module)
+        for alias in node.names:
+            obj = getattr(module, alias.name)
+            local_name = alias.asname if alias.asname is not None else alias.name
+            self.scope.register(local_name, obj)
+
     def _handle_appending_to_accumulator(self, append_call: ast.Call) -> None:
         used_accumulator = cast(
             ast.Name, cast(ast.Attribute, append_call.func).value
@@ -320,7 +374,7 @@ class _WorkflowFunctionParser(WorkflowParser):
         symbol_map: symbol_scope.SymbolScope,
         info_factory: versions.VersionInfoFactory,
         *,
-        source: versions.VersionInfo | None = None,
+        source: base_models.PythonReference | None = None,
         func: FunctionType,
         output_labels: Collection[str],
     ):

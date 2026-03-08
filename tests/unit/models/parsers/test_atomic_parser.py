@@ -871,8 +871,8 @@ class TestParseAtomicVersionParams(unittest.TestCase):
 
         node = atomic_parser.parse_atomic(dataclasses.is_dataclass)
         # math is a stdlib module; version should be the python version
-        self.assertIsNotNone(node.source.version)
-        self.assertIsInstance(node.source.version, str)
+        self.assertIsNotNone(node.reference.info.version)
+        self.assertIsInstance(node.reference.info.version, str)
 
     def test_version_none_for_unversioned(self):
         """Functions from unversioned modules should yield version=None."""
@@ -881,7 +881,7 @@ class TestParseAtomicVersionParams(unittest.TestCase):
         # forbid_main=False; the version for __main__ is None
         # Actually __main__ may not have a version. Let's just check it doesn't crash.
         node = atomic_parser.parse_atomic(f)
-        self.assertIsInstance(node.source.version, (str, type(None)))
+        self.assertIsInstance(node.reference.info.version, (str, type(None)))
 
     def test_forbid_main_raises(self):
         f = _make_func_in_module("__main__", "f")
@@ -915,7 +915,7 @@ class TestParseAtomicVersionParams(unittest.TestCase):
         custom_version = "99.0.0"
         scraping = {"mypkg.sub": lambda _name: custom_version}
         node = atomic_parser.parse_atomic(f, version_scraping=scraping)
-        self.assertEqual(node.source.version, custom_version)
+        self.assertEqual(node.reference.info.version, custom_version)
 
     def test_fqn_matches_module_and_qualname(self):
         scraping = {
@@ -943,7 +943,7 @@ class TestAtomicDecoratorVersionParams(unittest.TestCase):
         def my_func(x):
             return x
 
-        self.assertEqual(my_func.flowrep_recipe.source.version, custom_version)
+        self.assertEqual(my_func.flowrep_recipe.reference.info.version, custom_version)
 
     def test_decorator_forbid_locals_on_inner_function(self):
         with self.assertRaises(ValueError):
@@ -953,21 +953,56 @@ class TestAtomicDecoratorVersionParams(unittest.TestCase):
                 return x
 
 
-class TestParseAtomicSourceCode(unittest.TestCase):
-    def test_source_code_populated(self):
-        def my_func(x):
+class TestParseAtomicHasDefault(unittest.TestCase):
+    """Tests that parse_atomic populates reference.inputs_with_defaults from the signature."""
+
+    def test_no_defaults(self):
+        def func(a, b):
+            return a, b
+
+        node = atomic_parser.parse_atomic(func)
+        self.assertEqual(node.reference.inputs_with_defaults, [])
+
+    def test_all_defaults(self):
+        def func(a=1, b=2):
+            return a, b
+
+        node = atomic_parser.parse_atomic(func)
+        self.assertEqual(node.reference.inputs_with_defaults, ["a", "b"])
+
+    def test_mixed_defaults(self):
+        def func(a, b, c=3, d="x"):
+            return a, b
+
+        node = atomic_parser.parse_atomic(func)
+        self.assertEqual(node.reference.inputs_with_defaults, ["c", "d"])
+
+    def test_no_params(self):
+        def func():
+            return 42
+
+        node = atomic_parser.parse_atomic(
+            func, unpack_mode=atomic_model.UnpackMode.NONE
+        )
+        self.assertEqual(node.reference.inputs_with_defaults, [])
+
+    def test_decorator_preserves_inputs_with_defaults(self):
+        @atomic_parser.atomic
+        def func(x, y=10):
             return x
 
-        node = atomic_parser.parse_atomic(my_func)
-        self.assertIsNotNone(node.source_code)
-        self.assertIn("def my_func", node.source_code)
+        self.assertEqual(func.flowrep_recipe.reference.inputs_with_defaults, ["y"])
 
-    def test_source_code_none_when_unavailable(self):
-        f = _make_func_in_module("__main__", "f")
-        node = atomic_parser.parse_atomic(f)
-        # _make_func_in_module creates a real function with source,
-        # but exec-defined ones won't; just check the field exists
-        self.assertIsInstance(node.source_code, (str, type(None)))
+    def test_roundtrip_preserves_inputs_with_defaults(self):
+        def func(a, b=2, c=3):
+            return a, b, c
+
+        node = atomic_parser.parse_atomic(func)
+        for mode in ["json", "python"]:
+            with self.subTest(mode=mode):
+                data = node.model_dump(mode=mode)
+                restored = atomic_model.AtomicNode.model_validate(data)
+                self.assertEqual(restored.reference.inputs_with_defaults, ["b", "c"])
 
 
 if __name__ == "__main__":

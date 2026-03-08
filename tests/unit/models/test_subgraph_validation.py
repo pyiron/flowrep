@@ -8,9 +8,18 @@ from flowrep.models import edge_models, subgraph_validation
 class MockNode:
     """Minimal node for testing."""
 
-    def __init__(self, inputs: list[str], outputs: list[str]):
+    def __init__(
+        self,
+        inputs: list[str],
+        outputs: list[str],
+        inputs_with_defaults: list[str] | None = None,
+    ):
         self.inputs = inputs
         self.outputs = outputs
+        self.inputs_with_defaults = inputs_with_defaults or []
+
+    def validate_internal_data_completeness(self):
+        pass
 
 
 class TestValidateInputEdgeSources(unittest.TestCase):
@@ -359,6 +368,29 @@ class TestValidateAcyclicEdges(unittest.TestCase):
     def test_empty_edges(self):
         subgraph_validation.validate_acyclic_edges({})
 
+    def test_edges_with_none_node_skipped(self):
+        """
+        Edges involving InputSource/OutputTarget (node=None) are skipped.
+
+        In practical use, we shouldn't hit this because we validate the cyclicity of
+        `Edges` types -- which are all handle-to-handle and don't involve input sources
+        or output targets for negotiating data flow between a subgraph and its parent.
+        However, for completeness, we make sure that these are ignored. Between a
+        child handle and the parent IO it is topologically impossible to be circular,
+        and between a parent output target and parent input source it just represents
+        pass-through data -- also safe.
+        """
+        edges = {
+            edge_models.TargetHandle(node="b", port="inp"): edge_models.InputSource(
+                port="x"
+            ),
+            edge_models.OutputTarget(port="x"): edge_models.SourceHandle(
+                node="b", port="out"
+            ),
+        }
+        # Should not raise -- the None-node edge is simply ignored.
+        subgraph_validation.validate_acyclic_edges(edges)  # type: ignore[arg-type]
+
 
 class TestRuntimeCheckableProtocols(unittest.TestCase):
     """Tests for runtime_checkable protocol isinstance checks."""
@@ -409,6 +441,80 @@ class TestRuntimeCheckableProtocols(unittest.TestCase):
         self.assertIsInstance(
             ValidImpl(), subgraph_validation.DynamicSubgraphDynamicOutput
         )
+
+
+class TestValidateNodesFullySourced(unittest.TestCase):
+    """Tests for validate_nodes_are_fully_sourced."""
+
+    def test_all_inputs_have_edges(self):
+        """Every input covered by context → passes."""
+        nodes = {"a": MockNode(inputs=["x", "y"], outputs=[])}
+        context = [
+            edge_models.TargetHandle(node="a", port="x"),
+            edge_models.TargetHandle(node="a", port="y"),
+        ]
+        subgraph_validation.validate_nodes_are_fully_sourced(nodes, context)
+
+    def test_missing_edge_no_default_raises(self):
+        """Input without edge or default → raises."""
+        nodes = {"a": MockNode(inputs=["x"], outputs=[])}
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_validation.validate_nodes_are_fully_sourced(nodes, [])
+        self.assertIn("a.x", str(ctx.exception))
+
+    def test_missing_edge_with_default_passes(self):
+        """Input without edge but with default → passes."""
+        nodes = {"a": MockNode(inputs=["x"], outputs=[], inputs_with_defaults=["x"])}
+        subgraph_validation.validate_nodes_are_fully_sourced(nodes, [])
+
+    def test_mixed_edged_and_defaulted(self):
+        """One input edged, one defaulted → passes."""
+        nodes = {
+            "a": MockNode(inputs=["x", "y"], outputs=[], inputs_with_defaults=["y"])
+        }
+        context = [edge_models.TargetHandle(node="a", port="x")]
+        subgraph_validation.validate_nodes_are_fully_sourced(nodes, context)
+
+    def test_mixed_edged_and_unsourced_raises(self):
+        """One input edged, one with neither edge nor default → raises."""
+        nodes = {"a": MockNode(inputs=["x", "y"], outputs=[])}
+        context = [edge_models.TargetHandle(node="a", port="x")]
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_validation.validate_nodes_are_fully_sourced(nodes, context)
+        self.assertIn("a.y", str(ctx.exception))
+
+    def test_multiple_nodes_one_unsourced(self):
+        """Two nodes, one fully sourced, one not → fails naming the bad one."""
+        nodes = {
+            "a": MockNode(inputs=["x"], outputs=[], inputs_with_defaults=["x"]),
+            "b": MockNode(inputs=["p"], outputs=[]),
+        }
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_validation.validate_nodes_are_fully_sourced(nodes, [])
+        exc_str = str(ctx.exception)
+        self.assertIn("b.p", exc_str)
+        self.assertNotIn("a.x", exc_str)
+
+    def test_empty_nodes(self):
+        """Empty nodes dict → passes trivially."""
+        subgraph_validation.validate_nodes_are_fully_sourced({}, [])
+
+    def test_node_with_no_inputs(self):
+        """Node with no inputs → passes trivially."""
+        nodes = {"a": MockNode(inputs=[], outputs=["out"])}
+        subgraph_validation.validate_nodes_are_fully_sourced(nodes, [])
+
+    def test_recursive_completeness_called(self):
+        """validate_internal_data_completeness is called on each node."""
+
+        class FailingNode(MockNode):
+            def validate_internal_data_completeness(self):
+                raise ValueError("recursive check triggered")
+
+        nodes = {"a": FailingNode(inputs=[], outputs=[])}
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_validation.validate_nodes_are_fully_sourced(nodes, [])
+        self.assertIn("recursive check triggered", str(ctx.exception))
 
 
 if __name__ == "__main__":

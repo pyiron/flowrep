@@ -136,3 +136,10 @@ class WhileNode(base_models.NodeModel):
                 f"{invalid_nodes}"
             )
         return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_internal_data_completeness(self):
+        subgraph_validation.validate_nodes_are_fully_sourced(
+            self.prospective_nodes, self.input_edges
+        )
+        return self

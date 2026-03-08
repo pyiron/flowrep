@@ -3,6 +3,7 @@
 import unittest
 
 import pydantic
+from pyiron_snippets import versions
 
 from flowrep.models import base_models
 from flowrep.models.nodes import (
@@ -15,10 +16,21 @@ from flowrep.models.nodes import (
     workflow_model,
 )
 
+from flowrep_static import makers
 
-def _source(module: str = "mod", qualname: str = "func", version: str | None = None):
-    """Shorthand for building a source dict in tests."""
-    return {"module": module, "qualname": qualname, "version": version}
+
+def reference_dict(
+    module: str = "mod",
+    qualname: str = "func",
+    version: str | None = None,
+    inputs_with_defaults: list[str] | None = None,
+) -> dict:
+    return makers.make_reference(
+        module=module,
+        qualname=qualname,
+        version=version,
+        inputs_with_defaults=inputs_with_defaults,
+    ).model_dump(mode="json")
 
 
 class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
@@ -33,7 +45,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                 base_models.RecipeElementType.ATOMIC,
                 {
                     "type": "atomic",
-                    "source": _source(),
+                    "reference": reference_dict(),
                     "inputs": ["x"],
                     "outputs": ["y"],
                 },
@@ -62,7 +74,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                         "label": "body",
                         "node": {
                             "type": "atomic",
-                            "source": _source(),
+                            "reference": reference_dict(),
                             "inputs": ["item"],
                             "outputs": ["result"],
                         },
@@ -86,7 +98,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "label": "c",
                             "node": {
                                 "type": "atomic",
-                                "source": _source("m", "f"),
+                                "reference": reference_dict("m", "f"),
                                 "inputs": [],
                                 "outputs": ["ok"],
                             },
@@ -95,7 +107,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "label": "b",
                             "node": {
                                 "type": "atomic",
-                                "source": _source("m", "g"),
+                                "reference": reference_dict("m", "g"),
                                 "inputs": [],
                                 "outputs": [],
                             },
@@ -122,7 +134,10 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["result"],
-                                    "source": _source(qualname="check"),
+                                    "reference": reference_dict(
+                                        qualname="check",
+                                        inputs_with_defaults=["x"],
+                                    ),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -132,7 +147,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["y"],
-                                    "source": _source(qualname="handle"),
+                                    "reference": reference_dict(qualname="handle"),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -159,7 +174,10 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["result"],
-                                    "source": _source(qualname="check"),
+                                    "reference": reference_dict(
+                                        qualname="check",
+                                        inputs_with_defaults=["x"],
+                                    ),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -169,7 +187,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["y"],
-                                    "source": _source(qualname="hanlde"),
+                                    "reference": reference_dict(qualname="hanlde"),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -184,7 +202,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "type": "atomic",
                             "inputs": ["x"],
                             "outputs": ["y"],
-                            "source": _source(qualname="handle"),
+                            "reference": reference_dict(qualname="handle"),
                             "unpack_mode": "tuple",
                         },
                     },
@@ -203,20 +221,22 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "type": "atomic",
                             "inputs": ["x"],
                             "outputs": ["y"],
-                            "source": _source(qualname="try_func"),
+                            "reference": reference_dict(qualname="try_func"),
                             "unpack_mode": "tuple",
                         },
                     },
                     "exception_cases": [
                         {
-                            "exceptions": ["builtins.ValueError"],
+                            "exceptions": [versions.VersionInfo.of(ValueError)],
                             "body": {
                                 "label": "except_0",
                                 "node": {
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["y"],
-                                    "source": _source(qualname="handle_error"),
+                                    "reference": reference_dict(
+                                        qualname="handle_error"
+                                    ),
                                     "unpack_mode": "tuple",
                                 },
                             },
@@ -259,6 +279,37 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
             "Schema should define union variants",
         )
 
+    def test_atomic_roundtrip_preserves_defaults(self):
+        data = {
+            "type": "atomic",
+            "reference": reference_dict(inputs_with_defaults=["b"]),
+            "inputs": ["a", "b"],
+            "outputs": ["c"],
+        }
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
+        self.assertIsInstance(node, atomic_model.AtomicNode)
+        self.assertEqual(node.reference.inputs_with_defaults, ["b"])
+
+        # Full roundtrip
+        dumped = pydantic.TypeAdapter(union.NodeType).dump_python(node, mode="json")
+        restored = pydantic.TypeAdapter(union.NodeType).validate_python(dumped)
+        self.assertEqual(restored.reference.inputs_with_defaults, ["b"])
+
+    def test_workflow_roundtrip_preserves_defaults(self):
+        data = {
+            "type": "workflow",
+            "reference": reference_dict(inputs_with_defaults=["x"]),
+            "inputs": ["x"],
+            "outputs": [],
+            "nodes": {},
+            "input_edges": {},
+            "edges": {},
+            "output_edges": {},
+        }
+        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
+        self.assertIsInstance(node, workflow_model.WorkflowNode)
+        self.assertEqual(node.reference.inputs_with_defaults, ["x"])
+
 
 class TestDiscriminatorValidation(unittest.TestCase):
     """Tests for discriminator error handling."""
@@ -281,7 +332,7 @@ class TestDiscriminatorValidation(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError):
             adapter.validate_python(
                 {
-                    "source": _source(),
+                    "reference": reference_dict(),
                     "inputs": [],
                     "outputs": [],
                 }
@@ -312,13 +363,13 @@ class TestNodesTypeAlias(unittest.TestCase):
         nodes_data = {
             "step1": {
                 "type": "atomic",
-                "source": _source(qualname="f"),
+                "reference": reference_dict(qualname="f"),
                 "inputs": [],
                 "outputs": ["x"],
             },
             "step2": {
                 "type": "atomic",
-                "source": _source(qualname="g"),
+                "reference": reference_dict(qualname="g"),
                 "inputs": ["x"],
                 "outputs": [],
             },
@@ -334,7 +385,7 @@ class TestNodesTypeAlias(unittest.TestCase):
         nodes_data = {
             "for": {  # Python keyword
                 "type": "atomic",
-                "source": _source(qualname="f"),
+                "reference": reference_dict(qualname="f"),
                 "inputs": [],
                 "outputs": [],
             },
@@ -351,7 +402,7 @@ class TestNodesTypeAlias(unittest.TestCase):
                 nodes_data = {
                     reserved: {
                         "type": "atomic",
-                        "source": _source(qualname="f"),
+                        "reference": reference_dict(qualname="f"),
                         "inputs": [],
                         "outputs": [],
                     },
@@ -369,7 +420,7 @@ class TestNodesTypeAlias(unittest.TestCase):
             "nodes": {
                 "leaf": {
                     "type": "atomic",
-                    "source": _source(qualname="f"),
+                    "reference": reference_dict(qualname="f"),
                     "inputs": ["x"],
                     "outputs": ["y"],
                 },
@@ -381,7 +432,7 @@ class TestNodesTypeAlias(unittest.TestCase):
         nodes_data = {
             "atomic_node": {
                 "type": "atomic",
-                "source": _source(qualname="g"),
+                "reference": reference_dict(qualname="g"),
                 "inputs": [],
                 "outputs": [],
             },
@@ -416,7 +467,7 @@ class TestNestedUnionResolution(unittest.TestCase):
                         "label": "body",
                         "node": {
                             "type": "atomic",
-                            "source": _source(qualname="transform"),
+                            "reference": reference_dict(qualname="transform"),
                             "inputs": ["item"],
                             "outputs": ["result"],
                         },
@@ -444,7 +495,7 @@ class TestNestedUnionResolution(unittest.TestCase):
         """Three levels of workflow nesting."""
         innermost = {
             "type": "atomic",
-            "source": _source(qualname="leaf"),
+            "reference": reference_dict(qualname="leaf"),
             "inputs": ["x"],
             "outputs": ["y"],
         }
