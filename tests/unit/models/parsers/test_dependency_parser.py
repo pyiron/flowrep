@@ -86,6 +86,18 @@ def _fqns(deps: dependency_parser.CallDependencies) -> set[str]:
     return {info.fully_qualified_name for info in deps}
 
 
+MyCustomType = int | float
+
+
+def _custom_type_used(x):
+    return isinstance(x, MyCustomType)
+
+
+def _custom_type_type_hint(x: MyCustomType):
+    y = x
+    return y
+
+
 class TestGetCallDependencies(unittest.TestCase):
     """Tests for :func:`dependency_parser.get_call_dependencies`."""
 
@@ -132,7 +144,7 @@ class TestGetCallDependencies(unittest.TestCase):
 
     def test_builtin_callable_included(self):
         deps = dependency_parser.get_call_dependencies(_calls_len)
-        self.assertIn(_fqn(len), _fqns(deps))
+        self.assertEqual(_fqns(deps), set())
 
     def test_returns_dict_type(self):
         deps = dependency_parser.get_call_dependencies(_leaf)
@@ -170,6 +182,14 @@ class TestGetCallDependencies(unittest.TestCase):
         # to a non-callable, but we can verify the function itself is crawlable
         deps = dependency_parser.get_call_dependencies(_calls_non_callable)
         self.assertIsInstance(deps, dict)
+
+    def test_variables(self):
+        self.assertEqual(
+            dependency_parser.get_dependencies(_custom_type_used)[1], [int | float]
+        )
+        self.assertEqual(
+            dependency_parser.get_dependencies(_custom_type_type_hint)[1], [int | float]
+        )
 
 
 class TestSplitByVersionAvailability(unittest.TestCase):
