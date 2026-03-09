@@ -10,6 +10,7 @@ from flowrep.models.base_models import Label as Label
 from flowrep.models.base_models import Labels as Labels
 from flowrep.models.base_models import PythonReference as PythonReference
 from flowrep.models.base_models import RecipeElementType as RecipeElementType
+from flowrep.models.base_models import RestrictedParamKind as RestrictedParamKind
 from flowrep.models.edge_models import Edges as Edges
 from flowrep.models.edge_models import InputEdges as InputEdges
 from flowrep.models.edge_models import InputSource as InputSource
