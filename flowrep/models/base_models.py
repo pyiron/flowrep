@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import inspect
 import keyword
 from collections.abc import Hashable
 from enum import StrEnum
-from typing import Annotated, Self, TypeVar
+from typing import Annotated, ClassVar, Self, TypeVar
 
 import pydantic
 import pydantic_core
@@ -106,6 +107,59 @@ class NodeModel(pydantic.BaseModel):
         return self
 
 
+class RestrictedParamKind(StrEnum):
+    """
+    Parameter kinds that impose restrictions on how an input can be passed.
+
+    POSITIONAL_OR_KEYWORD is deliberately excluded — it's the default assumption
+    for any input not explicitly represented.
+
+    Variadics are not supported
+    """
+
+    POSITIONAL_ONLY = "POSITIONAL_ONLY"
+    KEYWORD_ONLY = "KEYWORD_ONLY"
+    VAR_POSITIONAL = "VAR_POSITIONAL"
+    VAR_KEYWORD = "VAR_KEYWORD"
+
+    @classmethod
+    def from_param_kind(cls, kind: inspect._ParameterKind) -> Self | None:
+        """Returns None for POSITIONAL_OR_KEYWORD (the unrestricted default)."""
+        try:
+            return cls(kind.name)
+        except ValueError:
+            return None
+
+    _VARIADIC: ClassVar[frozenset[RestrictedParamKind]]
+
+
+# New defs inside Enum get treated as fields, so indicate class var and populate later
+RestrictedParamKind._VARIADIC = frozenset(
+    {
+        RestrictedParamKind.VAR_POSITIONAL,
+        RestrictedParamKind.VAR_KEYWORD,
+    }
+)
+
+
 class PythonReference(pydantic.BaseModel):
     info: versions.VersionInfo
     inputs_with_defaults: Labels = pydantic.Field(default_factory=list)
+    restricted_input_kinds: dict[Label, RestrictedParamKind] = pydantic.Field(
+        default_factory=dict
+    )
+
+    @pydantic.field_validator("restricted_input_kinds", mode="before")
+    @classmethod
+    def _reject_variadic(
+        cls, v: dict[str, RestrictedParamKind | str]
+    ) -> dict[str, RestrictedParamKind | str]:
+        for label, kind in v.items():
+            # Coerce strings so this works both from raw dicts and enum values
+            if RestrictedParamKind(kind) in RestrictedParamKind._VARIADIC:
+                raise NotImplementedError(
+                    f"Variadic parameter kinds are not supported in workflow "
+                    f"nodes. Input '{label}' has kind '{kind}'. Consider "
+                    f"wrapping variadic arguments in an explicit collection."
+                )
+        return v
