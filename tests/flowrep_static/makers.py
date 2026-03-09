@@ -11,10 +11,12 @@ def make_reference(
     qualname: str = "func",
     version: str | None = None,
     inputs_with_defaults: list[str] | None = None,
+    restricted_input_kinds: dict[str, base_models.RestrictedParamKind] | None = None,
 ) -> base_models.PythonReference:
     return base_models.PythonReference(
         info=versions.VersionInfo(module=module, qualname=qualname, version=version),
         inputs_with_defaults=inputs_with_defaults or [],
+        restricted_input_kinds=restricted_input_kinds or {},
     )
 
 

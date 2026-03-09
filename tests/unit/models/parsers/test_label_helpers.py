@@ -137,60 +137,6 @@ class TestGetAnnotatedOutputLabelsExceptions(unittest.TestCase):
         self.assertEqual(labels, ["valid", None])
 
 
-class TestGetInputInfo(unittest.TestCase):
-    def test_simple_params(self):
-        def func(a, b, c):
-            pass
-
-        info = label_helpers.get_input_info(func)
-        self.assertDictEqual(info, {"a": False, "b": False, "c": False})
-
-    def test_no_params(self):
-        def func():
-            pass
-
-        info = label_helpers.get_input_info(func)
-        self.assertEqual(info, {})
-
-    def test_all_defaults(self):
-        def func(a=1, b="x", c=None):
-            pass
-
-        info = label_helpers.get_input_info(func)
-        self.assertDictEqual(info, {"a": True, "b": True, "c": True})
-
-    def test_mixed_defaults(self):
-        def func(a, b, c=3, d="hello"):
-            pass
-
-        info = label_helpers.get_input_info(func)
-        self.assertDictEqual(info, {"a": False, "b": False, "c": True, "d": True})
-
-    def test_varargs_raises_error(self):
-        def func(*args):
-            pass
-
-        with self.assertRaises(ValueError) as ctx:
-            label_helpers.get_input_info(func)
-        self.assertIn("*args", str(ctx.exception))
-
-    def test_kwargs_raises_error(self):
-        def func(**kwargs):
-            pass
-
-        with self.assertRaises(ValueError) as ctx:
-            label_helpers.get_input_info(func)
-        self.assertIn("**kwargs", str(ctx.exception))
-
-    def test_varargs_with_defaults_raises_error(self):
-        def func(a, b=2, *args):
-            pass
-
-        with self.assertRaises(ValueError) as ctx:
-            label_helpers.get_input_info(func)
-        self.assertIn("*args", str(ctx.exception))
-
-
 class TestExtractLabelFromAnnotated(unittest.TestCase):
     def test_extracts_label_from_dict_metadata(self):
         hint = Annotated[float, {"label": "distance"}]

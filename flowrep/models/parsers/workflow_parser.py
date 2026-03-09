@@ -120,12 +120,14 @@ def parse_workflow(
         forbid_locals=forbid_locals,
         require_version=require_version,
     )
-    info = info_factory.of(func)
-    input_info = label_helpers.get_input_info(func)
-    inputs = list(input_info)
+    function_info = info_factory.of(func)
+    signature_info = parser_helpers.SignatureInfo.of(func)
+
+    inputs = signature_info.names
     reference = base_models.PythonReference(
-        info=info,
-        inputs_with_defaults=[label for label, hd in input_info.items() if hd],
+        info=function_info,
+        inputs_with_defaults=signature_info.have_defaults,
+        restricted_input_kinds=signature_info.have_restricted_kinds,
     )
     state = _WorkflowFunctionParser(
         object_scope.get_scope(func),
