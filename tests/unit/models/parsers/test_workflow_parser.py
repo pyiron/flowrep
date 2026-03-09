@@ -223,6 +223,14 @@ class TestParseWorkflowBasic(unittest.TestCase):
         self.assertIn(target_y, node.input_edges)
         self.assertEqual(node.input_edges[target_y].port, "b")
 
+    def test_returning_input_directly_is_allowed(self):
+        def wf(x):
+            return x
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertIn("x", node.outputs)
+        self.assertIn(edge_models.InputSource(port="x"), node.output_edges.values())
+
 
 class TestParseWorkflowEdges(unittest.TestCase):
     def test_input_edges_from_workflow_inputs(self):
@@ -446,14 +454,6 @@ class TestParseWorkflowErrors(unittest.TestCase):
         with self.assertRaises(KeyError) as ctx:
             workflow_parser.parse_workflow(wf)
         self.assertIn("unknown_var", str(ctx.exception).lower())
-
-    def test_returning_input_directly_raises(self):
-        def wf(x):
-            return x
-
-        with self.assertRaises(ValueError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("workflow inputs", str(ctx.exception).lower())
 
     def test_non_call_rhs_raises(self):
         def wf(x):
