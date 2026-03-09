@@ -121,7 +121,7 @@ def parse_workflow(
         require_version=require_version,
     )
     info = info_factory.of(func)
-    input_info = label_helpers.get_input_info(func)
+    input_info = parser_helpers.get_input_info(func)
     inputs = list(input_info)
     reference = base_models.PythonReference(
         info=info,

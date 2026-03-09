@@ -84,6 +84,23 @@ def get_available_source_code(func: FunctionType) -> str | None:
         return None
 
 
+def get_input_info(func: FunctionType) -> dict[str, bool]:
+    sig = inspect.signature(func)
+    for param in sig.parameters.values():
+        if param.kind in (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
+            raise ValueError(
+                f"Function arguments cannot contain *args or **kwargs, got "
+                f"{list(sig.parameters.keys())}"
+            )
+    return {
+        label: param.default is not inspect._empty
+        for label, param in sig.parameters.items()
+    }
+
+
 def get_ast_function_node(func: FunctionType) -> ast.FunctionDef:
     return get_function_definition(ast.parse(get_source_code(func)))
 

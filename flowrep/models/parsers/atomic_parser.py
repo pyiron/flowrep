@@ -115,7 +115,7 @@ def parse_atomic(
         require_version=require_version,
     )
 
-    input_info = label_helpers.get_input_info(func)
+    input_info = parser_helpers.get_input_info(func)
 
     scraped_output_labels = _get_output_labels(func, unpack_mode)
     if len(output_labels) > 0 and len(output_labels) != len(scraped_output_labels):

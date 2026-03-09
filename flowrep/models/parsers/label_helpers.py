@@ -1,4 +1,3 @@
-import inspect
 from collections.abc import Collection, Iterable
 from types import FunctionType
 from typing import Annotated, Any, Self, get_args, get_origin, get_type_hints
@@ -132,23 +131,6 @@ def merge_labels(
             first if first is not None else fall
             for first, fall in zip(first_choice, fallback, strict=True)
         )
-
-
-def get_input_info(func: FunctionType) -> dict[str, bool]:
-    sig = inspect.signature(func)
-    for param in sig.parameters.values():
-        if param.kind in (
-            inspect.Parameter.VAR_POSITIONAL,
-            inspect.Parameter.VAR_KEYWORD,
-        ):
-            raise ValueError(
-                f"Function arguments cannot contain *args or **kwargs, got "
-                f"{list(sig.parameters.keys())}"
-            )
-    return {
-        label: param.default is not inspect._empty
-        for label, param in sig.parameters.items()
-    }
 
 
 def index_label(prefix: str, index: int) -> str:
