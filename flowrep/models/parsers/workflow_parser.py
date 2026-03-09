@@ -432,20 +432,12 @@ class _WorkflowFunctionParser(WorkflowParser):
         final_ports = list(output_labels) if output_labels else scraped_labels
 
         for symbol, port in zip(returned_symbols, final_ports, strict=True):
-            try:
-                source = self.symbol_map[symbol]
-            except KeyError as e:
+            if symbol not in self.symbol_map:
                 raise ValueError(
                     f"Return symbol '{symbol}' is not defined. "
                     f"Available: {list(self.symbol_map)}"
-                ) from e
-
-            if isinstance(source, edge_models.InputSource):
-                raise ValueError(
-                    f"Workflows expect outputs to be sourced from the subgraph children, "
-                    f"but the symbol '{symbol}' appears to be resolved directly from the "
-                    f"workflow inputs."
                 )
+
             self.symbol_map.produce(port, symbol)
 
 
