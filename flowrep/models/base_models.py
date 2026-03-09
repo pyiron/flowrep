@@ -157,7 +157,7 @@ class PythonReference(pydantic.BaseModel):
         for label, kind in v.items():
             # Coerce strings so this works both from raw dicts and enum values
             if RestrictedParamKind(kind) in RestrictedParamKind._VARIADIC:
-                raise NotImplementedError(
+                raise ValueError(
                     f"Variadic parameter kinds are not supported in workflow "
                     f"nodes. Input '{label}' has kind '{kind}'. Consider "
                     f"wrapping variadic arguments in an explicit collection."
