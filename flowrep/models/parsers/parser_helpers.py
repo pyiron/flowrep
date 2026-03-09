@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import ast
+import dataclasses
 import inspect
 import textwrap
 from collections.abc import Callable
 from types import FunctionType
 from typing import Any, cast
 
+from flowrep.models import base_models
 from flowrep.models.nodes import helper_models
 from flowrep.models.parsers import symbol_scope
 
@@ -82,6 +86,31 @@ def get_available_source_code(func: FunctionType) -> str | None:
         return get_source_code(func)
     except SourceCodeUnavailableError:
         return None
+
+
+@dataclasses.dataclass(frozen=True)
+class SignatureInfo:
+    names: list[str]
+    have_defaults: list[str]
+    have_restricted_kinds: dict[str, base_models.RestrictedParamKind]
+
+    @classmethod
+    def of(cls, func: FunctionType) -> SignatureInfo:
+        sig = inspect.signature(func)
+        return SignatureInfo(
+            names=list(sig.parameters.keys()),
+            have_defaults=[
+                label
+                for label, param in sig.parameters.items()
+                if param.default is not inspect.Parameter.empty
+            ],
+            have_restricted_kinds={
+                label: rk
+                for label, param in sig.parameters.items()
+                if (rk := base_models.RestrictedParamKind.from_param_kind(param.kind))
+                is not None
+            },
+        )
 
 
 def get_input_info(func: FunctionType) -> dict[str, bool]:

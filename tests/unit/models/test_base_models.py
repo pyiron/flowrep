@@ -303,8 +303,62 @@ class TestPythonReference(unittest.TestCase):
         ref = makers.make_reference(inputs_with_defaults=["a", "b"])
         self.assertEqual(ref.inputs_with_defaults, ["a", "b"])
 
+    def test_info_required(self):
+        with self.assertRaises(pydantic.ValidationError):
+            base_models.PythonReference()
+
+    def test_restricted_input_kinds_defaults_to_empty(self):
+        ref = makers.make_reference()
+        self.assertEqual(ref.restricted_input_kinds, {})
+
+    def test_restricted_input_kinds_accepted(self):
+        ref = makers.make_reference(
+            restricted_input_kinds={"a": base_models.RestrictedParamKind.KEYWORD_ONLY}
+        )
+        self.assertEqual(
+            ref.restricted_input_kinds,
+            {"a": base_models.RestrictedParamKind.KEYWORD_ONLY},
+        )
+
+    def test_restricted_input_kinds_positional_only(self):
+        ref = makers.make_reference(
+            restricted_input_kinds={
+                "x": base_models.RestrictedParamKind.POSITIONAL_ONLY
+            }
+        )
+        self.assertEqual(
+            ref.restricted_input_kinds,
+            {"x": base_models.RestrictedParamKind.POSITIONAL_ONLY},
+        )
+
+    def test_var_positional_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            makers.make_reference(
+                restricted_input_kinds={
+                    "args": base_models.RestrictedParamKind.VAR_POSITIONAL
+                }
+            )
+        self.assertIn("Variadic", str(ctx.exception))
+        self.assertIn("args", str(ctx.exception))
+
+    def test_var_keyword_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            makers.make_reference(
+                restricted_input_kinds={
+                    "kwargs": base_models.RestrictedParamKind.VAR_KEYWORD
+                }
+            )
+        self.assertIn("Variadic", str(ctx.exception))
+        self.assertIn("kwargs", str(ctx.exception))
+
     def test_roundtrip(self):
-        original = makers.make_reference(inputs_with_defaults=["x", "y"])
+        original = makers.make_reference(
+            inputs_with_defaults=["x", "y"],
+            restricted_input_kinds={
+                "a": base_models.RestrictedParamKind.KEYWORD_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+            },
+        )
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
@@ -319,10 +373,10 @@ class TestPythonReference(unittest.TestCase):
                     original.info.fully_qualified_name,
                     restored.info.fully_qualified_name,
                 )
-
-    def test_info_required(self):
-        with self.assertRaises(pydantic.ValidationError):
-            base_models.PythonReference()
+                self.assertEqual(
+                    original.restricted_input_kinds,
+                    restored.restricted_input_kinds,
+                )
 
 
 if __name__ == "__main__":

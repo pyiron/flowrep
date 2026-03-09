@@ -6,7 +6,7 @@ from typing import Annotated, Any
 import pydantic
 from pyiron_snippets import versions
 
-from flowrep.models import edge_models
+from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import atomic_model, workflow_model
 from flowrep.models.parsers import (
     atomic_parser,
@@ -708,6 +708,50 @@ class TestWorkflowFullyQualifiedName(unittest.TestCase):
                 self.assertEqual(
                     node.fully_qualified_name, restored.fully_qualified_name
                 )
+
+
+class TestWorkflowVariadicRejection(unittest.TestCase):
+    """Integration tests: variadic params are rejected during parse_workflow."""
+
+    def test_varargs_rejected(self):
+        def wf(*args):
+            y = add(args[0])
+            return y
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("Variadic parameter kinds are not supported", str(ctx.exception))
+        self.assertIn("args", str(ctx.exception))
+
+    def test_kwargs_rejected(self):
+        def wf(**kwargs):
+            y = add(kwargs["x"])
+            return y
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("Variadic parameter kinds are not supported", str(ctx.exception))
+        self.assertIn("kwargs", str(ctx.exception))
+
+    def test_keyword_only_accepted(self):
+        def wf(a, *, key=1):
+            y = add(a, key)
+            return y
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertIn("key", node.inputs)
+        self.assertEqual(
+            node.reference.restricted_input_kinds,
+            {"key": base_models.RestrictedParamKind.KEYWORD_ONLY},
+        )
+
+    def test_positional_or_keyword_omitted_from_restricted(self):
+        def wf(a, b):
+            c = add(a, b)
+            return c
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.reference.restricted_input_kinds, {})
 
 
 class TestParseWorkflowVersionParams(unittest.TestCase):
