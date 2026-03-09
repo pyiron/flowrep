@@ -12,5 +12,5 @@ dependencies:
 - python >=3.11, <3.14
 - networkx =3.6.1
 - pydantic =2.12.5
-- pyiron_snippets =1.2.0
+- pyiron_snippets =1.2.1
 - python-workflow-definition =0.1.4
