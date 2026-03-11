@@ -12,3 +12,4 @@ jobs:
     secrets: inherit
     with:
       extra-python-paths: tests
+      tests-env-files: .ci_support/environment.yml .ci_support/environment-pwd.yml
