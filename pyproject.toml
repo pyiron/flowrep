@@ -43,6 +43,9 @@ Repository = "https://github.com/pyiron/flowrep"
 pwd = [
     "python-workflow-definition==0.1.4",
 ]
+notebooks = [
+    "numpy==2.4.2",
+]
 
 [tool.hatch.build]
 include = [
