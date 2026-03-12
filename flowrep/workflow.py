@@ -1,5 +1,6 @@
 import ast
 import builtins
+import functools
 import hashlib
 import inspect
 import json
@@ -634,7 +635,8 @@ def _get_nodes(
 ) -> dict[str, dict]:
     result = {}
     for label, function in data.items():
-        if isinstance(function["function"], FunctionWithWorkflow):
+        func = function["function"]
+        if hasattr(func, "_serialize_workflow") and callable(func._serialize_workflow):
             # To do: Not to use the private function (currently needed because
             # it is replaced in semantikon)
             result[label] = function["function"]._serialize_workflow(with_io=True)
@@ -855,10 +857,7 @@ def get_workflow_dict(
             if "inputs" in node:
                 node.pop("inputs")
     if with_function:
-        if isinstance(func, FunctionWithWorkflow):
-            result["function"] = func.func
-        else:
-            result["function"] = func
+        result["function"] = func
     return result
 
 
@@ -897,7 +896,7 @@ def _get_missing_edges(edge_list: list[tuple[str, str]]) -> list[tuple[str, str]
     return edge_list + extra_edges
 
 
-def workflow(func: Callable) -> FunctionWithWorkflow:
+def workflow(func: Callable) -> Callable:
     """
     Decorator to convert a function into a workflow with metadata.
 
@@ -941,8 +940,24 @@ def workflow(func: Callable) -> FunctionWithWorkflow:
     which returns the dictionary representation of the workflow with all the
     intermediate steps and outputs.
     """
+    func._serialize_workflow = functools.partial(get_workflow_dict, func)
+    func.serialize_workflow = functools.partial(get_workflow_dict, func)
+    func.run = functools.partial(
+        run_workflow_dict,
+        get_workflow_dict(func, with_function=True, with_io=True),
+    )
     func_with_metadata = FunctionWithWorkflow(func)
     return func_with_metadata
+
+
+def run_workflow_dict(wf_dict, *args, **kwargs) -> dict[str, Any]:
+    for arg, value in _sanitize_input(
+        list(wf_dict["inputs"].keys()), *args, **kwargs
+    ).items():
+        wf_dict["inputs"][arg]["value"] = value
+    G = get_workflow_graph(wf_dict)
+    G_run = simple_run(G)
+    return graph_to_wf_dict(G_run)
 
 
 def get_workflow_graph(workflow_dict: dict[str, Any]) -> nx.DiGraph:
