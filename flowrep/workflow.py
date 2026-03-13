@@ -598,10 +598,10 @@ def _get_nodes(
     result = {}
     for label, function in data.items():
         func = function["function"]
-        if hasattr(func, "_serialize_workflow") and callable(func._serialize_workflow):
+        if hasattr(func, "get_flowrep_dict") and callable(func.get_flowrep_dict):
             # To do: Not to use the private function (currently needed because
             # it is replaced in semantikon)
-            result[label] = function["function"]._serialize_workflow(with_io=True)
+            result[label] = function["function"].get_flowrep_dict(with_io=True)
             result[label]["label"] = label
             if with_function:
                 result[label]["function"] = function["function"]
@@ -902,8 +902,7 @@ def workflow(func: Callable) -> Callable:
     which returns the dictionary representation of the workflow with all the
     intermediate steps and outputs.
     """
-    func._serialize_workflow = functools.partial(get_workflow_dict, func)
-    func.serialize_workflow = functools.partial(get_workflow_dict, func)
+    func.get_flowrep_dict = functools.partial(get_workflow_dict, func)
     func.run = functools.partial(
         run_workflow_dict,
         func,
