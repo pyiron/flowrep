@@ -946,8 +946,7 @@ def workflow(func: Callable) -> Callable:
         run_workflow_dict,
         func,
     )
-    func_with_metadata = FunctionWithWorkflow(func)
-    return func_with_metadata
+    return func
 
 
 def run_workflow_dict(
