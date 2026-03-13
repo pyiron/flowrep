@@ -75,21 +75,21 @@ class LiveNode(abc.ABC):
     input_ports: Mapping[base_models.Label, InputPort]
     output_ports: Mapping[base_models.Label, OutputPort]
 
-    @classmethod
-    def from_recipe(cls, recipe: union.NodeType) -> LiveNode:
-        match recipe:
-            case atomic_model.AtomicNode():
-                return Atomic.from_recipe(recipe)
-            case for_model.ForNode():
-                return FlowControl.from_recipe(recipe)
-            case if_model.IfNode():
-                return FlowControl.from_recipe(recipe)
-            case try_model.TryNode():
-                return FlowControl.from_recipe(recipe)
-            case while_model.WhileNode():
-                return FlowControl.from_recipe(recipe)
-            case workflow_model.WorkflowNode():
-                return Workflow.from_recipe(recipe)
+
+def recipe2live(recipe: union.NodeType) -> LiveNode:
+    match recipe:
+        case atomic_model.AtomicNode():
+            return Atomic.from_recipe(recipe)
+        case for_model.ForNode():
+            return FlowControl.from_recipe(recipe)
+        case if_model.IfNode():
+            return FlowControl.from_recipe(recipe)
+        case try_model.TryNode():
+            return FlowControl.from_recipe(recipe)
+        case while_model.WhileNode():
+            return FlowControl.from_recipe(recipe)
+        case workflow_model.WorkflowNode():
+            return Workflow.from_recipe(recipe)
 
 
 @dataclasses.dataclass(frozen=False)
@@ -132,9 +132,7 @@ class Workflow(Composite):
         else:
             input_ports = {label: InputPort() for label in recipe.inputs}
             output_ports = {label: OutputPort() for label in recipe.outputs}
-        nodes = {
-            label: LiveNode.from_recipe(child) for label, child in recipe.nodes.items()
-        }
+        nodes = {label: recipe2live(child) for label, child in recipe.nodes.items()}
         return Workflow(
             recipe=recipe,
             input_ports=dotdict.DotDict(input_ports),
