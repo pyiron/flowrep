@@ -167,12 +167,12 @@ def _gather_child_inputs(
         th = edge_models.TargetHandle(node=child_label, port=port)
 
         if th in recipe.input_edges:
-            source = recipe.input_edges[th]
-            inputs[port] = workflow_node.input_ports[source.port].value
+            parent_source = recipe.input_edges[th]
+            inputs[port] = workflow_node.input_ports[parent_source.port].value
         elif th in recipe.edges:
-            source = recipe.edges[th]
-            sibling = workflow_node.nodes[source.node]
-            inputs[port] = sibling.output_ports[source.port].value
+            sibling_source = recipe.edges[th]
+            sibling = workflow_node.nodes[sibling_source.node]
+            inputs[port] = sibling.output_ports[sibling_source.port].value
         # else: port has a default on the child, _call_atomic will handle it
 
     return inputs
