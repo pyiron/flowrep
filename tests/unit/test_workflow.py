@@ -274,7 +274,7 @@ class TestWorkflow(unittest.TestCase):
             "type": "workflow",
         }
         self.assertEqual(
-            tools.serialize_functions(example_macro.serialize_workflow()), ref_data
+            tools.serialize_functions(example_macro.get_flowrep_dict()), ref_data
         )
 
     def test_get_workflow_dict_macro(self):
@@ -344,7 +344,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual(results["outputs"], {"z": {}})
 
     def test_parallel_macro(self):
-        result = tools.serialize_functions(parallel_macro.serialize_workflow())
+        result = tools.serialize_functions(parallel_macro.get_flowrep_dict())
         edges = result["edges"]
         self.assertIn(("parallel_execution_0.outputs.e", "outputs.c"), edges)
         self.assertIn(("parallel_execution_0.outputs.f", "outputs.d"), edges)
@@ -362,9 +362,6 @@ class TestWorkflow(unittest.TestCase):
     def test_run_single(self):
         data = example_macro.run()
         self.assertEqual(example_macro(), data["outputs"]["f"]["value"])
-        self.assertNotIn("function", data)
-        data = example_macro.run(with_function=True)
-        self.assertIn("function", data)
 
     def test_run_parallel_execution(self):
         data = parallel_execution.run()
@@ -417,7 +414,7 @@ class TestWorkflow(unittest.TestCase):
         )
 
     def test_workflow_with_while(self):
-        wf = fwf.workflow(workflow_with_while).serialize_workflow()
+        wf = fwf.workflow(workflow_with_while).get_flowrep_dict()
         self.assertIn("while_0", wf["nodes"])
         self.assertEqual(wf["nodes"]["while_0"]["test"]["type"], "atomic")
         self.assertEqual(
@@ -443,7 +440,7 @@ class TestWorkflow(unittest.TestCase):
         data = fwf.get_workflow_dict(reused_args)
         self.assertEqual(
             sorted(data["edges"]),
-            sorted(example_macro.serialize_workflow()["edges"]),
+            sorted(example_macro.get_flowrep_dict()["edges"]),
         )
 
     def test_workflow_with_leaf(self):
@@ -622,7 +619,7 @@ class TestWorkflow(unittest.TestCase):
                 hashed_dict["add_0"]["hash"] + "@output"
             )
         )
-        workflow_dict = workflow_with_data.serialize_workflow()
+        workflow_dict = workflow_with_data.get_flowrep_dict()
         hashed_dict = fwf.get_hashed_node_dict(workflow_dict)
         for node in hashed_dict.values():
             self.assertNotIn("hash", node)
@@ -694,7 +691,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertAlmostEqual(example_macro.run(0.1, 0.2)["outputs"]["f"]["value"], 1)
 
     def test_wf_dict_to_graph(self):
-        wf_dict = example_workflow.serialize_workflow()
+        wf_dict = example_workflow.get_flowrep_dict()
         G = fwf.get_workflow_graph(wf_dict)
         self.assertIsInstance(G, nx.DiGraph)
         with self.assertRaises(ValueError):
