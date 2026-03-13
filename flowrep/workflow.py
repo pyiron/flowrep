@@ -944,13 +944,16 @@ def workflow(func: Callable) -> Callable:
     func.serialize_workflow = functools.partial(get_workflow_dict, func)
     func.run = functools.partial(
         run_workflow_dict,
-        get_workflow_dict(func, with_function=True, with_io=True),
+        func,
     )
     func_with_metadata = FunctionWithWorkflow(func)
     return func_with_metadata
 
 
-def run_workflow_dict(wf_dict, *args, **kwargs) -> dict[str, Any]:
+def run_workflow_dict(
+    func, *args, with_function: bool = False, **kwargs
+) -> dict[str, Any]:
+    wf_dict = get_workflow_dict(func, with_function=with_function, with_io=True)
     for arg, value in _sanitize_input(
         list(wf_dict["inputs"].keys()), *args, **kwargs
     ).items():
