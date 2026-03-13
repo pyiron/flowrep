@@ -642,7 +642,7 @@ def _get_nodes(
             result[label] = function["function"]._serialize_workflow(with_io=True)
             result[label]["label"] = label
             if with_function:
-                result[label]["function"] = function["function"].func
+                result[label]["function"] = function["function"]
         else:
             result[label] = {"function": function["function"], "type": "atomic"}
     return result
