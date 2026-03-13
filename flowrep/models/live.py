@@ -201,12 +201,12 @@ def _parse_function(
     input_ports: dict[str, InputPort] = {}
     for name in inputs:
         param = sig.parameters[name]
-        port = InputPort()
-        port.annotation = hints.get(name, None)
-        port.default = (
+        input_port = InputPort()
+        input_port.annotation = hints.get(name, None)
+        input_port.default = (
             param.default if param.default is not inspect.Parameter.empty else NOT_DATA
         )
-        input_ports[name] = port
+        input_ports[name] = input_port
 
     # --- output ports ---
     return_annotation = hints.get("return", None)
@@ -228,12 +228,12 @@ def _parse_function(
             )
         output_ports = {}
         for label, annotation in zip(outputs, args, strict=True):
-            port = OutputPort()
-            port.annotation = annotation
-            output_ports[label] = port
+            output_port = OutputPort()
+            output_port.annotation = annotation
+            output_ports[label] = output_port
     else:
-        port = OutputPort()
-        port.annotation = return_annotation
-        output_ports = {outputs[0]: port}
+        output_port = OutputPort()
+        output_port.annotation = return_annotation
+        output_ports = {outputs[0]: output_port}
 
     return function, input_ports, output_ports
