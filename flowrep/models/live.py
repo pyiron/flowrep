@@ -14,7 +14,7 @@ import abc
 import dataclasses
 import inspect
 import types
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, MutableMapping
 from typing import Any, get_args, get_origin, get_type_hints
 
 from pyiron_snippets import dotdict, retrieve, singleton
@@ -72,8 +72,8 @@ class OutputPort(_Port): ...
 @dataclasses.dataclass(frozen=False)
 class LiveNode(abc.ABC):
     recipe: union.NodeType
-    input_ports: Mapping[base_models.Label, InputPort]
-    output_ports: Mapping[base_models.Label, OutputPort]
+    input_ports: MutableMapping[base_models.Label, InputPort]
+    output_ports: MutableMapping[base_models.Label, OutputPort]
 
 
 def recipe2live(recipe: union.NodeType) -> LiveNode:
@@ -113,7 +113,7 @@ class Atomic(LiveNode):
 
 @dataclasses.dataclass(frozen=False)
 class Composite(LiveNode, abc.ABC):
-    nodes: Mapping[base_models.Label, LiveNode]
+    nodes: MutableMapping[base_models.Label, LiveNode]
     input_edges: edge_models.InputEdges
     edges: edge_models.Edges
     output_edges: edge_models.OutputEdges
