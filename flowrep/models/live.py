@@ -138,9 +138,9 @@ class Workflow(Composite):
             input_ports=dotdict.DotDict(input_ports),
             output_ports=dotdict.DotDict(output_ports),
             nodes=dotdict.DotDict(nodes),
-            input_edges=recipe.input_edges,
-            edges=recipe.edges,
-            output_edges=recipe.output_edges,
+            input_edges=dict(recipe.input_edges),
+            edges=dict(recipe.edges),
+            output_edges=dict(recipe.output_edges),
         )
 
     # TODO: add/remove_node/edge/input/output methods, each guarded that they are
