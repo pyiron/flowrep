@@ -6,6 +6,7 @@ import unittest
 from pyiron_snippets import versions
 
 from flowrep.models import edge_models, live, wfms
+from flowrep.models.live import NOT_DATA
 from flowrep.models.nodes import (
     atomic_model,
     for_model,
@@ -15,6 +16,7 @@ from flowrep.models.nodes import (
     while_model,
     workflow_model,
 )
+from flowrep.models.parsers import workflow_parser
 
 from flowrep_static import library
 
@@ -90,41 +92,12 @@ def _linear_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _diamond_workflow() -> workflow_model.WorkflowNode:
-    """`add(a,b)` and `negate(a)` feed `mul`."""
-    return workflow_model.WorkflowNode(
-        inputs=["a", "b"],
-        outputs=["result"],
-        nodes={
-            "add_0": library.my_add.flowrep_recipe,
-            "negate_0": library.negate.flowrep_recipe,
-            "mul_0": library.my_mul.flowrep_recipe,
-        },
-        input_edges={
-            edge_models.TargetHandle(node="add_0", port="a"): edge_models.InputSource(
-                port="a"
-            ),
-            edge_models.TargetHandle(node="add_0", port="b"): edge_models.InputSource(
-                port="b"
-            ),
-            edge_models.TargetHandle(
-                node="negate_0", port="x"
-            ): edge_models.InputSource(port="a"),
-        },
-        edges={
-            edge_models.TargetHandle(node="mul_0", port="a"): edge_models.SourceHandle(
-                node="add_0", port="output_0"
-            ),
-            edge_models.TargetHandle(node="mul_0", port="b"): edge_models.SourceHandle(
-                node="negate_0", port="output_0"
-            ),
-        },
-        output_edges={
-            edge_models.OutputTarget(port="result"): edge_models.SourceHandle(
-                node="mul_0", port="output_0"
-            ),
-        },
-    )
+@workflow_parser.workflow
+def _diamond_workflow(a: int, b: int = 1) -> int:
+    s = library.my_add(a, b)
+    n = library.negate(a)
+    result = library.my_mul(s, n)
+    return result
 
 
 def _for_negate() -> for_model.ForNode:
@@ -418,6 +391,24 @@ class TestWorkflowFromRecipe(unittest.TestCase):
         self.assertIn("add_0", wf.nodes)
         self.assertIsInstance(wf.nodes["add_0"], live.Atomic)
 
+    def test_with_reference(self):
+        """
+        Ensure that annotations and defaults are parsed from the reference
+        """
+        recipe = _diamond_workflow.flowrep_recipe
+        wf = live.Workflow.from_recipe(recipe)
+        self.assertIs(wf.recipe, recipe)
+        self.assertEqual(set(wf.input_ports), {"a", "b"})
+        self.assertIs(wf.input_ports["a"].annotation, int)
+        self.assertIs(wf.input_ports["a"].default, NOT_DATA)
+        self.assertIs(wf.input_ports["b"].annotation, int)
+        self.assertEqual(wf.input_ports["b"].default, 1)
+        self.assertEqual(set(wf.output_ports), {"result"})
+        self.assertIs(wf.output_ports["result"].annotation, int)
+        self.assertIn("my_add_0", wf.nodes)
+        self.assertIsInstance(wf.nodes["my_add_0"], live.Atomic)
+        print(wf)
+
     def test_edges_are_carried_over(self):
         recipe = _linear_workflow()
         wf = live.Workflow.from_recipe(recipe)
@@ -506,7 +497,7 @@ class TestRunWorkflow(unittest.TestCase):
         self.assertEqual(wf.output_ports["result"].value, (1 + 2) * 3)
 
     def test_diamond(self):
-        wf = wfms.run_recipe(_diamond_workflow(), a=3, b=7)
+        wf = wfms.run_recipe(_diamond_workflow.flowrep_recipe, a=3, b=7)
         self.assertEqual(wf.output_ports["result"].value, (3 + 7) * (-3))
 
     def test_child_nodes_populated(self):
@@ -543,16 +534,14 @@ class TestTopoSort(unittest.TestCase):
         self.assertLess(order.index("add_0"), order.index("mul_0"))
 
     def test_diamond_order(self):
-        recipe = _diamond_workflow()
-        order = wfms._topo_sort_children(recipe)
-        self.assertLess(order.index("add_0"), order.index("mul_0"))
-        self.assertLess(order.index("negate_0"), order.index("mul_0"))
+        order = wfms._topo_sort_children(_diamond_workflow.flowrep_recipe)
+        self.assertLess(order.index("my_add_0"), order.index("my_mul_0"))
+        self.assertLess(order.index("negate_0"), order.index("my_mul_0"))
 
     def test_independent_nodes_sorted_alphabetically(self):
-        recipe = _diamond_workflow()
-        order = wfms._topo_sort_children(recipe)
+        order = wfms._topo_sort_children(_diamond_workflow.flowrep_recipe)
         # add_0 and negate_0 are independent, should be alphabetically ordered
-        self.assertLess(order.index("add_0"), order.index("negate_0"))
+        self.assertLess(order.index("my_add_0"), order.index("negate_0"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
