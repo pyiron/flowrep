@@ -599,8 +599,6 @@ def _get_nodes(
     for label, function in data.items():
         func = function["function"]
         if hasattr(func, "get_flowrep_dict") and callable(func.get_flowrep_dict):
-            # To do: Not to use the private function (currently needed because
-            # it is replaced in semantikon)
             result[label] = function["function"].get_flowrep_dict(with_io=True)
             result[label]["label"] = label
             if with_function:
