@@ -14,7 +14,7 @@ def my_sum(lst: list[int]) -> int:
     return total
 
 
-def full_composite(x, y, bound):
+def full_composite(x, /, y, *, bound):
     """
     Nests all four flow controls with sibling context at every level:
       top-level workflow, siblings around try
@@ -266,6 +266,10 @@ full_composite_node = workflow_model.WorkflowNode.model_validate(
                 "version": None,
             },
             "inputs_with_defaults": [],
+            "restricted_input_kinds": {
+                "x": "POSITIONAL_ONLY",
+                "bound": "KEYWORD_ONLY",
+            },
         },
     }
 )

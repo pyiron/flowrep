@@ -217,6 +217,7 @@ class TestAtomicNodeSerialization(unittest.TestCase):
             {
                 "info": {"module": "pkg.mod", "qualname": "func", "version": "2.0.0"},
                 "inputs_with_defaults": [],
+                "restricted_input_kinds": {},
             },
         )
         self.assertEqual(data["inputs"], ["x", "y"])
