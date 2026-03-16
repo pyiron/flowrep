@@ -391,6 +391,30 @@ class TestAtomicFromRecipe(unittest.TestCase):
             )
         self.assertIn("not found in signature", str(ctx.exception))
 
+    def test_output_not_splittable_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            live.Atomic.from_recipe(
+                atomic_model.AtomicNode(
+                    inputs=["x"],
+                    outputs=["x", "y"],
+                    reference=library.decrement.flowrep_recipe.reference,
+                )
+            )
+        self.assertIn("is not splittable", str(ctx.exception))
+
+    def test_output_length_mismatch_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            live.Atomic.from_recipe(
+                atomic_model.AtomicNode(
+                    inputs=["a", "b"],
+                    outputs=["quotient", "remainder", "extra"],
+                    reference=library.divmod_func.flowrep_recipe.reference,
+                )
+            )
+        self.assertIn(
+            "(n=3) do not match return annotation args (n=2)", str(ctx.exception)
+        )
+
 
 class TestWorkflowFromRecipe(unittest.TestCase):
     def test_no_reference(self):
@@ -418,7 +442,6 @@ class TestWorkflowFromRecipe(unittest.TestCase):
         self.assertIs(wf.output_ports["result"].annotation, int)
         self.assertIn("my_add_0", wf.nodes)
         self.assertIsInstance(wf.nodes["my_add_0"], live.Atomic)
-        print(wf)
 
     def test_edges_are_carried_over(self):
         recipe = _linear_workflow()

@@ -62,7 +62,7 @@ def increment(x, step=1):
 
 
 @atomic_parser.atomic
-def decrement(x):
+def decrement(x: int) -> int:
     return x - 1
 
 
