@@ -380,6 +380,17 @@ class TestAtomicFromRecipe(unittest.TestCase):
         self.assertIn("remainder", node.output_ports)
         self.assertIs(node.output_ports["quotient"].annotation, float)
 
+    def test_input_mismatch_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            live.Atomic.from_recipe(
+                atomic_model.AtomicNode(
+                    inputs=["these", "are_not", "correct"],
+                    outputs=["x"],
+                    reference=library.identity.flowrep_recipe.reference,
+                )
+            )
+        self.assertIn("not found in signature", str(ctx.exception))
+
 
 class TestWorkflowFromRecipe(unittest.TestCase):
     def test_no_reference(self):
