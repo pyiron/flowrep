@@ -1,5 +1,6 @@
 """Tests for the live data model and the minimal WfMS."""
 
+import pickle
 import unittest
 
 from pyiron_snippets import versions
@@ -358,6 +359,10 @@ class TestNotData(unittest.TestCase):
 
     def test_repr(self):
         self.assertEqual(repr(live.NotData()), "NOT_DATA")
+
+    def test_pickle_roundtrip(self):
+        loaded = pickle.loads(pickle.dumps(live.NOT_DATA))
+        self.assertIs(loaded, live.NOT_DATA)
 
 
 class TestPorts(unittest.TestCase):
