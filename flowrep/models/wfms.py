@@ -45,7 +45,7 @@ def run_recipe(recipe: union.NodeType, **kwargs: Any) -> live.LiveNode:
         case while_model.WhileNode():
             return _run_while(recipe, **kwargs)
         case _:
-            raise ValueError(f"Unsupported recipe type: {type(recipe).__name__}")
+            raise TypeError(f"Unsupported recipe type: {type(recipe).__name__}")
 
 
 # ---------------------------------------------------------------------------

@@ -651,6 +651,19 @@ class TestRunTry(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# wfms.py tests — edge case
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestUnrecognizedRecipe(unittest.TestCase):
+    def test_unrecognized_input(self):
+        not_a_recipe = "not at all"
+        with self.assertRaises(TypeError) as ctx:
+            wfms.run_recipe(not_a_recipe)
+        self.assertIn("Unsupported recipe type", str(ctx.exception))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # wfms.py tests — provenance walk (integration)
 # ═══════════════════════════════════════════════════════════════════════════
 
