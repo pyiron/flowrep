@@ -59,7 +59,12 @@ class ForNode(base_models.NodeModel):
         zipped_ports: The body node ports over which to do zipped iteration. Input
             edges will map parent input elements to each child node accordingly.
 
-    Note:
+    Notes:
+        At runtime, iterated input values should themselves be iterable. It is
+        recommended to pass values conforming to `collections.abc.Collection`. This is
+        a runtime behaviour, and is thus not enforced here at the recipe level in any
+        way.
+
         All iterated output — whether collected from body executions or forwarded from
         scattered inputs — should have the same length. Thus, forwarded inputs empower
         the node output to precisely provide which input was used to produce each
