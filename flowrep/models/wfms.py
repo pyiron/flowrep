@@ -440,6 +440,11 @@ def _populate_input_ports(node: live.LiveNode, values: dict[str, Any]) -> None:
     for name, val in values.items():
         if name in node.input_ports:
             node.input_ports[name].value = val
+        else:
+            raise ValueError(
+                f"Input port '{name}' not found -- please select among "
+                f"{node.recipe.inputs}"
+            )
 
 
 def _gather_dynamic_child_inputs(

@@ -481,6 +481,13 @@ class TestRunAtomic(unittest.TestCase):
         self.assertEqual(node.input_ports["a"].value, 3)
         self.assertEqual(node.input_ports["b"].value, 4)
 
+    def test_unrecognized_input_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            wfms.run_recipe(library.my_add.flowrep_recipe, a=3, not_an_input=4)
+        self.assertIn("not_an_input", str(ctx.exception))
+        self.assertIn("not found", str(ctx.exception))
+        self.assertIn(str(library.my_add.flowrep_recipe.inputs), str(ctx.exception))
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # wfms.py tests — workflow
