@@ -453,12 +453,18 @@ class TestWorkflowFromRecipe(unittest.TestCase):
 
 class TestFlowControlFromRecipe(unittest.TestCase):
     def test_starts_empty(self):
-        recipe = _for_negate()
-        fc = live.FlowControl.from_recipe(recipe)
-        self.assertEqual(len(fc.nodes), 0)
-        self.assertEqual(len(fc.edges), 0)
-        self.assertEqual(set(fc.input_ports), {"xs"})
-        self.assertEqual(set(fc.output_ports), {"ys"})
+        for recipe in (
+            _for_negate(),
+            _if_abs(),
+            _try_safe_divide(),
+            _while_countdown(),
+        ):
+            with self.subTest(recipe=recipe):
+                fc = live.FlowControl.from_recipe(recipe)
+                self.assertEqual(len(fc.nodes), 0)
+                self.assertEqual(len(fc.edges), 0)
+                self.assertSetEqual(set(fc.input_ports), set(recipe.inputs))
+                self.assertSetEqual(set(fc.output_ports), set(recipe.outputs))
 
 
 class TestRecipe2Live(unittest.TestCase):
