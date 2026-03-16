@@ -120,12 +120,14 @@ def parse_workflow(
         forbid_locals=forbid_locals,
         require_version=require_version,
     )
-    info = info_factory.of(func)
-    input_info = label_helpers.get_input_info(func)
-    inputs = list(input_info)
+    function_info = info_factory.of(func)
+    signature_info = parser_helpers.SignatureInfo.of(func)
+
+    inputs = signature_info.names
     reference = base_models.PythonReference(
-        info=info,
-        inputs_with_defaults=[label for label, hd in input_info.items() if hd],
+        info=function_info,
+        inputs_with_defaults=signature_info.have_defaults,
+        restricted_input_kinds=signature_info.have_restricted_kinds,
     )
     state = _WorkflowFunctionParser(
         object_scope.get_scope(func),
@@ -430,20 +432,12 @@ class _WorkflowFunctionParser(WorkflowParser):
         final_ports = list(output_labels) if output_labels else scraped_labels
 
         for symbol, port in zip(returned_symbols, final_ports, strict=True):
-            try:
-                source = self.symbol_map[symbol]
-            except KeyError as e:
+            if symbol not in self.symbol_map:
                 raise ValueError(
                     f"Return symbol '{symbol}' is not defined. "
                     f"Available: {list(self.symbol_map)}"
-                ) from e
-
-            if isinstance(source, edge_models.InputSource):
-                raise ValueError(
-                    f"Workflows expect outputs to be sourced from the subgraph children, "
-                    f"but the symbol '{symbol}' appears to be resolved directly from the "
-                    f"workflow inputs."
                 )
+
             self.symbol_map.produce(port, symbol)
 
 

@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "hatchling==1.28.0",
+    "hatchling==1.29.0",
     "hatch-vcs==0.5.0",
 ]
 build-backend = "hatchling.build"
@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
     "networkx==3.6.1",
     "pydantic==2.12.5",
-    "pyiron_snippets==1.2.0",
+    "pyiron_snippets==1.2.1",
 ]
 dynamic = [ "version",]
 authors = [

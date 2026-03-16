@@ -6,6 +6,7 @@ import unittest
 from types import FunctionType
 from typing import Annotated
 
+from flowrep.models import base_models
 from flowrep.models.nodes import atomic_model
 from flowrep.models.parsers import atomic_parser, label_helpers, parser_helpers
 
@@ -331,6 +332,55 @@ class TestAtomicEdgeCases(unittest.TestCase):
                 return 3, 4
 
         self.assertEqual(func.flowrep_recipe.outputs, ["out1", "out2"])
+
+
+class TestAtomicVariadicRejection(unittest.TestCase):
+    """Integration tests: variadic params are rejected during parse_atomic."""
+
+    def test_varargs_rejected(self):
+        def func(*args):
+            return args
+
+        with self.assertRaises(ValueError) as ctx:
+            atomic_parser.parse_atomic(func, unpack_mode=atomic_model.UnpackMode.NONE)
+        self.assertIn("Variadic parameter kinds are not supported", str(ctx.exception))
+        self.assertIn("args", str(ctx.exception))
+
+    def test_kwargs_rejected(self):
+        def func(**kwargs):
+            return kwargs
+
+        with self.assertRaises(ValueError) as ctx:
+            atomic_parser.parse_atomic(func, unpack_mode=atomic_model.UnpackMode.NONE)
+        self.assertIn("Variadic parameter kinds are not supported", str(ctx.exception))
+        self.assertIn("kwargs", str(ctx.exception))
+
+    def test_mixed_with_varargs_rejected(self):
+        def func(a, b=2, *args):
+            return a
+
+        with self.assertRaises(ValueError) as ctx:
+            atomic_parser.parse_atomic(func, unpack_mode=atomic_model.UnpackMode.NONE)
+        self.assertIn("Variadic parameter kinds are not supported", str(ctx.exception))
+        self.assertIn("args", str(ctx.exception))
+
+    def test_keyword_only_accepted(self):
+        def func(a, *, key=1):
+            return a, key
+
+        node = atomic_parser.parse_atomic(func)
+        self.assertIn("key", node.inputs)
+        self.assertEqual(
+            node.reference.restricted_input_kinds,
+            {"key": base_models.RestrictedParamKind.KEYWORD_ONLY},
+        )
+
+    def test_positional_or_keyword_omitted_from_restricted(self):
+        def func(a, b):
+            return a, b
+
+        node = atomic_parser.parse_atomic(func)
+        self.assertEqual(node.reference.restricted_input_kinds, {})
 
 
 class TestGetOutputLabels(unittest.TestCase):

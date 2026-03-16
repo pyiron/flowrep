@@ -107,15 +107,14 @@ def parse_atomic(
         ValueError: If ``output_labels`` length mismatches the inferred output count,
             or if any ``forbid_*`` / ``require_*`` constraint is violated.
     """
-    info = versions.VersionInfo.of(
+    function_info = versions.VersionInfo.of(
         func,
         version_scraping=version_scraping,
         forbid_main=forbid_main,
         forbid_locals=forbid_locals,
         require_version=require_version,
     )
-
-    input_info = label_helpers.get_input_info(func)
+    sig_info = parser_helpers.SignatureInfo.of(func)
 
     scraped_output_labels = _get_output_labels(func, unpack_mode)
     if len(output_labels) > 0 and len(output_labels) != len(scraped_output_labels):
@@ -127,10 +126,11 @@ def parse_atomic(
 
     return atomic_model.AtomicNode(
         reference=base_models.PythonReference(
-            info=info,
-            inputs_with_defaults=[label for label, hd in input_info.items() if hd],
+            info=function_info,
+            inputs_with_defaults=sig_info.have_defaults,
+            restricted_input_kinds=sig_info.have_restricted_kinds,
         ),
-        inputs=list(input_info),
+        inputs=sig_info.names,
         outputs=(
             list(output_labels) if len(output_labels) > 0 else scraped_output_labels
         ),

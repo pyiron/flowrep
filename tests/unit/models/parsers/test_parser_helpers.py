@@ -1,7 +1,7 @@
 import ast
 import unittest
 
-from flowrep.models import edge_models
+from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import atomic_model, helper_models
 from flowrep.models.parsers import parser_helpers, symbol_scope
 
@@ -131,6 +131,128 @@ class TestGetAvailableSourceCode(unittest.TestCase):
         exec_globals = {}
         exec("def f(): pass", exec_globals)
         self.assertIsNone(parser_helpers.get_available_source_code(exec_globals["f"]))
+
+
+class TestSignatureInfo(unittest.TestCase):
+    def test_simple_params(self):
+        def func(a, b, c):
+            pass
+
+        info = parser_helpers.SignatureInfo.of(func)
+        self.assertEqual(info.names, ["a", "b", "c"])
+        self.assertEqual(info.have_defaults, [])
+        self.assertEqual(info.have_restricted_kinds, {})
+
+    def test_no_params(self):
+        def func():
+            pass
+
+        info = parser_helpers.SignatureInfo.of(func)
+        self.assertEqual(info.names, [])
+        self.assertEqual(info.have_defaults, [])
+        self.assertEqual(info.have_restricted_kinds, {})
+
+    def test_all_defaults(self):
+        def func(a=1, b="x", c=None):
+            pass
+
+        info = parser_helpers.SignatureInfo.of(func)
+        self.assertEqual(info.names, ["a", "b", "c"])
+        self.assertEqual(info.have_defaults, ["a", "b", "c"])
+
+    def test_mixed_defaults(self):
+        def func(a, b, c=3, d="hello"):
+            pass
+
+        info = parser_helpers.SignatureInfo.of(func)
+        self.assertEqual(info.names, ["a", "b", "c", "d"])
+        self.assertEqual(info.have_defaults, ["c", "d"])
+
+    def test_keyword_only(self):
+        def func(a, *, key):
+            pass
+
+        info = parser_helpers.SignatureInfo.of(func)
+        self.assertEqual(info.names, ["a", "key"])
+        self.assertEqual(
+            info.have_restricted_kinds,
+            {"key": base_models.RestrictedParamKind.KEYWORD_ONLY},
+        )
+
+    def test_keyword_only_with_default(self):
+        def func(a, *, key=42):
+            pass
+
+        info = parser_helpers.SignatureInfo.of(func)
+        self.assertEqual(info.have_defaults, ["key"])
+        self.assertEqual(
+            info.have_restricted_kinds,
+            {"key": base_models.RestrictedParamKind.KEYWORD_ONLY},
+        )
+
+    def test_positional_only(self):
+        def func(a, b, /, c):
+            pass
+
+        info = parser_helpers.SignatureInfo.of(func)
+        self.assertEqual(info.names, ["a", "b", "c"])
+        self.assertEqual(
+            info.have_restricted_kinds,
+            {
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+            },
+        )
+
+    def test_varargs_included_in_names(self):
+        """
+        Note: this is a general purpose tool; variadics are intentionally rejected at
+        a later stage.
+        """
+
+        def func(*args):
+            pass
+
+        info = parser_helpers.SignatureInfo.of(func)
+        self.assertEqual(info.names, ["args"])
+        self.assertEqual(
+            info.have_restricted_kinds,
+            {"args": base_models.RestrictedParamKind.VAR_POSITIONAL},
+        )
+
+    def test_kwargs_included_in_names(self):
+        """
+        Note: this is a general purpose tool; variadics are intentionally rejected at
+        a later stage.
+        """
+
+        def func(**kwargs):
+            pass
+
+        info = parser_helpers.SignatureInfo.of(func)
+        self.assertEqual(info.names, ["kwargs"])
+        self.assertEqual(
+            info.have_restricted_kinds,
+            {"kwargs": base_models.RestrictedParamKind.VAR_KEYWORD},
+        )
+
+    def test_complex_signature(self):
+        def func(pos_only, /, regular, *, kw_only, kw_with_default=True):
+            pass
+
+        info = parser_helpers.SignatureInfo.of(func)
+        self.assertEqual(
+            info.names, ["pos_only", "regular", "kw_only", "kw_with_default"]
+        )
+        self.assertEqual(info.have_defaults, ["kw_with_default"])
+        self.assertEqual(
+            info.have_restricted_kinds,
+            {
+                "pos_only": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "kw_only": base_models.RestrictedParamKind.KEYWORD_ONLY,
+                "kw_with_default": base_models.RestrictedParamKind.KEYWORD_ONLY,
+            },
+        )
 
 
 class TestGetAstFunctionNode(unittest.TestCase):
