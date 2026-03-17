@@ -1,7 +1,9 @@
 """Tests for the live data model and the minimal WfMS."""
 
+import dataclasses
 import pickle
 import unittest
+from typing import get_origin
 
 from pyiron_snippets import versions
 
@@ -16,7 +18,7 @@ from flowrep.models.nodes import (
     while_model,
     workflow_model,
 )
-from flowrep.models.parsers import workflow_parser
+from flowrep.models.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library
 
@@ -318,6 +320,19 @@ def _try_safe_divide() -> try_model.TryNode:
     )
 
 
+@dataclasses.dataclass
+class SumClass:
+    x: int
+    y: int
+
+    def sum(self) -> int:
+        return self.x + self.y
+
+
+def takes_positional_only(x, /, y) -> SumClass:
+    return SumClass(x=x, y=y)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # live.py tests
 # ═══════════════════════════════════════════════════════════════════════════
@@ -379,6 +394,35 @@ class TestAtomicFromRecipe(unittest.TestCase):
         self.assertIn("quotient", node.output_ports)
         self.assertIn("remainder", node.output_ports)
         self.assertIs(node.output_ports["quotient"].annotation, float)
+
+    def test_not_unpacking(self):
+        recipe = atomic_model.AtomicNode(
+            inputs=["a", "b"],
+            outputs=["result"],
+            reference=library.divmod_func.flowrep_recipe.reference,
+            unpack_mode=atomic_model.UnpackMode.NONE,
+        )
+        node = live.Atomic.from_recipe(recipe)
+        origin = get_origin(node.output_ports["result"].annotation)
+        self.assertIs(origin, tuple)
+
+    def test_unpacking_dataclass(self):
+        recipe = atomic_parser.parse_atomic(
+            takes_positional_only,
+            unpack_mode=atomic_model.UnpackMode.DATACLASS,
+        )
+        node = live.Atomic.from_recipe(recipe)
+        self.assertIs(node.output_ports["x"].annotation, int)
+        self.assertIs(node.output_ports["y"].annotation, int)
+
+    def test_unpacking_dataclass_as_none(self):
+        recipe = atomic_parser.parse_atomic(
+            takes_positional_only,
+            "dc",
+            unpack_mode=atomic_model.UnpackMode.NONE,
+        )
+        node = live.Atomic.from_recipe(recipe)
+        self.assertIs(node.output_ports["dc"].annotation, SumClass)
 
     def test_input_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
@@ -524,6 +568,11 @@ class TestRunAtomic(unittest.TestCase):
         self.assertIn("not_an_input", str(ctx.exception))
         self.assertIn("not found", str(ctx.exception))
         self.assertIn(str(library.my_add.flowrep_recipe.inputs), str(ctx.exception))
+
+    def test_positional_only_arguments(self):
+        recipe = atomic_parser.parse_atomic(takes_positional_only, "result")
+        node = wfms.run_recipe(recipe, x=1, y=2)
+        self.assertEqual(node.output_ports["result"].value.sum(), 1 + 2)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
