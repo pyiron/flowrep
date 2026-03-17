@@ -227,9 +227,11 @@ def _parse_function(
 def _parse_return_without_unpacking(
     return_annotation, outputs: list[str]
 ) -> dict[str, OutputPort]:
-    if len(outputs) != 1:
+    if len(outputs) != 1:  # pragma: no cover
         raise ValueError(
-            f"Without return unpacking, only one output is allowed, but got {outputs}"
+            f"Without return unpacking, only one output is allowed, but got {outputs}. "
+            f"This should have been caught by the underlying recipe validation. Please "
+            f"raise a GitHub issue reporting how you got here!"
         )
     return {outputs[0]: OutputPort(annotation=return_annotation)}
 
