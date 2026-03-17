@@ -468,16 +468,17 @@ class TestFlowControlFromRecipe(unittest.TestCase):
 
 
 class TestRecipe2Live(unittest.TestCase):
-    def test_atomic(self):
-        self.assertIsInstance(
-            live.recipe2live(library.identity.flowrep_recipe), live.Atomic
-        )
-
-    def test_workflow(self):
-        self.assertIsInstance(live.recipe2live(_linear_workflow()), live.Workflow)
-
-    def test_for(self):
-        self.assertIsInstance(live.recipe2live(_for_negate()), live.FlowControl)
+    def test_conversion_types(self):
+        for recipe, type_ in (
+            (library.identity.flowrep_recipe, live.Atomic),
+            (_linear_workflow(), live.Workflow),
+            (_for_negate(), live.FlowControl),
+            (_if_abs(), live.FlowControl),
+            (_try_safe_divide(), live.FlowControl),
+            (_while_countdown(), live.FlowControl),
+        ):
+            with self.subTest(recipe=recipe, type=type_):
+                self.assertIsInstance(live.recipe2live(recipe), type_)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
