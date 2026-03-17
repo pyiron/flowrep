@@ -121,7 +121,8 @@ def parse_atomic(
         raise ValueError(
             f"Explicitly provided output labels must match with function analysis and "
             f"unpacking mode. Expected {len(scraped_output_labels)} output labels with "
-            f"unpacking mode '{unpack_mode}', got but got {output_labels}."
+            f"unpacking mode '{unpack_mode}', got but was passed {output_labels} and "
+            f"scraped {scraped_output_labels}."
         )
 
     return atomic_model.AtomicNode(
