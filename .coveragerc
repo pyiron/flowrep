@@ -2,6 +2,5 @@
 [run]
 source = flowrep
 omit =
-    flowrep/_version.py
-    flowrep/models/api/*
+    */flowrep/models/api/*
 concurrency = multiprocessing
