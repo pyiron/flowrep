@@ -95,6 +95,11 @@ def _linear_workflow() -> workflow_model.WorkflowNode:
 
 
 @workflow_parser.workflow
+def _passthrough_workflow(x: int) -> int:
+    return x
+
+
+@workflow_parser.workflow
 def _diamond_workflow(a: int, b: int = 1) -> int:
     s = library.my_add(a, b)
     n = library.negate(a)
@@ -589,6 +594,10 @@ class TestRunWorkflow(unittest.TestCase):
     def test_diamond(self):
         wf = wfms.run_recipe(_diamond_workflow.flowrep_recipe, a=3, b=7)
         self.assertEqual(wf.output_ports["result"].value, (3 + 7) * (-3))
+
+    def test_passthrough(self):
+        wf = wfms.run_recipe(_passthrough_workflow.flowrep_recipe, x=1)
+        self.assertEqual(wf.output_ports["x"].value, 1)
 
     def test_child_nodes_populated(self):
         wf = wfms.run_recipe(_linear_workflow(), x=1, y=2, z=3)
