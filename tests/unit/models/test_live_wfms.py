@@ -160,6 +160,31 @@ def _for_add_broadcast() -> for_model.ForNode:
     )
 
 
+def _for_add_zipped() -> for_model.ForNode:
+    """Zip `xs` and `ys` element-wise, compute `add(a, b)` for each pair."""
+    return for_model.ForNode(
+        inputs=["xs", "ys"],
+        outputs=["sums"],
+        body_node=helper_models.LabeledNode(
+            label="body", node=library.my_add.flowrep_recipe
+        ),
+        input_edges={
+            edge_models.TargetHandle(node="body", port="a"): edge_models.InputSource(
+                port="xs"
+            ),
+            edge_models.TargetHandle(node="body", port="b"): edge_models.InputSource(
+                port="ys"
+            ),
+        },
+        output_edges={
+            edge_models.OutputTarget(port="sums"): edge_models.SourceHandle(
+                node="body", port="output_0"
+            ),
+        },
+        zipped_ports=["a", "b"],
+    )
+
+
 def _decrement_body_workflow() -> workflow_model.WorkflowNode:
     """`n -> decrement(n) -> n` — single-step body for while loops."""
     return _single_node_workflow(
@@ -264,6 +289,57 @@ def _if_abs() -> if_model.IfNode:
     )
 
 
+@atomic_parser.atomic("value", "flag")
+def _value_and_flag(x: int) -> tuple[int, bool]:
+    """Returns ``(x, x > 0)`` — multi-output condition for if-node tests."""
+    return x, x > 0
+
+
+def _if_abs_multi_output_condition() -> if_model.IfNode:
+    """
+    Like :func:`_if_abs` but the condition node returns two outputs (``value``,
+    ``flag``) and the case explicitly selects ``flag`` via ``condition_output``.
+    """
+    return if_model.IfNode(
+        inputs=["x"],
+        outputs=["y"],
+        cases=[
+            helper_models.ConditionalCase(
+                condition=helper_models.LabeledNode(
+                    label="condition_0",
+                    node=_value_and_flag.flowrep_recipe,
+                ),
+                body=helper_models.LabeledNode(
+                    label="body_0",
+                    node=_identity_body_workflow(),
+                ),
+                condition_output="flag",
+            )
+        ],
+        else_case=helper_models.LabeledNode(
+            label="else_body",
+            node=_negate_body_workflow(),
+        ),
+        input_edges={
+            edge_models.TargetHandle(
+                node="condition_0", port="x"
+            ): edge_models.InputSource(port="x"),
+            edge_models.TargetHandle(node="body_0", port="x"): edge_models.InputSource(
+                port="x"
+            ),
+            edge_models.TargetHandle(
+                node="else_body", port="x"
+            ): edge_models.InputSource(port="x"),
+        },
+        prospective_output_edges={
+            edge_models.OutputTarget(port="y"): [
+                edge_models.SourceHandle(node="body_0", port="y"),
+                edge_models.SourceHandle(node="else_body", port="y"),
+            ]
+        },
+    )
+
+
 def _divide_body_workflow() -> workflow_model.WorkflowNode:
     return _single_node_workflow(
         inputs=["a", "b"],
@@ -323,6 +399,23 @@ def _try_safe_divide() -> try_model.TryNode:
             ]
         },
     )
+
+
+@atomic_parser.atomic
+def _raises_value(fail: bool):
+    if fail:
+        raise ValueError("That's what I do")
+    else:
+        return fail
+
+
+@workflow_parser.workflow
+def _failing_try(x):
+    try:
+        y = _raises_value(x)
+    except TypeError:
+        y = library.identity(x)
+    return y
 
 
 @dataclasses.dataclass
@@ -666,6 +759,14 @@ class TestRunFor(unittest.TestCase):
         node = wfms.run_recipe(_for_negate(), xs=[1, 2])
         self.assertEqual(len(node.nodes), 2)
 
+    def test_zipped_ports(self):
+        node = wfms.run_recipe(_for_add_zipped(), xs=[1, 2, 3], ys=[10, 20, 30])
+        self.assertEqual(node.output_ports["sums"].value, [11, 22, 33])
+
+    def test_zipped_unequal_lengths_raises(self):
+        with self.assertRaisesRegex(ValueError, "equal lengths"):
+            wfms.run_recipe(_for_add_zipped(), xs=[1, 2], ys=[10, 20, 30])
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # wfms.py tests — while
@@ -718,6 +819,14 @@ class TestRunIf(unittest.TestCase):
         self.assertIn("body_0", node.nodes)
         self.assertNotIn("else_body", node.nodes)
 
+    def test_multi_output_condition_positive(self):
+        node = wfms.run_recipe(_if_abs_multi_output_condition(), x=5)
+        self.assertEqual(node.output_ports["y"].value, 5)
+
+    def test_multi_output_condition_negative(self):
+        node = wfms.run_recipe(_if_abs_multi_output_condition(), x=-3)
+        self.assertEqual(node.output_ports["y"].value, 3)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # wfms.py tests — try
@@ -741,6 +850,10 @@ class TestRunTry(unittest.TestCase):
     def test_handler_body_stored_on_exception(self):
         node = wfms.run_recipe(_try_safe_divide(), a=7, b=0)
         self.assertIn("except_body_0", node.nodes)
+
+    def test_unhandled_exception_propagates(self):
+        with self.assertRaisesRegex(ValueError, "That's what I do"):
+            wfms.run_recipe(_failing_try.flowrep_recipe, x=42)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
