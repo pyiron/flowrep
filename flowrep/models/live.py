@@ -266,25 +266,18 @@ def _parse_return_dataclass(
     if not dataclasses.is_dataclass(return_annotation):
         raise TypeError(f"Return annotation {return_annotation!r} is not a dataclass")
 
-    fields = {f.name: f for f in dataclasses.fields(return_annotation)}
-    field_names = set(fields)
-    output_names = set(outputs)
-
-    if field_names != output_names:
-        missing = output_names - field_names
-        extra = field_names - output_names
+    fields = dataclasses.fields(return_annotation)
+    if len(outputs) != len(fields):  # pragma: no cover
         raise ValueError(
-            f"Dataclass fields do not match outputs. "
-            f"Missing: {missing or '{}'}, Extra: {extra or '{}'}"
+            f"Return dataclass {return_annotation!r} has {len(fields)} fields, "
+            f"{[f.name for f in fields]}, but {len(outputs)} outputs, {outputs} were "
+            f"requested. This should have been caught by the underlying recipe "
+            f"validation. Please raise a GitHub issue reporting how you got here!"
         )
 
     return {
         label: OutputPort(
-            annotation=(
-                fields[label].type
-                if fields[label].type is not dataclasses.MISSING
-                else None
-            ),
+            annotation=(field.type if field.type is not dataclasses.MISSING else None),
         )
-        for label in outputs
+        for label, field in zip(outputs, fields, strict=True)
     }

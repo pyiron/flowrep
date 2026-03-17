@@ -5,6 +5,7 @@ flowrep recipes.
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 from collections.abc import Collection
 from typing import Any, cast
@@ -105,8 +106,9 @@ def _store_atomic_outputs(node: live.Atomic, result: Any) -> None:
                 node.output_ports[name].value = val
 
     elif recipe.unpack_mode == atomic_model.UnpackMode.DATACLASS:
-        for name in output_names:
-            node.output_ports[name].value = getattr(result, name)
+        fields = dataclasses.fields(result)
+        for label, field in zip(node.recipe.outputs, fields, strict=True):
+            node.output_ports[label].value = getattr(result, field.name)
 
 
 # ---------------------------------------------------------------------------

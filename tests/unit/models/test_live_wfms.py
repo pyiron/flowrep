@@ -660,6 +660,27 @@ class TestRunAtomic(unittest.TestCase):
         self.assertEqual(node.input_ports["a"].value, 3)
         self.assertEqual(node.input_ports["b"].value, 4)
 
+    def test_not_unpacking(self):
+        recipe = atomic_model.AtomicNode(
+            inputs=["a", "b"],
+            outputs=["result"],
+            reference=library.divmod_func.flowrep_recipe.reference,
+            unpack_mode=atomic_model.UnpackMode.NONE,
+        )
+        node = wfms.run_recipe(recipe, a=1, b=2)
+        self.assertEqual(node.output_ports["result"].value, (0, 1))
+
+    def test_unpacking_dataclass(self):
+        recipe = atomic_parser.parse_atomic(
+            takes_positional_only,
+            "dc_x_field",
+            "dc_y_field",
+            unpack_mode=atomic_model.UnpackMode.DATACLASS,
+        )
+        node = wfms.run_recipe(recipe, x=1, y=2)
+        self.assertEqual(node.output_ports["dc_x_field"].value, 1)
+        self.assertEqual(node.output_ports["dc_y_field"].value, 2)
+
     def test_unrecognized_input_raises(self):
         with self.assertRaises(ValueError) as ctx:
             wfms.run_recipe(library.my_add.flowrep_recipe, a=3, not_an_input=4)
