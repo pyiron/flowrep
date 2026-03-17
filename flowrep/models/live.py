@@ -102,6 +102,7 @@ class Atomic(LiveNode):
             recipe.reference.info.fully_qualified_name,
             recipe.inputs,
             recipe.outputs,
+            recipe.unpack_mode,
         )
         return Atomic(
             recipe=recipe,
@@ -180,7 +181,10 @@ class FlowControl(Composite):
 
 
 def _parse_function(
-    fully_qualified_name: str, inputs: list[str], outputs: list[str]
+    fully_qualified_name: str,
+    inputs: list[str],
+    outputs: list[str],
+    unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
 ) -> tuple[
     types.FunctionType,
     dict[base_models.Label, InputPort],
@@ -210,6 +214,27 @@ def _parse_function(
 
     # --- output ports ---
     return_annotation = hints.get("return", None)
+    if unpack_mode == atomic_model.UnpackMode.NONE:
+        output_ports = _parse_return_without_unpacking(return_annotation, outputs)
+    elif unpack_mode == atomic_model.UnpackMode.TUPLE:
+        output_ports = _parse_return_tuple(return_annotation, outputs)
+    elif unpack_mode == atomic_model.UnpackMode.DATACLASS:
+        output_ports = _parse_return_dataclass(return_annotation, outputs)
+
+    return function, input_ports, output_ports
+
+
+def _parse_return_without_unpacking(
+    return_annotation, outputs: list[str]
+) -> dict[str, OutputPort]:
+    if len(outputs) != 1:
+        raise ValueError(
+            f"Without return unpacking, only one output is allowed, but got {outputs}"
+        )
+    return {outputs[0]: OutputPort(annotation=return_annotation)}
+
+
+def _parse_return_tuple(return_annotation, outputs: list[str]) -> dict[str, OutputPort]:
     origin = get_origin(return_annotation)
     args = get_args(return_annotation)
     is_splittable = origin is tuple
@@ -226,14 +251,40 @@ def _parse_function(
                 f"Output labels {outputs} (n={len(outputs)}) do not match "
                 f"return annotation args (n={len(args)}): {args}"
             )
-        output_ports = {}
-        for label, annotation in zip(outputs, args, strict=True):
-            output_port = OutputPort()
-            output_port.annotation = annotation
-            output_ports[label] = output_port
+        output_ports = {
+            label: OutputPort(annotation=annotation)
+            for label, annotation in zip(outputs, args, strict=True)
+        }
     else:
-        output_port = OutputPort()
-        output_port.annotation = return_annotation
-        output_ports = {outputs[0]: output_port}
+        output_ports = {outputs[0]: OutputPort(annotation=return_annotation)}
+    return output_ports
 
-    return function, input_ports, output_ports
+
+def _parse_return_dataclass(
+    return_annotation, outputs: list[str]
+) -> dict[str, OutputPort]:
+    if not dataclasses.is_dataclass(return_annotation):
+        raise TypeError(f"Return annotation {return_annotation!r} is not a dataclass")
+
+    fields = {f.name: f for f in dataclasses.fields(return_annotation)}
+    field_names = set(fields)
+    output_names = set(outputs)
+
+    if field_names != output_names:
+        missing = output_names - field_names
+        extra = field_names - output_names
+        raise ValueError(
+            f"Dataclass fields do not match outputs. "
+            f"Missing: {missing or '{}'}, Extra: {extra or '{}'}"
+        )
+
+    return {
+        label: OutputPort(
+            annotation=(
+                fields[label].type
+                if fields[label].type is not dataclasses.MISSING
+                else None
+            ),
+        )
+        for label in outputs
+    }
