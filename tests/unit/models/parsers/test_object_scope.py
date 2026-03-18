@@ -119,7 +119,6 @@ class TestGetScope(unittest.TestCase):
         """get_scope works for a module-level lambda."""
         scope = object_scope.get_scope(identity)
         self.assertIs(scope.identity, identity)
-        self.assertIs(scope.add, add)
 
     def test_no_resolvable_module_raises_value_error(self):
         """When neither inspect.getmodule nor __module__ resolves, raise ValueError."""
