@@ -1,4 +1,6 @@
 import ast
+import sys
+import types
 import unittest
 
 from flowrep.models.parsers import object_scope
@@ -41,6 +43,36 @@ class TestGetScope(unittest.TestCase):
         self.assertIs(scope.len, len)
         self.assertIs(scope.int, int)
         self.assertIs(scope.ValueError, ValueError)
+
+    def test_none_module_fallback_via_dunder_module(self):
+        """When inspect.getmodule returns None but __module__ is set, fall back."""
+        mod = types.ModuleType("_test_dynamic_mod")
+        mod.__dict__["sentinel"] = object()
+        sys.modules["_test_dynamic_mod"] = mod
+        try:
+            func = types.FunctionType(
+                (lambda: None).__code__,
+                {},
+                "_test_func",
+            )
+            # Manually set __module__ but keep the function out of a real module
+            # so inspect.getmodule() returns None.
+            func.__module__ = "_test_dynamic_mod"
+            scope = object_scope.get_scope(func)
+            self.assertIs(scope.sentinel, mod.__dict__["sentinel"])
+        finally:
+            del sys.modules["_test_dynamic_mod"]
+
+    def test_no_resolvable_module_raises_value_error(self):
+        """When neither inspect.getmodule nor __module__ resolves, raise ValueError."""
+        func = types.FunctionType(
+            (lambda: None).__code__,
+            {},
+            "_orphan_func",
+        )
+        func.__module__ = None  # type: ignore[assignment]
+        with self.assertRaises(ValueError):
+            object_scope.get_scope(func)
 
 
 class TestResolveSymbolToObject(unittest.TestCase):
