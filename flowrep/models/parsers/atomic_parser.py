@@ -119,10 +119,10 @@ def parse_atomic(
     scraped_output_labels = _get_output_labels(func, unpack_mode)
     if len(output_labels) > 0 and len(output_labels) != len(scraped_output_labels):
         raise ValueError(
-            f"Explicitly provided output labels must match with function analysis and "
-            f"unpacking mode. Expected {len(scraped_output_labels)} output labels with "
-            f"unpacking mode '{unpack_mode}', got but was passed {output_labels} and "
-            f"scraped {scraped_output_labels}."
+            "Explicitly provided output labels must match the function analysis and "
+            f"unpack_mode: expected {len(scraped_output_labels)} labels for "
+            f"unpack_mode='{unpack_mode}', got {len(output_labels)} labels "
+            f"{output_labels}; inferred labels were {scraped_output_labels}."
         )
 
     return atomic_model.AtomicNode(
