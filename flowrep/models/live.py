@@ -64,6 +64,10 @@ class _Port:
 class InputPort(_Port):
     default: object | NotData = NOT_DATA
 
+    def get_data(self) -> object | NotData:
+        """A shortcut for falling back on the default"""
+        return self.default if self.value is NOT_DATA else self.value
+
 
 @dataclasses.dataclass(frozen=False)
 class OutputPort(_Port): ...

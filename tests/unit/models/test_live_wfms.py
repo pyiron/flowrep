@@ -458,6 +458,12 @@ class TestPorts(unittest.TestCase):
         self.assertIsNone(port.annotation)
         self.assertIsInstance(port.default, live.NotData)
 
+    def test_input_port_get_data(self):
+        self.assertIs(live.InputPort().get_data(), live.NOT_DATA)
+        self.assertIs(live.InputPort(default=0).get_data(), 0)
+        self.assertIs(live.InputPort(value=1).get_data(), 1)
+        self.assertIs(live.InputPort(value=1, default=0).get_data(), 1)
+
     def test_output_port_defaults(self):
         port = live.OutputPort()
         self.assertIsInstance(port.value, live.NotData)
