@@ -151,8 +151,12 @@ def _topo_sort_children(recipe: workflow_model.WorkflowNode) -> list[str]:
             if in_degree[succ] == 0:
                 heapq.heappush(queue, succ)
 
-    if len(order) != len(recipe.nodes):
-        raise ValueError("Cycle detected in workflow edges")
+    if len(order) != len(recipe.nodes):  # pragma: no cover
+        raise ValueError(
+            "Cycle detected in workflow edges. This should have been caught by the "
+            "underlying recipe validation. Please raise a GitHub issue reporting "
+            "how you got here!"
+        )
     return order
 
 
