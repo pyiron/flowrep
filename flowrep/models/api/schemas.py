@@ -17,6 +17,7 @@ from flowrep.models.edge_models import InputSource as InputSource
 from flowrep.models.edge_models import OutputTarget as OutputTarget
 from flowrep.models.edge_models import SourceHandle as SourceHandle
 from flowrep.models.edge_models import TargetHandle as TargetHandle
+from flowrep.models.live import NOT_DATA as NOT_DATA
 from flowrep.models.live import Atomic as Atomic
 from flowrep.models.live import Composite as Composite
 from flowrep.models.live import FlowControl as FlowControl
