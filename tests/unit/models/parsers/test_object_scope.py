@@ -11,6 +11,9 @@ def add(x: float = 2.0, y: float = 1) -> float:
     return x + y
 
 
+identity = lambda x: x  # noqa: E731
+
+
 class Outer:
     class Inner:
         @staticmethod
@@ -85,6 +88,37 @@ class TestGetScope(unittest.TestCase):
             self.assertIs(scope.marker, mod.__dict__["marker"])
         finally:
             del sys.modules["_test_fallback_mod"]
+
+    def test_builtin_type(self):
+        """get_scope works for a builtin type such as ``int``."""
+        scope = object_scope.get_scope(int)
+        # The builtins module is always merged in, so int and len must be present.
+        self.assertIs(scope.int, int)
+        self.assertIs(scope.len, len)
+
+    def test_builtin_function(self):
+        """get_scope works for a builtin function such as ``len``."""
+        scope = object_scope.get_scope(len)
+        self.assertIs(scope.len, len)
+        self.assertIs(scope.int, int)
+
+    def test_user_defined_class(self):
+        """get_scope works for a user-defined class object."""
+        scope = object_scope.get_scope(Outer)
+        # Module-level names from this test module should be visible.
+        self.assertIs(scope.Outer, Outer)
+        self.assertIs(scope.add, add)
+
+    def test_static_method(self):
+        """get_scope works for a static method."""
+        scope = object_scope.get_scope(Outer.Inner.nested_func)
+        self.assertIs(scope.Outer, Outer)
+        self.assertIs(scope.add, add)
+
+    def test_lambda(self):
+        """get_scope works for a module-level lambda."""
+        scope = object_scope.get_scope(identity)
+        self.assertIs(scope.identity, identity)
 
     def test_no_resolvable_module_raises_value_error(self):
         """When neither inspect.getmodule nor __module__ resolves, raise ValueError."""
