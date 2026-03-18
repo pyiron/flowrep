@@ -74,6 +74,7 @@ class TestGetScope(unittest.TestCase):
         with self.assertRaises(ValueError):
             object_scope.get_scope(func)
 
+
 class TestResolveSymbolToObject(unittest.TestCase):
     def test_simple_name(self):
         scope = object_scope.ScopeProxy({"add": add})
