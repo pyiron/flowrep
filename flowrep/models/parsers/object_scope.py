@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 import builtins
 import inspect
+from collections.abc import Callable
+from typing import Any
 
 
 class ScopeProxy:
@@ -42,7 +44,7 @@ class ScopeProxy:
         return ScopeProxy(dict(self._d))
 
 
-def get_scope(func: object) -> ScopeProxy:
+def get_scope(func: Callable[..., Any] | type[Any]) -> ScopeProxy:
     return ScopeProxy(inspect.getmodule(func).__dict__ | vars(builtins))
 
 
