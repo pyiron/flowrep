@@ -241,26 +241,36 @@ def _parse_return_without_unpacking(
 
 
 def _parse_return_tuple(return_annotation, outputs: list[str]) -> dict[str, OutputPort]:
-    origin = get_origin(return_annotation)
-    args = get_args(return_annotation)
-    is_splittable = origin is tuple
-
     output_ports: dict[str, OutputPort]
     if len(outputs) > 1:
-        if not is_splittable:
-            raise ValueError(
-                f"Multiple outputs {outputs} requested but return annotation "
-                f"{return_annotation!r} is not splittable"
+        origin = get_origin(return_annotation)
+        args = get_args(return_annotation)
+
+        if return_annotation is not None:
+            unpacking_hint = (
+                f"To collect the entire tuple in a single port use "
+                f"{atomic_model.UnpackMode.NONE} unpacking mode."
             )
-        if len(args) != len(outputs):
-            raise ValueError(
-                f"Output labels {outputs} (n={len(outputs)}) do not match "
-                f"return annotation args (n={len(args)}): {args}"
-            )
-        output_ports = {
-            label: OutputPort(annotation=annotation)
-            for label, annotation in zip(outputs, args, strict=True)
-        }
+
+            if origin is not tuple:
+                raise ValueError(
+                    f"Multiple outputs {outputs} requested but return annotation "
+                    f"{return_annotation!r} is not splittable -- only tuple return "
+                    f"hints are splittable. {unpacking_hint}"
+                )
+            if len(args) != len(outputs):
+                raise ValueError(
+                    f"Output labels {outputs} (n={len(outputs)}) do not match "
+                    f"length of return annotation {return_annotation} (n={len(args)}). "
+                    f"Tuple return hint unpacking requires one hint element per output."
+                    f" {unpacking_hint}"
+                )
+            output_ports = {
+                label: OutputPort(annotation=annotation)
+                for label, annotation in zip(outputs, args, strict=True)
+            }
+        else:
+            output_ports = {label: OutputPort() for label in outputs}
     else:
         output_ports = {outputs[0]: OutputPort(annotation=return_annotation)}
     return output_ports

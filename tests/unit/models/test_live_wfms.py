@@ -431,6 +431,16 @@ def takes_positional_only(x, /, y) -> SumClass:
     return SumClass(x=x, y=y)
 
 
+@atomic_parser.atomic
+def multiple_returns_no_hint(x, y=1):
+    return x + y, x - y
+
+
+@atomic_parser.atomic
+def unsplittable_output(x: int, y: int) -> list[int]:
+    return [x, y]
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # live.py tests
 # ═══════════════════════════════════════════════════════════════════════════
@@ -499,6 +509,11 @@ class TestAtomicFromRecipe(unittest.TestCase):
         self.assertIn("remainder", node.output_ports)
         self.assertIs(node.output_ports["quotient"].annotation, float)
 
+    def test_multi_outputwithout_hints(self):
+        node = live.Atomic.from_recipe(multiple_returns_no_hint.flowrep_recipe)
+        self.assertIsNone(node.output_ports["output_0"].annotation)
+        self.assertIsNone(node.output_ports["output_1"].annotation)
+
     def test_not_unpacking(self):
         recipe = atomic_model.AtomicNode(
             inputs=["a", "b"],
@@ -545,10 +560,21 @@ class TestAtomicFromRecipe(unittest.TestCase):
                 atomic_model.AtomicNode(
                     inputs=["x"],
                     outputs=["x", "y"],
-                    reference=library.decrement.flowrep_recipe.reference,
+                    reference=unsplittable_output.flowrep_recipe.reference,
                 )
             )
-        self.assertIn("is not splittable", str(ctx.exception))
+        self.assertIn("only tuple return hints are splittable", str(ctx.exception))
+
+    def test_output_hint_length_mismatch_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            live.Atomic.from_recipe(
+                atomic_model.AtomicNode(
+                    inputs=["a", "b"],
+                    outputs=["x", "y", "z"],
+                    reference=library.divmod_func.flowrep_recipe.reference,
+                )
+            )
+        self.assertIn("do not match", str(ctx.exception))
 
     def test_output_length_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
@@ -560,7 +586,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
                 )
             )
         self.assertIn(
-            "(n=3) do not match return annotation args (n=2)", str(ctx.exception)
+            "(n=3) do not match length of return annotation", str(ctx.exception)
         )
 
 
