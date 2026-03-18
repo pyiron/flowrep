@@ -1,6 +1,5 @@
 *.pyc
 .DS_Store
-*/_version.py
 .coverage
 .pre-commit-config.yaml
 nohup.out
