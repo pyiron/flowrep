@@ -1,4 +1,5 @@
 import ast
+import textwrap
 import unittest
 from unittest.mock import MagicMock, patch
 from collections.abc import Callable
@@ -31,11 +32,11 @@ class TestSplitByVersionAvailability(unittest.TestCase):
 class TestUndefinedVariableVisitor(unittest.TestCase):
     def test_undefined_variable_visitor(self):
         source_code = """
-def test_function(a: int, b):
-    c = a + b
-    return d
-"""
-        tree = ast.parse(source_code)
+        def test_function(a: int, b):
+            c = a + b
+            return d
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
         visitor = dependency_parser.UndefinedVariableVisitor()
         visitor.visit(tree)
 
@@ -51,7 +52,7 @@ class TestFindUndefinedVariables(unittest.TestCase):
     def test_find_undefined_variables(self):
         def test_function(a, b):
             c = a + b
-            return d  # 'd' is undefined
+            return d
 
         undefined_vars = dependency_parser.find_undefined_variables(test_function)
         self.assertIn("d", undefined_vars)
