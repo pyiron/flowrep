@@ -1,11 +1,17 @@
 import ast
+import sys
+import types
 import unittest
+from unittest.mock import patch
 
 from flowrep.models.parsers import object_scope
 
 
 def add(x: float = 2.0, y: float = 1) -> float:
     return x + y
+
+
+identity = lambda x: x  # noqa: E731
 
 
 class Outer:
@@ -41,6 +47,89 @@ class TestGetScope(unittest.TestCase):
         self.assertIs(scope.len, len)
         self.assertIs(scope.int, int)
         self.assertIs(scope.ValueError, ValueError)
+
+    def test_none_module_fallback_via_dunder_module(self):
+        """When inspect.getmodule returns None but __module__ is set, fall back."""
+        mod = types.ModuleType("_test_dynamic_mod")
+        mod.__dict__["sentinel"] = object()
+        sys.modules["_test_dynamic_mod"] = mod
+        try:
+            func = types.FunctionType(
+                (lambda: None).__code__,
+                {},
+                "_test_func",
+            )
+            # Manually set __module__ but keep the function out of a real module
+            # so inspect.getmodule() returns None.
+            func.__module__ = "_test_dynamic_mod"
+            scope = object_scope.get_scope(func)
+            self.assertIs(scope.sentinel, mod.__dict__["sentinel"])
+        finally:
+            del sys.modules["_test_dynamic_mod"]
+
+    def test_sys_modules_fallback_when_getmodule_returns_none(self):
+        """Cover line 53: sys.modules.get(module_name) is reached when inspect.getmodule
+        returns None but the object's __module__ is registered in sys.modules."""
+        mod = types.ModuleType("_test_fallback_mod")
+        mod.__dict__["marker"] = object()
+        sys.modules["_test_fallback_mod"] = mod
+        try:
+            func = types.FunctionType(
+                (lambda: None).__code__,
+                {},
+                "_test_func",
+            )
+            func.__module__ = "_test_fallback_mod"
+            # Patch inspect.getmodule to return None, simulating objects (e.g.
+            # C-extension types) where the module cannot be determined from the
+            # object directly, so the fallback via sys.modules is exercised.
+            with patch.object(object_scope.inspect, "getmodule", return_value=None):
+                scope = object_scope.get_scope(func)
+            self.assertIs(scope.marker, mod.__dict__["marker"])
+        finally:
+            del sys.modules["_test_fallback_mod"]
+
+    def test_builtin_type(self):
+        """get_scope works for a builtin type such as ``int``."""
+        scope = object_scope.get_scope(int)
+        # The builtins module is always merged in, so int and len must be present.
+        self.assertIs(scope.int, int)
+        self.assertIs(scope.len, len)
+
+    def test_builtin_function(self):
+        """get_scope works for a builtin function such as ``len``."""
+        scope = object_scope.get_scope(len)
+        self.assertIs(scope.len, len)
+        self.assertIs(scope.int, int)
+
+    def test_user_defined_class(self):
+        """get_scope works for a user-defined class object."""
+        scope = object_scope.get_scope(Outer)
+        # Module-level names from this test module should be visible.
+        self.assertIs(scope.Outer, Outer)
+        self.assertIs(scope.add, add)
+
+    def test_static_method(self):
+        """get_scope works for a static method."""
+        scope = object_scope.get_scope(Outer.Inner.nested_func)
+        self.assertIs(scope.Outer, Outer)
+        self.assertIs(scope.add, add)
+
+    def test_lambda(self):
+        """get_scope works for a module-level lambda."""
+        scope = object_scope.get_scope(identity)
+        self.assertIs(scope.identity, identity)
+
+    def test_no_resolvable_module_raises_value_error(self):
+        """When neither inspect.getmodule nor __module__ resolves, raise ValueError."""
+        func = types.FunctionType(
+            (lambda: None).__code__,
+            {},
+            "_orphan_func",
+        )
+        func.__module__ = None  # type: ignore[assignment]
+        with self.assertRaises(ValueError):
+            object_scope.get_scope(func)
 
 
 class TestResolveSymbolToObject(unittest.TestCase):
