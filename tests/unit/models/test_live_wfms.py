@@ -750,6 +750,11 @@ class TestRunWorkflow(unittest.TestCase):
         wf = wfms.run_recipe(_passthrough_workflow.flowrep_recipe)
         self.assertEqual(wf.output_ports["x"].value, 42)
 
+    def test_defaults_propagate_to_children(self):
+        """Workflow defaults should be used"""
+        wf = wfms.run_recipe(_diamond_workflow.flowrep_recipe, a=3)
+        self.assertEqual(wf.output_ports["result"].value, (3 + 1) * (-3))
+
 
 class TestTopoSort(unittest.TestCase):
     def test_linear_order(self):

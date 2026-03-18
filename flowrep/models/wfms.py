@@ -180,7 +180,7 @@ def _gather_child_inputs(
 
         if th in recipe.input_edges:
             parent_source = recipe.input_edges[th]
-            inputs[port] = workflow_node.input_ports[parent_source.port].value
+            inputs[port] = workflow_node.input_ports[parent_source.port].get_data()
         elif th in recipe.edges:
             sibling_source = recipe.edges[th]
             sibling = workflow_node.nodes[sibling_source.node]
