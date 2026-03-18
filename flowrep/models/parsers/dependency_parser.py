@@ -85,7 +85,6 @@ def get_call_dependencies(
         return call_dependencies
     visited.add(func_fqn)
 
-
     # Find variables that are used but not defined
     scope = object_scope.get_scope(func_or_var)
     for item in find_undefined_variables(func_or_var):

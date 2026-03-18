@@ -18,7 +18,9 @@ class TestSplitByVersionAvailability(unittest.TestCase):
             mock_version_2: mock_func_2,
         }
 
-        has_version, no_version = dependency_parser.split_by_version_availability(call_dependencies)
+        has_version, no_version = dependency_parser.split_by_version_availability(
+            call_dependencies
+        )
 
         self.assertIn(mock_version_1, has_version)
         self.assertIn(mock_version_2, no_version)
