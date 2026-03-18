@@ -96,5 +96,6 @@ def get_call_dependencies(
         info = versions.VersionInfo.of(obj, version_scraping=version_scraping)
         call_dependencies[info] = obj
 
-        get_call_dependencies(obj, version_scraping, call_dependencies, visited)
+        if info.version is None:
+            get_call_dependencies(obj, version_scraping, call_dependencies, visited)
     return call_dependencies
