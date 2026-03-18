@@ -2,6 +2,7 @@ import ast
 import sys
 import types
 import unittest
+from unittest.mock import patch
 
 from flowrep.models.parsers import object_scope
 
@@ -62,6 +63,28 @@ class TestGetScope(unittest.TestCase):
             self.assertIs(scope.sentinel, mod.__dict__["sentinel"])
         finally:
             del sys.modules["_test_dynamic_mod"]
+
+    def test_sys_modules_fallback_when_getmodule_returns_none(self):
+        """Cover line 53: sys.modules.get(module_name) is reached when inspect.getmodule
+        returns None but the object's __module__ is registered in sys.modules."""
+        mod = types.ModuleType("_test_fallback_mod")
+        mod.__dict__["marker"] = object()
+        sys.modules["_test_fallback_mod"] = mod
+        try:
+            func = types.FunctionType(
+                (lambda: None).__code__,
+                {},
+                "_test_func",
+            )
+            func.__module__ = "_test_fallback_mod"
+            # Patch inspect.getmodule to return None, simulating objects (e.g.
+            # C-extension types) where the module cannot be determined from the
+            # object directly, so the fallback via sys.modules is exercised.
+            with patch.object(object_scope.inspect, "getmodule", return_value=None):
+                scope = object_scope.get_scope(func)
+            self.assertIs(scope.marker, mod.__dict__["marker"])
+        finally:
+            del sys.modules["_test_fallback_mod"]
 
     def test_no_resolvable_module_raises_value_error(self):
         """When neither inspect.getmodule nor __module__ resolves, raise ValueError."""
