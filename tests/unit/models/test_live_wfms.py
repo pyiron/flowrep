@@ -781,6 +781,42 @@ class TestRunWorkflow(unittest.TestCase):
         wf = wfms.run_recipe(_diamond_workflow.flowrep_recipe, a=3)
         self.assertEqual(wf.output_ports["result"].value, (3 + 1) * (-3))
 
+    def test_deterministic_tiebreaking_after_release(self):
+        """
+        Nodes 'a' and 'c' both start at in-degree 0.  Processing 'a' frees 'b'.
+        Deterministic alphabetical ordering requires: a, b, c.
+        A naive append-without-resort produces: a, c, b.
+        """
+        recipe = workflow_model.WorkflowNode(
+            inputs=["x"],
+            outputs=["result"],
+            nodes={
+                "a": library.identity.flowrep_recipe,
+                "b": library.negate.flowrep_recipe,
+                "c": library.identity.flowrep_recipe,
+            },
+            input_edges={
+                edge_models.TargetHandle(node="a", port="x"): edge_models.InputSource(
+                    port="x"
+                ),
+                edge_models.TargetHandle(node="c", port="x"): edge_models.InputSource(
+                    port="x"
+                ),
+            },
+            edges={
+                edge_models.TargetHandle(node="b", port="x"): edge_models.SourceHandle(
+                    node="a", port="x"
+                ),
+            },
+            output_edges={
+                edge_models.OutputTarget(port="result"): edge_models.SourceHandle(
+                    node="b", port="output_0"
+                ),
+            },
+        )
+        order = wfms._topo_sort_children(recipe)
+        self.assertEqual(order, ["a", "b", "c"])
+
 
 class TestTopoSort(unittest.TestCase):
     def test_linear_order(self):

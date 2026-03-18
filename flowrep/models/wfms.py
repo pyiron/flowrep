@@ -6,6 +6,7 @@ flowrep recipes.
 from __future__ import annotations
 
 import dataclasses
+import heapq
 import itertools
 from collections.abc import Collection
 from typing import Any, cast
@@ -139,24 +140,19 @@ def _topo_sort_children(recipe: workflow_model.WorkflowNode) -> list[str]:
         in_degree[target.node] += 1
         successors[source.node].append(target.node)
 
-    queue = sorted(
-        (label for label in recipe.nodes if in_degree[label] == 0),
-    )
+    queue = [label for label in recipe.nodes if in_degree[label] == 0]
+    heapq.heapify(queue)
     order: list[str] = []
     while queue:
-        label = queue.pop(0)
+        label = heapq.heappop(queue)
         order.append(label)
-        for succ in sorted(successors.get(label, [])):
+        for succ in successors.get(label, []):
             in_degree[succ] -= 1
             if in_degree[succ] == 0:
-                queue.append(succ)
+                heapq.heappush(queue, succ)
 
-    if len(order) != len(recipe.nodes):  # pragma: no cover
-        raise ValueError(
-            "Cycle detected in workflow edges. This should have been caught by the "
-            "underlying recipe validation. Please raise a GitHub issue reporting "
-            "how you got here!"
-        )
+    if len(order) != len(recipe.nodes):
+        raise ValueError("Cycle detected in workflow edges")
     return order
 
 
