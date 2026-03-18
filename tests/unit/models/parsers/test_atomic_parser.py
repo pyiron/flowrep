@@ -228,7 +228,7 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
             def func():
                 return 1, 2
 
-        self.assertIn("Expected 2 output labels", str(ctx.exception))
+        self.assertIn("expected 2 labels", str(ctx.exception))
 
     def test_atomic_with_three_labels(self):
         @atomic_parser.atomic("first", "second", "third")
@@ -264,7 +264,7 @@ class TestParseAtomicWithOutputLabels(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             atomic_parser.parse_atomic(func, "only", "two")
 
-        self.assertIn("Expected 3 output labels", str(ctx.exception))
+        self.assertIn("expected 3 labels", str(ctx.exception))
 
     def test_no_explicit_labels_falls_back_to_inferred(self):
         def func():
@@ -303,7 +303,7 @@ class TestParseAtomicWithOutputLabels(unittest.TestCase):
                 func, "only_one", unpack_mode=atomic_model.UnpackMode.DATACLASS
             )
 
-        self.assertIn("Expected 2 output labels", str(ctx.exception))
+        self.assertIn("expected 2 labels", str(ctx.exception))
 
 
 class TestAtomicEdgeCases(unittest.TestCase):
