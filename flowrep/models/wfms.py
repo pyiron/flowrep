@@ -195,7 +195,7 @@ def _populate_workflow_outputs(
 ) -> None:
     for target, source in recipe.output_edges.items():
         if isinstance(source, edge_models.InputSource):
-            val = node.input_ports[source.port].value
+            val = node.input_ports[source.port].get_data()
         else:
             child = node.nodes[source.node]
             val = child.output_ports[source.port].value

@@ -95,7 +95,7 @@ def _linear_workflow() -> workflow_model.WorkflowNode:
 
 
 @workflow_parser.workflow
-def _passthrough_workflow(x: int) -> int:
+def _passthrough_workflow(x: int = 42) -> int:
     return x
 
 
@@ -724,7 +724,7 @@ class TestRunWorkflow(unittest.TestCase):
         self.assertIsInstance(wf.nodes["add_0"], live.Atomic)
         self.assertEqual(wf.nodes["add_0"].output_ports["output_0"].value, 3)
 
-    def test_defaults_passthrough(self):
+    def test_child_defaults(self):
         """Atomic child with a default not wired by any edge still works."""
         recipe = workflow_model.WorkflowNode(
             inputs=["x"],
@@ -744,6 +744,11 @@ class TestRunWorkflow(unittest.TestCase):
         )
         wf = wfms.run_recipe(recipe, x=10)  # step defaults to 1
         self.assertEqual(wf.output_ports["result"].value, 10 + 1)
+
+    def test_defaults_passthrough(self):
+        """Workflow defaults should be used"""
+        wf = wfms.run_recipe(_passthrough_workflow.flowrep_recipe)
+        self.assertEqual(wf.output_ports["x"].value, 42)
 
 
 class TestTopoSort(unittest.TestCase):
