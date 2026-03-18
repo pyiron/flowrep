@@ -2,9 +2,8 @@ import ast
 import textwrap
 import unittest
 from unittest.mock import MagicMock, patch
-from collections.abc import Callable
-from pyiron_snippets import versions
-from flowrep.models.parsers import object_scope, dependency_parser
+
+from flowrep.models.parsers import dependency_parser
 
 
 class TestSplitByVersionAvailability(unittest.TestCase):
@@ -50,12 +49,13 @@ class TestUndefinedVariableVisitor(unittest.TestCase):
 
 class TestFindUndefinedVariables(unittest.TestCase):
     def test_find_undefined_variables(self):
+        x = 1
         def test_function(a, b):
-            c = a + b
-            return d
+            c = a + b + x
+            return c
 
         undefined_vars = dependency_parser.find_undefined_variables(test_function)
-        self.assertIn("d", undefined_vars)
+        self.assertIn("x", undefined_vars)
         self.assertNotIn("a", undefined_vars)
         self.assertNotIn("b", undefined_vars)
         self.assertNotIn("c", undefined_vars)

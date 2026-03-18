@@ -4,12 +4,11 @@ import ast
 import builtins
 import inspect
 import textwrap
-import types
 from collections.abc import Callable
 
 from pyiron_snippets import versions
 
-from flowrep.models.parsers import object_scope, parser_helpers
+from flowrep.models.parsers import object_scope
 
 CallDependencies = dict[versions.VersionInfo, Callable]
 
