@@ -31,7 +31,7 @@ class TestSplitByVersionAvailability(unittest.TestCase):
 class TestUndefinedVariableVisitor(unittest.TestCase):
     def test_undefined_variable_visitor(self):
         source_code = """
-def test_function(a, b):
+def test_function(a: int, b):
     c = a + b
     return d
 """
@@ -40,6 +40,7 @@ def test_function(a, b):
         visitor.visit(tree)
 
         self.assertIn("d", visitor.used_vars)
+        self.assertIn("int", visitor.used_vars)
         self.assertIn("a", visitor.defined_vars)
         self.assertIn("b", visitor.defined_vars)
         self.assertIn("c", visitor.defined_vars)
