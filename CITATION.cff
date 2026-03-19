@@ -1,0 +1,10 @@
+cff-version: 1.1.0
+message: "If you use flowrep software, please cite it as below."
+authors:
+- family-names: Huber
+  given-names: Liam
+  orcid: "https://orcid.org/0009-0009-2560-5851"
+- family-names: Waseda
+  given-names: Osamu
+  orcid: "https://orcid.org/0000-0002-1677-4057"
+title: flowrep
