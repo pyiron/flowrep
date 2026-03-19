@@ -1,5 +1,4 @@
 import ast
-import numpy as np
 import textwrap
 import unittest
 from pyiron_snippets import versions
