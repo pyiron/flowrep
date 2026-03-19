@@ -1,11 +1,14 @@
 import ast
 import importlib
 
+from flowrep.models.parsers import object_scope
+from flowrep.models.parsers.object_scope import ScopeProxy
+
 
 def build_scope(
     imports: list[ast.Import] | None = None,
     import_froms: list[ast.ImportFrom] | None = None,
-) -> dict:
+) -> object_scope.ScopeProxy:
     """
     Build a scope dictionary from a list of `import` and `from ... import ...` statements.
 
@@ -14,9 +17,10 @@ def build_scope(
         import_froms (list | None): A list of `ast.ImportFrom` nodes.
 
     Returns:
-        dict: A dictionary representing the scope with imported modules and objects.
+        object_scope.ScopeProxy: A mutable mapping representing the scope with imported
+            modules and objects.
     """
-    scope = {}
+    scope = ScopeProxy()
 
     imports = imports or []
     import_froms = import_froms or []
@@ -26,7 +30,7 @@ def build_scope(
         for alias in imp.names:
             asname = alias.asname or alias.name
             module = importlib.import_module(alias.name)
-            scope[asname] = module
+            scope.register(name=asname, obj=module)
 
     # Handle `from ... import ...` statements
     for imp_from in import_froms:
@@ -42,6 +46,6 @@ def build_scope(
             name = alias.name
             asname = alias.asname or name
             obj = getattr(module, name)
-            scope[asname] = obj
+            scope.register(name=asname, obj=obj)
 
     return scope
