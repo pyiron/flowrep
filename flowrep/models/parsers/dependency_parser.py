@@ -10,7 +10,7 @@ from pyiron_snippets import versions
 
 from flowrep.models.parsers import object_scope
 
-CallDependencies = dict[versions.VersionInfo, Callable]
+CallDependencies = dict[versions.VersionInfo, object]
 
 
 def split_by_version_availability(
