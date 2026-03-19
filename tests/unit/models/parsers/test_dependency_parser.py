@@ -47,6 +47,42 @@ class TestUndefinedVariableVisitor(unittest.TestCase):
         self.assertIn("c", visitor.defined_vars)
         self.assertNotIn("d", visitor.defined_vars)
 
+    def test_all_argument_kinds_are_defined(self):
+        source_code = """
+        def test_function(posonly, /, regular, *args, kw_only, **kwargs):
+            return posonly + regular + kw_only
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        visitor.visit(tree)
+
+        for name in ("posonly", "regular", "args", "kw_only", "kwargs"):
+            self.assertIn(name, visitor.defined_vars)
+
+    def test_local_function_definition_raises(self):
+        source_code = """
+        def outer(x):
+            def helper(y):
+                return y
+            return helper(x)
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        with self.assertRaises(NotImplementedError):
+            visitor.visit(tree)
+
+    def test_local_async_function_definition_raises(self):
+        source_code = """
+        def outer(x):
+            async def helper(y):
+                return y
+            return helper(x)
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        with self.assertRaises(NotImplementedError):
+            visitor.visit(tree)
+
 
 class TestFindUndefinedVariables(unittest.TestCase):
     def test_find_undefined_variables(self):

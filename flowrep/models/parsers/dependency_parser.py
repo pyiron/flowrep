@@ -37,34 +37,67 @@ def split_by_version_availability(
 
 
 class UndefinedVariableVisitor(ast.NodeVisitor):
-    def __init__(self):
-        self.used_vars = set()
-        self.defined_vars = set()
+    """AST visitor that collects used and locally-defined variable names.
 
-    def visit_Name(self, node):
-        if isinstance(node.ctx, ast.Load):  # Variable is being used
+    Local (nested) function definitions inside the analysed function body are
+    **not** supported: encountering one raises :exc:`NotImplementedError` so
+    that callers fail fast with a clear message instead of silently producing
+    wrong dependency results.
+
+    Class definitions at any nesting level are tracked in :attr:`defined_vars`
+    so that class names used later in the same scope are not reported as
+    undefined symbols.
+    """
+
+    def __init__(self):
+        self.used_vars: set[str] = set()
+        self.defined_vars: set[str] = set()
+        self._nesting_depth: int = 0
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, ast.Load):
             self.used_vars.add(node.id)
-        elif isinstance(node.ctx, ast.Store):  # Variable is being defined
+        elif isinstance(node.ctx, ast.Store):
             self.defined_vars.add(node.id)
 
-    def visit_FunctionDef(self, node):
-        # Add the function name itself to defined variables
+    def _visit_function_def(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+        if self._nesting_depth > 0:
+            keyword = (
+                "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
+            )
+            raise NotImplementedError(
+                f"Local function definitions are not supported: "
+                f"'{keyword} {node.name}' inside a function body cannot be "
+                "analysed for dependencies."
+            )
+        # Register the function name and all of its parameters so that
+        # recursive calls and uses of any argument inside the body are not
+        # reported as undefined external symbols.
         self.defined_vars.add(node.name)
-        # Add function arguments to defined variables
-        for arg in node.args.args:
+        all_args = (
+            node.args.posonlyargs
+            + node.args.args
+            + node.args.kwonlyargs
+        )
+        for arg in all_args:
             self.defined_vars.add(arg.arg)
+        if node.args.vararg:
+            self.defined_vars.add(node.args.vararg.arg)
+        if node.args.kwarg:
+            self.defined_vars.add(node.args.kwarg.arg)
+        self._nesting_depth += 1
         self.generic_visit(node)
+        self._nesting_depth -= 1
 
-    def visit_AsyncFunctionDef(self, node):
-        # Add the async function name itself to defined variables
-        self.defined_vars.add(node.name)
-        # Add async function arguments to defined variables
-        for arg in node.args.args:
-            self.defined_vars.add(arg.arg)
-        self.generic_visit(node)
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._visit_function_def(node)
 
-    def visit_ClassDef(self, node):
-        # Add the class name itself to defined variables
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self._visit_function_def(node)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.defined_vars.add(node.name)
         self.generic_visit(node)
 
