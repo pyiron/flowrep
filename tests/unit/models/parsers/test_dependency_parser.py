@@ -94,6 +94,13 @@ def _local_imports(x):
     return sqrt(a)
 
 
+def _import_from_sibling(x, y):
+    from .test_for_parser import pair
+
+    a, b = pair(x, y)
+    return a, b
+
+
 class TestGetCallDependencies(unittest.TestCase):
     """Tests for :func:`dependency_parser.get_call_dependencies`."""
 
@@ -184,6 +191,12 @@ class TestGetCallDependencies(unittest.TestCase):
         fqns = _fqns(deps)
         self.assertIn("sys.getsizeof", fqns)
         self.assertIn("math.sqrt", fqns)
+
+    def test_relative_import_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            dependency_parser.get_call_dependencies(_import_from_sibling)
+        self.assertIn("Relative imports are not supported", str(ctx.exception))
+        self.assertIn("test_for_parser", str(ctx.exception))
 
 
 class TestSplitByVersionAvailability(unittest.TestCase):
