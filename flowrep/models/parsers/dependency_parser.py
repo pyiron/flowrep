@@ -48,9 +48,24 @@ class UndefinedVariableVisitor(ast.NodeVisitor):
             self.defined_vars.add(node.id)
 
     def visit_FunctionDef(self, node):
+        # Add the function name itself to defined variables
+        self.defined_vars.add(node.name)
         # Add function arguments to defined variables
         for arg in node.args.args:
             self.defined_vars.add(arg.arg)
+        self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node):
+        # Add the async function name itself to defined variables
+        self.defined_vars.add(node.name)
+        # Add async function arguments to defined variables
+        for arg in node.args.args:
+            self.defined_vars.add(arg.arg)
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node):
+        # Add the class name itself to defined variables
+        self.defined_vars.add(node.name)
         self.generic_visit(node)
 
 
