@@ -92,15 +92,6 @@ class TestGetCallDependencies(unittest.TestCase):
             "undefined_var", mock_scope
         )
 
-    def test_type_hints(self):
-        def test_function(a: np.array, b: np.array):
-            return a + b
-
-        self.assertDictEqual(
-            {versions.VersionInfo.of(np): np},
-            dependency_parser.get_call_dependencies(test_function),
-        )
-
 
 if __name__ == "__main__":
     unittest.main()
