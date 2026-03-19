@@ -288,5 +288,30 @@ class TestAtomicNodeHasDefault(unittest.TestCase):
             )
 
 
+class TestAtomicNodeCall(unittest.TestCase):
+    def test_call_on_bad_reference(self):
+        recipe = makers.make_atomic(inputs=["x", "y"])
+        with self.assertRaises(
+            ModuleNotFoundError,
+            msg="Neither the recipe nor the call validate that the underlying python "
+            "funcion reference is actually there -- so attempting to run it should "
+            "only fail at the point we actually try to import our made-up reference",
+        ):
+            recipe(x=1, y=2)
+
+    def test_call(self):
+        """
+        Calling atomic recipes should import and execute their underlying function
+        """
+        recipe = atomic_model.AtomicNode(
+            reference=makers.make_reference("builtins", "int"),
+            inputs=["x_str"],
+            outputs=["x_int"],
+        )
+        result = recipe("1")
+        self.assertIsInstance(result, int)
+        self.assertEqual(result, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

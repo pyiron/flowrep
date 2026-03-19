@@ -4,6 +4,7 @@ from enum import StrEnum
 from typing import Literal
 
 import pydantic
+from pyiron_snippets import retrieve
 
 from flowrep.models import base_models
 
@@ -72,3 +73,7 @@ class AtomicNode(base_models.NodeModel):
                 f"unpack_mode={self.unpack_mode.value}"
             )
         return self
+
+    def __call__(self, *args, **kwargs):
+        func = retrieve.import_from_string(self.reference.info.fully_qualified_name)
+        return func(*args, **kwargs)

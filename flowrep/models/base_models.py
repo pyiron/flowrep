@@ -106,6 +106,11 @@ class NodeModel(pydantic.BaseModel):
     def validate_internal_data_completeness(self):
         return self
 
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} is not a callable recipe type"
+        )
+
 
 class RestrictedParamKind(StrEnum):
     """

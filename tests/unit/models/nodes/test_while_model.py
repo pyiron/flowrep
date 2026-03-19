@@ -101,6 +101,11 @@ class TestWhileNodeBasic(unittest.TestCase):
         self.assertEqual(len(wn.input_edges), 3)
         self.assertEqual(len(wn.output_edges), 1)
 
+    def test_call_raises(self):
+        recipe = make_valid_while_node()
+        with self.assertRaises(NotImplementedError):
+            recipe(42)
+
 
 class TestWhileNodeIOValidation(unittest.TestCase):
     def test_duplicate_inputs_rejected(self):
