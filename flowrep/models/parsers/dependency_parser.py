@@ -87,10 +87,7 @@ def get_call_dependencies(
     # Find variables that are used but not defined
     scope = object_scope.get_scope(func_or_var)
     for item in find_undefined_variables(func_or_var):
-        try:
-            obj = object_scope.resolve_attribute_to_object(item, scope)
-        except (ValueError, TypeError):
-            continue
+        obj = object_scope.resolve_attribute_to_object(item, scope)
         info = versions.VersionInfo.of(obj, version_scraping=version_scraping)
         call_dependencies[info] = obj
 

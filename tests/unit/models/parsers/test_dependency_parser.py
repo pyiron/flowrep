@@ -1,6 +1,8 @@
 import ast
+import numpy as np
 import textwrap
 import unittest
+from pyiron_snippets import versions
 from unittest.mock import MagicMock, patch
 
 from flowrep.models.parsers import dependency_parser
@@ -50,6 +52,7 @@ class TestUndefinedVariableVisitor(unittest.TestCase):
 class TestFindUndefinedVariables(unittest.TestCase):
     def test_find_undefined_variables(self):
         x = 1
+
         def test_function(a, b):
             c = a + b + x
             return c
@@ -88,6 +91,15 @@ class TestGetCallDependencies(unittest.TestCase):
         mock_get_scope.assert_called_once_with(mock_func)
         mock_resolve_attribute_to_object.assert_called_once_with(
             "undefined_var", mock_scope
+        )
+
+    def test_type_hints(self):
+        def test_function(a: np.array, b: np.array):
+            return a + b
+
+        self.assertDictEqual(
+            {versions.VersionInfo.of(np): np},
+            dependency_parser.get_call_dependencies(test_function),
         )
 
 
