@@ -3,7 +3,9 @@ from __future__ import annotations
 import ast
 import builtins
 import inspect
-from types import FunctionType
+import sys
+from collections.abc import Callable
+from typing import Any
 
 
 class ScopeProxy:
@@ -43,9 +45,19 @@ class ScopeProxy:
         return ScopeProxy(dict(self._d))
 
 
-def get_scope(func: FunctionType, extra_modules: dict | None = None) -> ScopeProxy:
-    extra_modules = extra_modules or {}
-    return ScopeProxy(inspect.getmodule(func).__dict__ | vars(builtins) | extra_modules)
+def get_scope(func: Callable[..., Any] | type[Any]) -> ScopeProxy:
+    module = inspect.getmodule(func)
+    if module is None:
+        module_name = getattr(func, "__module__", None)
+        if module_name is not None:
+            module = sys.modules.get(module_name)
+    if module is None:
+        raise ValueError(
+            f"Cannot determine the module for {func!r}. "
+            "inspect.getmodule() returned None and no resolvable __module__ "
+            "attribute was found."
+        )
+    return ScopeProxy(module.__dict__ | vars(builtins))
 
 
 def resolve_attribute_to_object(attribute: str, scope: ScopeProxy | object) -> object:

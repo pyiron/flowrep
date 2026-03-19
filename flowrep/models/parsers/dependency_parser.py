@@ -47,7 +47,9 @@ def get_call_dependencies(
     collector = CallCollector()
     collector.visit(tree)
     local_modules = import_parser.build_scope(collector.imports, collector.import_froms)
-    scope = object_scope.get_scope(func, extra_modules=local_modules)
+    scope = object_scope.get_scope(func)
+    for name, obj in local_modules.items():
+        scope.register(name=name, obj=obj)
 
     for call in collector.calls:
         try:
