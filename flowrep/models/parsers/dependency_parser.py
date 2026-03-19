@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from pyiron_snippets import versions
 
-from flowrep.models.parsers import object_scope, parser_helpers
+from flowrep.models.parsers import import_parser, object_scope, parser_helpers
 
 CallDependencies = dict[versions.VersionInfo, Callable]
 
@@ -43,10 +43,13 @@ def get_call_dependencies(
         return call_dependencies
     visited.add(func_fqn)
 
-    scope = object_scope.get_scope(func)
     tree = parser_helpers.get_ast_function_node(func)
     collector = CallCollector()
     collector.visit(tree)
+    local_modules = import_parser.build_scope(collector.imports, collector.import_froms)
+    scope = object_scope.get_scope(func)
+    for name, obj in local_modules.items():
+        scope.register(name=name, obj=obj)
 
     for call in collector.calls:
         try:
@@ -105,7 +108,17 @@ def split_by_version_availability(
 class CallCollector(ast.NodeVisitor):
     def __init__(self):
         self.calls: list[ast.expr] = []
+        self.imports: list[ast.Import] = []
+        self.import_froms: list[ast.ImportFrom] = []
 
     def visit_Call(self, node: ast.Call) -> None:
         self.calls.append(node.func)
+        self.generic_visit(node)
+
+    def visit_Import(self, node: ast.Import) -> None:
+        self.imports.append(node)
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        self.import_froms.append(node)
         self.generic_visit(node)
