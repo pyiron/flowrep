@@ -33,6 +33,96 @@ class TestScopeProxy(unittest.TestCase):
         with self.assertRaises(AttributeError):
             _ = proxy.nonexistent
 
+    def test_getitem(self):
+        proxy = object_scope.ScopeProxy({"x": 42})
+        self.assertEqual(proxy["x"], 42)
+
+    def test_getitem_missing_raises_key_error(self):
+        proxy = object_scope.ScopeProxy({})
+        with self.assertRaises(KeyError):
+            _ = proxy["missing"]
+
+    def test_setitem_new_key(self):
+        proxy = object_scope.ScopeProxy({})
+        proxy["a"] = 1
+        self.assertEqual(proxy["a"], 1)
+
+    def test_setitem_same_object_allowed(self):
+        """Re-assigning the same object is fine even without allow_overwrite."""
+        sentinel = object()
+        proxy = object_scope.ScopeProxy({"s": sentinel})
+        proxy["s"] = sentinel  # should not raise
+        self.assertIs(proxy["s"], sentinel)
+
+    def test_setitem_different_value_raises(self):
+        proxy = object_scope.ScopeProxy({"x": 1})
+        with self.assertRaises(ValueError, msg="allow_overwrite is False"):
+            proxy["x"] = 2
+
+    def test_setitem_allow_overwrite(self):
+        proxy = object_scope.ScopeProxy({"x": 1}, allow_overwrite=True)
+        proxy["x"] = 2
+        self.assertEqual(proxy["x"], 2)
+
+    def test_delitem(self):
+        proxy = object_scope.ScopeProxy({"a": 1, "b": 2})
+        del proxy["a"]
+        self.assertNotIn("a", proxy)
+        self.assertIn("b", proxy)
+
+    def test_delitem_missing_raises_key_error(self):
+        proxy = object_scope.ScopeProxy({})
+        with self.assertRaises(KeyError):
+            del proxy["missing"]
+
+    def test_iter(self):
+        d = {"a": 1, "b": 2, "c": 3}
+        proxy = object_scope.ScopeProxy(d)
+        self.assertEqual(set(proxy), set(d))
+
+    def test_len(self):
+        proxy = object_scope.ScopeProxy({"a": 1, "b": 2})
+        self.assertEqual(len(proxy), 2)
+
+    def test_str(self):
+        proxy = object_scope.ScopeProxy({"x": 1})
+        self.assertEqual(str(proxy), "{'x': 1}")
+
+    def test_mutations_do_not_propagate_to_source(self):
+        d = {"a": 1}
+        proxy = object_scope.ScopeProxy(d)
+        proxy["b"] = 2
+        self.assertNotIn("b", d)
+
+    def test_register(self):
+        proxy = object_scope.ScopeProxy({})
+        proxy.register("math", 42)
+        self.assertEqual(proxy["math"], 42)
+
+    def test_register_respects_overwrite_guard(self):
+        proxy = object_scope.ScopeProxy({"x": 1})
+        with self.assertRaises(ValueError):
+            proxy.register("x", 2)
+
+    def test_fork_returns_independent_copy(self):
+        proxy = object_scope.ScopeProxy({"a": 1})
+        forked = proxy.fork()
+        forked["b"] = 2
+        self.assertIn("b", forked)
+        self.assertNotIn("b", proxy)
+
+    def test_fork_preserves_existing_data(self):
+        proxy = object_scope.ScopeProxy({"a": 1})
+        forked = proxy.fork()
+        self.assertEqual(forked["a"], 1)
+
+    def test_fork_preserves_allow_overwrite(self):
+        proxy = object_scope.ScopeProxy({}, allow_overwrite=True)
+        forked = proxy.fork()
+        forked["x"] = 1
+        forked["x"] = 2  # should not raise
+        self.assertEqual(forked["x"], 2)
+
 
 class TestGetScope(unittest.TestCase):
     def test_returns_module_globals(self):

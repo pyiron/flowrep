@@ -4,24 +4,57 @@ import ast
 import builtins
 import inspect
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, MutableMapping
 from typing import Any
 
 
-class ScopeProxy:
+class _EmptyValue: ...
+
+
+class ScopeProxy(MutableMapping[str, object]):
     """
-    Make the __dict__-like scope dot-accessible without duplicating the dictionary
-    like types.SimpleNamespace would.
+    A mutable mapping to connect symbols to python objects.
+
+    By default, does not allow re-registration of existing symbols to new values.
     """
 
-    def __init__(self, d: dict):
-        self._d = d
+    def __init__(self, d: MutableMapping[str, object], allow_overwrite: bool = False):
+        self._d = {k: v for k, v in d.items()}
+        self.allow_overwrite = allow_overwrite
+
+    def __getitem__(self, name: str):
+        return self._d[name]
+
+    def __setitem__(self, name: str, value: object):
+        if not self.allow_overwrite:
+            old_value = self._d.get(name, _EmptyValue)
+            if old_value is not _EmptyValue and value is not old_value:
+                raise ValueError(
+                    f"Variable {name} already exists as {old_value!r} in this "
+                    f"scope. It cannot be reassigned to a new value of {value!r} "
+                    f"while allow_overwrite is False."
+                )
+            self._d[name] = value
+        else:
+            self._d[name] = value
+
+    def __delitem__(self, name: str):
+        self._d.__delitem__(name)
+
+    def __iter__(self):
+        return iter(self._d)
+
+    def __len__(self):
+        return len(self._d)
 
     def __getattr__(self, name: str):
         try:
-            return self._d[name]
+            return self.__getitem__(name)
         except KeyError:
             raise AttributeError(name) from None
+
+    def __str__(self):
+        return str(self._d)
 
     def register(self, name: str, obj: object) -> None:
         """
@@ -32,7 +65,7 @@ class ScopeProxy:
         resolutions within this scope (or any scope that shares the same
         backing namespace).
         """
-        self._d[name] = obj
+        self[name] = obj
 
     def fork(self) -> ScopeProxy:
         """
@@ -42,7 +75,7 @@ class ScopeProxy:
         affect the parent.  Used when walking conditional branches so that
         branch-local imports don't leak into sibling branches.
         """
-        return ScopeProxy(dict(self._d))
+        return ScopeProxy(self, allow_overwrite=self.allow_overwrite)
 
 
 def get_scope(func: Callable[..., Any] | type[Any]) -> ScopeProxy:
