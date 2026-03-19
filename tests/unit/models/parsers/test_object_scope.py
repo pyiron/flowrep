@@ -84,6 +84,10 @@ class TestScopeProxy(unittest.TestCase):
         proxy = object_scope.ScopeProxy({"a": 1, "b": 2})
         self.assertEqual(len(proxy), 2)
 
+    def test_empty_construction(self):
+        proxy = object_scope.ScopeProxy()
+        self.assertEqual(len(proxy), 0)
+
     def test_str(self):
         proxy = object_scope.ScopeProxy({"x": 1})
         self.assertEqual(str(proxy), "{'x': 1}")

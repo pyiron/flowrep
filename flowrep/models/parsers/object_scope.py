@@ -18,8 +18,12 @@ class ScopeProxy(MutableMapping[str, object]):
     By default, does not allow re-registration of existing symbols to new values.
     """
 
-    def __init__(self, d: MutableMapping[str, object], allow_overwrite: bool = False):
-        self._d = {k: v for k, v in d.items()}
+    def __init__(
+        self,
+        d: MutableMapping[str, object] | None = None,
+        allow_overwrite: bool = False,
+    ):
+        self._d = {} if d is None else {k: v for k, v in d.items()}
         self.allow_overwrite = allow_overwrite
 
     def __getitem__(self, name: str):
