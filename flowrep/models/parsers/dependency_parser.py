@@ -57,11 +57,28 @@ class UndefinedVariableVisitor(ast.NodeVisitor):
 def find_undefined_variables(
     func_or_var: Callable | object,
 ) -> set[str]:
-    if callable(func_or_var):
-        source = textwrap.dedent(inspect.getsource(func_or_var))
-    else:
-        source = str(func_or_var)
-    tree = ast.parse(source)
+    """
+    Find variables that are used but not defined in the source of *func_or_var*.
+
+    If the source code for *func_or_var* cannot be retrieved or parsed (e.g.,
+    for certain built-in objects or when no source is available), this
+    function returns an empty set instead of raising an exception.
+    """
+    try:
+        # Prefer actual source code over string representations for both
+        # callables and other inspectable objects (e.g. classes, modules).
+        raw_source = inspect.getsource(func_or_var)
+    except (OSError, TypeError):
+        # No reliable source available; treat as having no undefined variables.
+        return set()
+
+    source = textwrap.dedent(raw_source)
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        # Source could not be parsed as Python code; fail gracefully.
+        return set()
 
     visitor = UndefinedVariableVisitor()
     visitor.visit(tree)
