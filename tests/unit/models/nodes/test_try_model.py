@@ -65,7 +65,7 @@ def _make_valid_try_node(n_exception_cases=1):
     )
 
 
-class TestTryNodeBasicConstruction(unittest.TestCase):
+class TestTryNodeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
         try_model.TryNode.model_json_schema()
@@ -85,6 +85,11 @@ class TestTryNodeBasicConstruction(unittest.TestCase):
         """TryNode with multiple exception cases should validate."""
         node = _make_valid_try_node(n_exception_cases=3)
         self.assertEqual(len(node.exception_cases), 3)
+
+    def test_call_raises(self):
+        recipe = _make_valid_try_node()
+        with self.assertRaises(NotImplementedError):
+            recipe(42)
 
 
 class TestTryNodeExceptionCasesValidation(unittest.TestCase):

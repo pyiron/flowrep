@@ -261,13 +261,13 @@ def get_labeled_recipe(
     scope: object_scope.ScopeProxy,
     info_factory: versions.VersionInfoFactory,
 ) -> helper_models.LabeledNode:
-    child_call = cast(
-        FunctionType, object_scope.resolve_symbol_to_object(ast_call.func, scope)
-    )
+    child_call = object_scope.resolve_symbol_to_object(ast_call.func, scope)
     # Since it is the .func attribute of an ast.Call,
     # the retrieved object had better be a function
-    if hasattr(child_call, "flowrep_recipe"):
-        child_recipe = child_call.flowrep_recipe
+    function_call = cast(FunctionType, child_call)
+    label_prefix = function_call.__name__
+    if hasattr(function_call, "flowrep_recipe"):
+        child_recipe = function_call.flowrep_recipe
         if hasattr(child_recipe, "reference") and isinstance(
             child_recipe.reference.info, versions.VersionInfo
         ):
@@ -278,11 +278,11 @@ def get_labeled_recipe(
             )
     else:
         child_recipe = parse_atomic(
-            child_call,
+            function_call,
             version_scraping=info_factory.version_scraping,
             forbid_main=info_factory.forbid_main,
             forbid_locals=info_factory.forbid_locals,
             require_version=info_factory.require_version,
         )
-    child_name = label_helpers.unique_suffix(child_call.__name__, existing_names)
-    return helper_models.LabeledNode(label=child_name, node=child_recipe)
+    label = label_helpers.unique_suffix(label_prefix, existing_names)
+    return helper_models.LabeledNode(label=label, node=child_recipe)

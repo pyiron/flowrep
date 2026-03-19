@@ -18,6 +18,10 @@ def _make_child(with_defaults: bool) -> atomic_model.AtomicNode:
     )
 
 
+def _some_wf(x, y):
+    return y, x
+
+
 class TestWorkflowNodeStructure(unittest.TestCase):
     """Tests for protocol validation and schema availability."""
 
@@ -927,6 +931,41 @@ class TestWorkflowNodeHasDefault(unittest.TestCase):
                 reference=makers.make_reference(inputs_with_defaults=["a", "z"]),
             )
         self.assertIn("z", str(ctx.exception))
+
+
+class TestWorkflowNodeCall(unittest.TestCase):
+    def test_call_without_reference_raises(self):
+        recipe = workflow_model.WorkflowNode(
+            inputs=[],
+            outputs=[],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
+        with self.assertRaises(
+            ValueError,
+            msg="Calling a workflow recipe without a reference should alert us to "
+            "the reference's absence",
+        ) as ctx:
+            recipe()
+        self.assertIn("only callable when", str(ctx.exception))
+        self.assertIn("reference field", str(ctx.exception))
+
+    def test_call_with_reference(self):
+        recipe = workflow_model.WorkflowNode(
+            inputs=["x", "y"],
+            outputs=["y", "x"],
+            nodes={},
+            input_edges={},
+            edges={},
+            output_edges={"y": "x", "x": "y"},
+            reference=makers.make_reference(_some_wf.__module__, _some_wf.__name__),
+        )
+        xi, yi = 1, 2
+        yo, xo = recipe(xi, yi)
+        self.assertEqual(xo, xi)
+        self.assertEqual(yo, yi)
 
 
 if __name__ == "__main__":

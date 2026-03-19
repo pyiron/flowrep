@@ -66,7 +66,7 @@ def _make_valid_if_node(n_cases=1, with_else=True):
     )
 
 
-class TestIfNodeBasicConstruction(unittest.TestCase):
+class TestIfNodeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
         if_model.IfNode.model_json_schema()
@@ -99,6 +99,11 @@ class TestIfNodeBasicConstruction(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             node.type = base_models.RecipeElementType.WORKFLOW
         self.assertIn("frozen", str(ctx.exception).lower())
+
+    def test_call_raises(self):
+        recipe = _make_valid_if_node()
+        with self.assertRaises(NotImplementedError):
+            recipe(42)
 
 
 class TestIfNodeCasesValidation(unittest.TestCase):

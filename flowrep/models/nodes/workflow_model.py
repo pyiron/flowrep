@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import pydantic
+from pyiron_snippets import retrieve
 
 from flowrep.models import base_models, edge_models, subgraph_validation
 
@@ -83,3 +84,12 @@ class WorkflowNode(base_models.NodeModel):
             self.nodes, list(self.input_edges) + list(self.edges)
         )
         return self
+
+    def __call__(self, *args, **kwargs):
+        if self.reference is None:
+            raise ValueError(
+                f"{self.__class__.__name__} recipes are only callable when they are "
+                f"attached to an underlying python definiton in their reference field."
+            )
+        func = retrieve.import_from_string(self.reference.info.fully_qualified_name)
+        return func(*args, **kwargs)

@@ -118,6 +118,23 @@ class TestForNodeBasic(unittest.TestCase):
         self.assertEqual(for_node.nested_ports, ["a"])
         self.assertEqual(for_node.zipped_ports, ["b", "c"])
 
+    def test_call_raises(self):
+        recipe = for_model.ForNode(
+            inputs=["x"],
+            outputs=[],
+            body_node=makers.make_labeled_atomic(
+                "body",
+                inputs=["item"],
+                outputs=["result"],
+                inputs_with_defaults=["item"],
+            ),
+            input_edges={},
+            output_edges={},
+            nested_ports=["item"],
+        )
+        with self.assertRaises(NotImplementedError):
+            recipe(42)
+
 
 class TestForNodeLoopPortValidation(unittest.TestCase):
     def test_no_iteration_ports_rejected(self):
