@@ -32,11 +32,12 @@ def build_scope(
     for imp_from in import_froms:
         level = imp_from.level
         # Dynamically import the module (absolute or relative)
-        if imp_from.module is None:
-            raise ValueError("The module attribute of imp_from cannot be None")
-        module = importlib.import_module(
-            imp_from.module, package=None if level == 0 else "."
-        )
+        if imp_from.module is None or node.level > 0:
+            raise ValueError(
+                f"Relative imports are not supported in dependency parsing. "
+                f"Encountered importing from {imp_from.module}."
+            )
+        module = importlib.import_module(imp_from.module)
         for alias in imp_from.names:
             name = alias.name
             asname = alias.asname or name
