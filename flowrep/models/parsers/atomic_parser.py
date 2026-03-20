@@ -262,27 +262,47 @@ def get_labeled_recipe(
     info_factory: versions.VersionInfoFactory,
 ) -> helper_models.LabeledNode:
     child_call = object_scope.resolve_symbol_to_object(ast_call.func, scope)
-    # Since it is the .func attribute of an ast.Call,
-    # the retrieved object had better be a function
-    function_call = cast(FunctionType, child_call)
-    label_prefix = function_call.__name__
-    if hasattr(function_call, "flowrep_recipe"):
-        child_recipe = function_call.flowrep_recipe
-        if hasattr(child_recipe, "reference") and isinstance(
-            child_recipe.reference.info, versions.VersionInfo
-        ):
-            child_recipe.reference.info.validate_constraints(
+    if isinstance(child_call, base_models.NodeModel):
+        child_recipe = child_call
+        label_prefix = _infer_node_name(child_recipe, ast_call.func)
+    else:
+        # Otherwise we're going to find it has already been parsed as a recipe,
+        # or we're going to parse it as a recipe -- either way, it had better be a
+        # FunctionType!
+        function_call = cast(FunctionType, child_call)
+        label_prefix = function_call.__name__
+        if hasattr(function_call, "flowrep_recipe"):
+            child_recipe = function_call.flowrep_recipe
+            if hasattr(child_recipe, "reference") and isinstance(
+                child_recipe.reference.info, versions.VersionInfo
+            ):
+                child_recipe.reference.info.validate_constraints(
+                    forbid_main=info_factory.forbid_main,
+                    forbid_locals=info_factory.forbid_locals,
+                    require_version=info_factory.require_version,
+                )
+        else:
+            child_recipe = parse_atomic(
+                function_call,
+                version_scraping=info_factory.version_scraping,
                 forbid_main=info_factory.forbid_main,
                 forbid_locals=info_factory.forbid_locals,
                 require_version=info_factory.require_version,
             )
-    else:
-        child_recipe = parse_atomic(
-            function_call,
-            version_scraping=info_factory.version_scraping,
-            forbid_main=info_factory.forbid_main,
-            forbid_locals=info_factory.forbid_locals,
-            require_version=info_factory.require_version,
-        )
     label = label_helpers.unique_suffix(label_prefix, existing_names)
     return helper_models.LabeledNode(label=label, node=child_recipe)
+
+
+def _infer_node_name(node: base_models.NodeModel, ast_call: ast.expr) -> str:
+    reference = getattr(node, "reference", None)
+    if reference is not None:
+        underlying_function_name = reference.info.qualname.rsplit(".", 1)[-1]
+        return underlying_function_name
+    elif isinstance(ast_call, ast.Name):
+        variable_name = ast_call.id
+        return variable_name
+    elif isinstance(ast_call, ast.Attribute):
+        proximate_attribute_name = ast_call.attr
+        return proximate_attribute_name
+    else:
+        raise ValueError(f"Unexpected node type: {type(ast_call)}")

@@ -10,6 +10,7 @@ from flowrep.models import base_models, edge_models
 from flowrep.models.nodes import atomic_model, workflow_model
 from flowrep.models.parsers import (
     atomic_parser,
+    label_helpers,
     object_scope,
     parser_protocol,
     symbol_scope,
@@ -34,6 +35,27 @@ def operation(x: float, y: float) -> tuple[float, float]:
 @atomic_parser.atomic("sum_result", "diff_result")
 def labeled_operation(x, y):
     return x + y, x - y
+
+
+recipe_variable = labeled_operation.flowrep_recipe
+
+raw_recipe_variable = workflow_model.WorkflowNode(
+    type="workflow",
+    inputs=["x", "y"],
+    outputs=["x", "y"],
+    nodes={},
+    input_edges={},
+    edges={},
+    output_edges={
+        edge_models.OutputTarget(port="x"): edge_models.InputSource(port="x"),
+        edge_models.OutputTarget(port="y"): edge_models.InputSource(port="y"),
+    },
+)
+
+
+class LocalScope:
+    scoped_recipe = labeled_operation.flowrep_recipe
+    raw_scoped_recipe = raw_recipe_variable
 
 
 @atomic_parser.atomic("sum_result", "diff_result")
@@ -230,6 +252,45 @@ class TestParseWorkflowBasic(unittest.TestCase):
         node = workflow_parser.parse_workflow(wf)
         self.assertIn("x", node.outputs)
         self.assertIn(edge_models.InputSource(port="x"), node.output_edges.values())
+
+    def test_recipe_as_node(self):
+        """
+        Check that recipes can be parsed directly as workflow steps, and that the
+        inferred name for that child is as meaningful as possible.
+        """
+
+        def with_recipe_attribute(x, y):
+            a, b = labeled_operation.flowrep_recipe(x, y)
+            return a, b
+
+        def with_recipe_variable(x, y):
+            a, b = recipe_variable(x, y)
+            return a, b
+
+        def with_scoped_recipe(x, y):
+            a, b = LocalScope.scoped_recipe(x, y)
+            return a, b
+
+        def with_raw_recipe_variable(x, y):
+            a, b = raw_recipe_variable(x, y)
+            return a, b
+
+        def with_raw_scoped_recipe(x, y):
+            a, b = LocalScope.raw_scoped_recipe(x, y)
+            return a, b
+
+        for func, expected_prefix in (
+            (with_recipe_attribute, labeled_operation.__name__),  # reference
+            (with_recipe_variable, labeled_operation.__name__),  # reference
+            (with_scoped_recipe, labeled_operation.__name__),  # reference
+            (with_raw_recipe_variable, "raw_recipe_variable"),  # variable
+            (with_raw_scoped_recipe, "raw_scoped_recipe"),  # attribute
+        ):
+            with self.subTest(expected_prefix):
+                node = workflow_parser.parse_workflow(func)
+                self.assertSetEqual(
+                    set(node.nodes), {label_helpers.index_label(expected_prefix, 0)}
+                )
 
 
 class TestParseWorkflowEdges(unittest.TestCase):
