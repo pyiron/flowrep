@@ -654,6 +654,10 @@ class TestRecipe2Live(unittest.TestCase):
             with self.subTest(recipe=recipe, type=type_):
                 self.assertIsInstance(live.recipe2live(recipe), type_)
 
+    def test_clean_type_failure(self):
+        with self.assertRaisesRegex(TypeError, "Unrecognized recipe type"):
+            live.recipe2live("this is not even a recipe")
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # wfms.py tests — atomic
