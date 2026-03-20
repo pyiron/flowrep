@@ -94,6 +94,8 @@ def recipe2live(recipe: union.NodeType) -> LiveNode:
             return FlowControl.from_recipe(recipe)
         case workflow_model.WorkflowNode():
             return Workflow.from_recipe(recipe)
+        case _:
+            raise TypeError(f"Unrecognized recipe type {recipe}")
 
 
 @dataclasses.dataclass(frozen=False)
