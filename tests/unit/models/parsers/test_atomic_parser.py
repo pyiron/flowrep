@@ -1055,5 +1055,14 @@ class TestParseAtomicHasDefault(unittest.TestCase):
                 self.assertEqual(restored.reference.inputs_with_defaults, ["b", "c"])
 
 
+class TestInferNodeName(unittest.TestCase):
+    """Most functionality is tested at use-time by downstream callers"""
+
+    def test_wrong_type_raises(self):
+        """Downstream callers can't force the clean failure, but make sure it's there"""
+        with self.assertRaisesRegex(ValueError, f"{None!r}"):
+            atomic_parser._infer_node_name(None, None)
+
+
 if __name__ == "__main__":
     unittest.main()
