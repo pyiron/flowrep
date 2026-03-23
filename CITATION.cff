@@ -7,4 +7,7 @@ authors:
 - family-names: Waseda
   given-names: Osamu
   orcid: "https://orcid.org/0000-0002-1677-4057"
+- given-names: Sebastian
+  family-names: Eibl
+  orcid: 'https://orcid.org/0000-0002-1069-2720'
 title: flowrep
