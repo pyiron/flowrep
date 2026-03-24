@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import inspect
 from collections.abc import Callable, Collection
 from types import FunctionType
 from typing import cast
@@ -122,6 +123,7 @@ def parse_workflow(
     )
     function_info = info_factory.of(func)
     signature_info = parser_helpers.SignatureInfo.of(func)
+    docstring = inspect.getdoc(func)
 
     inputs = signature_info.names
     reference = base_models.PythonReference(
@@ -144,7 +146,7 @@ def parse_workflow(
     if not state.found_return:
         raise ValueError("Workflow python definitions must have a return statement.")
 
-    return state.build_model(inputs_override=inputs)
+    return state.build_model(inputs_override=inputs, description=docstring)
 
 
 def skip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
@@ -209,10 +211,12 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
     def build_model(
         self,
         inputs_override: list[str] | None = None,
+        description: str | None = None,
     ) -> workflow_model.WorkflowNode:
         return workflow_model.WorkflowNode(
             inputs=self.inputs if inputs_override is None else inputs_override,
             outputs=self.outputs,
+            description=description,
             nodes=self.nodes,
             input_edges=self.input_edges,
             edges=self.edges,

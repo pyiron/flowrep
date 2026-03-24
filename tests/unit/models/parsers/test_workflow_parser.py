@@ -21,6 +21,7 @@ from flowrep_static import library
 
 
 def add(x: float = 2.0, y: float = 1) -> float:
+    """Add two numbers together."""
     return x + y
 
 
@@ -83,6 +84,7 @@ class Outer:
 
 @workflow_parser.workflow
 def inner_macro(a, b=10):
+    """This is the inner workflow."""
     c, d = operation(a, b)
     e = add(c, y=d)
     f = multiply(e)
@@ -91,6 +93,7 @@ def inner_macro(a, b=10):
 
 @workflow_parser.workflow
 def outer_workflow(a, b):
+    """This is the outer workflow."""
     y = inner_macro(a, b)
     z: float = add(y, b)  # ast.AnnAssignment
     return z
@@ -155,6 +158,14 @@ class TestWorkflowDecorator(unittest.TestCase):
             return c
 
         self.assertEqual(wf(3, 4), add(3, 4))
+
+    def test_workflow_captures_function_docstring(self):
+        @workflow_parser.workflow
+        def wf(x):
+            """This is a docstring"""
+            return x
+
+        self.assertEqual(wf.flowrep_recipe.description, "This is a docstring")
 
 
 class TestWorkflowDecoratorTypeValidation(unittest.TestCase):
@@ -291,6 +302,14 @@ class TestParseWorkflowBasic(unittest.TestCase):
                 self.assertSetEqual(
                     set(node.nodes), {label_helpers.index_label(expected_prefix, 0)}
                 )
+
+    def test_parse_captures_docstring(self):
+        def wf(x):
+            """Here's a docstring"""
+            return x
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.description, "Here's a docstring")
 
 
 class TestParseWorkflowEdges(unittest.TestCase):
@@ -1126,6 +1145,20 @@ class TestLocalImports(unittest.TestCase):
             workflow_parser.parse_workflow(import_from_sibling)
         self.assertIn("Relative imports are not supported", str(ctx.exception))
         self.assertIn("test_for_parser", str(ctx.exception))
+
+
+class TestNestedDescriptions(unittest.TestCase):
+    def test_docstrings_deeply_available_on_parsing(self):
+        """
+        Description fields should get filled by parsed docstrings to arbitrary depth,
+        from both sub-workflows with descriptions and atomic nodes.
+        """
+        recipe = outer_workflow.flowrep_recipe
+        self.assertEqual(recipe.description, outer_workflow.__doc__)
+        self.assertEqual(recipe.nodes["inner_macro_0"].description, inner_macro.__doc__)
+        self.assertEqual(
+            recipe.nodes["inner_macro_0"].nodes["add_0"].description, add.__doc__
+        )
 
 
 if __name__ == "__main__":

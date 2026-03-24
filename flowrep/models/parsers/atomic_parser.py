@@ -115,6 +115,7 @@ def parse_atomic(
         require_version=require_version,
     )
     sig_info = parser_helpers.SignatureInfo.of(func)
+    docstring = inspect.getdoc(func)
 
     scraped_output_labels = _get_output_labels(func, unpack_mode)
     if len(output_labels) > 0 and len(output_labels) != len(scraped_output_labels):
@@ -135,6 +136,7 @@ def parse_atomic(
         outputs=(
             list(output_labels) if len(output_labels) > 0 else scraped_output_labels
         ),
+        description=docstring,
         unpack_mode=unpack_mode,
     )
 
