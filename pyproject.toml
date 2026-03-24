@@ -112,10 +112,3 @@ exclude = [
 ]
 ignore_missing_imports = true
 strict_equality = true
-
-[[tool.mypy.overrides]]
-module = [
-    "flowrep.tools",
-    "flowrep.workflow"
-]
-ignore_errors = true
