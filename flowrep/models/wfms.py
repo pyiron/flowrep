@@ -55,15 +55,15 @@ def run_recipe(recipe: union.NodeType, **kwargs: Any) -> live.LiveNode:
 # ---------------------------------------------------------------------------
 
 
-def _run_atomic(recipe: atomic_model.AtomicNode, **kwargs: Any) -> live.Atomic:
-    node = live.Atomic.from_recipe(recipe)
+def _run_atomic(recipe: atomic_model.AtomicNode, **kwargs: Any) -> live.LiveAtomic:
+    node = live.LiveAtomic.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
     result = _call_atomic(node)
     _store_atomic_outputs(node, result)
     return node
 
 
-def _call_atomic(node: live.Atomic) -> Any:
+def _call_atomic(node: live.LiveAtomic) -> Any:
     """
     Invoke the underlying function, respecting positional-only parameter kinds.
 
@@ -91,7 +91,7 @@ def _call_atomic(node: live.Atomic) -> Any:
     return node.function(*positional, **keyword)
 
 
-def _store_atomic_outputs(node: live.Atomic, result: Any) -> None:
+def _store_atomic_outputs(node: live.LiveAtomic, result: Any) -> None:
     recipe = node.recipe
     assert isinstance(recipe, atomic_model.AtomicNode)
     output_names = list(node.output_ports.keys())
@@ -117,8 +117,10 @@ def _store_atomic_outputs(node: live.Atomic, result: Any) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _run_workflow(recipe: workflow_model.WorkflowNode, **kwargs: Any) -> live.Workflow:
-    node = live.Workflow.from_recipe(recipe)
+def _run_workflow(
+    recipe: workflow_model.WorkflowNode, **kwargs: Any
+) -> live.LiveWorkflow:
+    node = live.LiveWorkflow.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     for child_label in _topo_sort_children(recipe):
@@ -163,7 +165,7 @@ def _topo_sort_children(recipe: workflow_model.WorkflowNode) -> list[str]:
 def _gather_child_inputs(
     child_label: str,
     recipe: workflow_model.WorkflowNode,
-    workflow_node: live.Workflow,
+    workflow_node: live.LiveWorkflow,
 ) -> dict[str, Any]:
     """
     Resolve input values for a child node from workflow input ports and sibling
@@ -191,7 +193,7 @@ def _gather_child_inputs(
 
 
 def _populate_workflow_outputs(
-    node: live.Workflow, recipe: workflow_model.WorkflowNode
+    node: live.LiveWorkflow, recipe: workflow_model.WorkflowNode
 ) -> None:
     for target, source in recipe.output_edges.items():
         if isinstance(source, edge_models.InputSource):

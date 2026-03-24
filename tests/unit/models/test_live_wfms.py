@@ -488,29 +488,29 @@ class TestPorts(unittest.TestCase):
 
 class TestAtomicFromRecipe(unittest.TestCase):
     def test_simple(self):
-        node = live.Atomic.from_recipe(library.identity.flowrep_recipe)
+        node = live.LiveAtomic.from_recipe(library.identity.flowrep_recipe)
         self.assertTrue(callable(node.function))
         self.assertIn("x", node.input_ports)
         self.assertIn("x", node.output_ports)
         self.assertEqual(len(node.output_ports), 1)
 
     def test_with_defaults(self):
-        node = live.Atomic.from_recipe(library.increment.flowrep_recipe)
+        node = live.LiveAtomic.from_recipe(library.increment.flowrep_recipe)
         self.assertEqual(node.input_ports["step"].default, 1)
         self.assertIsInstance(node.input_ports["x"].default, live.NotData)
 
     def test_function_resolves_correctly(self):
-        node = live.Atomic.from_recipe(library.my_add.flowrep_recipe)
+        node = live.LiveAtomic.from_recipe(library.my_add.flowrep_recipe)
         self.assertEqual(node.function(3, 4), 7)
 
     def test_multi_output(self):
-        node = live.Atomic.from_recipe(library.divmod_func.flowrep_recipe)
+        node = live.LiveAtomic.from_recipe(library.divmod_func.flowrep_recipe)
         self.assertIn("quotient", node.output_ports)
         self.assertIn("remainder", node.output_ports)
         self.assertIs(node.output_ports["quotient"].annotation, float)
 
     def test_multi_outputwithout_hints(self):
-        node = live.Atomic.from_recipe(multiple_returns_no_hint.flowrep_recipe)
+        node = live.LiveAtomic.from_recipe(multiple_returns_no_hint.flowrep_recipe)
         self.assertIsNone(node.output_ports["output_0"].annotation)
         self.assertIsNone(node.output_ports["output_1"].annotation)
 
@@ -521,7 +521,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
             reference=library.divmod_func.flowrep_recipe.reference,
             unpack_mode=atomic_model.UnpackMode.NONE,
         )
-        node = live.Atomic.from_recipe(recipe)
+        node = live.LiveAtomic.from_recipe(recipe)
         origin = get_origin(node.output_ports["result"].annotation)
         self.assertIs(origin, tuple)
 
@@ -530,7 +530,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
             takes_positional_only,
             unpack_mode=atomic_model.UnpackMode.DATACLASS,
         )
-        node = live.Atomic.from_recipe(recipe)
+        node = live.LiveAtomic.from_recipe(recipe)
         self.assertIs(node.output_ports["x"].annotation, int)
         self.assertIs(node.output_ports["y"].annotation, int)
 
@@ -540,12 +540,12 @@ class TestAtomicFromRecipe(unittest.TestCase):
             "dc",
             unpack_mode=atomic_model.UnpackMode.NONE,
         )
-        node = live.Atomic.from_recipe(recipe)
+        node = live.LiveAtomic.from_recipe(recipe)
         self.assertIs(node.output_ports["dc"].annotation, SumClass)
 
     def test_input_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
-            live.Atomic.from_recipe(
+            live.LiveAtomic.from_recipe(
                 atomic_model.AtomicNode(
                     inputs=["these", "are_not", "correct"],
                     outputs=["x"],
@@ -556,7 +556,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
 
     def test_output_not_splittable_raises(self):
         with self.assertRaises(ValueError) as ctx:
-            live.Atomic.from_recipe(
+            live.LiveAtomic.from_recipe(
                 atomic_model.AtomicNode(
                     inputs=["x"],
                     outputs=["x", "y"],
@@ -567,7 +567,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
 
     def test_output_hint_length_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
-            live.Atomic.from_recipe(
+            live.LiveAtomic.from_recipe(
                 atomic_model.AtomicNode(
                     inputs=["a", "b"],
                     outputs=["x", "y", "z"],
@@ -578,7 +578,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
 
     def test_output_length_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
-            live.Atomic.from_recipe(
+            live.LiveAtomic.from_recipe(
                 atomic_model.AtomicNode(
                     inputs=["a", "b"],
                     outputs=["quotient", "remainder", "extra"],
@@ -593,19 +593,19 @@ class TestAtomicFromRecipe(unittest.TestCase):
 class TestWorkflowFromRecipe(unittest.TestCase):
     def test_no_reference(self):
         recipe = _linear_workflow()
-        wf = live.Workflow.from_recipe(recipe)
+        wf = live.LiveWorkflow.from_recipe(recipe)
         self.assertIs(wf.recipe, recipe)
         self.assertEqual(set(wf.input_ports), {"x", "y", "z"})
         self.assertEqual(set(wf.output_ports), {"result"})
         self.assertIn("add_0", wf.nodes)
-        self.assertIsInstance(wf.nodes["add_0"], live.Atomic)
+        self.assertIsInstance(wf.nodes["add_0"], live.LiveAtomic)
 
     def test_with_reference(self):
         """
         Ensure that annotations and defaults are parsed from the reference
         """
         recipe = _diamond_workflow.flowrep_recipe
-        wf = live.Workflow.from_recipe(recipe)
+        wf = live.LiveWorkflow.from_recipe(recipe)
         self.assertIs(wf.recipe, recipe)
         self.assertEqual(set(wf.input_ports), {"a", "b"})
         self.assertIs(wf.input_ports["a"].annotation, int)
@@ -615,11 +615,11 @@ class TestWorkflowFromRecipe(unittest.TestCase):
         self.assertEqual(set(wf.output_ports), {"result"})
         self.assertIs(wf.output_ports["result"].annotation, int)
         self.assertIn("my_add_0", wf.nodes)
-        self.assertIsInstance(wf.nodes["my_add_0"], live.Atomic)
+        self.assertIsInstance(wf.nodes["my_add_0"], live.LiveAtomic)
 
     def test_edges_are_carried_over(self):
         recipe = _linear_workflow()
-        wf = live.Workflow.from_recipe(recipe)
+        wf = live.LiveWorkflow.from_recipe(recipe)
         self.assertDictEqual(wf.input_edges, recipe.input_edges)
         self.assertDictEqual(wf.edges, recipe.edges)
         self.assertDictEqual(wf.output_edges, recipe.output_edges)
@@ -644,8 +644,8 @@ class TestFlowControlFromRecipe(unittest.TestCase):
 class TestRecipe2Live(unittest.TestCase):
     def test_conversion_types(self):
         for recipe, type_ in (
-            (library.identity.flowrep_recipe, live.Atomic),
-            (_linear_workflow(), live.Workflow),
+            (library.identity.flowrep_recipe, live.LiveAtomic),
+            (_linear_workflow(), live.LiveWorkflow),
             (_for_negate(), live.FlowControl),
             (_if_abs(), live.FlowControl),
             (_try_safe_divide(), live.FlowControl),
@@ -667,7 +667,7 @@ class TestRecipe2Live(unittest.TestCase):
 class TestRunAtomic(unittest.TestCase):
     def test_simple(self):
         node = wfms.run_recipe(library.my_add.flowrep_recipe, a=3, b=4)
-        self.assertIsInstance(node, live.Atomic)
+        self.assertIsInstance(node, live.LiveAtomic)
         self.assertEqual(node.output_ports["output_0"].value, 7)
 
     def test_identity_preserves_value(self):
@@ -738,7 +738,7 @@ class TestRunAtomic(unittest.TestCase):
 class TestRunWorkflow(unittest.TestCase):
     def test_linear(self):
         wf = wfms.run_recipe(_linear_workflow(), x=1, y=2, z=3)
-        self.assertIsInstance(wf, live.Workflow)
+        self.assertIsInstance(wf, live.LiveWorkflow)
         self.assertEqual(wf.output_ports["result"].value, (1 + 2) * 3)
 
     def test_diamond(self):
@@ -751,7 +751,7 @@ class TestRunWorkflow(unittest.TestCase):
 
     def test_child_nodes_populated(self):
         wf = wfms.run_recipe(_linear_workflow(), x=1, y=2, z=3)
-        self.assertIsInstance(wf.nodes["add_0"], live.Atomic)
+        self.assertIsInstance(wf.nodes["add_0"], live.LiveAtomic)
         self.assertEqual(wf.nodes["add_0"].output_ports["output_0"].value, 3)
 
     def test_child_defaults(self):
@@ -981,7 +981,7 @@ class TestProvenanceWalk(unittest.TestCase):
     def test_child_io_accessible(self):
         """Every child's input and output port values are available after execution."""
         wf = wfms.run_recipe(_linear_workflow(), x=5, y=3, z=2)
-        self.assertIsInstance(wf, live.Workflow)
+        self.assertIsInstance(wf, live.LiveWorkflow)
         add_node = wf.nodes["add_0"]
         self.assertEqual(add_node.input_ports["a"].value, 5)
         self.assertEqual(add_node.input_ports["b"].value, 3)

@@ -83,7 +83,7 @@ class LiveNode(abc.ABC):
 def recipe2live(recipe: union.NodeType) -> LiveNode:
     match recipe:
         case atomic_model.AtomicNode():
-            return Atomic.from_recipe(recipe)
+            return LiveAtomic.from_recipe(recipe)
         case for_model.ForNode():
             return FlowControl.from_recipe(recipe)
         case if_model.IfNode():
@@ -93,24 +93,24 @@ def recipe2live(recipe: union.NodeType) -> LiveNode:
         case while_model.WhileNode():
             return FlowControl.from_recipe(recipe)
         case workflow_model.WorkflowNode():
-            return Workflow.from_recipe(recipe)
+            return LiveWorkflow.from_recipe(recipe)
         case _:
             raise TypeError(f"Unrecognized recipe type {recipe}")
 
 
 @dataclasses.dataclass(frozen=False)
-class Atomic(LiveNode):
+class LiveAtomic(LiveNode):
     function: Callable
 
     @classmethod
-    def from_recipe(cls, recipe: atomic_model.AtomicNode) -> Atomic:
+    def from_recipe(cls, recipe: atomic_model.AtomicNode) -> LiveAtomic:
         function, input_ports, output_ports = _parse_function(
             recipe.reference.info.fully_qualified_name,
             recipe.inputs,
             recipe.outputs,
             recipe.unpack_mode,
         )
-        return Atomic(
+        return LiveAtomic(
             recipe=recipe,
             input_ports=dotdict.DotDict(input_ports),
             output_ports=dotdict.DotDict(output_ports),
@@ -127,9 +127,9 @@ class Composite(LiveNode, abc.ABC):
 
 
 @dataclasses.dataclass(frozen=False)
-class Workflow(Composite):
+class LiveWorkflow(Composite):
     @classmethod
-    def from_recipe(cls, recipe: workflow_model.WorkflowNode) -> Workflow:
+    def from_recipe(cls, recipe: workflow_model.WorkflowNode) -> LiveWorkflow:
         if recipe.reference:
             function, input_ports, output_ports = _parse_function(
                 recipe.reference.info.fully_qualified_name,
@@ -140,7 +140,7 @@ class Workflow(Composite):
             input_ports = {label: InputPort() for label in recipe.inputs}
             output_ports = {label: OutputPort() for label in recipe.outputs}
         nodes = {label: recipe2live(child) for label, child in recipe.nodes.items()}
-        return Workflow(
+        return LiveWorkflow(
             recipe=recipe,
             input_ports=dotdict.DotDict(input_ports),
             output_ports=dotdict.DotDict(output_ports),

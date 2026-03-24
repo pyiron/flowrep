@@ -19,14 +19,14 @@ from flowrep.models.edge_models import OutputTarget as OutputTarget
 from flowrep.models.edge_models import SourceHandle as SourceHandle
 from flowrep.models.edge_models import TargetHandle as TargetHandle
 from flowrep.models.live import NOT_DATA as NOT_DATA
-from flowrep.models.live import Atomic as Atomic
 from flowrep.models.live import Composite as Composite
 from flowrep.models.live import FlowControl as FlowControl
 from flowrep.models.live import InputPort as InputPort
+from flowrep.models.live import LiveAtomic as LiveAtomic
 from flowrep.models.live import LiveNode as LiveNode
+from flowrep.models.live import LiveWorkflow as LiveWorkflow
 from flowrep.models.live import NotData as NotData
 from flowrep.models.live import OutputPort as OutputPort
-from flowrep.models.live import Workflow as Workflow
 from flowrep.models.nodes.atomic_model import AtomicNode as AtomicNode
 from flowrep.models.nodes.atomic_model import UnpackMode as UnpackMode
 from flowrep.models.nodes.for_model import ForNode as ForNode
