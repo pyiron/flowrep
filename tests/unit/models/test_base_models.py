@@ -164,6 +164,19 @@ class TestNodeModelTypeImmutability(unittest.TestCase):
         self.assertEqual(node.type, base_models.RecipeElementType.ATOMIC)
 
 
+class TestNodeModelDescription(unittest.TestCase):
+    """Tests that NodeModel description is validated."""
+
+    def test_description_is_optional(self):
+        node = _ValidTestNode(inputs=[], outputs=[])
+        self.assertIsNone(node.description)
+
+    def test_description_recoverable(self):
+        description = "This is a description."
+        node = _ValidTestNode(inputs=[], outputs=[], description=description)
+        self.assertEqual(node.description, description)
+
+
 class TestRecipeElementType(unittest.TestCase):
     """Tests for RecipeElementType enum."""
 
