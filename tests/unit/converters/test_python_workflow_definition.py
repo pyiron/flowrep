@@ -15,11 +15,11 @@ import python_workflow_definition.models as pwd_models
 
 from flowrep import edge_models
 from flowrep.converters import python_workflow_definition as pwd_conv
-from flowrep.nodes import (  # noqa: E402
+from flowrep.nodes import (
     atomic_model,
     workflow_model,
 )
-from flowrep.parsers import workflow_parser  # noqa: E402
+from flowrep.parsers import workflow_parser
 
 from flowrep_static import library, makers  # noqa: E402
 

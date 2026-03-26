@@ -14,7 +14,6 @@
 
 import os
 import shutil
-import subprocess
 from sphinx.ext.apidoc import main
 
 import flowrep
