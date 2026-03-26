@@ -2,4 +2,4 @@
 source = flowrep
 concurrency = multiprocessing
 omit =
-    flowrep/api/*
+    src/flowrep/api/*

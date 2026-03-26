@@ -32,4 +32,4 @@ jobs:
       # Make sure the static module can be found at test time
       extra-python-paths: tests
       # Don't include the API in coverage
-      omit-patterns: flowrep/api/*
+      omit-patterns: src/flowrep/api/*
