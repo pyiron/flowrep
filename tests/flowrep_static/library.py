@@ -1,6 +1,6 @@
 """Helper functions parsed in multiple test files"""
 
-from flowrep.models.parsers import atomic_parser
+from flowrep.parsers import atomic_parser
 
 
 def undecorated_identity(x):
@@ -49,3 +49,35 @@ def add(x: float = 2.0, y: float = 1) -> float:
 
 def multiply(x: float, y: float = 5) -> float:
     return x * y
+
+
+@atomic_parser.atomic
+def negate(x):
+    return -x
+
+
+@atomic_parser.atomic
+def increment(x, step=1):
+    return x + step
+
+
+@atomic_parser.atomic
+def decrement(x: int) -> int:
+    return x - 1
+
+
+@atomic_parser.atomic
+def is_positive(n):
+    return n > 0
+
+
+@atomic_parser.atomic
+def divide(a, b):
+    return a / b
+
+
+@atomic_parser.atomic
+def divmod_func(a: float, b: float) -> tuple[float, float]:
+    quotient = a // b
+    remainder = a % b
+    return quotient, remainder
