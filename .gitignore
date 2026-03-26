@@ -11,4 +11,4 @@ apidoc/
 .ipynb_checkpoints/
 test_times.dat
 core.*
-flowrep/_version.py
+src/flowrep/_version.py

@@ -14,7 +14,6 @@
 
 import os
 import shutil
-import subprocess
 from sphinx.ext.apidoc import main
 
 import flowrep
@@ -325,7 +324,7 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 # texinfo_no_detailmenu = False
 
-main(["-e", "-o", "apidoc", "../flowrep", "--force"])
+main(["-e", "-o", "apidoc", "../src/flowrep", "--force"])
 
 curdir = os.path.dirname(os.path.abspath(__file__))
 if os.path.exists(os.path.join(curdir, "source/notebooks")):
