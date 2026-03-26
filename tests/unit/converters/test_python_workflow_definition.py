@@ -24,7 +24,7 @@ from flowrep.parsers import workflow_parser  # noqa: E402
 from flowrep_static import library, makers  # noqa: E402
 
 _PWD_JSON_WORKFLOW_LOCATION = (
-    Path(__file__).resolve().parent.parent.parent.parent
+    Path(__file__).resolve().parent.parent.parent
     / "flowrep_static"
     / "python-workflow-definition"
 )
