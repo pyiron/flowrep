@@ -3,8 +3,8 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep.models.nodes import workflow_model
-from flowrep.models.parsers import atomic_parser, workflow_parser
+from flowrep.nodes import workflow_model
+from flowrep.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library
 

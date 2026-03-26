@@ -1,6 +1,6 @@
 """Helper functions parsed in multiple test files"""
 
-from flowrep.models.parsers import atomic_parser
+from flowrep.parsers import atomic_parser
 
 
 def undecorated_identity(x):
