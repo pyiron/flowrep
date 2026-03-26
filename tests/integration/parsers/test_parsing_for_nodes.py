@@ -1,7 +1,8 @@
+import inspect
 import unittest
 
-from flowrep.models.nodes import for_model, workflow_model
-from flowrep.models.parsers import atomic_parser, workflow_parser
+from flowrep.nodes import for_model, workflow_model
+from flowrep.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library
 
@@ -225,6 +226,7 @@ nested_node = workflow_model.WorkflowNode.model_validate(
         "type": "workflow",
         "inputs": ["ns"],
         "outputs": ["sq_sums"],
+        "description": inspect.getdoc(nested),
         "nodes": {
             "for_0": {
                 "type": "for",
@@ -330,6 +332,7 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
         "type": "workflow",
         "inputs": ["ns", "range_offset", "square_offset"],
         "outputs": ["sq_sums"],
+        "description": inspect.getdoc(nested_with_passed_input),
         "nodes": {
             "for_0": {
                 "type": "for",

@@ -29,6 +29,7 @@ dependencies = [
 dynamic = [ "version",]
 authors = [
     { name = "Sam Waseda", email = "waseda@mpie.de" },
+    { name = "Liam Huber", email = "liamhuber@greyhavensolutions.com" },
 ]
 
 [project.license]
@@ -44,33 +45,33 @@ pwd = [
     "python-workflow-definition==0.1.4",
 ]
 notebooks = [
-    "numpy==2.4.2",
+    "numpy==2.4.3",
 ]
 
 [tool.hatch.build]
 include = [
-    "flowrep"
+    "src/flowrep"
 ]
 
 [tool.hatch.build.hooks.vcs]
-version-file = "flowrep/_version.py"
+version-file = "src/flowrep/_version.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "flowrep"
+    "src/flowrep"
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = [
-    "flowrep"
+    "src/flowrep"
 ]
 
 [tool.hatch.version]
 source = "vcs"
-path = "flowrep/_version.py"
+path = "src/flowrep/_version.py"
 
 [tool.ruff]
-exclude = ["docs", "notebooks", "setup.py", "_version.py"]
+exclude = ["docs", "notebooks", "_version.py"]
 
 [tool.ruff.lint]
 select = [
@@ -111,10 +112,3 @@ exclude = [
 ]
 ignore_missing_imports = true
 strict_equality = true
-
-[[tool.mypy.overrides]]
-module = [
-    "flowrep.tools",
-    "flowrep.workflow"
-]
-ignore_errors = true

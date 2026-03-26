@@ -1,9 +1,10 @@
+import inspect
 import unittest
 
 from pyiron_snippets import versions
 
-from flowrep.models.nodes import workflow_model
-from flowrep.models.parsers import atomic_parser, workflow_parser
+from flowrep.nodes import workflow_model
+from flowrep.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library
 
@@ -243,6 +244,7 @@ full_composite_node = workflow_model.WorkflowNode.model_validate(
         "type": "workflow",
         "inputs": ["x", "y", "bound"],
         "outputs": ["result"],
+        "description": inspect.getdoc(full_composite),
         "nodes": {
             "my_add_0": library.my_add.flowrep_recipe,
             "try_0": _try_node,

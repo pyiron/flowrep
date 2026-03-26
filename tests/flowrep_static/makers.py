@@ -2,8 +2,8 @@
 
 from pyiron_snippets import versions
 
-from flowrep.models import base_models
-from flowrep.models.nodes import atomic_model, helper_models
+from flowrep import base_models
+from flowrep.nodes import atomic_model, helper_models
 
 
 def make_reference(

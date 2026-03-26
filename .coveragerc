@@ -1,7 +1,5 @@
-# .coveragerc to control coverage.py
 [run]
 source = flowrep
-omit =
-    flowrep/_version.py
-    flowrep/models/api/*
 concurrency = multiprocessing
+omit =
+    */flowrep/api/*
