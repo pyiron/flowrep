@@ -99,8 +99,8 @@ class TestFindUndefinedVariables(unittest.TestCase):
 
 
 class TestGetCallDependencies(unittest.TestCase):
-    @patch("flowrep.models.parsers.object_scope.get_scope")
-    @patch("flowrep.models.parsers.object_scope.resolve_attribute_to_object")
+    @patch("flowrep.parsers.object_scope.get_scope")
+    @patch("flowrep.parsers.object_scope.resolve_attribute_to_object")
     @patch("pyiron_snippets.versions.VersionInfo.of")
     def test_get_call_dependencies(
         self, mock_version_info_of, mock_resolve_attribute_to_object, mock_get_scope
@@ -115,7 +115,7 @@ class TestGetCallDependencies(unittest.TestCase):
         mock_get_scope.return_value = mock_scope
 
         with patch(
-            "flowrep.models.parsers.dependency_parser.find_undefined_variables"
+            "flowrep.parsers.dependency_parser.find_undefined_variables"
         ) as mock_find_undefined:
             mock_find_undefined.return_value = {"undefined_var"}
             call_dependencies = dependency_parser.get_call_dependencies(mock_func)
