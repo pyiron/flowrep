@@ -1,6 +1,9 @@
 """
 This module holds a prototypical, minimal Workflow Management System (WfMS) for
 flowrep recipes.
+
+Intended for use in tests and documentation, and as an example implementation to which
+fully-fledged WfMS can refer.
 """
 
 from __future__ import annotations
