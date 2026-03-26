@@ -74,6 +74,7 @@ class NodeModel(pydantic.BaseModel):
     type: RecipeElementType
     inputs: Labels
     outputs: Labels
+    description: str | None = None
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):

@@ -113,6 +113,14 @@ class TestAtomicDecorator(unittest.TestCase):
         result = add(1, 2)
         self.assertEqual(result, (1, 2))
 
+    def test_atomic_captures_docstring(self):
+        @atomic_parser.atomic
+        def has_docstring(a, b):
+            """Here's a docstring"""
+            return a, b
+
+        self.assertEqual(has_docstring.flowrep_recipe.description, "Here's a docstring")
+
 
 class TestParseAtomic(unittest.TestCase):
     def test_basic_function(self):
@@ -137,6 +145,14 @@ class TestParseAtomic(unittest.TestCase):
             msg="Return tuple should be condensed to a single output port",
         )
         self.assertEqual(node.unpack_mode, atomic_model.UnpackMode.NONE)
+
+    def test_parse_atomic_captures_docstring(self):
+        def has_docstring(a, b):
+            """Here's a docstring"""
+            return a, b
+
+        node = atomic_parser.parse_atomic(has_docstring)
+        self.assertEqual(node.description, "Here's a docstring")
 
 
 class TestAtomicTypeValidation(unittest.TestCase):
