@@ -13,15 +13,13 @@ from pathlib import Path
 import pydantic
 import python_workflow_definition.models as pwd_models
 
-from flowrep.models import edge_models  # noqa: E402
-from flowrep.models.converters import (  # noqa: E402
-    python_workflow_definition as pwd_conv,
-)
-from flowrep.models.nodes import (  # noqa: E402
+from flowrep import edge_models
+from flowrep.converters import python_workflow_definition as pwd_conv
+from flowrep.nodes import (  # noqa: E402
     atomic_model,
     workflow_model,
 )
-from flowrep.models.parsers import workflow_parser  # noqa: E402
+from flowrep.parsers import workflow_parser  # noqa: E402
 
 from flowrep_static import library, makers  # noqa: E402
 

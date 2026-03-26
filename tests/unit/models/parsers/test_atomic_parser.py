@@ -6,9 +6,9 @@ import unittest
 from types import FunctionType
 from typing import Annotated
 
-from flowrep.models import base_models
-from flowrep.models.nodes import atomic_model
-from flowrep.models.parsers import atomic_parser, label_helpers, parser_helpers
+from flowrep import base_models
+from flowrep.nodes import atomic_model
+from flowrep.parsers import atomic_parser, label_helpers, parser_helpers
 
 
 def _make_func_in_module(module: str, qualname: str) -> FunctionType:

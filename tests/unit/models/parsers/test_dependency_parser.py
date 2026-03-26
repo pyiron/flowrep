@@ -3,7 +3,7 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep.models.parsers import dependency_parser
+from flowrep.parsers import dependency_parser
 
 # ---------------------------------------------------------------------------
 # Helper functions defined at module level so they have inspectable source,

@@ -4,8 +4,8 @@ import unittest
 
 import pydantic
 
-from flowrep.models import base_models
-from flowrep.models.nodes import atomic_model
+from flowrep import base_models
+from flowrep.nodes import atomic_model
 
 from flowrep_static import makers
 

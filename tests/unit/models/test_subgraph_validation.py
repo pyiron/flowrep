@@ -2,7 +2,7 @@
 
 import unittest
 
-from flowrep.models import edge_models, subgraph_validation
+from flowrep import edge_models, subgraph_validation
 
 
 class MockNode:

@@ -4,7 +4,7 @@ import types
 import unittest
 from unittest.mock import patch
 
-from flowrep.models.parsers import object_scope
+from flowrep.parsers import object_scope
 
 
 def add(x: float = 2.0, y: float = 1) -> float:

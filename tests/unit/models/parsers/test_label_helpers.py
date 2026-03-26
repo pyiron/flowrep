@@ -1,7 +1,7 @@
 import unittest
 from typing import Annotated
 
-from flowrep.models.parsers import label_helpers
+from flowrep.parsers import label_helpers
 
 
 class TestOutputMeta(unittest.TestCase):

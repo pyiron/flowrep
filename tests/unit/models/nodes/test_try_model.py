@@ -3,8 +3,8 @@ import unittest
 import pydantic
 from pyiron_snippets import versions
 
-from flowrep.models import base_models, edge_models, subgraph_validation
-from flowrep.models.nodes import (
+from flowrep import base_models, edge_models, subgraph_validation
+from flowrep.nodes import (
     atomic_model,
     helper_models,
     try_model,

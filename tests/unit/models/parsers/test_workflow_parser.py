@@ -6,9 +6,9 @@ from typing import Annotated, Any
 import pydantic
 from pyiron_snippets import versions
 
-from flowrep.models import base_models, edge_models
-from flowrep.models.nodes import atomic_model, workflow_model
-from flowrep.models.parsers import (
+from flowrep import base_models, edge_models
+from flowrep.nodes import atomic_model, workflow_model
+from flowrep.parsers import (
     atomic_parser,
     label_helpers,
     object_scope,

@@ -1,6 +1,6 @@
 import unittest
 
-from flowrep.models import edge_models
+from flowrep import edge_models
 
 
 class TestHandleModels(unittest.TestCase):

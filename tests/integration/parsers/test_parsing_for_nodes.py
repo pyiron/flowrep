@@ -1,8 +1,8 @@
 import inspect
 import unittest
 
-from flowrep.models.nodes import for_model, workflow_model
-from flowrep.models.parsers import atomic_parser, workflow_parser
+from flowrep.nodes import for_model, workflow_model
+from flowrep.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library
 

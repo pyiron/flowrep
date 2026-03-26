@@ -5,7 +5,7 @@ from typing import Literal
 
 import pydantic
 
-from flowrep.models import base_models
+from flowrep import base_models
 
 from flowrep_static import makers
 

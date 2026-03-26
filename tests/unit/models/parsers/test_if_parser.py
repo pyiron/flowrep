@@ -6,15 +6,15 @@ import ast
 import textwrap
 import unittest
 
-from flowrep.models import edge_models
-from flowrep.models.nodes import (
+from flowrep import edge_models
+from flowrep.nodes import (
     for_model,
     if_model,
     try_model,
     while_model,
     workflow_model,
 )
-from flowrep.models.parsers import if_parser, workflow_parser
+from flowrep.parsers import if_parser, workflow_parser
 
 from flowrep_static import library
 

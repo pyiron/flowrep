@@ -10,8 +10,8 @@ import ast
 import textwrap
 import unittest
 
-from flowrep.models import edge_models
-from flowrep.models.nodes import (
+from flowrep import edge_models
+from flowrep.nodes import (
     atomic_model,
     for_model,
     if_model,
@@ -19,7 +19,7 @@ from flowrep.models.nodes import (
     while_model,
     workflow_model,
 )
-from flowrep.models.parsers import atomic_parser, for_parser, workflow_parser
+from flowrep.parsers import atomic_parser, for_parser, workflow_parser
 
 from flowrep_static import library
 

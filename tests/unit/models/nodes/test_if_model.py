@@ -2,8 +2,8 @@ import unittest
 
 import pydantic
 
-from flowrep.models import base_models, edge_models, subgraph_validation
-from flowrep.models.nodes import (
+from flowrep import base_models, edge_models, subgraph_validation
+from flowrep.nodes import (
     atomic_model,
     helper_models,
     if_model,
