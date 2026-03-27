@@ -188,7 +188,42 @@ And workflows compose by nesting:
 ```
 
 The resulting recipe captures the full structure — the while-loop, the nested
-workflow, and all the edges between them — as a single JSON document.
+workflow, and all the edges between them — as a single pydantic model that can be dumped 
+to a JSON document.
+
+We can see the layers of nested subgraphs:
+
+```python
+>>> recipe_json = double_and_add.flowrep_recipe.model_dump(mode="json")
+>>> [child for child in recipe_json["nodes"]]
+['double_until_0', 'add_0']
+
+>>> [nested_child for nested_child in recipe_json["nodes"]["double_until_0"]["nodes"]]
+['while_0']
+
+```
+
+Although the while-node is dynamic -- and therefore we _can't_ know its exact nodes 
+until run-time, it must and does still have well-defined IO signature.
+We can look at the template it will follow, e.g., by peeking at the part of the recipe 
+used for the "while" condition:
+
+```python
+>>> recipe_json["nodes"]["double_until_0"]["nodes"]["while_0"]["case"]["condition"]["node"]["type"]
+'atomic'
+
+>>> recipe_json["nodes"]["double_until_0"]["nodes"]["while_0"]["case"]["condition"]["node"]["reference"]["info"]["qualname"]
+'is_less_than_target'
+
+```
+
+And to see how it will forward it's inputs down into its prospective subgraph:
+
+```python
+>>> recipe_json["nodes"]["double_until_0"]["nodes"]["while_0"]["input_edges"]
+{'condition.value': 'x', 'condition.target': 'target', 'body.x': 'x'}
+
+```
 
 We run these in the examples above to show two things: first, that even when nested, 
 the decorated functions are still just python functions; second, to show in the following 
