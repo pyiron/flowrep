@@ -149,15 +149,30 @@ run-time, but their IO signature is always fully known a priori.
 
 ### Example: flow control and nesting
 
-The workflow parser auto-parses undecorated functions as atomic nodes, so you
-don't need `@atomic` on everything:
+So far we've seen `"workflow"` nodes, and alluded to `"atomic"` nodes.
+You can also explicitly attach an atomic recipe to a function definition, but most of 
+the time you won't need to since the workflow parser auto-parses undecorated function 
+calls as atomic nodes.
+
+On the other hand, we can parse `@workflow`-decorated functions _as workflows_ to 
+compose complex workflows with nested subgraphs.
+
+Beyond simple `"atomic"` and DAG `"workflow"` nodes, there are also recipe formats 
+for flow control structures like `while`. 
+Just like the other nodes, these can be written directly as JSON, or parsed inside a 
+workflow from a python function definition -- with some syntax restrictions.
+This is covered in more detail in the [user guide](https://mybinder.org/v2/gh/pyiron/flowrep/HEAD?urlpath=%2Fdoc%2Ftree%2Fuser-guide.ipynb), but here let's see both of these features 
+in use at once by nesting a while loop inside a sub-workflow.
+Let's look at a `while` loop, where our main syntax restriction is that the condition 
+must be a function call:
 
 ```python
 >>> def is_less_than_target(value, target):
 ...     result = value < target
 ...     return result
 
->>> def double(x):
+>>> @fr.atomic  # This is optional, but doesn't hurt us
+... def double(x):
 ...     doubled = x * 2
 ...     return doubled
 
@@ -173,7 +188,7 @@ don't need `@atomic` on everything:
 
 ```
 
-And workflows compose by nesting:
+And then we can compose workflows by nesting:
 
 ```python
 >>> @fr.workflow
