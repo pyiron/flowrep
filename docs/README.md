@@ -236,7 +236,7 @@ received and produced:
 
 For a deeper look at all available node types, edge semantics, version
 provenance, and the live/WfMS layer, see the
-[user guide](<!-- TODO: link to user-guide.ipynb on mybinder -->).
+[user guide](https://mybinder.org/v2/gh/pyiron/flowrep/HEAD?urlpath=%2Fdoc%2Ftree%2Fuser-guide.ipynb).
 
 
 ## Documentation
