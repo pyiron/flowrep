@@ -127,7 +127,13 @@ class TestReadmeExamples(unittest.TestCase):
                 f.write(script)
 
             spec = importlib.util.spec_from_file_location(_MODULE_NAME, tmp_path)
-            assert spec is not None and spec.loader is not None
+            self.assertIsNotNone(
+                spec, "Failed to create module spec from temporary README script"
+            )
+            self.assertIsNotNone(
+                spec.loader,
+                "Module spec for temporary README script has no loader",
+            )
             mod = importlib.util.module_from_spec(spec)
 
             # The module must be importable by name so the WfMS can resolve
