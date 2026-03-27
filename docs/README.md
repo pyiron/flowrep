@@ -106,8 +106,9 @@ the "multiply" a nice output label.
 For our "add" node, what we returned couldn't be parsed nicely as a label, so in 
 `output_edges` we see it got assigned a default name `"output_0"`.
 
-Every node created by parsing a Python function carries a `reference` recording which Python function it maps to
-(module, qualname, and package version when available), so a WfMS can resolve
+Every `"atomic"` node for running a Python function and every `"workflow"` not created 
+by parsing a function defition carries a `reference` recording for the Python function
+to which it maps (module, qualname, and package version when available), so a WfMS can resolve
 and execute them later. The recipe also captures exactly how data flows: 
 `input_edges` wire workflow inputs to child node ports, `edges` connect sibling
 outputs to inputs, and `output_edges` name which child port produces each 
