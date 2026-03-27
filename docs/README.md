@@ -282,10 +282,13 @@ in tests and documentation (like this!):
 
 Because every child node's ports are populated too, the live graph gives you
 full data provenance — you can walk the tree and inspect exactly what each node
-received and produced:
+received and produced.
+For flow control nodes, which are _prospectively_ "black boxes", we find that 
+_retrospectively_ they are simple DAGs.
+For our while-loop, that means that we can retrospectively inspect the provenance of 
+each loop iteration:
 
 ```python
->>> # Inspect the retrospective DAG form of the while loop in the nested workflow:
 >>> while_loop = retrospective.nodes["double_until_0"].nodes["while_0"]
 >>> while_loop.nodes["body_0"].output_ports["x"].value
 6
