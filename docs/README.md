@@ -6,13 +6,12 @@
 [![Documentation](https://readthedocs.org/projects/flowrep/badge/?version=latest)](https://flowrep.readthedocs.io/en/latest/?badge=latest)
 
 [![Anaconda](https://anaconda.org/conda-forge/flowrep/badges/version.svg)](https://anaconda.org/conda-forge/flowrep)
-[![Last Updated](https://anaconda.org/conda-forge/flowrep/badges/latest_release_date.svg
-)](https://anaconda.org/conda-forge/flowrep)
+[![Last Updated](https://anaconda.org/conda-forge/flowrep/badges/latest_release_date.svg)](https://anaconda.org/conda-forge/flowrep)
 [![Platform](https://anaconda.org/conda-forge/flowrep/badges/platforms.svg)](https://anaconda.org/conda-forge/flowrep)
 [![Downloads](https://anaconda.org/conda-forge/flowrep/badges/downloads.svg)](https://anaconda.org/conda-forge/flowrep)
 
 
-# flowrep — Workflow Recipes from Python
+## flowrep — Workflow Recipes from Python
 
 **flowrep** turns plain Python functions into shareable, versionable *workflow
 recipes* — JSON-serialisable graphs that describe *what* to compute (which
@@ -251,4 +250,4 @@ provenance, and the live/WfMS layer, see the
 ## Contributing
 
 Contributions are welcome! Please see
-[`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md) for community guidelines.
+[`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) for community guidelines.
