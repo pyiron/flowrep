@@ -190,6 +190,10 @@ And workflows compose by nesting:
 The resulting recipe captures the full structure — the while-loop, the nested
 workflow, and all the edges between them — as a single JSON document.
 
+We run these in the examples above to show two things: first, that even when nested, 
+the decorated functions are still just python functions; second, to show in the following 
+section that the recipe we parse from this are intended to give the same result as 
+these underlying functions when we run the recipe with a WfMS.
 
 ## Beyond Recipes: Live Data and Execution
 
