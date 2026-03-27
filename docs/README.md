@@ -36,16 +36,14 @@ pip install flowrep                     # also available from PyPI
 
 ## Quick Start
 
-Define a couple of simple functions — the only requirement is that every return
-value is assigned to a named variable first, so flowrep can scrape output port
-names from the source:
+Define a couple of simple functions — it will be helpful to make our return statements 
+nicely named variables, but it's not a necessity:
 
 ```python
 >>> import flowrep as fr
 
 >>> def add(a, b):
-...     result = a + b
-...     return result
+...     return a + b
 
 >>> def multiply(x, y):
 ...     product = x * y
@@ -95,11 +93,18 @@ JSON string):
 >>> recipe["edges"]
 {'add_0.a': 'multiply_0.product'}
 >>> recipe["output_edges"]
-{'result': 'add_0.result'}
+{'result': 'add_0.output_0'}
 >>> recipe["nodes"]["add_0"]["reference"]["info"]["qualname"]
 'add'
 
 ```
+
+A key difference between a workflow graph and typical python is that for a graph we 
+need named handles for all of our output values.
+We can see in the `edges` that the recipe nicely used our return variable to give 
+the "multiply" a nice output label.
+For our "add" node, what we returned couldn't be parsed nicely as a label, so in 
+`output_edges` we see it got assigned a default name `"output_0"`.
 
 Every node carries a `reference` recording which Python function it maps to
 (module, qualname, and package version when available), so a WfMS can resolve
