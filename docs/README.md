@@ -304,8 +304,9 @@ provenance, and the live/WfMS layer, see the
 
 ## Documentation
 
-- The user guide notebook comprehensively covers all node types, edge models, flow control, versioning, and
-  converters. Launch it interactively on
+- The user guide notebook comprehensively covers all node types, edge models, flow control, versioning, 
+  live/retrospective data formats, a demo WfMS implementation, and recipe format converters. 
+  Launch it interactively on
   [mybinder](https://mybinder.org/v2/gh/pyiron/flowrep/HEAD?urlpath=%2Fdoc%2Ftree%2Fuser-guide.ipynb).
 - [readthedocs](https://flowrep.readthedocs.io/en/latest/)
 
