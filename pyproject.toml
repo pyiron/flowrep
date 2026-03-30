@@ -22,7 +22,6 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "networkx==3.6.1",
     "pydantic==2.12.5",
     "pyiron_snippets==1.2.1",
 ]
