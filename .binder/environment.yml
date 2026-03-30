@@ -7,4 +7,4 @@ dependencies:
 - pydantic =2.12.5
 - pyiron_snippets =1.2.1
 - python-workflow-definition =0.1.4
-- numpy =2.4.2
+- numpy =2.4.4
