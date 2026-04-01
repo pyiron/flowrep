@@ -53,6 +53,8 @@ class UndefinedVariableVisitor(ast.NodeVisitor):
         self.used_vars: set[str] = set()
         self.defined_vars: set[str] = set()
         self._nesting_depth: int = 0
+        self.imports: list[ast.Import] = []
+        self.import_froms: list[ast.ImportFrom] = []
 
     def visit_Name(self, node: ast.Name) -> None:
         if isinstance(node.ctx, ast.Load):
@@ -92,6 +94,12 @@ class UndefinedVariableVisitor(ast.NodeVisitor):
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.defined_vars.add(node.name)
         self.generic_visit(node)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        self.import_froms.append(node)
+
+    def visit_Import(self, node: ast.Import) -> None:
+        self.imports.append(node)
 
 
 def find_undefined_variables(
