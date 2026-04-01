@@ -161,7 +161,6 @@ def get_call_dependencies(
         info = versions.VersionInfo.of(obj, version_scraping=version_scraping)
         call_dependencies[info] = obj
 
-        if callable(obj) or isinstance(obj, type):
-            if info.version is None:
-                get_call_dependencies(obj, version_scraping, call_dependencies, visited)
+        if (callable(obj) or isinstance(obj, type)) and info.version is None:
+            get_call_dependencies(obj, version_scraping, call_dependencies, visited)
     return call_dependencies
