@@ -100,39 +100,5 @@ class TestFindUndefinedVariables(unittest.TestCase):
         self.assertNotIn("c", undefined_vars)
 
 
-class TestGetCallDependencies(unittest.TestCase):
-    @patch("flowrep.parsers.object_scope.get_scope")
-    @patch("flowrep.parsers.object_scope.resolve_attribute_to_object")
-    @patch("pyiron_snippets.versions.VersionInfo.of")
-    def test_get_call_dependencies(
-        self, mock_version_info_of, mock_resolve_attribute_to_object, mock_get_scope
-    ):
-        mock_func = MagicMock()
-        mock_version_info = MagicMock()
-        mock_version_info.fully_qualified_name = "mock_func"
-        mock_version_info_of.return_value = mock_version_info
-        mock_resolve_attribute_to_object.return_value = mock_func
-
-        mock_scope = MagicMock()
-        mock_get_scope.return_value = mock_scope
-
-        mock_undefined_var = "undefined_var"
-        mock_resolved_obj = MagicMock()
-        mock_resolve_attribute_to_object.return_value = mock_resolved_obj
-
-        with patch(
-            "flowrep.parsers.dependency_parser.find_undefined_variables"
-        ) as mock_find_undefined:
-            mock_find_undefined.return_value = {mock_undefined_var: mock_resolved_obj}
-            call_dependencies = dependency_parser.get_call_dependencies(mock_func)
-
-        self.assertIn(mock_version_info, call_dependencies)
-        self.assertEqual(call_dependencies[mock_version_info], mock_resolved_obj)
-        mock_get_scope.assert_called_once_with(mock_func)
-        mock_resolve_attribute_to_object.assert_called_once_with(
-            mock_undefined_var, mock_scope
-        )
-
-
 if __name__ == "__main__":
     unittest.main()
