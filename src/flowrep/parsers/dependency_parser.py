@@ -5,6 +5,7 @@ import builtins
 import inspect
 import textwrap
 from collections.abc import Callable
+from typing import Any
 
 from pyiron_snippets import versions
 
@@ -103,7 +104,7 @@ class UndefinedVariableVisitor(ast.NodeVisitor):
 
 
 def find_undefined_variables(
-    func_or_var: Callable | object,
+    func_or_var: Callable[..., Any] | type[Any],
 ) -> dict[str, object]:
     """
     Find variables that are used but not defined in the source of *func_or_var*.
@@ -141,7 +142,7 @@ def find_undefined_variables(
 
 
 def get_call_dependencies(
-    func_or_var: Callable | object,
+    func_or_var: Callable[..., Any] | type[Any],
     version_scraping: versions.VersionScrapingMap | None = None,
     _call_dependencies: CallDependencies | None = None,
     _visited: set[str] | None = None,
@@ -160,6 +161,7 @@ def get_call_dependencies(
         info = versions.VersionInfo.of(obj, version_scraping=version_scraping)
         call_dependencies[info] = obj
 
-        if info.version is None:
-            get_call_dependencies(obj, version_scraping, call_dependencies, visited)
+        if callable(obj) or isinstance(obj, type):
+            if info.version is None:
+                get_call_dependencies(obj, version_scraping, call_dependencies, visited)
     return call_dependencies
