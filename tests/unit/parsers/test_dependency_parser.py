@@ -83,14 +83,16 @@ class TestUndefinedVariableVisitor(unittest.TestCase):
             visitor.visit(tree)
 
 
+x = 1
+
+
+def test_function(a, b):
+    c = a + b + x
+    return c
+
+
 class TestFindUndefinedVariables(unittest.TestCase):
     def test_find_undefined_variables(self):
-        x = 1
-
-        def test_function(a, b):
-            c = a + b + x
-            return c
-
         undefined_vars = dependency_parser.find_undefined_variables(test_function)
         self.assertIn("x", undefined_vars)
         self.assertNotIn("a", undefined_vars)
@@ -114,17 +116,21 @@ class TestGetCallDependencies(unittest.TestCase):
         mock_scope = MagicMock()
         mock_get_scope.return_value = mock_scope
 
+        mock_undefined_var = "undefined_var"
+        mock_resolved_obj = MagicMock()
+        mock_resolve_attribute_to_object.return_value = mock_resolved_obj
+
         with patch(
             "flowrep.parsers.dependency_parser.find_undefined_variables"
         ) as mock_find_undefined:
-            mock_find_undefined.return_value = {"undefined_var"}
+            mock_find_undefined.return_value = {mock_undefined_var: mock_resolved_obj}
             call_dependencies = dependency_parser.get_call_dependencies(mock_func)
 
         self.assertIn(mock_version_info, call_dependencies)
-        self.assertEqual(call_dependencies[mock_version_info], mock_func)
+        self.assertEqual(call_dependencies[mock_version_info], mock_resolved_obj)
         mock_get_scope.assert_called_once_with(mock_func)
         mock_resolve_attribute_to_object.assert_called_once_with(
-            "undefined_var", mock_scope
+            mock_undefined_var, mock_scope
         )
 
 

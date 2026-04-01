@@ -104,7 +104,7 @@ class UndefinedVariableVisitor(ast.NodeVisitor):
 
 def find_undefined_variables(
     func_or_var: Callable | object,
-) -> set[str]:
+) -> dict[str, object]:
     """
     Find variables that are used but not defined in the source of *func_or_var*.
 
@@ -118,7 +118,7 @@ def find_undefined_variables(
         raw_source = inspect.getsource(func_or_var)
     except (OSError, TypeError):
         # No reliable source available; treat as having no undefined variables.
-        return set()
+        return {}
 
     source = textwrap.dedent(raw_source)
 
@@ -126,12 +126,18 @@ def find_undefined_variables(
         tree = ast.parse(source)
     except SyntaxError:
         # Source could not be parsed as Python code; fail gracefully.
-        return set()
+        return {}
 
     visitor = UndefinedVariableVisitor()
     visitor.visit(tree)
-    undefined_vars = visitor.used_vars - visitor.defined_vars
-    return undefined_vars.difference(set(dir(builtins)))
+    undefined_vars = (visitor.used_vars - visitor.defined_vars).difference(
+        set(dir(builtins))
+    )
+    scope = object_scope.get_scope(func_or_var)
+    return {
+        item: object_scope.resolve_attribute_to_object(item, scope)
+        for item in undefined_vars
+    }
 
 
 def get_call_dependencies(
@@ -150,9 +156,7 @@ def get_call_dependencies(
     visited.add(func_fqn)
 
     # Find variables that are used but not defined
-    scope = object_scope.get_scope(func_or_var)
-    for item in find_undefined_variables(func_or_var):
-        obj = object_scope.resolve_attribute_to_object(item, scope)
+    for obj in find_undefined_variables(func_or_var).values():
         info = versions.VersionInfo.of(obj, version_scraping=version_scraping)
         call_dependencies[info] = obj
 
