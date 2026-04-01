@@ -4,6 +4,8 @@ Flowrep recipes represent a class-view of how data can be processed via a workfl
 In this module, we provide a prototypical data structure for live, instance-view
 workflows, which can be mutated as they are executed to be enriched with data.
 
+Intended to be a common export- and communication-format for WfMS of instance-views.
+
 Unlike the recipes, no goal is made to provide easy serialization, and these data
 structures natively hold complex python objects.
 """
