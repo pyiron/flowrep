@@ -1,7 +1,7 @@
 import ast
 import textwrap
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from flowrep.parsers import dependency_parser
 
