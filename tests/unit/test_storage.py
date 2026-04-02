@@ -67,15 +67,27 @@ class TestValidateBagMetadata(_BagTestCase):
         with mock.patch.object(bag, "get_bag_info", return_value=fake_info):
             storage._validate_bag_metadata(bag)  # Should validate
 
+    def test_version_too_low_raises(self):
+        path = self._bag_path()
+        _save_workflow(path, a=1, b=2)
+        bag = boh.H5Bag(path)
+        fake_info = mock.Mock()
+        fake_info.version = "0.1.4"
+        with (
+            mock.patch.object(bag, "get_bag_info", return_value=fake_info),
+            self.assertRaisesRegex(ValueError, "0.1.4"),
+        ):
+            storage._validate_bag_metadata(bag)
+
     def test_version_too_high_raises(self):
         path = self._bag_path()
         _save_workflow(path, a=1, b=2)
         bag = boh.H5Bag(path)
         fake_info = mock.Mock()
-        fake_info.version = "99.99.99"
+        fake_info.version = "0.2.0"
         with (
             mock.patch.object(bag, "get_bag_info", return_value=fake_info),
-            self.assertRaisesRegex(ValueError, "99.99.99"),
+            self.assertRaisesRegex(ValueError, "0.2.0"),
         ):
             storage._validate_bag_metadata(bag)
 
