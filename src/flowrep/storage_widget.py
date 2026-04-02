@@ -140,10 +140,7 @@ class LexicalBagTree(ipytree.Tree):
         }
         for io_type, suffix in io_map.items():
             io_storage = f"{storage_path}{suffix}"
-            try:
-                ports = self._bag.open_group(io_storage)
-            except KeyError:
-                continue
+            ports = self._bag.open_group(io_storage)
             if not ports:
                 continue
             io_node = self._make_node(
@@ -157,10 +154,7 @@ class LexicalBagTree(ipytree.Tree):
 
         # Child nodes ------------------------------------------------------
         nodes_storage = f"{storage_path}/state/nodes"
-        try:
-            children = self._bag.open_group(nodes_storage)
-        except KeyError:
-            children = []
+        children = self._bag.open_group(nodes_storage)
         for child in children:
             child_node = self._make_node(
                 label=child,
@@ -173,10 +167,7 @@ class LexicalBagTree(ipytree.Tree):
     def _add_port_children(self, node: ipytree.Node) -> None:
         meta = self._meta(node)
         prefix = f"{meta.lexical_path}." if meta.lexical_path else ""
-        try:
-            ports = self._bag.open_group(meta.storage_path)
-        except KeyError:
-            return
+        ports = self._bag.open_group(meta.storage_path)
         for port in ports:
             port_node = self._make_node(
                 label=port,

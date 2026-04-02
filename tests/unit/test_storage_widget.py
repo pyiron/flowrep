@@ -8,6 +8,7 @@ import bagofholding as boh
 import ipytree
 
 from flowrep import live, storage, storage_widget, wfms
+from flowrep.parsers import workflow_parser
 
 from flowrep_static import makers
 
@@ -19,6 +20,23 @@ from flowrep_static import makers
 def _save_workflow(path: str, **kwargs: object) -> live.LiveWorkflow:
     recipe = makers.make_simple_workflow_recipe()
     live_wf = wfms.run_recipe(recipe, **kwargs)
+    boh.H5Bag.save(live_wf, path)
+    return live_wf
+
+
+def _foo():
+    return 42
+
+
+@workflow_parser.workflow
+def _void():
+    a = _foo()
+    return a
+
+
+def _save_voidflow(path: str):
+    recipe = _void.flowrep_recipe
+    live_wf = wfms.run_recipe(recipe)
     boh.H5Bag.save(live_wf, path)
     return live_wf
 
@@ -37,7 +55,11 @@ class _WidgetTestCase(unittest.TestCase):
         self.tree = storage_widget.LexicalBagTree(self.browser)
 
     def _root_node(self) -> ipytree.Node:
-        return self.tree.nodes[0]
+        return self._get_root_node(self.tree)
+
+    @staticmethod
+    def _get_root_node(tree) -> ipytree.Node:
+        return tree.nodes[0]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -46,34 +68,55 @@ class _WidgetTestCase(unittest.TestCase):
 
 
 class TestTreeConstruction(_WidgetTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        void_path = os.path.join(self.tmpdir, "void.h5")
+        _save_voidflow(void_path)
+        self.void_browser = storage.LexicalBagBrowser(void_path)
+        self.void_tree = storage_widget.LexicalBagTree(self.void_browser)
+
     def test_root_exists(self):
-        self.assertEqual(len(self.tree.nodes), 1)
+        for tree in (self.tree, self.void_tree):
+            with self.subTest(tree=tree):
+                self.assertEqual(len(tree.nodes), 1)
 
     def test_root_label(self):
-        self.assertEqual(self._root_node().name, "Workflow")
+        for tree in (self.tree, self.void_tree):
+            with self.subTest(tree=tree):
+                self.assertEqual(self._get_root_node(tree).name, "Workflow")
 
     def test_root_metadata_registered(self):
-        meta = self.tree._meta(self._root_node())
-        self.assertEqual(meta.lexical_path, "")
-        self.assertEqual(meta.storage_path, "object/")
+        for tree in (self.tree, self.void_tree):
+            with self.subTest(tree=tree):
+                meta = tree._meta(self._get_root_node(tree))
+                self.assertEqual(meta.lexical_path, "")
+                self.assertEqual(meta.storage_path, "object/")
 
     def test_root_is_opened_and_loaded(self):
-        meta = self.tree._meta(self._root_node())
-        self.assertTrue(meta.loaded)
+        for tree in (self.tree, self.void_tree):
+            with self.subTest(tree=tree):
+                meta = tree._meta(self._get_root_node(tree))
+                self.assertTrue(meta.loaded)
 
     def test_root_has_children(self):
         """Root should be pre-populated since it is opened on construction."""
-        root = self._root_node()
-        # At minimum: inputs group, outputs group, add_0 child
-        self.assertGreaterEqual(len(root.nodes), 3)
+        for tree, n_expected_nodes in (
+            (self.tree, 3),  # inputs, outputs, child
+            (self.void_tree, 2),  # outputs, child
+        ):
+            with self.subTest(tree=tree, n_expected_nodes=n_expected_nodes):
+                root = self._get_root_node(tree)
+                self.assertEqual(len(root.nodes), n_expected_nodes)
 
     def test_node_meta_populated_for_children(self):
         """Every child of root should also be tracked in _node_meta."""
-        root = self._root_node()
-        for child in root.nodes:
-            with self.subTest(label=child.name):
-                meta = self.tree._meta(child)
-                self.assertIsNotNone(meta)
+        for tree in (self.tree, self.void_tree):
+            with self.subTest(tree=tree):
+                root = self._get_root_node(tree)
+                for child in root.nodes:
+                    with self.subTest(label=child.name):
+                        meta = tree._meta(child)
+                        self.assertIsNotNone(meta)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
