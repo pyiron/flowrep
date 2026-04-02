@@ -1,280 +1,302 @@
-import math
+import ast
+import textwrap
 import unittest
+from unittest.mock import MagicMock, patch
 
 from pyiron_snippets import versions
 
 from flowrep.parsers import dependency_parser
 
+
+class TestSplitByVersionAvailability(unittest.TestCase):
+    def test_split_by_version_availability(self):
+        mock_version_1 = MagicMock(version="1.0.0")
+        mock_version_2 = MagicMock(version=None)
+        mock_func_1 = MagicMock()
+        mock_func_2 = MagicMock()
+
+        call_dependencies = {
+            mock_version_1: mock_func_1,
+            mock_version_2: mock_func_2,
+        }
+
+        has_version, no_version = dependency_parser.split_by_version_availability(
+            call_dependencies
+        )
+
+        self.assertIn(mock_version_1, has_version)
+        self.assertIn(mock_version_2, no_version)
+        self.assertNotIn(mock_version_1, no_version)
+        self.assertNotIn(mock_version_2, has_version)
+
+
+class TestUndefinedVariableVisitor(unittest.TestCase):
+    def test_undefined_variable_visitor(self):
+        source_code = """
+        def test_function(a: int, b):
+            c = a + b
+            return d
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        visitor.visit(tree)
+
+        self.assertIn("d", visitor.used_vars)
+        self.assertIn("int", visitor.used_vars)
+        self.assertIn("a", visitor.defined_vars)
+        self.assertIn("b", visitor.defined_vars)
+        self.assertIn("c", visitor.defined_vars)
+        self.assertNotIn("d", visitor.defined_vars)
+
+    def test_all_argument_kinds_are_defined(self):
+        source_code = """
+        def test_function(posonly, /, regular, *args, kw_only, **kwargs):
+            return posonly + regular + kw_only
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        visitor.visit(tree)
+
+        for name in ("posonly", "regular", "args", "kw_only", "kwargs"):
+            self.assertIn(name, visitor.defined_vars)
+
+    def test_local_function_definition_raises(self):
+        source_code = """
+        def outer(x):
+            def helper(y):
+                return y
+            return helper(x)
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        with self.assertRaises(NotImplementedError):
+            visitor.visit(tree)
+
+    def test_local_async_function_definition_raises(self):
+        source_code = """
+        def outer(x):
+            async def helper(y):
+                return y
+            return helper(x)
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        with self.assertRaises(NotImplementedError):
+            visitor.visit(tree)
+
+    def test_function_name_in_defined_vars(self):
+        """The function name itself is added to defined_vars (supports recursive calls)."""
+        source_code = """
+        def my_func(x):
+            return my_func(x - 1)
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        visitor.visit(tree)
+        self.assertIn("my_func", visitor.defined_vars)
+
+    def test_class_definition_tracked_in_defined_vars(self):
+        """Class definitions are recorded so their names are not reported as undefined."""
+        source_code = """
+        class MyHelper:
+            pass
+
+        def use_class():
+            return MyHelper()
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        visitor.visit(tree)
+        self.assertIn("MyHelper", visitor.defined_vars)
+
+    def test_import_inside_function_collected(self):
+        """``import`` statements inside a function body are stored in ``.imports``."""
+        source_code = """
+        def func():
+            import os
+            return os.getcwd()
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        visitor.visit(tree)
+        self.assertEqual(len(visitor.imports), 1)
+        self.assertEqual(visitor.imports[0].names[0].name, "os")
+
+    def test_import_from_inside_function_collected(self):
+        """``from X import Y`` statements inside a function body are stored in ``.import_froms``."""
+        source_code = """
+        def func():
+            from os import path
+            return path.join("a", "b")
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        visitor.visit(tree)
+        self.assertEqual(len(visitor.import_froms), 1)
+        self.assertEqual(visitor.import_froms[0].module, "os")
+
+    def test_top_level_async_function_does_not_raise(self):
+        """An ``async def`` at the top level (nesting depth 0) is accepted without error."""
+        source_code = """
+        async def async_func(x):
+            return x + 1
+        """
+        tree = ast.parse(textwrap.dedent(source_code))
+        visitor = dependency_parser.UndefinedVariableVisitor()
+        visitor.visit(tree)  # must not raise
+        self.assertIn("async_func", visitor.defined_vars)
+        self.assertIn("x", visitor.defined_vars)
+
+
+x = 1
+
+
+def test_function(a, b):
+    c = a + b + x
+    return c
+
+
+class TestFindUndefinedVariables(unittest.TestCase):
+    def test_find_undefined_variables(self):
+        undefined_vars = dependency_parser.find_undefined_variables(test_function)
+        self.assertIn("x", undefined_vars)
+        self.assertNotIn("a", undefined_vars)
+        self.assertNotIn("b", undefined_vars)
+        self.assertNotIn("c", undefined_vars)
+
+    def test_builtin_names_not_reported_as_undefined(self):
+        """Built-in names such as ``len`` and ``int`` must not appear in the result."""
+
+        def use_builtins(items):
+            return len(items) + int(items[0])
+
+        undefined = dependency_parser.find_undefined_variables(use_builtins)
+        for name in ("len", "int"):
+            self.assertNotIn(name, undefined)
+
+    def test_builtin_callable_returns_empty_dict(self):
+        """Built-in callables like ``len`` have no retrievable source; result must be ``{}``."""
+        result = dependency_parser.find_undefined_variables(len)
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result, {})
+
+    def test_function_arguments_not_in_undefined(self):
+        """All argument kinds must not appear in the result as undefined."""
+
+        def parametrised(a, b=0, *args, kw=None, **kwargs):
+            return a + b + kw
+
+        undefined = dependency_parser.find_undefined_variables(parametrised)
+        for name in ("a", "b", "args", "kw", "kwargs"):
+            self.assertNotIn(name, undefined)
+
+    def test_syntax_error_in_source_returns_empty_dict(self):
+        """When ``ast.parse`` raises ``SyntaxError``, the result must be ``{}``."""
+        with patch(
+            "flowrep.parsers.dependency_parser.ast.parse", side_effect=SyntaxError
+        ):
+            result = dependency_parser.find_undefined_variables(test_function)
+        self.assertEqual(result, {})
+
+
 # ---------------------------------------------------------------------------
-# Helper functions defined at module level so they have inspectable source,
-# a proper __module__, and a stable __qualname__.
+# Module-level helpers used by TestGetCallDependencies
 # ---------------------------------------------------------------------------
 
 
-def _leaf():
-    return 42
+def _func_no_external(x, y):
+    """Function with no external dependencies (only uses its arguments)."""
+    return x + y
 
 
-def _single_call():
-    return _leaf()
-
-
-def _diamond_a():
-    return _leaf()
-
-
-def _diamond_b():
-    return _leaf()
-
-
-def _diamond_root():
-    _diamond_a()
-    _diamond_b()
-
-
-# Mutual recursion to exercise cycle detection.
-def _cycle_a():
-    return _cycle_b()  # noqa: F821 — defined below
-
-
-def _cycle_b():
-    return _cycle_a()
-
-
-def _no_calls():
-    x = 1 + 2
-    return x
-
-
-def _calls_len():
-    return len([1, 2, 3])
-
-
-def _nested_call():
-    return _single_call()
-
-
-def _multi_call():
-    a = _leaf()
-    b = _leaf()
-    return a + b
-
-
-def _attribute_access(x):
-    return math.sqrt(x)
-
-
-def _nested_expression(x, y, z):
-    return _single_call(_leaf(x, y), z)
-
-
-def _unresolvable_subscript():
-    d = {}
-    return d["key"]()
-
-
-def _calls_non_callable():
-    x = 42
-    return x
-
-
-def _fqn(func) -> str:
-    return versions.VersionInfo.of(func).fully_qualified_name
-
-
-def _fqns(deps: dependency_parser.CallDependencies) -> set[str]:
-    return {info.fully_qualified_name for info in deps}
-
-
-def _local_imports(x):
-    import sys as s
-    from math import sqrt
-
-    a = s.getsizeof(x)
-    return sqrt(a)
-
-
-def _import_from_sibling(x, y):
-    from .test_for_parser import pair
-
-    a, b = pair(x, y)
-    return a, b
+def _helper_func(z):
+    """A plain helper; will be used as a mock dependency."""
+    return z * 2
 
 
 class TestGetCallDependencies(unittest.TestCase):
-    """Tests for :func:`dependency_parser.get_call_dependencies`."""
+    def test_no_external_dependencies(self):
+        """A function that only uses its own arguments returns an empty dict."""
+        result = dependency_parser.get_call_dependencies(_func_no_external)
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result, {})
 
-    # --- basic behaviour ---
-
-    def test_no_calls_returns_empty(self):
-        deps = dependency_parser.get_call_dependencies(_no_calls)
-        self.assertEqual(deps, {})
-
-    def test_single_direct_call(self):
-        deps = dependency_parser.get_call_dependencies(_single_call)
-        self.assertIn(_fqn(_leaf), _fqns(deps))
-
-    def test_transitive_dependencies(self):
-        deps = dependency_parser.get_call_dependencies(_nested_call)
-        fqns = _fqns(deps)
-        # Should find both _single_call and _leaf
-        self.assertIn(_fqn(_single_call), fqns)
-        self.assertIn(_fqn(_leaf), fqns)
-
-    def test_diamond_dependency_no_duplicate_keys(self):
-        """
-        _diamond_root -> _diamond_a -> _leaf AND _diamond_root -> _diamond_b -> _leaf.
-        _leaf's VersionInfo should appear exactly once as a key.
-        """
-        deps = dependency_parser.get_call_dependencies(_diamond_root)
-        matching = [info for info in deps if info.fully_qualified_name == _fqn(_leaf)]
-        self.assertEqual(len(matching), 1)
-
-    def test_duplicate_call_deduplicated_by_version_info(self):
-        """Calling the same function twice yields a single key, not two."""
-        deps = dependency_parser.get_call_dependencies(_multi_call)
-        matching = [info for info in deps if info.fully_qualified_name == _fqn(_leaf)]
-        self.assertEqual(len(matching), 1)
-
-    # --- cycle safety ---
-
-    def test_cycle_does_not_recurse_infinitely(self):
-        # Should terminate without RecursionError
-        deps = dependency_parser.get_call_dependencies(_cycle_a)
-        self.assertIn(_fqn(_cycle_b), _fqns(deps))
-
-    # --- builtins / non-FunctionType callables ---
-
-    def test_builtin_callable_included(self):
-        deps = dependency_parser.get_call_dependencies(_calls_len)
-        self.assertIn(_fqn(len), _fqns(deps))
-
-    def test_returns_dict_type(self):
-        deps = dependency_parser.get_call_dependencies(_leaf)
-        self.assertIsInstance(deps, dict)
-
-    # --- attribute access (module.func) ---
-
-    def test_attribute_access_dependency(self):
-        """Functions called via attribute access (e.g. math.sqrt) are tracked."""
-        deps = dependency_parser.get_call_dependencies(_attribute_access)
-        self.assertIn(_fqn(math.sqrt), _fqns(deps))
-
-    # --- nested expressions ---
-
-    def test_nested_expression_collects_all_calls(self):
-        """All calls in a nested expression like f(g(x), y) are collected."""
-        deps = dependency_parser.get_call_dependencies(_nested_expression)
-        fqns = _fqns(deps)
-        self.assertIn(_fqn(_single_call), fqns)
-        self.assertIn(_fqn(_leaf), fqns)
-
-    # --- unresolvable / non-callable targets (coverage for `continue` branches) ---
-
-    def test_unresolvable_call_target_is_skipped(self):
-        """Calls that resolve_symbol_to_object cannot handle are silently skipped."""
-        # _unresolvable_subscript contains d["key"]() which is an ast.Subscript,
-        # triggering a TypeError in resolve_symbol_to_object
-        deps = dependency_parser.get_call_dependencies(_unresolvable_subscript)
-        # Should not raise; the unresolvable call is simply absent
-        self.assertIsInstance(deps, dict)
-
-    def test_non_callable_resolved_symbol_is_skipped(self):
-        """Symbols that resolve to non-callable objects are silently skipped."""
-        # _calls_non_callable doesn't actually have a call in its AST that resolves
-        # to a non-callable, but we can verify the function itself is crawlable
-        deps = dependency_parser.get_call_dependencies(_calls_non_callable)
-        self.assertIsInstance(deps, dict)
-
-    def test_local_imports_included(self):
-        deps = dependency_parser.get_call_dependencies(_local_imports)
-        fqns = _fqns(deps)
-        self.assertIn("sys.getsizeof", fqns)
-        self.assertIn("math.sqrt", fqns)
-
-    def test_relative_import_raises(self):
-        with self.assertRaises(ValueError) as ctx:
-            dependency_parser.get_call_dependencies(_import_from_sibling)
-        self.assertIn("Relative imports are not supported", str(ctx.exception))
-        self.assertIn("test_for_parser", str(ctx.exception))
-
-
-class TestSplitByVersionAvailability(unittest.TestCase):
-    """Tests for :func:`dependency_parser.split_by_version_availability`."""
-
-    @staticmethod
-    def _make_info(
-        module: str, qualname: str, version: str | None = None
-    ) -> versions.VersionInfo:
-        return versions.VersionInfo(
-            module=module,
-            qualname=qualname,
-            version=version,
+    def test_cycle_detection_via_visited(self):
+        """If the function's FQN is already in ``_visited``, it returns immediately."""
+        fqn = versions.VersionInfo.of(_func_no_external).fully_qualified_name
+        pre_visited: set[str] = {fqn}
+        result = dependency_parser.get_call_dependencies(
+            _func_no_external, _visited=pre_visited
         )
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result, {})
 
-    def test_empty_input(self):
-        has, no = dependency_parser.split_by_version_availability({})
-        self.assertEqual(has, {})
-        self.assertEqual(no, {})
+    def test_versioned_dependency_collected(self):
+        """A versioned dependency returned by ``find_undefined_variables`` is stored."""
+        import pydantic  # available in CI test environment
 
-    def test_all_versioned(self):
-        info_a = self._make_info("pkg", "a", "1.0")
-        info_b = self._make_info("pkg", "b", "2.0")
-        deps: dependency_parser.CallDependencies = {info_a: _leaf, info_b: _leaf}
+        with patch.object(
+            dependency_parser,
+            "find_undefined_variables",
+            return_value={"BaseModel": pydantic.BaseModel},
+        ):
+            result = dependency_parser.get_call_dependencies(_func_no_external)
 
-        has, no = dependency_parser.split_by_version_availability(deps)
-        self.assertEqual(len(has), 2)
-        self.assertEqual(len(no), 0)
+        fqns = [info.fully_qualified_name for info in result]
+        self.assertTrue(
+            any("BaseModel" in fqn for fqn in fqns),
+            msg=f"Expected a 'BaseModel' entry, got: {fqns}",
+        )
+        # The dependency must carry a version string (pydantic is versioned).
+        for info in result:
+            if "BaseModel" in info.fully_qualified_name:
+                self.assertIsNotNone(info.version)
 
-    def test_all_unversioned(self):
-        info_a = self._make_info("local", "a")
-        info_b = self._make_info("local", "b")
-        deps: dependency_parser.CallDependencies = {info_a: _leaf, info_b: _leaf}
+    def test_unversioned_callable_dependency_is_recursed(self):
+        """An unversioned callable dependency triggers a recursive call."""
+        call_log: list[object] = []
 
-        has, no = dependency_parser.split_by_version_availability(deps)
-        self.assertEqual(len(has), 0)
-        self.assertEqual(len(no), 2)
+        original_find = dependency_parser.find_undefined_variables
 
-    def test_mixed(self):
-        versioned = self._make_info("pkg", "x", "3.1")
-        unversioned = self._make_info("local", "y")
-        deps: dependency_parser.CallDependencies = {
-            versioned: _leaf,
-            unversioned: _single_call,
-        }
+        def tracking_find(func):
+            call_log.append(func)
+            if func is _func_no_external:
+                return {"helper": _helper_func}
+            return original_find(func)
 
-        has, no = dependency_parser.split_by_version_availability(deps)
-        self.assertIn(versioned, has)
-        self.assertIn(unversioned, no)
-        self.assertNotIn(versioned, no)
-        self.assertNotIn(unversioned, has)
+        with patch.object(
+            dependency_parser, "find_undefined_variables", side_effect=tracking_find
+        ):
+            dependency_parser.get_call_dependencies(_func_no_external)
 
-    def test_partition_is_exhaustive_and_disjoint(self):
-        """Every key in the input appears in exactly one partition."""
-        infos = [
-            self._make_info("pkg", "a", "1.0"),
-            self._make_info("local", "b"),
-            self._make_info("pkg", "c", "0.1"),
-            self._make_info("local", "d"),
-        ]
-        deps: dependency_parser.CallDependencies = {info: _leaf for info in infos}
+        # find_undefined_variables must have been called for both the original
+        # function and the unversioned callable helper.
+        self.assertIn(_func_no_external, call_log)
+        self.assertIn(_helper_func, call_log)
 
-        has, no = dependency_parser.split_by_version_availability(deps)
-        self.assertEqual(set(has) | set(no), set(deps))
-        self.assertTrue(set(has).isdisjoint(set(no)))
+    def test_non_callable_unversioned_dependency_not_recursed(self):
+        """A non-callable, unversioned dependency is recorded but NOT recursed into."""
+        call_log: list[object] = []
+        non_callable_dep = 42  # plain integer, not callable
 
-    def test_version_none_vs_empty_string(self):
-        """Only ``None`` counts as unversioned; an empty string is still 'versioned'."""
-        none_version = self._make_info("local", "f", None)
-        empty_version = self._make_info("local", "g", "")
-        deps: dependency_parser.CallDependencies = {
-            none_version: _leaf,
-            empty_version: _leaf,
-        }
+        original_find = dependency_parser.find_undefined_variables
 
-        has, no = dependency_parser.split_by_version_availability(deps)
-        self.assertIn(none_version, no)
-        self.assertIn(empty_version, has)
+        def tracking_find(func):
+            call_log.append(func)
+            if func is _func_no_external:
+                return {"magic_number": non_callable_dep}
+            return original_find(func)
+
+        with patch.object(
+            dependency_parser, "find_undefined_variables", side_effect=tracking_find
+        ):
+            result = dependency_parser.get_call_dependencies(_func_no_external)
+
+        # The integer must be recorded in the result.
+        values = list(result.values())
+        self.assertIn(non_callable_dep, values)
+        # find_undefined_variables must NOT have been called for the integer.
+        self.assertNotIn(non_callable_dep, call_log)
 
 
 if __name__ == "__main__":
