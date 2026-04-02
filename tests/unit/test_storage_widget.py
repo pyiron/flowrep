@@ -9,7 +9,7 @@ import ipytree
 
 from flowrep import live, storage, storage_widget, wfms
 
-from flowrep_static import library, makers
+from flowrep_static import library
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
@@ -17,7 +17,7 @@ from flowrep_static import library, makers
 
 
 def _save_workflow(path: str, **kwargs: object) -> live.LiveWorkflow:
-    recipe = makers.make_simple_workflow_recipe()
+    recipe = library.simple_workflow.flowrep_recipe
     live_wf = wfms.run_recipe(recipe, **kwargs)
     boh.H5Bag.save(live_wf, path)
     return live_wf

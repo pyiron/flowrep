@@ -83,6 +83,12 @@ def divmod_func(a: float, b: float) -> tuple[float, float]:
     return quotient, remainder
 
 
+@workflow_parser.workflow
+def simple_workflow(a, b):
+    result = add(a, b)
+    return result
+
+
 def no_input_atomic():
     return 42
 

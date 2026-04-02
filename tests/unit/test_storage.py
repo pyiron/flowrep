@@ -13,7 +13,7 @@ import bagofholding as boh
 
 from flowrep import live, storage, storage_widget, wfms
 
-from flowrep_static import library, makers
+from flowrep_static import library
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
@@ -22,7 +22,7 @@ from flowrep_static import library, makers
 
 def _save_workflow(path: str, **kwargs: object) -> live.LiveWorkflow:
     """Run the simple workflow recipe and save the result to *path*."""
-    recipe = makers.make_simple_workflow_recipe()
+    recipe = library.simple_workflow.flowrep_recipe
     live_wf = wfms.run_recipe(recipe, **kwargs)
     boh.H5Bag.save(live_wf, path)
     return live_wf
@@ -137,8 +137,8 @@ class TestListLexicalPaths(_BagTestCase):
             # Child node
             "add_0",
             # Child IO
-            "add_0.inputs.a",
-            "add_0.inputs.b",
+            "add_0.inputs.x",
+            "add_0.inputs.y",
             "add_0.outputs.output_0",
         }
         self.assertSetEqual(set(paths), expected)
@@ -187,7 +187,7 @@ class TestLoadFromBag(_BagTestCase):
         self.assertIsInstance(obj, live.OutputPort)
 
     def test_load_child_input_port(self):
-        obj = storage.load_from_bag(self._bag, "add_0.inputs.a")
+        obj = storage.load_from_bag(self._bag, "add_0.inputs.x")
         self.assertIsInstance(obj, live.InputPort)
 
     def test_load_child_output_port(self):
