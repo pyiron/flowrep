@@ -1,6 +1,6 @@
 """Helper functions parsed in multiple test files"""
 
-from flowrep.parsers import atomic_parser
+from flowrep.parsers import atomic_parser, workflow_parser
 
 
 def undecorated_identity(x):
@@ -81,3 +81,13 @@ def divmod_func(a: float, b: float) -> tuple[float, float]:
     quotient = a // b
     remainder = a % b
     return quotient, remainder
+
+
+def no_input_atomic():
+    return 42
+
+
+@workflow_parser.workflow
+def no_input_workflow():
+    a = no_input_atomic()
+    return a
