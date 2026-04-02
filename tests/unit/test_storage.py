@@ -12,6 +12,7 @@ from unittest import mock
 import bagofholding as boh
 
 from flowrep import live, storage, storage_widget, wfms
+from flowrep.parsers import workflow_parser
 
 from flowrep_static import makers
 
@@ -24,6 +25,23 @@ def _save_workflow(path: str, **kwargs: object) -> live.LiveWorkflow:
     """Run the simple workflow recipe and save the result to *path*."""
     recipe = makers.make_simple_workflow_recipe()
     live_wf = wfms.run_recipe(recipe, **kwargs)
+    boh.H5Bag.save(live_wf, path)
+    return live_wf
+
+
+def _foo():
+    return 42
+
+
+@workflow_parser.workflow
+def _void():
+    a = _foo()
+    return a
+
+
+def _save_voidflow(path: str):
+    recipe = _void.flowrep_recipe
+    live_wf = wfms.run_recipe(recipe)
     boh.H5Bag.save(live_wf, path)
     return live_wf
 
@@ -134,7 +152,20 @@ class TestListLexicalPaths(_BagTestCase):
             "add_0.inputs.b",
             "add_0.outputs.output_0",
         }
-        self.assertEqual(set(paths), expected)
+        self.assertSetEqual(set(paths), expected)
+
+    def test_voidflow(self):
+        """A workflow with a missing IO ports panel (no inputs)"""
+        path = self._bag_path()
+        _save_voidflow(path)
+        bag = boh.H5Bag(path)
+        paths = storage.list_lexical_paths(bag)
+        expected = {
+            "outputs.a",
+            "_foo_0",
+            "_foo_0.outputs.output_0",
+        }
+        self.assertSetEqual(set(paths), expected)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

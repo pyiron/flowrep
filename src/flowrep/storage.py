@@ -130,10 +130,7 @@ def _collect_lexical_paths(
             if io_type == base_models.IOTypes.INPUTS
             else _path_to_output_ports(storage_path)
         )
-        try:
-            port_names = bag.open_group(io_storage)
-        except KeyError:
-            continue
+        port_names = bag.open_group(io_storage)
         for port in port_names:
             paths.append(f"{prefix}{io_type}.{port}")
 
