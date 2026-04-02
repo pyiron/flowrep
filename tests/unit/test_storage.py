@@ -58,6 +58,15 @@ class TestValidateBag(_BagTestCase):
 
 
 class TestValidateBagMetadata(_BagTestCase):
+    def test_dev_version(self):
+        path = self._bag_path()
+        _save_workflow(path, a=1, b=2)
+        bag = boh.H5Bag(path)
+        fake_info = mock.Mock()
+        fake_info.version = "0.0.0+unknown"
+        with mock.patch.object(bag, "get_bag_info", return_value=fake_info):
+            storage._validate_bag_metadata(bag)  # Should validate
+
     def test_wrong_version(self):
         path = self._bag_path()
         _save_workflow(path, a=1, b=2)
