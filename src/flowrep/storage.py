@@ -112,7 +112,7 @@ def _collect_lexical_paths(
     prefix: str,
     paths: list[str],
 ) -> None:
-    for io_type in base_models.IOTypes:
+    for io_type in tuple(base_models.IOTypes):
         io_storage = (
             _path_to_input_ports(storage_path)
             if io_type == base_models.IOTypes.INPUTS
@@ -211,7 +211,7 @@ class _CannotFindLocationError(ValueError): ...
 
 def _extend_path(bag: H5Bag, storage_path: str, step: str, last_step: str) -> str:
     extended_path: str
-    if last_step in base_models.IOTypes:
+    if last_step in tuple(base_models.IOTypes):
         extended_path = f"{storage_path}/{step}"
     elif step == base_models.IOTypes.INPUTS:
         extended_path = _path_to_input_ports(storage_path)
