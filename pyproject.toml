@@ -51,6 +51,7 @@ storage = [
     "bagofholding==0.1.5",
 ]
 storage-widget = [
+    "flowrep[storage]",
     "ipytree==0.2.2",
 ]
 
