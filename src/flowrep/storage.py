@@ -9,6 +9,7 @@ from __future__ import annotations
 import pathlib
 from typing import TYPE_CHECKING
 
+from packaging import version
 from pyiron_snippets import import_alarm
 
 from flowrep import base_models, live, widget
@@ -80,10 +81,21 @@ def validate_bag(bag: H5Bag):
 def _validate_bag_metadata(bag: H5Bag):
     bag_info = bag.get_bag_info()
 
-    valid_versions = {"0.1.5"}
-    if bag_info.version not in valid_versions:
+    DEV_VERSION = "0.0.0+unknown"
+    VERSION_MIN = version.Version("0.1.5")
+    VERSION_MAX = version.Version("0.2.0")
+
+    if bag_info.version == DEV_VERSION:
+        return
+
+    try:
+        v = version.Version(bag_info.version)
+    except version.InvalidVersion as e:
+        raise ValueError(f"Unparseable bag version {bag_info.version!r}") from e
+
+    if not (VERSION_MIN <= v < VERSION_MAX):
         raise ValueError(
-            f"{boh.__name__!r} version must be among {valid_versions!r}, but got {bag_info.version!r}"
+            f"Bag version {bag_info.version!r} must be >={VERSION_MIN}, <{VERSION_MAX}"
         )
 
 
