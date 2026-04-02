@@ -238,9 +238,15 @@ class TestExtendPath(_BagTestCase):
         )
         self.assertEqual(result, "object/state/input_ports/a")
 
-    def test_missing_path_raises(self):
+    def test_missing_child_raises(self):
         with self.assertRaises(storage._CannotFindLocationError):
             storage._extend_path(self._bag, "object", "does_not_exist", "")
+
+    def test_missing_group_raises(self):
+        with self.assertRaises(storage._CannotFindLocationError):
+            storage._extend_path(
+                self._bag, "object/not_inputs", "imaginary_child", "inputs"
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

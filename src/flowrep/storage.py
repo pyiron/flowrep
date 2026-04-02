@@ -224,18 +224,21 @@ class _CannotFindLocationError(ValueError): ...
 def _extend_path(bag: H5Bag, storage_path: str, step: str, last_step: str) -> str:
     extended_path: str
     if last_step in tuple(base_models.IOTypes):
-        extended_path = f"{storage_path}/{step}"
+        parent, child = storage_path, step
     elif step == base_models.IOTypes.INPUTS:
-        extended_path = _path_to_input_ports(storage_path)
+        parent, child = _path_to_input_ports(storage_path).rsplit("/", maxsplit=1)
     elif step == base_models.IOTypes.OUTPUTS:
-        extended_path = _path_to_output_ports(storage_path)
+        parent, child = _path_to_output_ports(storage_path).rsplit("/", maxsplit=1)
     else:
-        extended_path = f"{_path_to_nodes(storage_path)}/{step}"
+        parent, child = _path_to_nodes(storage_path), step
+    extended_path = f"{parent}/{child}"
 
     try:
-        if extended_path not in bag:
-            raise _CannotFindLocationError(extended_path)
-    except ValueError:  # bagofholding.exceptions.InvalidMetadataError
+        children = bag.open_group(parent)
+    except KeyError:
         raise _CannotFindLocationError(extended_path) from None
+
+    if child not in children:
+        raise _CannotFindLocationError(extended_path)
 
     return extended_path
