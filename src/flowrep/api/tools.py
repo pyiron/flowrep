@@ -27,4 +27,5 @@ from flowrep.parsers.atomic_parser import atomic as atomic
 from flowrep.parsers.atomic_parser import parse_atomic as parse_atomic
 from flowrep.parsers.workflow_parser import parse_workflow as parse_workflow
 from flowrep.parsers.workflow_parser import workflow as workflow
+from flowrep.storage import LexicalBagBrowser as LexicalBagBrowser
 from flowrep.wfms import run_recipe as run_recipe

@@ -2,8 +2,10 @@
 
 from pyiron_snippets import versions
 
-from flowrep import base_models
-from flowrep.nodes import atomic_model, helper_models
+from flowrep import base_models, edge_models
+from flowrep.nodes import atomic_model, helper_models, workflow_model
+
+from flowrep_static import library
 
 
 def make_reference(
@@ -71,4 +73,27 @@ def make_labeled_with_defaults(label: str) -> helper_models.LabeledNode:
         outputs=["y"],
         qualname=label,
         inputs_with_defaults=["x"],
+    )
+
+
+def make_simple_workflow_recipe() -> workflow_model.WorkflowNode:
+    """One-child workflow: ``add(a, b) -> result``."""
+    return workflow_model.WorkflowNode(
+        inputs=["a", "b"],
+        outputs=["result"],
+        nodes={"add_0": library.my_add.flowrep_recipe},
+        input_edges={
+            edge_models.TargetHandle(node="add_0", port="a"): edge_models.InputSource(
+                port="a"
+            ),
+            edge_models.TargetHandle(node="add_0", port="b"): edge_models.InputSource(
+                port="b"
+            ),
+        },
+        edges={},
+        output_edges={
+            edge_models.OutputTarget(port="result"): edge_models.SourceHandle(
+                node="add_0", port="output_0"
+            ),
+        },
     )

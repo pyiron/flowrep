@@ -19,7 +19,7 @@ import types
 from collections.abc import Callable, MutableMapping
 from typing import Any, get_args, get_origin, get_type_hints
 
-from pyiron_snippets import dotdict, retrieve, singleton
+from pyiron_snippets import retrieve, singleton
 
 from flowrep import base_models, edge_models
 from flowrep.nodes import (
@@ -114,8 +114,8 @@ class LiveAtomic(LiveNode):
         )
         return LiveAtomic(
             recipe=recipe,
-            input_ports=dotdict.DotDict(input_ports),
-            output_ports=dotdict.DotDict(output_ports),
+            input_ports=dict(input_ports),
+            output_ports=dict(output_ports),
             function=function,
         )
 
@@ -144,9 +144,9 @@ class LiveWorkflow(Composite):
         nodes = {label: recipe2live(child) for label, child in recipe.nodes.items()}
         return LiveWorkflow(
             recipe=recipe,
-            input_ports=dotdict.DotDict(input_ports),
-            output_ports=dotdict.DotDict(output_ports),
-            nodes=dotdict.DotDict(nodes),
+            input_ports=dict(input_ports),
+            output_ports=dict(output_ports),
+            nodes=dict(nodes),
             input_edges=dict(recipe.input_edges),
             edges=dict(recipe.edges),
             output_edges=dict(recipe.output_edges),
@@ -175,13 +175,9 @@ class FlowControl(Composite):
         """
         return FlowControl(
             recipe=recipe,
-            input_ports=dotdict.DotDict(
-                {label: InputPort() for label in recipe.inputs}
-            ),
-            output_ports=dotdict.DotDict(
-                {label: OutputPort() for label in recipe.outputs}
-            ),
-            nodes=dotdict.DotDict(),
+            input_ports=dict({label: InputPort() for label in recipe.inputs}),
+            output_ports=dict({label: OutputPort() for label in recipe.outputs}),
+            nodes=dict(),
             input_edges={},
             edges={},
             output_edges={},
