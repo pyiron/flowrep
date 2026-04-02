@@ -200,8 +200,8 @@ def load_from_bag(
     )
     if not isinstance(obj, expected_types):
         raise TypeError(
-            f"Expected to load one of {(cls.__name__ for cls in expected_types)}, but "
-            f"got {obj}"
+            f"Expected to load one of {tuple(cls.__name__ for cls in expected_types)}, "
+            f"but got {type(obj).__name__}: {obj!r}"
         )
     return obj
 
