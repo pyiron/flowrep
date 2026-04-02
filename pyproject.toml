@@ -51,7 +51,7 @@ storage = [
     "bagofholding==0.1.5",
 ]
 storage-widget = [
-    "ipytree==0.2.0",
+    "ipytree==0.2.2",
 ]
 
 [tool.hatch.build]
