@@ -70,6 +70,18 @@ class TestValidateBagMetadata(_BagTestCase):
         ):
             storage._validate_bag_metadata(bag)
 
+    def test_unparsable_version(self):
+        path = self._bag_path()
+        _save_workflow(path, a=1, b=2)
+        bag = boh.H5Bag(path)
+        fake_info = mock.Mock()
+        fake_info.version = "not your usual version indicator"
+        with (
+            mock.patch.object(bag, "get_bag_info", return_value=fake_info),
+            self.assertRaisesRegex(ValueError, "Unparseable bag version"),
+        ):
+            storage._validate_bag_metadata(bag)
+
 
 class TestValidateObjectMetadata(_BagTestCase):
     def test_wrong_object_qualname(self):
