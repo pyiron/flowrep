@@ -11,7 +11,7 @@ from unittest import mock
 
 import bagofholding as boh
 
-from flowrep import live, storage, wfms, widget
+from flowrep import live, storage, storage_widget, wfms
 
 from flowrep_static import makers
 
@@ -306,7 +306,7 @@ class TestLexicalBagBrowserMethods(_BagTestCase):
 
     def test_browse_returns_widget(self):
         result = self.browser.browse()
-        self.assertIsInstance(result, widget.LexicalBagTree)
+        self.assertIsInstance(result, storage_widget.LexicalBagTree)
 
     def test_browse_falls_back_to_list(self):
         with mock.patch.object(self.browser, "widget", side_effect=ImportError):
@@ -315,7 +315,7 @@ class TestLexicalBagBrowserMethods(_BagTestCase):
 
     def test_widget_returns_tree(self):
         result = self.browser.widget()
-        self.assertIsInstance(result, widget.LexicalBagTree)
+        self.assertIsInstance(result, storage_widget.LexicalBagTree)
 
 
 if __name__ == "__main__":

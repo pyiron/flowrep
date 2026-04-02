@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from packaging import version
 from pyiron_snippets import import_alarm
 
-from flowrep import base_models, live, widget
+from flowrep import base_models, live, storage_widget
 
 with import_alarm.ImportAlarm(
     "This tool requires the 'bagofholding' package."
@@ -45,11 +45,11 @@ class LexicalBagBrowser:
         """A list of all available lexical content paths."""
         return list_lexical_paths(self.bag)
 
-    def widget(self) -> widget.LexicalBagTree:
+    def widget(self) -> storage_widget.LexicalBagTree:
         """A jupyter-notebook widget for graphical browsing"""
-        return widget.LexicalBagTree(self)
+        return storage_widget.LexicalBagTree(self)
 
-    def browse(self) -> widget.LexicalBagTree | list[str]:
+    def browse(self) -> storage_widget.LexicalBagTree | list[str]:
         """Look at (but don't load and instantiate) the available content."""
         try:
             return self.widget()

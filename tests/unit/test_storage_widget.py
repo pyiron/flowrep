@@ -7,7 +7,7 @@ import unittest
 import bagofholding as boh
 import ipytree
 
-from flowrep import live, storage, wfms, widget
+from flowrep import live, storage, storage_widget, wfms
 
 from flowrep_static import makers
 
@@ -34,7 +34,7 @@ class _WidgetTestCase(unittest.TestCase):
         path = os.path.join(self.tmpdir, "test.h5")
         _save_workflow(path, a=3, b=4)
         self.browser = storage.LexicalBagBrowser(path)
-        self.tree = widget.LexicalBagTree(self.browser)
+        self.tree = storage_widget.LexicalBagTree(self.browser)
 
     def _root_node(self) -> ipytree.Node:
         return self.tree.nodes[0]
@@ -84,7 +84,7 @@ class TestTreeConstruction(_WidgetTestCase):
 class TestMetaLookup(_WidgetTestCase):
     def test_known_node(self):
         meta = self.tree._meta(self._root_node())
-        self.assertIsInstance(meta, widget._NodeMeta)
+        self.assertIsInstance(meta, storage_widget._NodeMeta)
 
     def test_unknown_node_raises(self):
         stranger = ipytree.Node("stranger")
