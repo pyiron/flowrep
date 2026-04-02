@@ -45,11 +45,11 @@ class LexicalBagBrowser:
         """A list of all available lexical content paths."""
         return list_lexical_paths(self.bag)
 
-    def widget(self):
+    def widget(self) -> widget.LexicalBagTree:
         """A jupyter-notebook widget for graphical browsing"""
         return widget.LexicalBagTree(self)
 
-    def browse(self):
+    def browse(self) -> widget.LexicalBagTree | list[str]:
         """Look at (but don't load and instantiate) the available content."""
         try:
             return self.widget()
@@ -108,7 +108,7 @@ def _validate_object_metadata(bag: H5Bag):
         )
 
 
-def list_lexical_paths(bag: boh.H5Bag):
+def list_lexical_paths(bag: boh.H5Bag) -> list[str]:
     """
     Look through the bag and return a list of "."-separated lexical paths for nodes and
     ports.
@@ -148,15 +148,15 @@ def _collect_lexical_paths(
         _collect_lexical_paths(bag, f"{nodes_storage}/{node}", f"{lexical}.", paths)
 
 
-def _path_to_input_ports(path: str):
+def _path_to_input_ports(path: str) -> str:
     return f"{path}/state/input_ports"
 
 
-def _path_to_output_ports(path: str):
+def _path_to_output_ports(path: str) -> str:
     return f"{path}/state/output_ports"
 
 
-def _path_to_nodes(path: str):
+def _path_to_nodes(path: str) -> str:
     return f"{path}/state/nodes"
 
 
