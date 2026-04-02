@@ -58,50 +58,44 @@ class TestValidateBag(_BagTestCase):
 
 
 class TestValidateBagMetadata(_BagTestCase):
-    def test_dev_version(self):
+    def setUp(self) -> None:
+        super().setUp()
         path = self._bag_path()
         _save_workflow(path, a=1, b=2)
-        bag = boh.H5Bag(path)
+        self.bag = boh.H5Bag(path)
+
+    def test_dev_version(self):
         fake_info = mock.Mock()
         fake_info.version = "0.0.0+unknown"
-        with mock.patch.object(bag, "get_bag_info", return_value=fake_info):
-            storage._validate_bag_metadata(bag)  # Should validate
+        with mock.patch.object(self.bag, "get_bag_info", return_value=fake_info):
+            storage._validate_bag_metadata(self.bag)  # Should validate
 
     def test_version_too_low_raises(self):
-        path = self._bag_path()
-        _save_workflow(path, a=1, b=2)
-        bag = boh.H5Bag(path)
         fake_info = mock.Mock()
         fake_info.version = "0.1.4"
         with (
-            mock.patch.object(bag, "get_bag_info", return_value=fake_info),
+            mock.patch.object(self.bag, "get_bag_info", return_value=fake_info),
             self.assertRaisesRegex(ValueError, "0.1.4"),
         ):
-            storage._validate_bag_metadata(bag)
+            storage._validate_bag_metadata(self.bag)
 
     def test_version_too_high_raises(self):
-        path = self._bag_path()
-        _save_workflow(path, a=1, b=2)
-        bag = boh.H5Bag(path)
         fake_info = mock.Mock()
         fake_info.version = "0.2.0"
         with (
-            mock.patch.object(bag, "get_bag_info", return_value=fake_info),
+            mock.patch.object(self.bag, "get_bag_info", return_value=fake_info),
             self.assertRaisesRegex(ValueError, "0.2.0"),
         ):
-            storage._validate_bag_metadata(bag)
+            storage._validate_bag_metadata(self.bag)
 
     def test_unparsable_version_raises(self):
-        path = self._bag_path()
-        _save_workflow(path, a=1, b=2)
-        bag = boh.H5Bag(path)
         fake_info = mock.Mock()
         fake_info.version = "not your usual version indicator"
         with (
-            mock.patch.object(bag, "get_bag_info", return_value=fake_info),
+            mock.patch.object(self.bag, "get_bag_info", return_value=fake_info),
             self.assertRaisesRegex(ValueError, "Unparseable bag version"),
         ):
-            storage._validate_bag_metadata(bag)
+            storage._validate_bag_metadata(self.bag)
 
 
 class TestValidateObjectMetadata(_BagTestCase):
