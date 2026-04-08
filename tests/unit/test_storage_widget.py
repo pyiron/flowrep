@@ -4,13 +4,12 @@ import os
 import tempfile
 import unittest
 
-import bagofholding as boh
-
 from flowrep import live, storage, storage_widget, wfms
 
 from flowrep_static import library
 
 try:
+    import bagofholding as boh
     import ipytree
 
     _has_ipytree = True
