@@ -9,11 +9,23 @@ import tempfile
 import unittest
 from unittest import mock
 
-import bagofholding as boh
-
 from flowrep import live, storage, storage_widget, wfms
 
 from flowrep_static import library
+
+try:
+    import bagofholding as boh
+
+    _has_boh = True
+except ImportError:
+    _has_boh = False
+
+try:
+    import ipytree  # noqa: F401
+
+    _has_ipytree = True
+except ImportError:
+    _has_ipytree = False
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
@@ -35,6 +47,7 @@ def _save_voidflow(path: str):
     return live_wf
 
 
+@unittest.skipUnless(_has_boh, "bagofholding not installed")
 class _BagTestCase(unittest.TestCase):
     """Base class that provides a temporary directory cleaned up after each test."""
 
@@ -326,13 +339,17 @@ class TestLexicalBagBrowserMethods(_BagTestCase):
 
     def test_browse_returns_widget(self):
         result = self.browser.browse()
-        self.assertIsInstance(result, storage_widget.LexicalBagTree)
+        if _has_ipytree:
+            self.assertIsInstance(result, storage_widget.LexicalBagTree)
+        else:
+            self.assertIsInstance(result, list)
 
     def test_browse_falls_back_to_list(self):
         with mock.patch.object(self.browser, "widget", side_effect=ImportError):
             result = self.browser.browse()
         self.assertIsInstance(result, list)
 
+    @unittest.skipUnless(_has_ipytree, "ipytree not installed")
     def test_widget_returns_tree(self):
         result = self.browser.widget()
         self.assertIsInstance(result, storage_widget.LexicalBagTree)
