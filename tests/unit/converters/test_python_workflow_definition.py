@@ -11,7 +11,6 @@ import unittest
 from pathlib import Path
 
 import pydantic
-import python_workflow_definition.models as pwd_models
 
 from flowrep import edge_models
 from flowrep.converters import python_workflow_definition as pwd_conv
@@ -22,6 +21,13 @@ from flowrep.nodes import (
 from flowrep.parsers import workflow_parser
 
 from flowrep_static import library, makers  # noqa: E402
+
+try:
+    import python_workflow_definition.models as pwd_models
+
+    _has_pwd = True
+except ImportError:
+    _has_pwd = False
 
 _PWD_JSON_WORKFLOW_LOCATION = (
     Path(__file__).resolve().parent.parent.parent
@@ -144,13 +150,16 @@ def _assert_flowrep_roundtrip_equal(
     tc.assertEqual(terminal_inputs, defaults_rt)
 
 
-def _load_pwd_workflow(name: str) -> pwd_models.PythonWorkflowDefinitionWorkflow:
+def _load_pwd_workflow(
+    name: str,
+) -> pwd_models.PythonWorkflowDefinitionWorkflow:
     path = _PWD_JSON_WORKFLOW_LOCATION / name
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     return pwd_models.PythonWorkflowDefinitionWorkflow.model_validate(data)
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestPortSanitization(unittest.TestCase):
     """Unit tests for pwd._sanitize_port / pwd._desanitize_port."""
 
@@ -202,6 +211,7 @@ class TestPortSanitization(unittest.TestCase):
                 self.assertTrue(sanitized.isidentifier())
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestPwd2FlowrepArithmetic(unittest.TestCase):
     """Smoke-test conversion of the arithmetic example."""
 
@@ -236,6 +246,7 @@ class TestPwd2FlowrepArithmetic(unittest.TestCase):
         self.assertEqual(set(prod_div[0].outputs), {"prod", "div"})
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestPwd2FlowrepNfdi(unittest.TestCase):
     """Smoke-test conversion of the NFDI example."""
 
@@ -264,6 +275,7 @@ class TestPwd2FlowrepNfdi(unittest.TestCase):
         self.assertGreater(len(source_edges), 1)
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestPwd2FlowrepQuantumEspresso(unittest.TestCase):
     """Smoke-test conversion of the quantum-espresso example."""
 
@@ -309,6 +321,7 @@ class TestPwd2FlowrepQuantumEspresso(unittest.TestCase):
                     self.assertTrue(port.startswith(pwd_conv._PORT_SANITIZE_PREFIX))
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestPwd2FlowrepErrorCases(unittest.TestCase):
 
     def test_cycle_raises_validation_error(self):
@@ -428,6 +441,7 @@ class TestPwd2FlowrepErrorCases(unittest.TestCase):
         self.assertEqual(wf_result.nodes["func_b_0"].outputs, [])
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestFlowrep2PwdValidation(unittest.TestCase):
     """Edge-case validation in pwd.flowrep2pwd."""
 
@@ -517,6 +531,7 @@ class TestFlowrep2PwdValidation(unittest.TestCase):
         self.assertIsInstance(result, pwd_models.PythonWorkflowDefinitionWorkflow)
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestRoundTripPwdToFlowrep(unittest.TestCase):
     """pwd → flowrep → pwd → flowrep must produce identical flowrep structure."""
 
@@ -541,6 +556,7 @@ class TestRoundTripPwdToFlowrep(unittest.TestCase):
         self._assert_roundtrip("quantum_espresso-workflow.json")
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestRoundTripFlowrepToPwd(unittest.TestCase):
     """flowrep → pwd → flowrep must preserve graph structure."""
 
@@ -636,6 +652,7 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
         self.assertEqual(add_node.outputs, fr_rt.nodes["add_0"].outputs)
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestDefaultOutputPort(unittest.TestCase):
     """Verify that the null-sourcePort ↔ ``pwd.DEFAULT_OUTPUT_PORT`` mapping works."""
 
@@ -690,6 +707,7 @@ class TestDefaultOutputPort(unittest.TestCase):
         self.assertEqual(len(named_orig), len(named_rt))
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestSanitizedPortRoundTrip(unittest.TestCase):
     """Integer-string ports from ``get_list`` survive a full round-trip."""
 
@@ -742,6 +760,7 @@ class TestSanitizedPortRoundTrip(unittest.TestCase):
         )
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestRoundTripEdgeNodeCounts(unittest.TestCase):
     """Quick structural invariant: node/edge counts survive a full round-trip."""
 
@@ -763,6 +782,7 @@ class TestRoundTripEdgeNodeCounts(unittest.TestCase):
         self._assert_counts_preserved("quantum_espresso-workflow.json")
 
 
+@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestPassThroughEdge(unittest.TestCase):
     """A workflow input wired directly to a workflow output, bypassing all nodes."""
 

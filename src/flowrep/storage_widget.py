@@ -11,8 +11,29 @@ from pyiron_snippets import import_alarm
 
 from flowrep import base_models
 
-with import_alarm.ImportAlarm("This tool requires 'ipytree'.") as _import_alarm:
+
+class _Base:
+    """
+    A flexible faux base class in case ipytree is not available.
+
+    Satisfy mypy with method stubs from methods called from the true base,
+    `ipytree.Tree`.
+    """
+
+    def __init__(self, *args, **kwargs):  # pragma: no cover
+        pass
+
+    def observe(self, *args, **kwargs): ...
+
+    def add_node(self, *args, **kwargs): ...
+
+
+with import_alarm.ImportAlarm(
+    "This tool requires 'ipytree'.", raise_exception=True
+) as _import_alarm:
     import ipytree
+
+    _Base = ipytree.Tree  # type: ignore[misc]
 
 if TYPE_CHECKING:
     import traitlets  # Expected as a dependency of ipytree
@@ -28,7 +49,7 @@ class _NodeMeta:
     loaded: bool = False
 
 
-class LexicalBagTree(ipytree.Tree):
+class LexicalBagTree(_Base):
     """Notebook tree widget driven by lexical paths."""
 
     @_import_alarm
