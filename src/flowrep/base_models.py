@@ -14,7 +14,7 @@ from pyiron_snippets import versions
 class RecipeElementType(StrEnum):
     ATOMIC = "atomic"
     WORKFLOW = "workflow"
-    FOR = "for"
+    FOR_EACH = "for_each"
     WHILE = "while"
     IF = "if"
     TRY = "try"

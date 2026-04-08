@@ -41,7 +41,7 @@ def run_recipe(recipe: union.NodeType, **kwargs: Any) -> live.LiveNode:
             return _run_atomic(recipe, **kwargs)
         case workflow_model.WorkflowNode():
             return _run_workflow(recipe, **kwargs)
-        case for_model.ForNode():
+        case for_model.ForEachNode():
             return _run_for(recipe, **kwargs)
         case if_model.IfNode():
             return _run_if(recipe, **kwargs)
@@ -212,7 +212,7 @@ def _populate_workflow_outputs(
 # ---------------------------------------------------------------------------
 
 
-def _run_for(recipe: for_model.ForNode, **kwargs: Any) -> live.FlowControl:
+def _run_for(recipe: for_model.ForEachNode, **kwargs: Any) -> live.FlowControl:
     """
     Execute a for-node by scattering iterated inputs across body instances and
     collecting outputs into lists.

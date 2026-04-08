@@ -86,7 +86,7 @@ def recipe2live(recipe: union.NodeType) -> LiveNode:
     match recipe:
         case atomic_model.AtomicNode():
             return LiveAtomic.from_recipe(recipe)
-        case for_model.ForNode():
+        case for_model.ForEachNode():
             return FlowControl.from_recipe(recipe)
         case if_model.IfNode():
             return FlowControl.from_recipe(recipe)
@@ -163,7 +163,7 @@ class FlowControl(Composite):
     def from_recipe(
         cls,
         recipe: (
-            for_model.ForNode
+            for_model.ForEachNode
             | if_model.IfNode
             | try_model.TryNode
             | while_model.WhileNode

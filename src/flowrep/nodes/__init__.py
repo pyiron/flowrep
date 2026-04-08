@@ -22,7 +22,7 @@ from flowrep.nodes.union import Nodes, NodeType
 
 for cls in [
     atomic_model.AtomicNode,
-    for_model.ForNode,
+    for_model.ForEachNode,
     helper_models.LabeledNode,
     if_model.IfNode,
     try_model.TryNode,

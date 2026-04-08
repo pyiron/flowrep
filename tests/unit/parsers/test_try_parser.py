@@ -492,7 +492,7 @@ class TestTryParserStructure(unittest.TestCase):
     # --- nesting other control flows inside try/except bodies ---
 
     def test_for_nested_inside_try_body(self):
-        """A for-loop inside a try-body produces a ForNode in the body workflow."""
+        """A for-loop inside a try-body produces a ForEachNode in the body workflow."""
 
         def wf(xs, y):
             try:
@@ -508,7 +508,9 @@ class TestTryParserStructure(unittest.TestCase):
         tn = self._parse(wf).nodes["try_0"]
         body = tn.try_node.node
         self.assertIsInstance(body, workflow_model.WorkflowNode)
-        for_nodes = [n for n in body.nodes.values() if isinstance(n, for_model.ForNode)]
+        for_nodes = [
+            n for n in body.nodes.values() if isinstance(n, for_model.ForEachNode)
+        ]
         self.assertEqual(len(for_nodes), 1)
 
     def test_while_nested_inside_try_body(self):
@@ -572,7 +574,7 @@ class TestTryParserStructure(unittest.TestCase):
         self.assertEqual(len(inner_try_nodes), 1)
 
     def test_for_nested_inside_except_body(self):
-        """A for-loop inside an except-body produces a ForNode in the except
+        """A for-loop inside an except-body produces a ForEachNode in the except
         workflow."""
 
         def wf(xs, y):
@@ -590,7 +592,9 @@ class TestTryParserStructure(unittest.TestCase):
         except_body = tn.exception_cases[0].body.node
         self.assertIsInstance(except_body, workflow_model.WorkflowNode)
         for_nodes = [
-            n for n in except_body.nodes.values() if isinstance(n, for_model.ForNode)
+            n
+            for n in except_body.nodes.values()
+            if isinstance(n, for_model.ForEachNode)
         ]
         self.assertEqual(len(for_nodes), 1)
 

@@ -107,9 +107,9 @@ def _diamond_workflow(a: int, b: int = 1) -> int:
     return result
 
 
-def _for_negate() -> for_model.ForNode:
+def _for_negate() -> for_model.ForEachNode:
     """For each `x` in `xs`, negate it; collect into `ys`."""
-    return for_model.ForNode(
+    return for_model.ForEachNode(
         inputs=["xs"],
         outputs=["ys"],
         body_node=helper_models.LabeledNode(
@@ -129,12 +129,12 @@ def _for_negate() -> for_model.ForNode:
     )
 
 
-def _for_add_broadcast() -> for_model.ForNode:
+def _for_add_broadcast() -> for_model.ForEachNode:
     """
     For each `x` in `xs`, compute `add(x, offset)` (offset is broadcast).
     Also transfers scattered `xs` elements to output `inputs_used`.
     """
-    return for_model.ForNode(
+    return for_model.ForEachNode(
         inputs=["xs", "offset"],
         outputs=["ys", "inputs_used"],
         body_node=helper_models.LabeledNode(
@@ -160,9 +160,9 @@ def _for_add_broadcast() -> for_model.ForNode:
     )
 
 
-def _for_add_zipped() -> for_model.ForNode:
+def _for_add_zipped() -> for_model.ForEachNode:
     """Zip `xs` and `ys` element-wise, compute `add(a, b)` for each pair."""
-    return for_model.ForNode(
+    return for_model.ForEachNode(
         inputs=["xs", "ys"],
         outputs=["sums"],
         body_node=helper_models.LabeledNode(
