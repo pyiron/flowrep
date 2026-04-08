@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from bagofholding import H5Bag
 
 
-@_import_alarm
 class LexicalBagBrowser:
     """
     A convenience class for browsing and loading data from
@@ -34,6 +33,7 @@ class LexicalBagBrowser:
     "inputs/outputs", and port names) instead of the actual H5 path inside the file.
     """
 
+    @_import_alarm
     def __init__(self, bag: H5Bag | str | pathlib.Path):
         if isinstance(bag, (str, pathlib.Path)):
             self.bag = boh.H5Bag(bag)
