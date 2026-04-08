@@ -74,7 +74,7 @@ class TestImportAlarm(unittest.TestCase):
 
     @unittest.skipIf(_has_ipytree, "ipytree IS installed; alarm won't fire")
     def test_alarm_fires_without_ipytree(self):
-        with self.assertRaisesRegex(ImportWarning, "ipytree"):
+        with self.assertRaisesRegex(ImportError, "ipytree"):
             storage_widget.LexicalBagTree(mock.MagicMock())
 
 
