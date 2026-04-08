@@ -13,11 +13,19 @@ from flowrep import base_models
 
 
 class _Base:
-    """A flexible faux base class in case ipytree is not available"""
+    """
+    A flexible faux base class in case ipytree is not available.
+
+    Satisfy mypy with method stubs from methods called from the true base,
+    `ipytree.Tree`.
+    """
 
     def __init__(self, *args, **kwargs):
         pass
 
+    def observe(self, *args, **kwargs): ...
+
+    def add_node(self, *args, **kwargs): ...
 
 
 with import_alarm.ImportAlarm(
@@ -25,7 +33,7 @@ with import_alarm.ImportAlarm(
 ) as _import_alarm:
     import ipytree
 
-    _Base = ipytree.Tree
+    _Base = ipytree.Tree  # type: ignore[misc]
 
 if TYPE_CHECKING:
     import traitlets  # Expected as a dependency of ipytree
