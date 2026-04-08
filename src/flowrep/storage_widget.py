@@ -11,8 +11,12 @@ from pyiron_snippets import import_alarm
 
 from flowrep import base_models
 
+_Base: type = object
+
 with import_alarm.ImportAlarm("This tool requires 'ipytree'.") as _import_alarm:
     import ipytree
+
+    _Base = ipytree.Tree
 
 if TYPE_CHECKING:
     import traitlets  # Expected as a dependency of ipytree
@@ -28,7 +32,7 @@ class _NodeMeta:
     loaded: bool = False
 
 
-class LexicalBagTree(ipytree.Tree):
+class LexicalBagTree(_Base):
     """Notebook tree widget driven by lexical paths."""
 
     @_import_alarm
