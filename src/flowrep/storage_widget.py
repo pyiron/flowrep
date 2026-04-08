@@ -11,7 +11,13 @@ from pyiron_snippets import import_alarm
 
 from flowrep import base_models
 
-_Base: type = object
+
+class _Base:
+    """A flexible faux base class in case ipytree is not available"""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
 
 with import_alarm.ImportAlarm("This tool requires 'ipytree'.") as _import_alarm:
     import ipytree
