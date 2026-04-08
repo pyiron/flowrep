@@ -47,6 +47,13 @@ pwd = [
 notebooks = [
     "numpy==2.4.3",
 ]
+storage = [
+    "bagofholding==0.1.10",
+]
+storage-widget = [
+    "flowrep[storage]",
+    "ipytree==0.2.2",
+]
 
 [tool.hatch.build]
 include = [
