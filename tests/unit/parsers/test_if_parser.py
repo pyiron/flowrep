@@ -553,7 +553,7 @@ class TestIfParserStructure(unittest.TestCase):
     # --- nesting other control flows inside if bodies ---
 
     def test_for_nested_inside_if_body(self):
-        """A for-loop inside an if-body produces a ForNode in the body workflow."""
+        """A for-loop inside an if-body produces a ForEachNode in the body workflow."""
 
         def wf(xs, y):
             if library.my_condition(y, y):
@@ -569,7 +569,9 @@ class TestIfParserStructure(unittest.TestCase):
         ifn = self._parse(wf).nodes["if_0"]
         body = ifn.cases[0].body.node
         self.assertIsInstance(body, workflow_model.WorkflowNode)
-        for_nodes = [n for n in body.nodes.values() if isinstance(n, for_model.ForNode)]
+        for_nodes = [
+            n for n in body.nodes.values() if isinstance(n, for_model.ForEachNode)
+        ]
         self.assertEqual(len(for_nodes), 1)
 
     def test_while_nested_inside_if_body(self):
@@ -614,7 +616,7 @@ class TestIfParserStructure(unittest.TestCase):
         self.assertEqual(len(inner_if_nodes), 1)
 
     def test_for_nested_inside_else_body(self):
-        """A for-loop inside an else-body produces a ForNode in the else workflow."""
+        """A for-loop inside an else-body produces a ForEachNode in the else workflow."""
 
         def wf(xs, y):
             if library.my_condition(y, y):
@@ -631,7 +633,7 @@ class TestIfParserStructure(unittest.TestCase):
         else_body = ifn.else_case.node
         self.assertIsInstance(else_body, workflow_model.WorkflowNode)
         for_nodes = [
-            n for n in else_body.nodes.values() if isinstance(n, for_model.ForNode)
+            n for n in else_body.nodes.values() if isinstance(n, for_model.ForEachNode)
         ]
         self.assertEqual(len(for_nodes), 1)
 

@@ -42,7 +42,7 @@ for_body = workflow_model.WorkflowNode.model_validate(
     }
 )
 
-for_node = for_model.ForNode.model_validate(
+for_node = for_model.ForEachNode.model_validate(
     {
         "type": "for",
         "inputs": ["pass_through"],
@@ -127,7 +127,7 @@ zbat_for_body = workflow_model.WorkflowNode.model_validate(
     }
 )
 
-zbat_for_node = for_model.ForNode.model_validate(
+zbat_for_node = for_model.ForEachNode.model_validate(
     {
         "type": "for",
         "inputs": ["a", "bs", "cs", "ds"],

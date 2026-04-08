@@ -29,7 +29,7 @@ from flowrep.live import NotData as NotData
 from flowrep.live import OutputPort as OutputPort
 from flowrep.nodes.atomic_model import AtomicNode as AtomicNode
 from flowrep.nodes.atomic_model import UnpackMode as UnpackMode
-from flowrep.nodes.for_model import ForNode as ForNode
+from flowrep.nodes.for_model import ForEachNode as ForEachNode
 from flowrep.nodes.helper_models import ConditionalCase as ConditionalCase
 from flowrep.nodes.helper_models import ExceptionCase as ExceptionCase
 from flowrep.nodes.helper_models import LabeledNode as LabeledNode

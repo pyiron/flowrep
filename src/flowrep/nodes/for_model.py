@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from flowrep.nodes.union import Nodes
 
 
-class ForNode(base_models.NodeModel):
+class ForEachNode(base_models.NodeModel):
     """
     Loop over a body node and collect outputs as a list.
     This is a dynamic node, which must actualize the body of its subgraph at runtime.
