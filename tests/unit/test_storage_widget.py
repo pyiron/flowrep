@@ -3,6 +3,7 @@
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 from flowrep import live, storage, storage_widget, wfms
 
@@ -74,10 +75,7 @@ class TestImportAlarm(unittest.TestCase):
     @unittest.skipIf(_has_ipytree, "ipytree IS installed; alarm won't fire")
     def test_alarm_fires_without_ipytree(self):
         with self.assertWarns(ImportWarning):
-            path = os.path.join(tempfile.mkdtemp(), "dummy.h5")
-            _save_workflow(path, a=1, b=2)
-            browser = storage.LexicalBagBrowser(path)
-            storage_widget.LexicalBagTree(browser)
+            storage_widget.LexicalBagTree(mock.MagicMock())
 
 
 # ═══════════════════════════════════════════════════════════════════════════
