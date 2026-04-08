@@ -1,4 +1,4 @@
 channels:
 - conda-forge
 dependencies:
-- numpy =2.4.2
+- numpy =2.4.4
