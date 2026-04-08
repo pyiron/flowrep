@@ -20,7 +20,7 @@ class _Base:
     `ipytree.Tree`.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):  # pragma: no cover
         pass
 
     def observe(self, *args, **kwargs): ...
