@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 class ForEachNode(base_models.NodeModel):
     """
     Loop over a body node and collect outputs as a list.
+    Each loop step is to be treated independently, such that the overall loop behaves
+    as a map.
     This is a dynamic node, which must actualize the body of its subgraph at runtime.
 
     Loops can be done with a combination of nested iteration and zipping values.
