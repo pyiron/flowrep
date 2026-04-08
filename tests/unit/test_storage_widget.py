@@ -5,11 +5,17 @@ import tempfile
 import unittest
 
 import bagofholding as boh
-import ipytree
 
 from flowrep import live, storage, storage_widget, wfms
 
 from flowrep_static import library
+
+try:
+    import ipytree
+
+    _has_ipytree = True
+except ImportError:
+    _has_ipytree = False
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
@@ -30,6 +36,7 @@ def _save_voidflow(path: str):
     return live_wf
 
 
+@unittest.skipUnless(_has_ipytree, "ipytree not installed")
 class _WidgetTestCase(unittest.TestCase):
     """Base class providing a browser backed by a temporary H5 file."""
 
@@ -43,12 +50,35 @@ class _WidgetTestCase(unittest.TestCase):
         self.browser = storage.LexicalBagBrowser(path)
         self.tree = storage_widget.LexicalBagTree(self.browser)
 
-    def _root_node(self) -> ipytree.Node:
+    def _root_node(self) -> "ipytree.Node":
         return self._get_root_node(self.tree)
 
     @staticmethod
-    def _get_root_node(tree) -> ipytree.Node:
+    def _get_root_node(tree) -> "ipytree.Node":
         return tree.nodes[0]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Import alarm behaviour
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestImportAlarm(unittest.TestCase):
+    """The module itself should always be importable."""
+
+    def test_module_importable(self):
+        """storage_widget can be imported regardless of ipytree availability."""
+        from flowrep import storage_widget as sw  # noqa: F811
+
+        self.assertTrue(hasattr(sw, "LexicalBagTree"))
+
+    @unittest.skipIf(_has_ipytree, "ipytree IS installed; alarm won't fire")
+    def test_alarm_fires_without_ipytree(self):
+        with self.assertWarns(ImportWarning):
+            path = os.path.join(tempfile.mkdtemp(), "dummy.h5")
+            _save_workflow(path, a=1, b=2)
+            browser = storage.LexicalBagBrowser(path)
+            storage_widget.LexicalBagTree(browser)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -179,7 +209,7 @@ class TestOnSelect(_WidgetTestCase):
 
 
 class TestLazyExpand(_WidgetTestCase):
-    def _find_collapsed_node(self) -> ipytree.Node:
+    def _find_collapsed_node(self) -> "ipytree.Node":
         """Find a child that has a '...' placeholder (not yet expanded)."""
         root = self._root_node()
         for child in root.nodes:
@@ -248,7 +278,7 @@ class TestHasExpandableChildren(_WidgetTestCase):
 
 
 class TestIOGroupExpansion(_WidgetTestCase):
-    def _find_io_group(self, io_type: str) -> ipytree.Node:
+    def _find_io_group(self, io_type: str) -> "ipytree.Node":
         root = self._root_node()
         for child in root.nodes:
             if child.name == io_type:
