@@ -33,3 +33,13 @@ jobs:
       extra-python-paths: tests
       # Don't include the API in coverage
       omit-patterns: '*/flowrep/api/*'
+
+  tests-without-optionals:
+    uses: pyiron/actions/.github/workflows/tests-and-coverage.yml@actions-4.0.13
+    secrets: inherit
+    with:
+      tests-env-files: .ci_support/environment.yml
+      test-dir: tests/unit
+      extra-python-paths: tests
+      do-coveralls: false
+      do-codecov: false
