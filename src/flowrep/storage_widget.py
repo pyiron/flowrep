@@ -19,7 +19,10 @@ class _Base:
         pass
 
 
-with import_alarm.ImportAlarm("This tool requires 'ipytree'.") as _import_alarm:
+
+with import_alarm.ImportAlarm(
+    "This tool requires 'ipytree'.", raise_exception=True
+) as _import_alarm:
     import ipytree
 
     _Base = ipytree.Tree
