@@ -46,7 +46,7 @@ class ForEachNode(base_models.NodeModel):
         to output accordingly.
 
     Attributes:
-        type: The node type -- always "for".
+        type: The node type -- always "for_each".
         inputs: The available input port names.
         outputs: The available output port names.
         body_node: The labeled node to execute for each iteration.
@@ -71,8 +71,8 @@ class ForEachNode(base_models.NodeModel):
         output element.
     """
 
-    type: Literal[base_models.RecipeElementType.FOR] = pydantic.Field(
-        default=base_models.RecipeElementType.FOR, frozen=True
+    type: Literal[base_models.RecipeElementType.FOR_EACH] = pydantic.Field(
+        default=base_models.RecipeElementType.FOR_EACH, frozen=True
     )
     body_node: helper_models.LabeledNode
     input_edges: edge_models.InputEdges

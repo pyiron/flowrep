@@ -65,9 +65,9 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                 workflow_model.WorkflowNode,
             ),
             (
-                base_models.RecipeElementType.FOR,
+                base_models.RecipeElementType.FOR_EACH,
                 {
-                    "type": "for",
+                    "type": "for_each",
                     "inputs": ["items"],
                     "outputs": ["results"],
                     "body_node": {
@@ -460,7 +460,7 @@ class TestNestedUnionResolution(unittest.TestCase):
             "outputs": ["results"],
             "nodes": {
                 "for_node": {
-                    "type": "for",
+                    "type": "for_each",
                     "inputs": ["items"],
                     "outputs": ["out"],
                     "body_node": {

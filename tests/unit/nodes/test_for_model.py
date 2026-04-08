@@ -56,7 +56,7 @@ class TestForEachNodeBasic(unittest.TestCase):
             },
             nested_ports=["item"],
         )
-        self.assertEqual(for_node.type, base_models.RecipeElementType.FOR)
+        self.assertEqual(for_node.type, base_models.RecipeElementType.FOR_EACH)
         self.assertEqual(for_node.nested_ports, ["item"])
         self.assertEqual(for_node.zipped_ports, [])
 
@@ -789,7 +789,7 @@ class TestForEachNodeOutputProperties(unittest.TestCase):
         """SourceHandle outputs are neither pass-through nor transferred."""
         node = for_model.ForEachNode.model_validate(
             {
-                "type": "for",
+                "type": "for_each",
                 "inputs": ["xs"],
                 "outputs": ["results"],
                 "body_node": self._make_body(["x"], ["y"]),
@@ -803,7 +803,7 @@ class TestForEachNodeOutputProperties(unittest.TestCase):
     def test_transferred_from_nested_port(self):
         node = for_model.ForEachNode.model_validate(
             {
-                "type": "for",
+                "type": "for_each",
                 "inputs": ["xs"],
                 "outputs": ["results", "collected_xs"],
                 "body_node": self._make_body(["x"], ["y"]),
@@ -822,7 +822,7 @@ class TestForEachNodeOutputProperties(unittest.TestCase):
     def test_transferred_from_zipped_port(self):
         node = for_model.ForEachNode.model_validate(
             {
-                "type": "for",
+                "type": "for_each",
                 "inputs": ["xs", "ys"],
                 "outputs": ["results", "fwd_xs", "fwd_ys"],
                 "body_node": self._make_body(["x", "y"], ["z"]),
@@ -841,7 +841,7 @@ class TestForEachNodeOutputProperties(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             for_model.ForEachNode.model_validate(
                 {
-                    "type": "for",
+                    "type": "for_each",
                     "inputs": ["c", "xs"],
                     "outputs": ["results", "fwd_c"],
                     "body_node": self._make_body(["x", "c"], ["y"]),
@@ -859,7 +859,7 @@ class TestForEachNodeOutputProperties(unittest.TestCase):
         """All outputs from body → both properties empty."""
         node = for_model.ForEachNode.model_validate(
             {
-                "type": "for",
+                "type": "for_each",
                 "inputs": ["xs"],
                 "outputs": ["a", "b"],
                 "body_node": self._make_body(["x"], ["p", "q"]),
