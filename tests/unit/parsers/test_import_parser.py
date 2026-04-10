@@ -33,15 +33,17 @@ class TestBuildScope(unittest.TestCase):
         self.assertNotIn("path", scope)
 
     def test_relative_import_raises(self):
-        """level > 0 (relative import) must raise ValueError."""
         node = ast.parse("from .foo import bar").body[0]
-        with self.assertRaises(ValueError):
+        with self.assertRaises(
+            ValueError, msg="level > 0 (relative import) must raise ValueError."
+        ):
             import_parser.build_scope(import_froms=[node])
 
     def test_none_module_raises(self):
-        """module=None with level=0 must also raise ValueError."""
         node = ast.ImportFrom(module=None, names=[ast.alias(name="something")], level=0)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(
+            ValueError, msg="module=None with level=0 must also raise ValueError."
+        ):
             import_parser.build_scope(import_froms=[node])
 
 
