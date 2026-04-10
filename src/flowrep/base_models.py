@@ -14,7 +14,7 @@ from pyiron_snippets import versions
 class RecipeElementType(StrEnum):
     ATOMIC = "atomic"
     WORKFLOW = "workflow"
-    FOR = "for"
+    FOR_EACH = "for_each"
     WHILE = "while"
     IF = "if"
     TRY = "try"
@@ -25,9 +25,8 @@ class IOTypes(StrEnum):
     OUTPUTS = "outputs"
 
 
-RESERVED_NAMES = {
-    k for k in IOTypes.__members__.values()
-}  # No having labels with these names
+RESERVED_NAMES = frozenset(IOTypes.__members__.values())
+# No having labels with these names
 
 
 def is_valid_label(label: str) -> bool:

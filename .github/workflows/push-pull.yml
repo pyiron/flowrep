@@ -16,10 +16,10 @@ jobs:
       do-codecov: true
       # Run mypy, ensuring it has access to pydantic
       do-mypy: true
-      tests-env-files: .ci_support/environment.yml .ci_support/environment-pwd.yml
-      docs-env-files: .ci_support/environment.yml .ci_support/environment-pwd.yml
-      notebooks-env-files: .ci_support/environment.yml .ci_support/environment-pwd.yml .ci_support/environment-notebook.yml
-      mypy-env-files: .ci_support/environment.yml .ci_support/environment-pwd.yml
+      tests-env-files: .ci_support/environment.yml .ci_support/environment-optional.yml
+      docs-env-files: .ci_support/environment.yml .ci_support/environment-optional.yml
+      notebooks-env-files: .ci_support/environment.yml .ci_support/environment-optional.yml .ci_support/environment-notebook.yml
+      mypy-env-files: .ci_support/environment.yml .ci_support/environment-optional.yml
       # The test matrix supports up to four python versions
       python-version-alt3: '3.13'
       python-version-alt2: '3.12'
@@ -33,3 +33,13 @@ jobs:
       extra-python-paths: tests
       # Don't include the API in coverage
       omit-patterns: '*/flowrep/api/*'
+
+  tests-without-optionals:
+    uses: pyiron/actions/.github/workflows/tests-and-coverage.yml@actions-4.0.13
+    secrets: inherit
+    with:
+      tests-env-files: .ci_support/environment.yml
+      test-dir: tests/unit
+      extra-python-paths: tests
+      do-coveralls: false
+      do-codecov: false

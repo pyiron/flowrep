@@ -1,0 +1,17 @@
+channels:
+- conda-forge
+dependencies:
+- ipykernel
+- myst-parser
+- nbsphinx
+- sphinx-gallery
+- sphinx-rtd-theme
+- versioneer
+- hatchling =1.29.0
+- hatch-vcs =0.5.0
+- python >=3.11, <3.15
+- pydantic =2.12.5
+- pyiron_snippets =1.2.1
+- bagofholding =0.1.10
+- ipytree =0.2.2
+- python-workflow-definition =0.1.4

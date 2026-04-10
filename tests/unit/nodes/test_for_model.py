@@ -13,14 +13,14 @@ from flowrep.nodes import (
 from flowrep_static import makers
 
 
-class TestForNodeBasic(unittest.TestCase):
+class TestForEachNodeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
-        for_model.ForNode.model_json_schema()
+        for_model.ForEachNode.model_json_schema()
 
     def test_obeys_build_subgraph_with_static_output(self):
-        """ForNode should obey build subgraph with static output."""
-        node = for_model.ForNode(
+        """ForEachNode should obey build subgraph with static output."""
+        node = for_model.ForEachNode(
             inputs=[],
             outputs=[],
             body_node=makers.make_labeled_atomic(
@@ -36,7 +36,7 @@ class TestForNodeBasic(unittest.TestCase):
         self.assertIsInstance(node, subgraph_validation.DynamicSubgraphStaticOutput)
 
     def test_valid_for_node_with_nested_ports(self):
-        for_node = for_model.ForNode(
+        for_node = for_model.ForEachNode(
             inputs=["items"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -56,12 +56,12 @@ class TestForNodeBasic(unittest.TestCase):
             },
             nested_ports=["item"],
         )
-        self.assertEqual(for_node.type, base_models.RecipeElementType.FOR)
+        self.assertEqual(for_node.type, base_models.RecipeElementType.FOR_EACH)
         self.assertEqual(for_node.nested_ports, ["item"])
         self.assertEqual(for_node.zipped_ports, [])
 
     def test_valid_for_node_with_zipped_ports(self):
-        for_node = for_model.ForNode(
+        for_node = for_model.ForEachNode(
             inputs=["xs", "ys"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -88,7 +88,7 @@ class TestForNodeBasic(unittest.TestCase):
         self.assertEqual(for_node.nested_ports, [])
 
     def test_valid_for_node_with_both_nested_and_zipped(self):
-        for_node = for_model.ForNode(
+        for_node = for_model.ForEachNode(
             inputs=["outer", "inner1", "inner2"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -119,7 +119,7 @@ class TestForNodeBasic(unittest.TestCase):
         self.assertEqual(for_node.zipped_ports, ["b", "c"])
 
     def test_call_raises(self):
-        recipe = for_model.ForNode(
+        recipe = for_model.ForEachNode(
             inputs=["x"],
             outputs=[],
             body_node=makers.make_labeled_atomic(
@@ -136,10 +136,10 @@ class TestForNodeBasic(unittest.TestCase):
             recipe(42)
 
 
-class TestForNodeLoopPortValidation(unittest.TestCase):
+class TestForEachNodeLoopPortValidation(unittest.TestCase):
     def test_no_iteration_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["x"],
                 outputs=["y"],
                 body_node=makers.make_labeled_atomic(
@@ -164,7 +164,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
 
     def test_duplicate_nested_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -188,7 +188,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
 
     def test_duplicate_zipped_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["xs"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -212,7 +212,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
 
     def test_overlapping_nested_and_zipped_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -238,7 +238,7 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
 
     def test_iteration_port_not_on_body_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -261,10 +261,10 @@ class TestForNodeLoopPortValidation(unittest.TestCase):
         self.assertIn("nonexistent", str(ctx.exception))
 
 
-class TestForNodeInputEdges(unittest.TestCase):
+class TestForEachNodeInputEdges(unittest.TestCase):
     def test_input_edge_wrong_target_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -288,7 +288,7 @@ class TestForNodeInputEdges(unittest.TestCase):
 
     def test_input_edge_wrong_target_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -313,7 +313,7 @@ class TestForNodeInputEdges(unittest.TestCase):
 
     def test_input_edge_invalid_source_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -336,13 +336,13 @@ class TestForNodeInputEdges(unittest.TestCase):
         self.assertIn("nonexistent", str(ctx.exception))
 
 
-class TestForNodeFullySourcing(unittest.TestCase):
+class TestForEachNodeFullySourcing(unittest.TestCase):
     """Tests for validate_internal_data_completeness on for-node body."""
 
     def test_body_unsourced_no_default_raises(self):
         """Body input without edge or default → rejected."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["xs"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -366,7 +366,7 @@ class TestForNodeFullySourcing(unittest.TestCase):
 
     def test_body_unsourced_with_default_passes(self):
         """Body input without edge but with default → accepted."""
-        node = for_model.ForNode(
+        node = for_model.ForEachNode(
             inputs=["xs"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -392,7 +392,7 @@ class TestForNodeFullySourcing(unittest.TestCase):
     def test_body_mixed_sourcing_one_unsourced_raises(self):
         """Multiple body inputs: edged, defaulted, and unsourced → fails."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["xs"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -420,10 +420,10 @@ class TestForNodeFullySourcing(unittest.TestCase):
         self.assertNotIn("body.y", exc_str)
 
 
-class TestForNodeOutputEdges(unittest.TestCase):
+class TestForEachNodeOutputEdges(unittest.TestCase):
     def test_output_edge_wrong_source_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -448,7 +448,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
 
     def test_output_edge_wrong_source_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -472,7 +472,7 @@ class TestForNodeOutputEdges(unittest.TestCase):
 
     def test_output_edge_invalid_target_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -495,10 +495,10 @@ class TestForNodeOutputEdges(unittest.TestCase):
         self.assertIn("nonexistent", str(ctx.exception))
 
 
-class TestForNodeTransferEdges(unittest.TestCase):
+class TestForEachNodeTransferEdges(unittest.TestCase):
     def test_valid_transfer_edge(self):
         """Transfer edges should forward iterated inputs to outputs."""
-        for_node = for_model.ForNode(
+        for_node = for_model.ForEachNode(
             inputs=["items", "broadcast"],
             outputs=["results", "original_items"],
             body_node=makers.make_labeled_atomic(
@@ -527,9 +527,9 @@ class TestForNodeTransferEdges(unittest.TestCase):
         self.assertEqual(len(for_node.output_edges), 2)
 
     def test_transfer_source_not_in_inputs_rejected(self):
-        """Transfer edge sources must be ForNode inputs."""
+        """Transfer edge sources must be ForEachNode inputs."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results", "forwarded"],
                 body_node=makers.make_labeled_atomic(
@@ -556,9 +556,9 @@ class TestForNodeTransferEdges(unittest.TestCase):
         self.assertIn("inputs", str(ctx.exception).lower())
 
     def test_transfer_target_not_in_outputs_rejected(self):
-        """Transfer edge targets must be ForNode outputs."""
+        """Transfer edge targets must be ForEachNode outputs."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode(
+            for_model.ForEachNode(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -585,9 +585,9 @@ class TestForNodeTransferEdges(unittest.TestCase):
         self.assertIn("nonexistent", str(ctx.exception).lower())
 
 
-class TestForNodeSerialization(unittest.TestCase):
+class TestForEachNodeSerialization(unittest.TestCase):
     def test_roundtrip(self):
-        original = for_model.ForNode(
+        original = for_model.ForEachNode(
             inputs=["items", "multiplier"],
             outputs=["results", "original_items"],
             body_node=makers.make_labeled_atomic(
@@ -616,7 +616,7 @@ class TestForNodeSerialization(unittest.TestCase):
         for mode in ["python", "json"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = for_model.ForNode.model_validate(data)
+                restored = for_model.ForEachNode.model_validate(data)
 
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
@@ -627,7 +627,7 @@ class TestForNodeSerialization(unittest.TestCase):
                 self.assertEqual(original.output_edges, restored.output_edges)
 
 
-class TestForNodeComposition(unittest.TestCase):
+class TestForEachNodeComposition(unittest.TestCase):
     def test_workflow_body_node(self):
         inner_workflow = workflow_model.WorkflowNode(
             inputs=["x"],
@@ -651,7 +651,7 @@ class TestForNodeComposition(unittest.TestCase):
             },
         )
 
-        for_node = for_model.ForNode(
+        for_node = for_model.ForEachNode(
             inputs=["items"],
             outputs=["results"],
             body_node=helper_models.LabeledNode(
@@ -673,7 +673,7 @@ class TestForNodeComposition(unittest.TestCase):
         self.assertIsInstance(for_node.body_node.node, workflow_model.WorkflowNode)
 
     def test_for_node_as_workflow_child(self):
-        for_node = for_model.ForNode(
+        for_node = for_model.ForEachNode(
             inputs=["items"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -711,12 +711,12 @@ class TestForNodeComposition(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["for_node"], for_model.ForNode)
+        self.assertIsInstance(workflow.nodes["for_node"], for_model.ForEachNode)
         self.assertEqual(workflow.inputs, ["data"])
         self.assertEqual(workflow.outputs, ["processed"])
 
     def test_for_node_chained_in_workflow(self):
-        for_node = for_model.ForNode(
+        for_node = for_model.ForEachNode(
             inputs=["items"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -772,12 +772,12 @@ class TestForNodeComposition(unittest.TestCase):
         )
 
         self.assertEqual(len(workflow.nodes), 3)
-        self.assertIsInstance(workflow.nodes["for_node"], for_model.ForNode)
+        self.assertIsInstance(workflow.nodes["for_node"], for_model.ForEachNode)
         self.assertIsInstance(workflow.nodes["preprocess"], atomic_model.AtomicNode)
         self.assertIsInstance(workflow.nodes["postprocess"], atomic_model.AtomicNode)
 
 
-class TestForNodeOutputProperties(unittest.TestCase):
+class TestForEachNodeOutputProperties(unittest.TestCase):
     """Tests for outputs from input sources."""
 
     def _make_body(self, inputs, outputs) -> dict:
@@ -787,9 +787,9 @@ class TestForNodeOutputProperties(unittest.TestCase):
 
     def test_body_outputs_appear_in_neither(self):
         """SourceHandle outputs are neither pass-through nor transferred."""
-        node = for_model.ForNode.model_validate(
+        node = for_model.ForEachNode.model_validate(
             {
-                "type": "for",
+                "type": "for_each",
                 "inputs": ["xs"],
                 "outputs": ["results"],
                 "body_node": self._make_body(["x"], ["y"]),
@@ -801,9 +801,9 @@ class TestForNodeOutputProperties(unittest.TestCase):
         self.assertEqual(node.transferred_outputs, {})
 
     def test_transferred_from_nested_port(self):
-        node = for_model.ForNode.model_validate(
+        node = for_model.ForEachNode.model_validate(
             {
-                "type": "for",
+                "type": "for_each",
                 "inputs": ["xs"],
                 "outputs": ["results", "collected_xs"],
                 "body_node": self._make_body(["x"], ["y"]),
@@ -820,9 +820,9 @@ class TestForNodeOutputProperties(unittest.TestCase):
         self.assertIn(target, node.transferred_outputs)
 
     def test_transferred_from_zipped_port(self):
-        node = for_model.ForNode.model_validate(
+        node = for_model.ForEachNode.model_validate(
             {
-                "type": "for",
+                "type": "for_each",
                 "inputs": ["xs", "ys"],
                 "outputs": ["results", "fwd_xs", "fwd_ys"],
                 "body_node": self._make_body(["x", "y"], ["z"]),
@@ -839,9 +839,9 @@ class TestForNodeOutputProperties(unittest.TestCase):
 
     def test_pass_through_from_broadcast_input_raises(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForNode.model_validate(
+            for_model.ForEachNode.model_validate(
                 {
-                    "type": "for",
+                    "type": "for_each",
                     "inputs": ["c", "xs"],
                     "outputs": ["results", "fwd_c"],
                     "body_node": self._make_body(["x", "c"], ["y"]),
@@ -857,9 +857,9 @@ class TestForNodeOutputProperties(unittest.TestCase):
 
     def test_no_input_source_outputs(self):
         """All outputs from body → both properties empty."""
-        node = for_model.ForNode.model_validate(
+        node = for_model.ForEachNode.model_validate(
             {
-                "type": "for",
+                "type": "for_each",
                 "inputs": ["xs"],
                 "outputs": ["a", "b"],
                 "body_node": self._make_body(["x"], ["p", "q"]),

@@ -120,7 +120,7 @@ _for_body = {
 }
 
 _for_node = {
-    "type": "for",
+    "type": "for_each",
     "inputs": ["y", "c", "rs"],
     "outputs": ["acc"],
     "body_node": {"label": "body", "node": _for_body},
@@ -139,19 +139,19 @@ _while_body = {
     "nodes": {
         "my_add_0": library.my_add.flowrep_recipe,
         "my_range_0": library.my_range.flowrep_recipe,
-        "for_0": _for_node,
+        "for_each_0": _for_node,
         "my_sum_0": my_sum.flowrep_recipe,
     },
     "input_edges": {
         "my_add_0.a": "b",
         "my_add_0.b": "y",
-        "for_0.y": "y",
+        "for_each_0.y": "y",
     },
     "edges": {
         "my_range_0.n": "my_add_0.output_0",
-        "for_0.c": "my_add_0.output_0",
-        "for_0.rs": "my_range_0.output_0",
-        "my_sum_0.lst": "for_0.acc",
+        "for_each_0.c": "my_add_0.output_0",
+        "for_each_0.rs": "my_range_0.output_0",
+        "my_sum_0.lst": "for_each_0.acc",
     },
     "output_edges": {"b": "my_sum_0.total"},
 }

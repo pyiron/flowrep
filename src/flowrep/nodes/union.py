@@ -15,7 +15,7 @@ from flowrep.nodes import (
 # Discriminated Union
 NodeType = Annotated[
     atomic_model.AtomicNode
-    | for_model.ForNode
+    | for_model.ForEachNode
     | if_model.IfNode
     | try_model.TryNode
     | while_model.WhileNode

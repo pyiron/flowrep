@@ -11,9 +11,11 @@ if TYPE_CHECKING:
     from flowrep.nodes.union import Nodes
 
 
-class ForNode(base_models.NodeModel):
+class ForEachNode(base_models.NodeModel):
     """
     Loop over a body node and collect outputs as a list.
+    Each loop step is to be treated independently, such that the overall loop behaves
+    as a map.
     This is a dynamic node, which must actualize the body of its subgraph at runtime.
 
     Loops can be done with a combination of nested iteration and zipping values.
@@ -46,7 +48,7 @@ class ForNode(base_models.NodeModel):
         to output accordingly.
 
     Attributes:
-        type: The node type -- always "for".
+        type: The node type -- always "for_each".
         inputs: The available input port names.
         outputs: The available output port names.
         body_node: The labeled node to execute for each iteration.
@@ -71,8 +73,8 @@ class ForNode(base_models.NodeModel):
         output element.
     """
 
-    type: Literal[base_models.RecipeElementType.FOR] = pydantic.Field(
-        default=base_models.RecipeElementType.FOR, frozen=True
+    type: Literal[base_models.RecipeElementType.FOR_EACH] = pydantic.Field(
+        default=base_models.RecipeElementType.FOR_EACH, frozen=True
     )
     body_node: helper_models.LabeledNode
     input_edges: edge_models.InputEdges

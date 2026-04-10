@@ -25,7 +25,7 @@ Maps accumulator names, xs, to appended symbol names, x, in statements like xs.a
 
 def parse_for_node(
     walker: parser_protocol.BodyWalker, tree: ast.For
-) -> for_model.ForNode:
+) -> for_model.ForEachNode:
     """
     Walk a for-loop.
 
@@ -65,7 +65,7 @@ def parse_for_node(
         label=FOR_BODY_LABEL, node=body_walker.build_model()
     )
 
-    return for_model.ForNode(
+    return for_model.ForEachNode(
         inputs=inputs,
         outputs=outputs,
         body_node=body_node,

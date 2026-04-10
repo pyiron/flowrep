@@ -33,7 +33,7 @@ class StaticSubgraphOwner(Protocol):
 
 
 class DynamicSubgraphOwner(Protocol):
-    """Owns a subgraph instantiated at runtime (ForNode, WhileNode, IfNode, TryNode)."""
+    """Owns a subgraph instantiated at runtime (ForEachNode, WhileNode, IfNode, TryNode)."""
 
     inputs: base_models.Labels
     outputs: base_models.Labels
@@ -45,7 +45,7 @@ class DynamicSubgraphOwner(Protocol):
 
 @runtime_checkable
 class DynamicSubgraphStaticOutput(DynamicSubgraphOwner, Protocol):
-    """Dynamic subgraph with output interface known a-priori (ForNode, WhileNode)."""
+    """Dynamic subgraph with output interface known a-priori (ForEachNode, WhileNode)."""
 
     output_edges: edge_models.OutputEdges
 

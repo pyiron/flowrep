@@ -346,7 +346,7 @@ class TestWhileParserStructure(unittest.TestCase):
         self.assertIn("y", node.nodes["while_0"].outputs)
 
     def test_for_nested_inside_while_body(self):
-        """A for-loop inside a while-body produces a ForNode in the body workflow."""
+        """A for-loop inside a while-body produces a ForEachNode in the body workflow."""
 
         def wf(x, bound):
             while library.my_condition(x, bound):
@@ -361,7 +361,9 @@ class TestWhileParserStructure(unittest.TestCase):
         wn = self._parse(wf).nodes["while_0"]
         body = wn.case.body.node
         self.assertIsInstance(body, workflow_model.WorkflowNode)
-        for_nodes = [n for n in body.nodes.values() if isinstance(n, for_model.ForNode)]
+        for_nodes = [
+            n for n in body.nodes.values() if isinstance(n, for_model.ForEachNode)
+        ]
         self.assertEqual(len(for_nodes), 1)
         # The for-node's output is consumed downstream in the while body
         self.assertIn("acc", for_nodes[0].outputs)

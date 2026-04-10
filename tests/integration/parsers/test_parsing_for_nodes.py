@@ -42,9 +42,9 @@ for_body = workflow_model.WorkflowNode.model_validate(
     }
 )
 
-for_node = for_model.ForNode.model_validate(
+for_node = for_model.ForEachNode.model_validate(
     {
-        "type": "for",
+        "type": "for_each",
         "inputs": ["pass_through"],
         "outputs": ["vecs"],
         "body_node": {"label": "body", "node": for_body},
@@ -63,17 +63,17 @@ single_iteration_node = workflow_model.WorkflowNode.model_validate(
         "outputs": ["l", "vecs"],
         "nodes": {
             "identity_0": library.identity.flowrep_recipe,
-            "for_0": for_node,
+            "for_each_0": for_node,
             "how_many_0": how_many.flowrep_recipe,
         },
         "input_edges": {"identity_0.x": "ns"},
         "edges": {
-            "for_0.pass_through": "identity_0.x",
-            "how_many_0.lst": "for_0.vecs",
+            "for_each_0.pass_through": "identity_0.x",
+            "how_many_0.lst": "for_each_0.vecs",
         },
         "output_edges": {
             "l": "how_many_0.length",
-            "vecs": "for_0.vecs",
+            "vecs": "for_each_0.vecs",
         },
         "reference": {
             "info": {
@@ -127,9 +127,9 @@ zbat_for_body = workflow_model.WorkflowNode.model_validate(
     }
 )
 
-zbat_for_node = for_model.ForNode.model_validate(
+zbat_for_node = for_model.ForEachNode.model_validate(
     {
-        "type": "for",
+        "type": "for_each",
         "inputs": ["a", "bs", "cs", "ds"],
         "outputs": [
             "b_accumulator",
@@ -160,19 +160,19 @@ zbat_wf_node = workflow_model.WorkflowNode.model_validate(
         "type": "workflow",
         "inputs": ["a", "bs", "cs", "ds"],
         "outputs": ["b_accumulator", "c_accumulator", "d_accumulator", "sums"],
-        "nodes": {"for_0": zbat_for_node},
+        "nodes": {"for_each_0": zbat_for_node},
         "input_edges": {
-            "for_0.a": "a",
-            "for_0.bs": "bs",
-            "for_0.cs": "cs",
-            "for_0.ds": "ds",
+            "for_each_0.a": "a",
+            "for_each_0.bs": "bs",
+            "for_each_0.cs": "cs",
+            "for_each_0.ds": "ds",
         },
         "edges": {},
         "output_edges": {
-            "b_accumulator": "for_0.b_accumulator",
-            "c_accumulator": "for_0.c_accumulator",
-            "d_accumulator": "for_0.d_accumulator",
-            "sums": "for_0.sums",
+            "b_accumulator": "for_each_0.b_accumulator",
+            "c_accumulator": "for_each_0.c_accumulator",
+            "d_accumulator": "for_each_0.d_accumulator",
+            "sums": "for_each_0.sums",
         },
         "reference": {
             "info": {
@@ -228,8 +228,8 @@ nested_node = workflow_model.WorkflowNode.model_validate(
         "outputs": ["sq_sums"],
         "description": inspect.getdoc(nested),
         "nodes": {
-            "for_0": {
-                "type": "for",
+            "for_each_0": {
+                "type": "for_each",
                 "inputs": ["ns"],
                 "outputs": ["sq_sums"],
                 "body_node": {
@@ -240,8 +240,8 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                         "outputs": ["summed"],
                         "nodes": {
                             "my_range_0": library.my_range.flowrep_recipe,
-                            "for_0": {
-                                "type": "for",
+                            "for_each_0": {
+                                "type": "for_each",
                                 "inputs": ["rs"],
                                 "outputs": ["squares"],
                                 "body_node": {
@@ -267,8 +267,8 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                         },
                         "input_edges": {"my_range_0.n": "n"},
                         "edges": {
-                            "for_0.rs": "my_range_0.output_0",
-                            "sum_elements_0.lst": "for_0.squares",
+                            "for_each_0.rs": "my_range_0.output_0",
+                            "sum_elements_0.lst": "for_each_0.squares",
                         },
                         "output_edges": {"summed": "sum_elements_0.total"},
                     },
@@ -279,9 +279,9 @@ nested_node = workflow_model.WorkflowNode.model_validate(
                 "zipped_ports": [],
             }
         },
-        "input_edges": {"for_0.ns": "ns"},
+        "input_edges": {"for_each_0.ns": "ns"},
         "edges": {},
-        "output_edges": {"sq_sums": "for_0.sq_sums"},
+        "output_edges": {"sq_sums": "for_each_0.sq_sums"},
         "reference": {
             "info": {
                 "module": "integration.parsers.test_parsing_for_nodes",
@@ -334,8 +334,8 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
         "outputs": ["sq_sums"],
         "description": inspect.getdoc(nested_with_passed_input),
         "nodes": {
-            "for_0": {
-                "type": "for",
+            "for_each_0": {
+                "type": "for_each",
                 "inputs": ["range_offset", "square_offset", "ns"],
                 "outputs": ["sq_sums"],
                 "body_node": {
@@ -346,8 +346,8 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
                         "outputs": ["summed"],
                         "nodes": {
                             "my_offset_range_0": my_offset_range.flowrep_recipe,
-                            "for_0": {
-                                "type": "for",
+                            "for_each_0": {
+                                "type": "for_each",
                                 "inputs": ["square_offset", "rs"],
                                 "outputs": ["squares"],
                                 "body_node": {
@@ -382,11 +382,11 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
                         "input_edges": {
                             "my_offset_range_0.n": "n",
                             "my_offset_range_0.offset": "range_offset",
-                            "for_0.square_offset": "square_offset",
+                            "for_each_0.square_offset": "square_offset",
                         },
                         "edges": {
-                            "for_0.rs": "my_offset_range_0.output_0",
-                            "sum_elements_0.lst": "for_0.squares",
+                            "for_each_0.rs": "my_offset_range_0.output_0",
+                            "sum_elements_0.lst": "for_each_0.squares",
                         },
                         "output_edges": {"summed": "sum_elements_0.total"},
                     },
@@ -402,12 +402,12 @@ nested_with_passed_input_node = workflow_model.WorkflowNode.model_validate(
             }
         },
         "input_edges": {
-            "for_0.range_offset": "range_offset",
-            "for_0.square_offset": "square_offset",
-            "for_0.ns": "ns",
+            "for_each_0.range_offset": "range_offset",
+            "for_each_0.square_offset": "square_offset",
+            "for_each_0.ns": "ns",
         },
         "edges": {},
-        "output_edges": {"sq_sums": "for_0.sq_sums"},
+        "output_edges": {"sq_sums": "for_each_0.sq_sums"},
         "reference": {
             "info": {
                 "module": "integration.parsers.test_parsing_for_nodes",

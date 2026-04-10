@@ -181,7 +181,7 @@ class TestRecipeElementType(unittest.TestCase):
     """Tests for RecipeElementType enum."""
 
     def test_all_expected_values_exist(self):
-        expected = {"atomic", "workflow", "for", "while", "if", "try"}
+        expected = {"atomic", "workflow", "for_each", "while", "if", "try"}
         actual = {e.value for e in base_models.RecipeElementType}
         self.assertEqual(expected, actual)
 

@@ -65,9 +65,9 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                 workflow_model.WorkflowNode,
             ),
             (
-                base_models.RecipeElementType.FOR,
+                base_models.RecipeElementType.FOR_EACH,
                 {
-                    "type": "for",
+                    "type": "for_each",
                     "inputs": ["items"],
                     "outputs": ["results"],
                     "body_node": {
@@ -85,7 +85,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "zipped_ports": [],
                     "transfer_edges": {},
                 },
-                for_model.ForNode,
+                for_model.ForEachNode,
             ),
             (
                 base_models.RecipeElementType.WHILE,
@@ -453,14 +453,14 @@ class TestNestedUnionResolution(unittest.TestCase):
     """Tests for nested node type resolution in complex structures."""
 
     def test_workflow_with_nested_for_node(self):
-        """Workflow containing a ForNode deserializes correctly."""
+        """Workflow containing a ForEachNode deserializes correctly."""
         data = {
             "type": "workflow",
             "inputs": ["data"],
             "outputs": ["results"],
             "nodes": {
                 "for_node": {
-                    "type": "for",
+                    "type": "for_each",
                     "inputs": ["items"],
                     "outputs": ["out"],
                     "body_node": {
@@ -486,7 +486,7 @@ class TestNestedUnionResolution(unittest.TestCase):
         adapter = pydantic.TypeAdapter(union.NodeType)
         wf = adapter.validate_python(data)
         self.assertIsInstance(wf, workflow_model.WorkflowNode)
-        self.assertIsInstance(wf.nodes["for_node"], for_model.ForNode)
+        self.assertIsInstance(wf.nodes["for_node"], for_model.ForEachNode)
         self.assertIsInstance(
             wf.nodes["for_node"].body_node.node, atomic_model.AtomicNode
         )
