@@ -15,6 +15,7 @@ from flowrep.base_models import RestrictedParamKind as RestrictedParamKind
 from flowrep.edge_models import Edges as Edges
 from flowrep.edge_models import InputEdges as InputEdges
 from flowrep.edge_models import InputSource as InputSource
+from flowrep.edge_models import OutputEdges as OutputEdges
 from flowrep.edge_models import OutputTarget as OutputTarget
 from flowrep.edge_models import SourceHandle as SourceHandle
 from flowrep.edge_models import TargetHandle as TargetHandle
