@@ -45,7 +45,7 @@ pwd = [
     "python-workflow-definition==0.1.4",
 ]
 notebooks = [
-    "numpy==2.4.3",
+    "numpy==2.4.4",
 ]
 storage = [
     "bagofholding==0.1.11",
