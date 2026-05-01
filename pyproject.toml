@@ -23,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "pydantic==2.12.5",
+    "pydantic==2.13.3",
     "pyiron_snippets==1.2.1",
 ]
 dynamic = [ "version",]
