@@ -48,7 +48,7 @@ notebooks = [
     "numpy==2.4.3",
 ]
 storage = [
-    "bagofholding==0.1.10",
+    "bagofholding==0.1.11",
 ]
 storage-widget = [
     "flowrep[storage]",
