@@ -40,3 +40,4 @@ from flowrep.nodes.union import Nodes as Nodes
 from flowrep.nodes.union import NodeType as NodeType
 from flowrep.nodes.while_model import WhileNode as WhileNode
 from flowrep.nodes.workflow_model import WorkflowNode as WorkflowNode
+from flowrep.subgraph_validation import ProspectiveOutputEdges as ProspectiveOutputEdges
