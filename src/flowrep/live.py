@@ -82,10 +82,12 @@ class LiveNode(abc.ABC):
     output_ports: MutableMapping[base_models.Label, OutputPort]
 
 
-def recipe2live(recipe: union.NodeType) -> LiveNode:
+def recipe2live(recipe: union.NodeType, allow_variadic_inputs: bool = True) -> LiveNode:
     match recipe:
         case atomic_model.AtomicNode():
-            return LiveAtomic.from_recipe(recipe)
+            return LiveAtomic.from_recipe(
+                recipe, allow_variadic_inputs=allow_variadic_inputs
+            )
         case for_model.ForEachNode():
             return FlowControl.from_recipe(recipe)
         case if_model.IfNode():
@@ -95,7 +97,9 @@ def recipe2live(recipe: union.NodeType) -> LiveNode:
         case while_model.WhileNode():
             return FlowControl.from_recipe(recipe)
         case workflow_model.WorkflowNode():
-            return LiveWorkflow.from_recipe(recipe)
+            return LiveWorkflow.from_recipe(
+                recipe, allow_variadic_inputs=allow_variadic_inputs
+            )
         case _:
             raise TypeError(f"Unrecognized recipe type {recipe}")
 
@@ -105,12 +109,15 @@ class LiveAtomic(LiveNode):
     function: Callable
 
     @classmethod
-    def from_recipe(cls, recipe: atomic_model.AtomicNode) -> LiveAtomic:
+    def from_recipe(
+        cls, recipe: atomic_model.AtomicNode, allow_variadic_inputs: bool = True
+    ) -> LiveAtomic:
         function, input_ports, output_ports = _parse_function(
             recipe.reference.info.fully_qualified_name,
             recipe.inputs,
             recipe.outputs,
             recipe.unpack_mode,
+            allow_variadic_inputs=allow_variadic_inputs,
         )
         return LiveAtomic(
             recipe=recipe,
@@ -131,17 +138,23 @@ class Composite(LiveNode, abc.ABC):
 @dataclasses.dataclass(frozen=False)
 class LiveWorkflow(Composite):
     @classmethod
-    def from_recipe(cls, recipe: workflow_model.WorkflowNode) -> LiveWorkflow:
+    def from_recipe(
+        cls, recipe: workflow_model.WorkflowNode, allow_variadic_inputs: bool = True
+    ) -> LiveWorkflow:
         if recipe.reference:
             function, input_ports, output_ports = _parse_function(
                 recipe.reference.info.fully_qualified_name,
                 recipe.inputs,
                 recipe.outputs,
+                allow_variadic_inputs=allow_variadic_inputs,
             )
         else:
             input_ports = {label: InputPort() for label in recipe.inputs}
             output_ports = {label: OutputPort() for label in recipe.outputs}
-        nodes = {label: recipe2live(child) for label, child in recipe.nodes.items()}
+        nodes = {
+            label: recipe2live(child, allow_variadic_inputs=allow_variadic_inputs)
+            for label, child in recipe.nodes.items()
+        }
         return LiveWorkflow(
             recipe=recipe,
             input_ports=dict(input_ports),
@@ -189,6 +202,7 @@ def _parse_function(
     inputs: list[str],
     outputs: list[str],
     unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
+    allow_variadic_inputs: bool = True,
 ) -> tuple[
     types.FunctionType,
     dict[base_models.Label, InputPort],
@@ -198,22 +212,39 @@ def _parse_function(
     hints = get_type_hints(function, include_extras=True)
     sig = inspect.signature(function)
 
+    variadics_in_sig = {
+        name
+        for name, p in sig.parameters.items()
+        if p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+    }
+    accept_extra_inputs = allow_variadic_inputs and bool(variadics_in_sig)
+
     # --- input ports ---
+    if colliding := variadics_in_sig.intersection(inputs):
+        raise ValueError(
+            f"Recipe inputs {colliding} collide with variadic parameter(s) of "
+            f"{fully_qualified_name!r}; variadic parameter names cannot be used as "
+            f"port names."
+        )
+
     available = set(sig.parameters)
     missing = set(inputs) - available
-    if missing:
+    if missing and not accept_extra_inputs:
         raise ValueError(
             f"Requested inputs {missing} not found in signature of {fully_qualified_name!r}"
         )
 
     input_ports: dict[str, InputPort] = {}
     for name in inputs:
-        param = sig.parameters[name]
+        param = sig.parameters.get(name)
         input_port = InputPort()
-        input_port.annotation = hints.get(name, None)
-        input_port.default = (
-            param.default if param.default is not inspect.Parameter.empty else NOT_DATA
-        )
+        if param is not None:
+            input_port.annotation = hints.get(name, None)
+            input_port.default = (
+                param.default
+                if param.default is not inspect.Parameter.empty
+                else NOT_DATA
+            )
         input_ports[name] = input_port
 
     # --- output ports ---
