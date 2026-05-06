@@ -7,7 +7,7 @@ from typing import get_origin
 
 from pyiron_snippets import versions
 
-from flowrep import edge_models, live, wfms
+from flowrep import base_models, edge_models, live, wfms
 from flowrep.live import NOT_DATA
 from flowrep.nodes import (
     atomic_model,
@@ -441,6 +441,30 @@ def unsplittable_output(x: int, y: int) -> list[int]:
     return [x, y]
 
 
+def variadic_args(*items: str):
+    """N→1 with positional variadic."""
+    return tuple(items)
+
+
+def variadic_kwargs(**items):
+    """N→1 with keyword variadic."""
+    return dict(items)
+
+
+def variadic_mixed(x: int = 0, *extras):
+    """Concrete + variadic."""
+    return (x, *extras)
+
+
+def _variadic_recipe(func, inputs, outputs=("result",)):
+    return atomic_model.AtomicNode(
+        reference=base_models.PythonReference(info=versions.VersionInfo.of(func)),
+        inputs=list(inputs),
+        outputs=list(outputs),
+        unpack_mode=atomic_model.UnpackMode.NONE,
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # live.py tests
 # ═══════════════════════════════════════════════════════════════════════════
@@ -657,6 +681,118 @@ class TestRecipe2Live(unittest.TestCase):
     def test_clean_type_failure(self):
         with self.assertRaisesRegex(TypeError, "Unrecognized recipe type"):
             live.recipe2live("this is not even a recipe")
+
+
+class TestAtomicFromRecipeVariadic(unittest.TestCase):
+    """Coverage for `_parse_function`'s `allow_variadic_inputs` path."""
+
+    def test_var_positional_extras_accepted(self):
+        recipe = _variadic_recipe(variadic_args, inputs=["a", "b", "c"])
+        node = live.LiveAtomic.from_recipe(recipe)
+        self.assertEqual(set(node.input_ports), {"a", "b", "c"})
+
+    def test_var_keyword_extras_accepted(self):
+        recipe = _variadic_recipe(variadic_kwargs, inputs=["foo", "bar"])
+        node = live.LiveAtomic.from_recipe(recipe)
+        self.assertEqual(set(node.input_ports), {"foo", "bar"})
+
+    def test_extras_have_no_annotation_or_default(self):
+        recipe = _variadic_recipe(variadic_args, inputs=["a"])
+        node = live.LiveAtomic.from_recipe(recipe)
+        self.assertIsNone(node.input_ports["a"].annotation)
+        self.assertIs(node.input_ports["a"].default, NOT_DATA)
+
+    def test_concrete_param_keeps_metadata(self):
+        recipe = _variadic_recipe(variadic_mixed, inputs=["x", "extra1", "extra2"])
+        node = live.LiveAtomic.from_recipe(recipe)
+        self.assertIs(node.input_ports["x"].annotation, int)
+        self.assertEqual(node.input_ports["x"].default, 0)
+        for extra in ("extra1", "extra2"):
+            with self.subTest(extra=extra):
+                self.assertIsNone(node.input_ports[extra].annotation)
+                self.assertIs(node.input_ports[extra].default, NOT_DATA)
+
+    def test_default_flag_is_lenient(self):
+        recipe = _variadic_recipe(variadic_args, inputs=["a", "b"])
+        node = live.LiveAtomic.from_recipe(recipe)  # no flag → True
+        self.assertEqual(set(node.input_ports), {"a", "b"})
+
+    def test_disallow_with_variadic_in_sig_raises(self):
+        recipe = _variadic_recipe(variadic_args, inputs=["a", "b"])
+        with self.assertRaises(ValueError) as ctx:
+            live.LiveAtomic.from_recipe(recipe, allow_variadic_inputs=False)
+        self.assertIn("not found in signature", str(ctx.exception))
+
+    def test_disallow_with_only_concrete_inputs_is_fine(self):
+        """Flag=False is fine as long as no inputs are missing from the sig."""
+        recipe = _variadic_recipe(variadic_mixed, inputs=["x"])
+        node = live.LiveAtomic.from_recipe(recipe, allow_variadic_inputs=False)
+        self.assertIs(node.input_ports["x"].annotation, int)
+        self.assertEqual(node.input_ports["x"].default, 0)
+
+    def test_extras_without_variadic_always_raise(self):
+        """`library.identity` has no variadic absorber; extras must fail."""
+        recipe = atomic_model.AtomicNode(
+            inputs=["x", "extra"],
+            outputs=["x"],
+            reference=library.identity.flowrep_recipe.reference,
+        )
+        with self.assertRaises(ValueError) as ctx:
+            live.LiveAtomic.from_recipe(recipe, allow_variadic_inputs=True)
+        self.assertIn("not found in signature", str(ctx.exception))
+
+    def test_no_inputs_against_variadic(self):
+        recipe = _variadic_recipe(variadic_args, inputs=[])
+        node = live.LiveAtomic.from_recipe(recipe)
+        self.assertEqual(set(node.input_ports), set())
+
+    # --- collision tests; require the variadic-name collision check ----------
+
+    def test_input_collides_with_var_positional_raises(self):
+        recipe = _variadic_recipe(variadic_args, inputs=["items"])  # *items
+        with self.assertRaises(ValueError) as ctx:
+            live.LiveAtomic.from_recipe(recipe)
+        self.assertIn("collide", str(ctx.exception).lower())
+        self.assertIn("items", str(ctx.exception))
+
+    def test_input_collides_with_var_keyword_raises(self):
+        recipe = _variadic_recipe(variadic_kwargs, inputs=["items"])  # **items
+        with self.assertRaises(ValueError) as ctx:
+            live.LiveAtomic.from_recipe(recipe)
+        self.assertIn("collide", str(ctx.exception).lower())
+
+    def test_collision_check_independent_of_flag(self):
+        recipe = _variadic_recipe(variadic_args, inputs=["items"])
+        with self.assertRaises(ValueError):
+            live.LiveAtomic.from_recipe(recipe, allow_variadic_inputs=False)
+
+
+class TestRecipe2LiveVariadicPropagation(unittest.TestCase):
+    """`allow_variadic_inputs` propagates through `recipe2live` into children."""
+
+    def test_propagates_to_atomic(self):
+        recipe = _variadic_recipe(variadic_args, inputs=["a", "b"])
+        with self.assertRaises(ValueError):
+            live.recipe2live(recipe, allow_variadic_inputs=False)
+        node = live.recipe2live(recipe)
+        self.assertIsInstance(node, live.LiveAtomic)
+
+    def test_propagates_into_workflow_children(self):
+        child_recipe = _variadic_recipe(variadic_args, inputs=["a", "b"])
+        wf_recipe = _single_node_workflow(
+            inputs=["x", "y"],
+            outputs=["result"],
+            child_label="splitter_0",
+            child_recipe=child_recipe,
+            input_map={"a": "x", "b": "y"},
+            output_map={"result": "result"},
+        )
+        with self.assertRaises(ValueError):
+            live.recipe2live(wf_recipe, allow_variadic_inputs=False)
+
+        wf = live.recipe2live(wf_recipe, allow_variadic_inputs=True)
+        self.assertIsInstance(wf, live.LiveWorkflow)
+        self.assertIsInstance(wf.nodes["splitter_0"], live.LiveAtomic)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
