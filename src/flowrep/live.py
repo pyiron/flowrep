@@ -205,35 +205,19 @@ class FlowControl(Composite, Generic[RecipeType]):
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveForEach(FlowControl[for_model.ForEachNode]):
-
-    @classmethod
-    def _recipe_type(cls) -> type[for_model.ForEachNode]:
-        return for_model.ForEachNode
+class LiveForEach(FlowControl[for_model.ForEachNode]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveIf(FlowControl[if_model.IfNode]):
-
-    @classmethod
-    def _recipe_type(cls) -> type[if_model.IfNode]:
-        return if_model.IfNode
+class LiveIf(FlowControl[if_model.IfNode]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveTry(FlowControl[try_model.TryNode]):
-
-    @classmethod
-    def _recipe_type(cls) -> type[try_model.TryNode]:
-        return try_model.TryNode
+class LiveTry(FlowControl[try_model.TryNode]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveWhile(FlowControl[while_model.WhileNode]):
-
-    @classmethod
-    def _recipe_type(cls) -> type[while_model.WhileNode]:
-        return while_model.WhileNode
+class LiveWhile(FlowControl[while_model.WhileNode]): ...
 
 
 def _parse_function(
