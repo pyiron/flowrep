@@ -23,11 +23,13 @@ from flowrep.live import NOT_DATA as NOT_DATA
 from flowrep.live import Composite as Composite
 from flowrep.live import FlowControl as FlowControl
 from flowrep.live import InputPort as InputPort
+from flowrep.live import InputPorts as InputPorts
 from flowrep.live import LiveAtomic as LiveAtomic
 from flowrep.live import LiveNode as LiveNode
 from flowrep.live import LiveWorkflow as LiveWorkflow
 from flowrep.live import NotData as NotData
 from flowrep.live import OutputPort as OutputPort
+from flowrep.live import OutputPorts as OutputPorts
 from flowrep.nodes.atomic_model import AtomicNode as AtomicNode
 from flowrep.nodes.atomic_model import UnpackMode as UnpackMode
 from flowrep.nodes.for_model import ForEachNode as ForEachNode

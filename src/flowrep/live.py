@@ -75,11 +75,15 @@ class InputPort(_Port):
 class OutputPort(_Port): ...
 
 
+InputPorts = MutableMapping[base_models.Label, InputPort]
+OutputPorts = MutableMapping[base_models.Label, OutputPort]
+
+
 @dataclasses.dataclass(frozen=False)
 class LiveNode(abc.ABC):
     recipe: union.NodeType
-    input_ports: MutableMapping[base_models.Label, InputPort]
-    output_ports: MutableMapping[base_models.Label, OutputPort]
+    input_ports: InputPorts
+    output_ports: OutputPorts
 
 
 def recipe2live(recipe: union.NodeType, allow_variadic_inputs: bool = True) -> LiveNode:
