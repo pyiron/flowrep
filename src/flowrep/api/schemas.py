@@ -10,7 +10,6 @@ from flowrep.base_models import RESERVED_NAMES as RESERVED_NAMES
 from flowrep.base_models import Label as Label
 from flowrep.base_models import Labels as Labels
 from flowrep.base_models import NodeModel as NodeModel
-from flowrep.base_models import NodeType as NodeType
 from flowrep.base_models import PythonReference as PythonReference
 from flowrep.base_models import RecipeElementType as RecipeElementType
 from flowrep.base_models import RestrictedParamKind as RestrictedParamKind

@@ -17,7 +17,7 @@ import dataclasses
 import inspect
 import types
 from collections.abc import Callable, MutableMapping
-from typing import Any, Generic, Self, get_args, get_origin, get_type_hints
+from typing import Any, Generic, Self, TypeVar, get_args, get_origin, get_type_hints
 
 from pyiron_snippets import retrieve, singleton
 
@@ -78,16 +78,18 @@ class OutputPort(_Port): ...
 InputPorts = MutableMapping[base_models.Label, InputPort]
 OutputPorts = MutableMapping[base_models.Label, OutputPort]
 
+NodeType = TypeVar("NodeType", bound=base_models.NodeModel)
+
 
 @dataclasses.dataclass(frozen=False)
-class LiveNode(Generic[base_models.NodeType], abc.ABC):
-    recipe: base_models.NodeType
+class LiveNode(Generic[NodeType], abc.ABC):
+    recipe: NodeType
     input_ports: InputPorts
     output_ports: OutputPorts
 
     @classmethod
     @abc.abstractmethod
-    def from_recipe(cls, recipe: base_models.NodeType) -> Self: ...
+    def from_recipe(cls, recipe: NodeType) -> Self: ...
 
 
 def recipe2live(
@@ -138,7 +140,7 @@ class LiveAtomic(LiveNode[atomic_model.AtomicNode]):
 
 
 @dataclasses.dataclass(frozen=False)
-class Composite(LiveNode, Generic[base_models.NodeType], abc.ABC):
+class Composite(LiveNode, Generic[NodeType], abc.ABC):
     nodes: MutableMapping[base_models.Label, LiveNode]
     input_edges: edge_models.InputEdges
     edges: edge_models.Edges
@@ -181,12 +183,12 @@ class LiveWorkflow(Composite[workflow_model.WorkflowNode]):
 
 
 @dataclasses.dataclass(frozen=False)
-class FlowControl(Composite, Generic[base_models.NodeType]):
+class FlowControl(Composite, Generic[NodeType]):
 
     @classmethod
     def from_recipe(
         cls,
-        recipe: base_models.NodeType,
+        recipe: NodeType,
     ) -> Self:
         """
         Flow control nodes are composite with dynamic bodies; WfMS must populate the

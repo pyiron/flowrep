@@ -112,9 +112,6 @@ class NodeModel(pydantic.BaseModel):
         )
 
 
-NodeType = TypeVar("NodeType", bound=NodeModel)
-
-
 class RestrictedParamKind(StrEnum):
     """
     Parameter kinds that impose restrictions on how an input can be passed.
