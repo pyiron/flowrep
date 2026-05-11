@@ -13,7 +13,7 @@ from flowrep.nodes import (
 )
 
 # Discriminated Union
-NodeType = Annotated[
+NodeDiscrimination = Annotated[
     atomic_model.AtomicNode
     | for_model.ForEachNode
     | if_model.IfNode
@@ -23,4 +23,4 @@ NodeType = Annotated[
     pydantic.Field(discriminator="type"),
 ]
 
-Nodes = dict[base_models.Label, NodeType]
+Nodes = dict[base_models.Label, NodeDiscrimination]

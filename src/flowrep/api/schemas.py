@@ -42,8 +42,8 @@ from flowrep.nodes.helper_models import ExceptionCase as ExceptionCase
 from flowrep.nodes.helper_models import LabeledNode as LabeledNode
 from flowrep.nodes.if_model import IfNode as IfNode
 from flowrep.nodes.try_model import TryNode as TryNode
+from flowrep.nodes.union import NodeDiscrimination as NodeDiscrimination
 from flowrep.nodes.union import Nodes as Nodes
-from flowrep.nodes.union import NodeType as NodeType
 from flowrep.nodes.while_model import WhileNode as WhileNode
 from flowrep.nodes.workflow_model import WorkflowNode as WorkflowNode
 from flowrep.subgraph_validation import ProspectiveOutputEdges as ProspectiveOutputEdges

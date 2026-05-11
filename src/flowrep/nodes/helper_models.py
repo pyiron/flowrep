@@ -8,7 +8,7 @@ from pyiron_snippets import versions
 from flowrep import base_models
 
 if TYPE_CHECKING:
-    from flowrep.nodes.union import NodeType  # Satisfies mypy
+    from flowrep.nodes.union import NodeDiscrimination  # Satisfies mypy
 
     # Still not enough to satisfy ruff, which doesn't understand the string forward
     # reference, even with the TYPE_CHECKING import
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 class LabeledNode(pydantic.BaseModel):
     label: base_models.Label
-    node: "NodeType"  # noqa: F821, UP037
+    node: "NodeDiscrimination"  # noqa: F821, UP037
 
 
 class ConditionalCase(pydantic.BaseModel):

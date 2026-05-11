@@ -93,7 +93,9 @@ class LiveNode(Generic[RecipeType], abc.ABC):
     def from_recipe(cls, recipe: RecipeType) -> Self: ...
 
 
-def recipe2live(recipe: union.NodeType, allow_variadic_inputs: bool = True) -> LiveNode:
+def recipe2live(
+    recipe: union.NodeDiscrimination, allow_variadic_inputs: bool = True
+) -> LiveNode:
     match recipe:
         case atomic_model.AtomicNode():
             return LiveAtomic.from_recipe(
