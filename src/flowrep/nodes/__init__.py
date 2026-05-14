@@ -11,7 +11,7 @@ from flowrep.nodes import (
     while_model,
     workflow_model,
 )
-from flowrep.nodes.union import Nodes, NodeType
+from flowrep.nodes.union import NodeDiscrimination, Nodes
 
 # Subtlety: Anywhere we use `typing.TYPE_CHECKING` to avoid a real import _and_ use
 # the guarded object as a pydantic field annotator, we are going to need to make sure

@@ -251,7 +251,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
 
     def test_discriminator_resolves_correct_type(self):
         """Each node type is correctly identified via 'type' discriminator."""
-        adapter = pydantic.TypeAdapter(union.NodeType)
+        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
         for type_enum, data, expected_class in self.test_cases:
             with self.subTest(type=type_enum.value):
                 node = adapter.validate_python(data)
@@ -260,7 +260,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
 
     def test_roundtrip_through_union(self):
         """Serialize then deserialize through the union type."""
-        adapter = pydantic.TypeAdapter(union.NodeType)
+        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
         for type_enum, data, expected_class in self.test_cases:
             with self.subTest(type=type_enum.value):
                 node = adapter.validate_python(data)
@@ -271,7 +271,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
 
     def test_json_schema_includes_all_types(self):
         """Union schema should reference all node types."""
-        adapter = pydantic.TypeAdapter(union.NodeType)
+        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
         schema = adapter.json_schema()
         # Discriminated unions use anyOf or oneOf
         self.assertTrue(
@@ -286,13 +286,17 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
             "inputs": ["a", "b"],
             "outputs": ["c"],
         }
-        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
+        node = pydantic.TypeAdapter(union.NodeDiscrimination).validate_python(data)
         self.assertIsInstance(node, atomic_model.AtomicNode)
         self.assertEqual(node.reference.inputs_with_defaults, ["b"])
 
         # Full roundtrip
-        dumped = pydantic.TypeAdapter(union.NodeType).dump_python(node, mode="json")
-        restored = pydantic.TypeAdapter(union.NodeType).validate_python(dumped)
+        dumped = pydantic.TypeAdapter(union.NodeDiscrimination).dump_python(
+            node, mode="json"
+        )
+        restored = pydantic.TypeAdapter(union.NodeDiscrimination).validate_python(
+            dumped
+        )
         self.assertEqual(restored.reference.inputs_with_defaults, ["b"])
 
     def test_workflow_roundtrip_preserves_defaults(self):
@@ -306,7 +310,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
             "edges": {},
             "output_edges": {},
         }
-        node = pydantic.TypeAdapter(union.NodeType).validate_python(data)
+        node = pydantic.TypeAdapter(union.NodeDiscrimination).validate_python(data)
         self.assertIsInstance(node, workflow_model.WorkflowNode)
         self.assertEqual(node.reference.inputs_with_defaults, ["x"])
 
@@ -315,7 +319,7 @@ class TestDiscriminatorValidation(unittest.TestCase):
     """Tests for discriminator error handling."""
 
     def test_unknown_type_rejected(self):
-        adapter = pydantic.TypeAdapter(union.NodeType)
+        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             adapter.validate_python(
                 {
@@ -328,7 +332,7 @@ class TestDiscriminatorValidation(unittest.TestCase):
         self.assertIn("type", exc_str.lower())
 
     def test_missing_type_rejected(self):
-        adapter = pydantic.TypeAdapter(union.NodeType)
+        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
         with self.assertRaises(pydantic.ValidationError):
             adapter.validate_python(
                 {
@@ -340,7 +344,7 @@ class TestDiscriminatorValidation(unittest.TestCase):
 
     def test_type_mismatch_with_fields_rejected(self):
         """Type says 'atomic' but fields are for workflow."""
-        adapter = pydantic.TypeAdapter(union.NodeType)
+        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
         with self.assertRaises(pydantic.ValidationError):
             adapter.validate_python(
                 {
@@ -483,7 +487,7 @@ class TestNestedUnionResolution(unittest.TestCase):
             "edges": {},
             "output_edges": {"results": "for_node.out"},
         }
-        adapter = pydantic.TypeAdapter(union.NodeType)
+        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
         wf = adapter.validate_python(data)
         self.assertIsInstance(wf, workflow_model.WorkflowNode)
         self.assertIsInstance(wf.nodes["for_node"], for_model.ForEachNode)
@@ -517,7 +521,7 @@ class TestNestedUnionResolution(unittest.TestCase):
             "edges": {},
             "output_edges": {"out": "middle.b"},
         }
-        adapter = pydantic.TypeAdapter(union.NodeType)
+        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
         wf = adapter.validate_python(outer)
         self.assertIsInstance(wf.nodes["middle"], workflow_model.WorkflowNode)
         self.assertIsInstance(wf.nodes["middle"].nodes["leaf"], atomic_model.AtomicNode)

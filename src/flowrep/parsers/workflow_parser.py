@@ -282,12 +282,16 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                 f"{type(rhs)}"
             )
 
-    def _digest_flow_control(self, label_prefix: str, node: union.NodeType) -> None:
+    def _digest_flow_control(
+        self, label_prefix: str, node: union.NodeDiscrimination
+    ) -> None:
         label = label_helpers.unique_suffix(label_prefix, self.nodes)
         self.nodes[label] = node
         self._connect_node_to_enclosing_scope(label, node)
 
-    def _connect_node_to_enclosing_scope(self, label: str, node: union.NodeType):
+    def _connect_node_to_enclosing_scope(
+        self, label: str, node: union.NodeDiscrimination
+    ):
         for port in node.inputs:
             self.symbol_map.consume(port, label, port)
 

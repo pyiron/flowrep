@@ -78,22 +78,23 @@ class OutputPort(_Port): ...
 InputPorts = MutableMapping[base_models.Label, InputPort]
 OutputPorts = MutableMapping[base_models.Label, OutputPort]
 
-
-RecipeType = TypeVar("RecipeType", bound=base_models.NodeModel)
+NodeType = TypeVar("NodeType", bound=base_models.NodeModel)
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveNode(Generic[RecipeType], abc.ABC):
-    recipe: RecipeType
+class LiveNode(Generic[NodeType], abc.ABC):
+    recipe: NodeType
     input_ports: InputPorts
     output_ports: OutputPorts
 
     @classmethod
     @abc.abstractmethod
-    def from_recipe(cls, recipe: RecipeType) -> Self: ...
+    def from_recipe(cls, recipe: NodeType) -> Self: ...
 
 
-def recipe2live(recipe: union.NodeType, allow_variadic_inputs: bool = True) -> LiveNode:
+def recipe2live(
+    recipe: union.NodeDiscrimination, allow_variadic_inputs: bool = True
+) -> LiveNode:
     match recipe:
         case atomic_model.AtomicNode():
             return LiveAtomic.from_recipe(
@@ -139,7 +140,7 @@ class LiveAtomic(LiveNode[atomic_model.AtomicNode]):
 
 
 @dataclasses.dataclass(frozen=False)
-class Composite(LiveNode, Generic[RecipeType], abc.ABC):
+class Composite(LiveNode, Generic[NodeType], abc.ABC):
     nodes: MutableMapping[base_models.Label, LiveNode]
     input_edges: edge_models.InputEdges
     edges: edge_models.Edges
@@ -182,12 +183,12 @@ class LiveWorkflow(Composite[workflow_model.WorkflowNode]):
 
 
 @dataclasses.dataclass(frozen=False)
-class FlowControl(Composite, Generic[RecipeType]):
+class FlowControl(Composite, Generic[NodeType]):
 
     @classmethod
     def from_recipe(
         cls,
-        recipe: RecipeType,
+        recipe: NodeType,
     ) -> Self:
         """
         Flow control nodes are composite with dynamic bodies; WfMS must populate the

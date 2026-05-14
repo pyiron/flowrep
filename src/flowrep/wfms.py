@@ -30,7 +30,7 @@ from flowrep.nodes import (
 from flowrep.parsers import label_helpers
 
 
-def run_recipe(recipe: union.NodeType, **kwargs: Any) -> live.LiveNode:
+def run_recipe(recipe: union.NodeDiscrimination, **kwargs: Any) -> live.LiveNode:
     """
     Execute a flowrep recipe, returning a populated :class:`LiveNode`.
 
