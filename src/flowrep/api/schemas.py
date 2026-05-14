@@ -25,7 +25,11 @@ from flowrep.live import FlowControl as FlowControl
 from flowrep.live import InputPort as InputPort
 from flowrep.live import InputPorts as InputPorts
 from flowrep.live import LiveAtomic as LiveAtomic
+from flowrep.live import LiveForEach as LiveForEach
+from flowrep.live import LiveIf as LiveIf
 from flowrep.live import LiveNode as LiveNode
+from flowrep.live import LiveTry as LiveTry
+from flowrep.live import LiveWhile as LiveWhile
 from flowrep.live import LiveWorkflow as LiveWorkflow
 from flowrep.live import NotData as NotData
 from flowrep.live import OutputPort as OutputPort
