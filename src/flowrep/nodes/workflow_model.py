@@ -93,3 +93,15 @@ class WorkflowNode(base_models.NodeModel):
             )
         func = retrieve.import_from_string(self.reference.info.fully_qualified_name)
         return func(*args, **kwargs)
+
+    @pydantic.model_validator(mode="after")
+    def validate_child_input_single_source(self):
+        if two_sources := tuple(
+            target for target in self.input_edges if target in self.edges
+        ):
+            raise ValueError(
+                "Child input may have a parent source or a peer source, but not both. "
+                "Dual sourced input: "
+                f"{tuple(target.serialize() for target in two_sources)}"
+            )
+        return self

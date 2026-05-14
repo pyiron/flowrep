@@ -320,6 +320,34 @@ class TestWorkflowNodeInternalEdges(unittest.TestCase):
         self.assertIn("wrong", str(ctx.exception))
 
 
+class TestWorkflowNodeChildrenOversourced(unittest.TestCase):
+    def test_too_many_sources(self):
+        with self.assertRaises(pydantic.ValidationError) as ctx:
+            workflow_model.WorkflowNode(
+                inputs=["x"],
+                outputs=[],
+                nodes={
+                    "a": makers.make_atomic(inputs=["inp"], outputs=["out"]),
+                    "b": makers.make_atomic(inputs=["inp"], outputs=["out"]),
+                },
+                input_edges={
+                    edge_models.TargetHandle(
+                        node="a", port="inp"
+                    ): edge_models.InputSource(port="x"),
+                    edge_models.TargetHandle(
+                        node="b", port="inp"
+                    ): edge_models.InputSource(port="x"),
+                },
+                edges={
+                    edge_models.TargetHandle(
+                        node="b", port="inp"
+                    ): edge_models.SourceHandle(node="a", port="out"),
+                },
+                output_edges={},
+            )
+        self.assertIn("'b.inp'", str(ctx.exception))
+
+
 class TestWorkflowNodeFullySourcing(unittest.TestCase):
     """Tests that validate_internal_data_completeness catches unsourced child inputs."""
 
