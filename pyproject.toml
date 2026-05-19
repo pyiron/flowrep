@@ -42,7 +42,7 @@ Repository = "https://github.com/pyiron/flowrep"
 
 [project.optional-dependencies]
 pwd = [
-    "python-workflow-definition==0.1.4",
+    "python-workflow-definition==0.1.5",
 ]
 notebooks = [
     "numpy==2.4.3",
