@@ -14,10 +14,11 @@
 ## flowrep — Workflow Recipes from Python
 
 **flowrep** turns plain Python functions into shareable, versionable *workflow
-recipes* — JSON-serialisable graphs that describe *what* to compute (which
+recipes* — JSON-serialisable "class view" graphs that describe *what* to compute (which
 functions, how they connect) without doing the computation or holding any data.
 Recipes are prospective blueprints that a Workflow Management System (WfMS) can
-digest, visualise, and execute.
+digest, visualise, and execute. To support this, **flowrep** also provides a set of 
+retrospective, "instance view" data classes for WfMS to populate when executing recipes.
 
 Flowchart-style representations are already the lingua franca for describing
 processes in science and engineering. flowrep gives you a way to author them in
@@ -147,6 +148,9 @@ control structures you use in real code. Flow control nodes are inherently
 dynamic: their exact execution path depends on data and cannot be known until
 run-time, but their IO signature is always fully known a priori.
 
+**Clear separation.** Of prospective, "class view" recipes, and retrospective, 
+"instance view" data objects.
+
 ### Example: flow control and nesting
 
 So far we've seen `"workflow"` nodes, and alluded to `"atomic"` nodes.
@@ -245,7 +249,7 @@ the decorated functions are still just python functions; second, to show in the 
 section that the recipe we parse from this are intended to give the same result as 
 these underlying functions when we run the recipe with a WfMS.
 
-## Beyond Recipes: Live Data and Execution
+## Beyond Recipes: Retrospective "Instance View" Data and Execution
 
 Recipes are *prospective* — they describe a computation template without holding
 data. For retrospective analysis (inspecting what actually happened during a
