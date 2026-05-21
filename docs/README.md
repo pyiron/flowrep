@@ -256,18 +256,18 @@ run), flowrep provides two additional layers accessible through the API:
 
 ```
 
-**`flowrep.api.tools.recipe2data`** converts a recipe into a *live* object — a mutable
-data structure whose input and output ports can hold actual Python values. Live
-objects mirror the recipe graph but trade JSON-serializability for the ability to
-carry arbitrary data:
+**`flowrep.api.tools.recipe2data`** converts a recipe from the prospective "class view"
+to the retrospective "instance view" — a mutable data structure whose input and output 
+ports can hold actual Python values. Retrospective data objects mirror the recipe graph
+but trade JSON-serializability for the ability to carry arbitrary data:
 
 ```python
->> > live_wf = frt.recipe2data(double_and_add.flowrep_recipe)
+>>> wf_data = frt.recipe2data(double_and_add.flowrep_recipe)
 
 ```
 
 **`flowrep.api.tools.run_recipe`** goes one step further: it executes the recipe with
-the provided inputs and returns a fully populated live object. This is powered
+the provided inputs and returns a fully populated data object. This is powered
 by a minimal, built-in WfMS intended as a reference implementation and for use
 in tests and documentation (like this!):
 
@@ -280,8 +280,8 @@ in tests and documentation (like this!):
 
 ```
 
-Because every child node's ports are populated too, the live graph gives you
-full data provenance — you can walk the tree and inspect exactly what each node
+Because every child node's ports are populated too, the retrospective data graph gives 
+you full data provenance — you can walk the tree and inspect exactly what each node
 received and produced.
 For flow control nodes, which are _prospectively_ "black boxes", we find that 
 _retrospectively_ they are simple DAGs.
@@ -298,14 +298,13 @@ each loop iteration:
 ```
 
 For a deeper look at all available node types, edge semantics, version
-provenance, and the live/WfMS layer, see the
+provenance, and the retropective data/WfMS layer, see the
 [user guide](https://mybinder.org/v2/gh/pyiron/flowrep/HEAD?urlpath=%2Fdoc%2Ftree%2Fuser-guide.ipynb).
 
 
 ## Documentation
 
-- The user guide notebook comprehensively covers all node types, edge models, flow control, versioning, 
-  live/retrospective data formats, a demo WfMS implementation, and recipe format converters. 
+- The user guide notebook comprehensively covers all node types, edge models, flow control, versioning, retrospective data formats, a demo WfMS implementation, and recipe format converters. 
   Launch it interactively on
   [mybinder](https://mybinder.org/v2/gh/pyiron/flowrep/HEAD?urlpath=%2Fdoc%2Ftree%2Fuser-guide.ipynb).
 - [readthedocs](https://flowrep.readthedocs.io/en/latest/)

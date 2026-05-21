@@ -103,8 +103,9 @@ def _validate_object_metadata(bag: H5Bag):
     object_info = bag["object"]
     if object_info.qualname != retrospective.DagData.__qualname__:
         raise TypeError(
-            f"Can only load saved live workflows ({retrospective.DagData.__qualname__!r} "
-            f"type), but got {object_info.qualname!r}"
+            "Can only load saved workflow data "
+            f"({retrospective.DagData.__qualname__!r} type), but got "
+            f"{object_info.qualname!r}"
         )
 
 
@@ -171,12 +172,12 @@ def load_from_bag(
     path.
 
     Args:
-        bag (H5Bag): The bag containing the saved live node.
+        bag (H5Bag): The bag containing the saved node data.
         lexical_path (str): The dot-separated path of node names, IO references, and/or
             port names.
 
     Returns:
-        A live node or live IO port
+        A retrospective data node or IO data port
     """
     storage_path = "object/"
     step = ""

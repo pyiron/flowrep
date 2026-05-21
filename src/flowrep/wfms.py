@@ -74,7 +74,7 @@ def _call_atomic(node: retrospective.AtomicData) -> Any:
     """
     Invoke the underlying function, respecting positional-only parameter kinds.
 
-    Values are drawn from the live input ports; if a port has no value, its
+    Values are drawn from the input data ports; if a port has no value, its
     default is used.  A :class:`ValueError` is raised when neither is available.
     """
     recipe = node.recipe

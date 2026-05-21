@@ -17,7 +17,8 @@ Use decorators (`@atomic` and `@workflow`) to attach a recipe as a `.flowrep_rec
 attribute onto a function at definition time, and parsers (`parse_atomic`,
 `parse_workflow`) to return a recipe from an existing function object.
 
-Use `run_recipe` to convert recipes into live objects with output data.
+Use `run_recipe` to convert recipes into retrospective instance objects with output
+data.
 """
 
 from flowrep.converters.python_workflow_definition import flowrep2pwd as flowrep2pwd

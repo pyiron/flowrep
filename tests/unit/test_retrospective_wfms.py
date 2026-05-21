@@ -1,4 +1,4 @@
-"""Tests for the live data model and the minimal WfMS."""
+"""Tests for the retrospective data model and the minimal WfMS."""
 
 import dataclasses
 import pickle
