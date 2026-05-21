@@ -59,11 +59,11 @@ class LexicalBagBrowser:
     def load(
         self, path: str
     ) -> (
-        retrospective.LiveAtomic
-        | retrospective.LiveWorkflow
-        | retrospective.FlowControl
-        | retrospective.InputPort
-        | retrospective.OutputPort
+        retrospective.AtomicData
+        | retrospective.DagData
+        | retrospective.FlowControlData
+        | retrospective.InputDataPort
+        | retrospective.OutputDataPort
     ):
         """Load a node or IO port using its lexical path."""
         return load_from_bag(self.bag, path)
@@ -101,9 +101,9 @@ def _validate_bag_metadata(bag: H5Bag):
 
 def _validate_object_metadata(bag: H5Bag):
     object_info = bag["object"]
-    if object_info.qualname != retrospective.LiveWorkflow.__qualname__:
+    if object_info.qualname != retrospective.DagData.__qualname__:
         raise TypeError(
-            f"Can only load saved live workflows ({retrospective.LiveWorkflow.__qualname__!r} "
+            f"Can only load saved live workflows ({retrospective.DagData.__qualname__!r} "
             f"type), but got {object_info.qualname!r}"
         )
 
@@ -160,11 +160,11 @@ def _path_to_nodes(path: str) -> str:
 def load_from_bag(
     bag: H5Bag, lexical_path: str
 ) -> (
-    retrospective.LiveAtomic
-    | retrospective.LiveWorkflow
-    | retrospective.FlowControl
-    | retrospective.InputPort
-    | retrospective.OutputPort
+    retrospective.AtomicData
+    | retrospective.DagData
+    | retrospective.FlowControlData
+    | retrospective.InputDataPort
+    | retrospective.OutputDataPort
 ):
     """
     Load data from a :cls:`LiveNode` stored in a *bagofholding* by using its lexical
@@ -201,11 +201,11 @@ def load_from_bag(
         )
 
     expected_types = (
-        retrospective.LiveAtomic,
-        retrospective.LiveWorkflow,
-        retrospective.FlowControl,
-        retrospective.InputPort,
-        retrospective.OutputPort,
+        retrospective.AtomicData,
+        retrospective.DagData,
+        retrospective.FlowControlData,
+        retrospective.InputDataPort,
+        retrospective.OutputDataPort,
     )
     if not isinstance(obj, expected_types):
         raise TypeError(

@@ -22,7 +22,7 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _save_workflow(path: str, **kwargs: object) -> retrospective.LiveWorkflow:
+def _save_workflow(path: str, **kwargs: object) -> retrospective.DagData:
     recipe = library.simple_workflow.flowrep_recipe
     live_wf = wfms.run_recipe(recipe, **kwargs)
     boh.H5Bag.save(live_wf, path)
@@ -166,7 +166,7 @@ class TestLoadSelected(_WidgetTestCase):
         """Manually set the selected path, then load."""
         self.tree.selected_lexical_path = "add_0"
         obj = self.tree.load_selected()
-        self.assertIsInstance(obj, retrospective.LiveAtomic)
+        self.assertIsInstance(obj, retrospective.AtomicData)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
