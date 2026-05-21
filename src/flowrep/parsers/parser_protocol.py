@@ -6,7 +6,7 @@ from typing import Protocol, runtime_checkable
 from pyiron_snippets import versions
 
 from flowrep import edge_models
-from flowrep.nodes import union, workflow_model
+from flowrep.nodes import union, workflow_recipe
 from flowrep.parsers import object_scope, symbol_scope
 
 
@@ -34,7 +34,7 @@ class BodyWalker(Protocol):
     @property
     def outputs(self) -> list[str]: ...
 
-    def build_model(self) -> workflow_model.WorkflowRecipe: ...
+    def build_model(self) -> workflow_recipe.WorkflowRecipe: ...
 
     def fork(
         self,

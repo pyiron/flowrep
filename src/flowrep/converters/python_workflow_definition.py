@@ -13,7 +13,7 @@ from typing import Any
 from pyiron_snippets import import_alarm, versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import atomic_model, workflow_model
+from flowrep.nodes import atomic_recipe, workflow_recipe
 from flowrep.parsers import label_helpers
 
 with import_alarm.ImportAlarm(
@@ -66,7 +66,7 @@ def _desanitize_port(port: str) -> str:
 @_import_alarm
 def pwd2flowrep(
     wf: pwd.PythonWorkflowDefinitionWorkflow,
-) -> tuple[workflow_model.WorkflowRecipe, dict[str, pwd.AllowableDefaults]]:
+) -> tuple[workflow_recipe.WorkflowRecipe, dict[str, pwd.AllowableDefaults]]:
     """
     Convert a *python-workflow-definition* workflow to flowrep.
 
@@ -101,7 +101,7 @@ def pwd2flowrep(
         label_map,
     )
 
-    result = workflow_model.WorkflowRecipe(
+    result = workflow_recipe.WorkflowRecipe(
         inputs=wf_inputs,
         outputs=wf_outputs,
         nodes=nodes,
@@ -114,7 +114,7 @@ def pwd2flowrep(
 
 @_import_alarm
 def flowrep2pwd(
-    wf: workflow_model.WorkflowRecipe,
+    wf: workflow_recipe.WorkflowRecipe,
     **terminal_inputs: pwd.AllowableDefaults,
 ) -> pwd.PythonWorkflowDefinitionWorkflow:
     """
@@ -176,7 +176,7 @@ def flowrep2pwd(
         nid = id_counter.next()
         func_node_ids[label] = nid
         # Guaranteed by _validate_flat_workflow
-        assert isinstance(node, atomic_model.AtomicRecipe)
+        assert isinstance(node, atomic_recipe.AtomicRecipe)
         pwd_nodes.append(
             pwd.PythonWorkflowDefinitionFunctionNode(
                 id=nid,
@@ -280,9 +280,9 @@ def _build_atomic_nodes(
     label_map: dict[int, str],
     node_inputs: dict[int, list[str]],
     node_outputs: dict[int, list[str]],
-) -> dict[str, atomic_model.AtomicRecipe]:
+) -> dict[str, atomic_recipe.AtomicRecipe]:
     """Build flowrep :class:`AtomicRecipe` instances from PWD function nodes."""
-    nodes: dict[str, atomic_model.AtomicRecipe] = {}
+    nodes: dict[str, atomic_recipe.AtomicRecipe] = {}
     for node_id in sorted(function_nodes):
         fn_node = function_nodes[node_id]
         label = label_map[node_id]
@@ -295,7 +295,7 @@ def _build_atomic_nodes(
         # This rsplit is at least consistent with the assumptions made in the PWD
         # ecosystem:
         # https://github.com/pythonworkflow/python-workflow-definition/blob/a372769e190176fe49e71740ad899937df0eeb94/src/python_workflow_definition/purepython.py#L80-L82
-        nodes[label] = atomic_model.AtomicRecipe(
+        nodes[label] = atomic_recipe.AtomicRecipe(
             reference=base_models.PythonReference(
                 info=versions.VersionInfo(
                     module=module,
@@ -375,10 +375,10 @@ class _IdCounter:
         return nid
 
 
-def _validate_flat_workflow(wf: workflow_model.WorkflowRecipe) -> None:
+def _validate_flat_workflow(wf: workflow_recipe.WorkflowRecipe) -> None:
     """Raise :class:`ValueError` if any child is not an :class:`AtomicRecipe`."""
     for label, node in wf.nodes.items():
-        if not isinstance(node, atomic_model.AtomicRecipe):
+        if not isinstance(node, atomic_recipe.AtomicRecipe):
             raise ValueError(
                 f"flowrep2pwd requires all children to be AtomicRecipe, but "
                 f"'{label}' is {type(node).__name__}."
@@ -386,7 +386,7 @@ def _validate_flat_workflow(wf: workflow_model.WorkflowRecipe) -> None:
 
 
 def _validate_terminal_inputs(
-    wf: workflow_model.WorkflowRecipe,
+    wf: workflow_recipe.WorkflowRecipe,
     terminal_inputs: dict[str, Any],
 ) -> None:
     """Raise :class:`ValueError` if *terminal_inputs* != workflow inputs."""
@@ -419,7 +419,7 @@ def _flowrep_port_to_pwd_source_port(port: str) -> str | None:
 
 
 def _build_pwd_edges(
-    wf: workflow_model.WorkflowRecipe,
+    wf: workflow_recipe.WorkflowRecipe,
     input_node_ids: dict[str, int],
     output_node_ids: dict[str, int],
     func_node_ids: dict[str, int],

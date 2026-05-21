@@ -15,8 +15,8 @@ import pydantic
 from flowrep import edge_models
 from flowrep.converters import python_workflow_definition as pwd_conv
 from flowrep.nodes import (
-    atomic_model,
-    workflow_model,
+    atomic_recipe,
+    workflow_recipe,
 )
 from flowrep.parsers import workflow_parser
 
@@ -123,8 +123,8 @@ def _assert_pwd_structurally_equal(
 
 def _assert_flowrep_roundtrip_equal(
     tc: unittest.TestCase,
-    wf_orig: workflow_model.WorkflowRecipe,
-    wf_rt: workflow_model.WorkflowRecipe,
+    wf_orig: workflow_recipe.WorkflowRecipe,
+    wf_rt: workflow_recipe.WorkflowRecipe,
     terminal_inputs: dict[str, pwd_models.AllowableDefaults],
     defaults_rt: dict[str, pwd_models.AllowableDefaults],
 ) -> None:
@@ -233,7 +233,7 @@ class TestPwd2FlowrepArithmetic(unittest.TestCase):
 
     def test_all_atomic(self):
         for node in self.wf.nodes.values():
-            self.assertIsInstance(node, atomic_model.AtomicRecipe)
+            self.assertIsInstance(node, atomic_recipe.AtomicRecipe)
 
     def test_multi_output_node(self):
         """get_prod_and_div should have two named outputs."""
@@ -445,8 +445,8 @@ class TestPwd2FlowrepErrorCases(unittest.TestCase):
 class TestFlowrep2PwdValidation(unittest.TestCase):
     """Edge-case validation in pwd.flowrep2pwd."""
 
-    def _make_flat_workflow(self) -> workflow_model.WorkflowRecipe:
-        return workflow_model.WorkflowRecipe(
+    def _make_flat_workflow(self) -> workflow_recipe.WorkflowRecipe:
+        return workflow_recipe.WorkflowRecipe(
             inputs=["x", "y"],
             outputs=["z"],
             nodes={
@@ -488,7 +488,7 @@ class TestFlowrep2PwdValidation(unittest.TestCase):
         self.assertIn("spurious", str(ctx.exception))
 
     def test_non_atomic_child_raises(self):
-        inner = workflow_model.WorkflowRecipe(
+        inner = workflow_recipe.WorkflowRecipe(
             inputs=["a"],
             outputs=["b"],
             nodes={"leaf": makers.make_atomic(inputs=["x"], outputs=["y"])},
@@ -504,7 +504,7 @@ class TestFlowrep2PwdValidation(unittest.TestCase):
                 ),
             },
         )
-        outer = workflow_model.WorkflowRecipe(
+        outer = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["z"],
             nodes={"nested": inner},
@@ -562,7 +562,7 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
 
     def _assert_roundtrip(
         self,
-        wf: workflow_model.WorkflowRecipe,
+        wf: workflow_recipe.WorkflowRecipe,
         terminal_inputs: dict[str, pwd_models.AllowableDefaults],
     ) -> None:
         pwd_wf = pwd_conv.flowrep2pwd(wf, **terminal_inputs)
@@ -787,7 +787,7 @@ class TestPassThroughEdge(unittest.TestCase):
     """A workflow input wired directly to a workflow output, bypassing all nodes."""
 
     def test_flowrep_to_pwd_roundtrip(self):
-        wf = workflow_model.WorkflowRecipe(
+        wf = workflow_recipe.WorkflowRecipe(
             inputs=["x", "passthrough"],
             outputs=["z", "echoed"],
             nodes={
@@ -822,7 +822,7 @@ class TestPassThroughEdge(unittest.TestCase):
 
     def test_pwd_passthrough_structure(self):
         """The pwd representation should have a direct input→output edge."""
-        wf = workflow_model.WorkflowRecipe(
+        wf = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["x_out"],
             nodes={},

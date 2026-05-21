@@ -18,14 +18,14 @@ from pyiron_snippets import retrieve
 
 from flowrep import base_models, edge_models, live
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
+    atomic_recipe,
+    for_recipe,
     helper_models,
-    if_model,
-    try_model,
+    if_recipe,
+    try_recipe,
     union,
-    while_model,
-    workflow_model,
+    while_recipe,
+    workflow_recipe,
 )
 from flowrep.parsers import label_helpers
 
@@ -37,17 +37,17 @@ def run_recipe(recipe: union.RecipeDiscrimination, **kwargs: Any) -> live.LiveNo
     All inputs are passed as keyword arguments matching the recipe's input port names.
     """
     match recipe:
-        case atomic_model.AtomicRecipe():
+        case atomic_recipe.AtomicRecipe():
             return _run_atomic(recipe, **kwargs)
-        case workflow_model.WorkflowRecipe():
+        case workflow_recipe.WorkflowRecipe():
             return _run_workflow(recipe, **kwargs)
-        case for_model.ForEachRecipe():
+        case for_recipe.ForEachRecipe():
             return _run_for(recipe, **kwargs)
-        case if_model.IfRecipe():
+        case if_recipe.IfRecipe():
             return _run_if(recipe, **kwargs)
-        case try_model.TryRecipe():
+        case try_recipe.TryRecipe():
             return _run_try(recipe, **kwargs)
-        case while_model.WhileRecipe():
+        case while_recipe.WhileRecipe():
             return _run_while(recipe, **kwargs)
         case _:
             raise TypeError(f"Unsupported recipe type: {type(recipe).__name__}")
@@ -58,7 +58,7 @@ def run_recipe(recipe: union.RecipeDiscrimination, **kwargs: Any) -> live.LiveNo
 # ---------------------------------------------------------------------------
 
 
-def _run_atomic(recipe: atomic_model.AtomicRecipe, **kwargs: Any) -> live.LiveAtomic:
+def _run_atomic(recipe: atomic_recipe.AtomicRecipe, **kwargs: Any) -> live.LiveAtomic:
     node = live.LiveAtomic.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
     result = _call_atomic(node)
@@ -74,7 +74,7 @@ def _call_atomic(node: live.LiveAtomic) -> Any:
     default is used.  A :class:`ValueError` is raised when neither is available.
     """
     recipe = node.recipe
-    assert isinstance(recipe, atomic_model.AtomicRecipe)
+    assert isinstance(recipe, atomic_recipe.AtomicRecipe)
 
     positional: list[Any] = []
     keyword: dict[str, Any] = {}
@@ -96,20 +96,20 @@ def _call_atomic(node: live.LiveAtomic) -> Any:
 
 def _store_atomic_outputs(node: live.LiveAtomic, result: Any) -> None:
     recipe = node.recipe
-    assert isinstance(recipe, atomic_model.AtomicRecipe)
+    assert isinstance(recipe, atomic_recipe.AtomicRecipe)
     output_names = list(node.output_ports.keys())
 
-    if recipe.unpack_mode == atomic_model.UnpackMode.NONE:
+    if recipe.unpack_mode == atomic_recipe.UnpackMode.NONE:
         node.output_ports[output_names[0]].value = result
 
-    elif recipe.unpack_mode == atomic_model.UnpackMode.TUPLE:
+    elif recipe.unpack_mode == atomic_recipe.UnpackMode.TUPLE:
         if len(output_names) == 1:
             node.output_ports[output_names[0]].value = result
         else:
             for name, val in zip(output_names, result, strict=True):
                 node.output_ports[name].value = val
 
-    elif recipe.unpack_mode == atomic_model.UnpackMode.DATACLASS:
+    elif recipe.unpack_mode == atomic_recipe.UnpackMode.DATACLASS:
         fields = dataclasses.fields(result)
         for label, field in zip(node.recipe.outputs, fields, strict=True):
             node.output_ports[label].value = getattr(result, field.name)
@@ -121,7 +121,7 @@ def _store_atomic_outputs(node: live.LiveAtomic, result: Any) -> None:
 
 
 def _run_workflow(
-    recipe: workflow_model.WorkflowRecipe, **kwargs: Any
+    recipe: workflow_recipe.WorkflowRecipe, **kwargs: Any
 ) -> live.LiveWorkflow:
     node = live.LiveWorkflow.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
@@ -136,7 +136,7 @@ def _run_workflow(
     return node
 
 
-def _topo_sort_children(recipe: workflow_model.WorkflowRecipe) -> list[str]:
+def _topo_sort_children(recipe: workflow_recipe.WorkflowRecipe) -> list[str]:
     """Kahn's algorithm over sibling edges; deterministic tie-breaking by label."""
     in_degree: dict[str, int] = {label: 0 for label in recipe.nodes}
     successors: dict[str, list[str]] = {label: [] for label in recipe.nodes}
@@ -167,7 +167,7 @@ def _topo_sort_children(recipe: workflow_model.WorkflowRecipe) -> list[str]:
 
 def _gather_child_inputs(
     child_label: str,
-    recipe: workflow_model.WorkflowRecipe,
+    recipe: workflow_recipe.WorkflowRecipe,
     workflow_node: live.LiveWorkflow,
 ) -> dict[str, Any]:
     """
@@ -196,7 +196,7 @@ def _gather_child_inputs(
 
 
 def _populate_workflow_outputs(
-    node: live.LiveWorkflow, recipe: workflow_model.WorkflowRecipe
+    node: live.LiveWorkflow, recipe: workflow_recipe.WorkflowRecipe
 ) -> None:
     for target, source in recipe.output_edges.items():
         if isinstance(source, edge_models.InputSource):
@@ -212,7 +212,7 @@ def _populate_workflow_outputs(
 # ---------------------------------------------------------------------------
 
 
-def _run_for(recipe: for_model.ForEachRecipe, **kwargs: Any) -> live.FlowControl:
+def _run_for(recipe: for_recipe.ForEachRecipe, **kwargs: Any) -> live.FlowControl:
     """
     Execute a for-node by scattering iterated inputs across body instances and
     collecting outputs into lists.
@@ -301,7 +301,7 @@ def _run_for(recipe: for_model.ForEachRecipe, **kwargs: Any) -> live.FlowControl
 # ---------------------------------------------------------------------------
 
 
-def _run_while(recipe: while_model.WhileRecipe, **kwargs: Any) -> live.FlowControl:
+def _run_while(recipe: while_recipe.WhileRecipe, **kwargs: Any) -> live.FlowControl:
     """
     Execute a while-node by repeatedly evaluating a condition and running a body.
 
@@ -358,7 +358,7 @@ def _run_while(recipe: while_model.WhileRecipe, **kwargs: Any) -> live.FlowContr
 # ---------------------------------------------------------------------------
 
 
-def _run_if(recipe: if_model.IfRecipe, **kwargs: Any) -> live.FlowControl:
+def _run_if(recipe: if_recipe.IfRecipe, **kwargs: Any) -> live.FlowControl:
     """
     Execute an if-node by walking cases until a condition evaluates positively,
     then executing the matching body (or the else case).
@@ -389,7 +389,7 @@ def _run_if(recipe: if_model.IfRecipe, **kwargs: Any) -> live.FlowControl:
 
 def _execute_if_branch(
     node: live.FlowControl,
-    recipe: if_model.IfRecipe,
+    recipe: if_recipe.IfRecipe,
     branch: helper_models.LabeledRecipe,
 ) -> None:
     branch_kwargs = _gather_dynamic_child_inputs(branch.label, recipe.input_edges, node)
@@ -404,7 +404,7 @@ def _execute_if_branch(
 # ---------------------------------------------------------------------------
 
 
-def _run_try(recipe: try_model.TryRecipe, **kwargs: Any) -> live.FlowControl:
+def _run_try(recipe: try_recipe.TryRecipe, **kwargs: Any) -> live.FlowControl:
     """
     Execute a try-node: run the try body and, on exception, walk exception cases
     for a matching handler.  If no handler matches, the exception propagates.

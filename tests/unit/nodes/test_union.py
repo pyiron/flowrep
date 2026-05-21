@@ -7,13 +7,13 @@ from pyiron_snippets import versions
 
 from flowrep import base_models
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
-    if_model,
-    try_model,
+    atomic_recipe,
+    for_recipe,
+    if_recipe,
+    try_recipe,
     union,
-    while_model,
-    workflow_model,
+    while_recipe,
+    workflow_recipe,
 )
 
 from flowrep_static import makers
@@ -49,7 +49,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "inputs": ["x"],
                     "outputs": ["y"],
                 },
-                atomic_model.AtomicRecipe,
+                atomic_recipe.AtomicRecipe,
             ),
             (
                 base_models.RecipeElementType.WORKFLOW,
@@ -62,7 +62,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "edges": {},
                     "output_edges": {},
                 },
-                workflow_model.WorkflowRecipe,
+                workflow_recipe.WorkflowRecipe,
             ),
             (
                 base_models.RecipeElementType.FOR_EACH,
@@ -85,7 +85,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "zipped_ports": [],
                     "transfer_edges": {},
                 },
-                for_model.ForEachRecipe,
+                for_recipe.ForEachRecipe,
             ),
             (
                 base_models.RecipeElementType.WHILE,
@@ -118,7 +118,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "body_body_edges": {},
                     "body_condition_edges": {},
                 },
-                while_model.WhileRecipe,
+                while_recipe.WhileRecipe,
             ),
             (  # Without else clause
                 base_models.RecipeElementType.IF,
@@ -158,7 +158,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "prospective_output_edges": {"out": ["body_0.y"]},
                     "else_case": None,
                 },
-                if_model.IfRecipe,
+                if_recipe.IfRecipe,
             ),
             (  # With else clause
                 base_models.RecipeElementType.IF,
@@ -207,7 +207,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                         },
                     },
                 },
-                if_model.IfRecipe,
+                if_recipe.IfRecipe,
             ),
             (
                 base_models.RecipeElementType.TRY,
@@ -245,7 +245,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "input_edges": {"try_body.x": "inp", "except_0.x": "inp"},
                     "prospective_output_edges": {"out": ["try_body.y", "except_0.y"]},
                 },
-                try_model.TryRecipe,
+                try_recipe.TryRecipe,
             ),
         ]
 
@@ -287,7 +287,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
             "outputs": ["c"],
         }
         node = pydantic.TypeAdapter(union.RecipeDiscrimination).validate_python(data)
-        self.assertIsInstance(node, atomic_model.AtomicRecipe)
+        self.assertIsInstance(node, atomic_recipe.AtomicRecipe)
         self.assertEqual(node.reference.inputs_with_defaults, ["b"])
 
         # Full roundtrip
@@ -311,7 +311,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
             "output_edges": {},
         }
         node = pydantic.TypeAdapter(union.RecipeDiscrimination).validate_python(data)
-        self.assertIsInstance(node, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(node, workflow_recipe.WorkflowRecipe)
         self.assertEqual(node.reference.inputs_with_defaults, ["x"])
 
 
@@ -381,8 +381,8 @@ class TestNodesTypeAlias(unittest.TestCase):
         adapter = pydantic.TypeAdapter(union.Recipes)
         nodes = adapter.validate_python(nodes_data)
         self.assertEqual(len(nodes), 2)
-        self.assertIsInstance(nodes["step1"], atomic_model.AtomicRecipe)
-        self.assertIsInstance(nodes["step2"], atomic_model.AtomicRecipe)
+        self.assertIsInstance(nodes["step1"], atomic_recipe.AtomicRecipe)
+        self.assertIsInstance(nodes["step2"], atomic_recipe.AtomicRecipe)
 
     def test_invalid_label_in_nodes_rejected(self):
         """Nodes dict keys must be valid Labels."""
@@ -444,8 +444,8 @@ class TestNodesTypeAlias(unittest.TestCase):
         }
         adapter = pydantic.TypeAdapter(union.Recipes)
         nodes = adapter.validate_python(nodes_data)
-        self.assertIsInstance(nodes["atomic_node"], atomic_model.AtomicRecipe)
-        self.assertIsInstance(nodes["workflow_node"], workflow_model.WorkflowRecipe)
+        self.assertIsInstance(nodes["atomic_node"], atomic_recipe.AtomicRecipe)
+        self.assertIsInstance(nodes["workflow_node"], workflow_recipe.WorkflowRecipe)
 
     def test_empty_nodes_dict(self):
         adapter = pydantic.TypeAdapter(union.Recipes)
@@ -489,10 +489,10 @@ class TestNestedUnionResolution(unittest.TestCase):
         }
         adapter = pydantic.TypeAdapter(union.RecipeDiscrimination)
         wf = adapter.validate_python(data)
-        self.assertIsInstance(wf, workflow_model.WorkflowRecipe)
-        self.assertIsInstance(wf.nodes["for_node"], for_model.ForEachRecipe)
+        self.assertIsInstance(wf, workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(wf.nodes["for_node"], for_recipe.ForEachRecipe)
         self.assertIsInstance(
-            wf.nodes["for_node"].body_node.node, atomic_model.AtomicRecipe
+            wf.nodes["for_node"].body_node.node, atomic_recipe.AtomicRecipe
         )
 
     def test_deeply_nested_workflows(self):
@@ -523,9 +523,9 @@ class TestNestedUnionResolution(unittest.TestCase):
         }
         adapter = pydantic.TypeAdapter(union.RecipeDiscrimination)
         wf = adapter.validate_python(outer)
-        self.assertIsInstance(wf.nodes["middle"], workflow_model.WorkflowRecipe)
+        self.assertIsInstance(wf.nodes["middle"], workflow_recipe.WorkflowRecipe)
         self.assertIsInstance(
-            wf.nodes["middle"].nodes["leaf"], atomic_model.AtomicRecipe
+            wf.nodes["middle"].nodes["leaf"], atomic_recipe.AtomicRecipe
         )
 
 

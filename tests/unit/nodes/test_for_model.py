@@ -4,10 +4,10 @@ import pydantic
 
 from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
+    atomic_recipe,
+    for_recipe,
     helper_models,
-    workflow_model,
+    workflow_recipe,
 )
 
 from flowrep_static import makers
@@ -16,11 +16,11 @@ from flowrep_static import makers
 class TestForEachRecipeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
-        for_model.ForEachRecipe.model_json_schema()
+        for_recipe.ForEachRecipe.model_json_schema()
 
     def test_obeys_build_subgraph_with_static_output(self):
         """ForEachRecipe should obey build subgraph with static output."""
-        node = for_model.ForEachRecipe(
+        node = for_recipe.ForEachRecipe(
             inputs=[],
             outputs=[],
             body_node=makers.make_labeled_atomic(
@@ -36,7 +36,7 @@ class TestForEachRecipeBasic(unittest.TestCase):
         self.assertIsInstance(node, subgraph_validation.DynamicSubgraphStaticOutput)
 
     def test_valid_for_node_with_nested_ports(self):
-        for_node = for_model.ForEachRecipe(
+        for_node = for_recipe.ForEachRecipe(
             inputs=["items"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -61,7 +61,7 @@ class TestForEachRecipeBasic(unittest.TestCase):
         self.assertEqual(for_node.zipped_ports, [])
 
     def test_valid_for_node_with_zipped_ports(self):
-        for_node = for_model.ForEachRecipe(
+        for_node = for_recipe.ForEachRecipe(
             inputs=["xs", "ys"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -88,7 +88,7 @@ class TestForEachRecipeBasic(unittest.TestCase):
         self.assertEqual(for_node.nested_ports, [])
 
     def test_valid_for_node_with_both_nested_and_zipped(self):
-        for_node = for_model.ForEachRecipe(
+        for_node = for_recipe.ForEachRecipe(
             inputs=["outer", "inner1", "inner2"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -119,7 +119,7 @@ class TestForEachRecipeBasic(unittest.TestCase):
         self.assertEqual(for_node.zipped_ports, ["b", "c"])
 
     def test_call_raises(self):
-        recipe = for_model.ForEachRecipe(
+        recipe = for_recipe.ForEachRecipe(
             inputs=["x"],
             outputs=[],
             body_node=makers.make_labeled_atomic(
@@ -139,7 +139,7 @@ class TestForEachRecipeBasic(unittest.TestCase):
 class TestForEachRecipeLoopPortValidation(unittest.TestCase):
     def test_no_iteration_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["x"],
                 outputs=["y"],
                 body_node=makers.make_labeled_atomic(
@@ -164,7 +164,7 @@ class TestForEachRecipeLoopPortValidation(unittest.TestCase):
 
     def test_duplicate_nested_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -188,7 +188,7 @@ class TestForEachRecipeLoopPortValidation(unittest.TestCase):
 
     def test_duplicate_zipped_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["xs"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -212,7 +212,7 @@ class TestForEachRecipeLoopPortValidation(unittest.TestCase):
 
     def test_overlapping_nested_and_zipped_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -238,7 +238,7 @@ class TestForEachRecipeLoopPortValidation(unittest.TestCase):
 
     def test_iteration_port_not_on_body_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -264,7 +264,7 @@ class TestForEachRecipeLoopPortValidation(unittest.TestCase):
 class TestForEachRecipeInputEdges(unittest.TestCase):
     def test_input_edge_wrong_target_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -288,7 +288,7 @@ class TestForEachRecipeInputEdges(unittest.TestCase):
 
     def test_input_edge_wrong_target_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -313,7 +313,7 @@ class TestForEachRecipeInputEdges(unittest.TestCase):
 
     def test_input_edge_invalid_source_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -342,7 +342,7 @@ class TestForEachRecipeFullySourcing(unittest.TestCase):
     def test_body_unsourced_no_default_raises(self):
         """Body input without edge or default → rejected."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["xs"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -366,7 +366,7 @@ class TestForEachRecipeFullySourcing(unittest.TestCase):
 
     def test_body_unsourced_with_default_passes(self):
         """Body input without edge but with default → accepted."""
-        node = for_model.ForEachRecipe(
+        node = for_recipe.ForEachRecipe(
             inputs=["xs"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -392,7 +392,7 @@ class TestForEachRecipeFullySourcing(unittest.TestCase):
     def test_body_mixed_sourcing_one_unsourced_raises(self):
         """Multiple body inputs: edged, defaulted, and unsourced → fails."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["xs"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -423,7 +423,7 @@ class TestForEachRecipeFullySourcing(unittest.TestCase):
 class TestForEachRecipeOutputEdges(unittest.TestCase):
     def test_output_edge_wrong_source_node_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -448,7 +448,7 @@ class TestForEachRecipeOutputEdges(unittest.TestCase):
 
     def test_output_edge_wrong_source_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -472,7 +472,7 @@ class TestForEachRecipeOutputEdges(unittest.TestCase):
 
     def test_output_edge_invalid_target_port_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -498,7 +498,7 @@ class TestForEachRecipeOutputEdges(unittest.TestCase):
 class TestForEachRecipeTransferEdges(unittest.TestCase):
     def test_valid_transfer_edge(self):
         """Transfer edges should forward iterated inputs to outputs."""
-        for_node = for_model.ForEachRecipe(
+        for_node = for_recipe.ForEachRecipe(
             inputs=["items", "broadcast"],
             outputs=["results", "original_items"],
             body_node=makers.make_labeled_atomic(
@@ -529,7 +529,7 @@ class TestForEachRecipeTransferEdges(unittest.TestCase):
     def test_transfer_source_not_in_inputs_rejected(self):
         """Transfer edge sources must be ForEachRecipe inputs."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results", "forwarded"],
                 body_node=makers.make_labeled_atomic(
@@ -558,7 +558,7 @@ class TestForEachRecipeTransferEdges(unittest.TestCase):
     def test_transfer_target_not_in_outputs_rejected(self):
         """Transfer edge targets must be ForEachRecipe outputs."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe(
+            for_recipe.ForEachRecipe(
                 inputs=["items"],
                 outputs=["results"],
                 body_node=makers.make_labeled_atomic(
@@ -587,7 +587,7 @@ class TestForEachRecipeTransferEdges(unittest.TestCase):
 
 class TestForEachRecipeSerialization(unittest.TestCase):
     def test_roundtrip(self):
-        original = for_model.ForEachRecipe(
+        original = for_recipe.ForEachRecipe(
             inputs=["items", "multiplier"],
             outputs=["results", "original_items"],
             body_node=makers.make_labeled_atomic(
@@ -616,7 +616,7 @@ class TestForEachRecipeSerialization(unittest.TestCase):
         for mode in ["python", "json"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = for_model.ForEachRecipe.model_validate(data)
+                restored = for_recipe.ForEachRecipe.model_validate(data)
 
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
@@ -629,7 +629,7 @@ class TestForEachRecipeSerialization(unittest.TestCase):
 
 class TestForEachRecipeComposition(unittest.TestCase):
     def test_workflow_body_node(self):
-        inner_workflow = workflow_model.WorkflowRecipe(
+        inner_workflow = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["y"],
             nodes={
@@ -651,7 +651,7 @@ class TestForEachRecipeComposition(unittest.TestCase):
             },
         )
 
-        for_node = for_model.ForEachRecipe(
+        for_node = for_recipe.ForEachRecipe(
             inputs=["items"],
             outputs=["results"],
             body_node=helper_models.LabeledRecipe(
@@ -670,10 +670,10 @@ class TestForEachRecipeComposition(unittest.TestCase):
             },
             nested_ports=["x"],
         )
-        self.assertIsInstance(for_node.body_node.node, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(for_node.body_node.node, workflow_recipe.WorkflowRecipe)
 
     def test_for_node_as_workflow_child(self):
-        for_node = for_model.ForEachRecipe(
+        for_node = for_recipe.ForEachRecipe(
             inputs=["items"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -694,7 +694,7 @@ class TestForEachRecipeComposition(unittest.TestCase):
             nested_ports=["item"],
         )
 
-        workflow = workflow_model.WorkflowRecipe(
+        workflow = workflow_recipe.WorkflowRecipe(
             inputs=["data"],
             outputs=["processed"],
             nodes={"for_node": for_node},
@@ -711,12 +711,12 @@ class TestForEachRecipeComposition(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["for_node"], for_model.ForEachRecipe)
+        self.assertIsInstance(workflow.nodes["for_node"], for_recipe.ForEachRecipe)
         self.assertEqual(workflow.inputs, ["data"])
         self.assertEqual(workflow.outputs, ["processed"])
 
     def test_for_node_chained_in_workflow(self):
-        for_node = for_model.ForEachRecipe(
+        for_node = for_recipe.ForEachRecipe(
             inputs=["items"],
             outputs=["results"],
             body_node=makers.make_labeled_atomic(
@@ -735,7 +735,7 @@ class TestForEachRecipeComposition(unittest.TestCase):
             nested_ports=["item"],
         )
 
-        workflow = workflow_model.WorkflowRecipe(
+        workflow = workflow_recipe.WorkflowRecipe(
             inputs=["raw_data"],
             outputs=["final"],
             nodes={
@@ -772,9 +772,9 @@ class TestForEachRecipeComposition(unittest.TestCase):
         )
 
         self.assertEqual(len(workflow.nodes), 3)
-        self.assertIsInstance(workflow.nodes["for_node"], for_model.ForEachRecipe)
-        self.assertIsInstance(workflow.nodes["preprocess"], atomic_model.AtomicRecipe)
-        self.assertIsInstance(workflow.nodes["postprocess"], atomic_model.AtomicRecipe)
+        self.assertIsInstance(workflow.nodes["for_node"], for_recipe.ForEachRecipe)
+        self.assertIsInstance(workflow.nodes["preprocess"], atomic_recipe.AtomicRecipe)
+        self.assertIsInstance(workflow.nodes["postprocess"], atomic_recipe.AtomicRecipe)
 
 
 class TestForEachRecipeOutputProperties(unittest.TestCase):
@@ -787,7 +787,7 @@ class TestForEachRecipeOutputProperties(unittest.TestCase):
 
     def test_body_outputs_appear_in_neither(self):
         """SourceHandle outputs are neither pass-through nor transferred."""
-        node = for_model.ForEachRecipe.model_validate(
+        node = for_recipe.ForEachRecipe.model_validate(
             {
                 "type": "for_each",
                 "inputs": ["xs"],
@@ -801,7 +801,7 @@ class TestForEachRecipeOutputProperties(unittest.TestCase):
         self.assertEqual(node.transferred_outputs, {})
 
     def test_transferred_from_nested_port(self):
-        node = for_model.ForEachRecipe.model_validate(
+        node = for_recipe.ForEachRecipe.model_validate(
             {
                 "type": "for_each",
                 "inputs": ["xs"],
@@ -820,7 +820,7 @@ class TestForEachRecipeOutputProperties(unittest.TestCase):
         self.assertIn(target, node.transferred_outputs)
 
     def test_transferred_from_zipped_port(self):
-        node = for_model.ForEachRecipe.model_validate(
+        node = for_recipe.ForEachRecipe.model_validate(
             {
                 "type": "for_each",
                 "inputs": ["xs", "ys"],
@@ -839,7 +839,7 @@ class TestForEachRecipeOutputProperties(unittest.TestCase):
 
     def test_pass_through_from_broadcast_input_raises(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            for_model.ForEachRecipe.model_validate(
+            for_recipe.ForEachRecipe.model_validate(
                 {
                     "type": "for_each",
                     "inputs": ["c", "xs"],
@@ -857,7 +857,7 @@ class TestForEachRecipeOutputProperties(unittest.TestCase):
 
     def test_no_input_source_outputs(self):
         """All outputs from body → both properties empty."""
-        node = for_model.ForEachRecipe.model_validate(
+        node = for_recipe.ForEachRecipe.model_validate(
             {
                 "type": "for_each",
                 "inputs": ["xs"],

@@ -3,13 +3,13 @@ from typing import cast
 import pydantic
 
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
+    atomic_recipe,
+    for_recipe,
     helper_models,
-    if_model,
-    try_model,
-    while_model,
-    workflow_model,
+    if_recipe,
+    try_recipe,
+    while_recipe,
+    workflow_recipe,
 )
 from flowrep.nodes.union import RecipeDiscrimination, Recipes
 
@@ -21,12 +21,12 @@ from flowrep.nodes.union import RecipeDiscrimination, Recipes
 # security that pydantic can find all the necessary types.
 
 for cls in [
-    atomic_model.AtomicRecipe,
-    for_model.ForEachRecipe,
+    atomic_recipe.AtomicRecipe,
+    for_recipe.ForEachRecipe,
     helper_models.LabeledRecipe,
-    if_model.IfRecipe,
-    try_model.TryRecipe,
-    while_model.WhileRecipe,
-    workflow_model.WorkflowRecipe,
+    if_recipe.IfRecipe,
+    try_recipe.TryRecipe,
+    while_recipe.WhileRecipe,
+    workflow_recipe.WorkflowRecipe,
 ]:
     cast(type[pydantic.BaseModel], cls).model_rebuild()

@@ -10,13 +10,13 @@ from pyiron_snippets import versions
 from flowrep import base_models, edge_models, live, wfms
 from flowrep.live import NOT_DATA
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
+    atomic_recipe,
+    for_recipe,
     helper_models,
-    if_model,
-    try_model,
-    while_model,
-    workflow_model,
+    if_recipe,
+    try_recipe,
+    while_recipe,
+    workflow_recipe,
 )
 from flowrep.parsers import atomic_parser, workflow_parser
 
@@ -31,17 +31,17 @@ def _single_node_workflow(
     inputs: list[str],
     outputs: list[str],
     child_label: str,
-    child_recipe: atomic_model.AtomicRecipe,
+    child_recipe: atomic_recipe.AtomicRecipe,
     input_map: dict[str, str],
     output_map: dict[str, str],
-) -> workflow_model.WorkflowRecipe:
+) -> workflow_recipe.WorkflowRecipe:
     """
     Convenience wrapper: one-atomic-child workflow.
 
     *input_map*: `{child_port: wf_input}`.
     *output_map*: `{wf_output: child_port}`.
     """
-    return workflow_model.WorkflowRecipe(
+    return workflow_recipe.WorkflowRecipe(
         inputs=inputs,
         outputs=outputs,
         nodes={child_label: child_recipe},
@@ -61,9 +61,9 @@ def _single_node_workflow(
     )
 
 
-def _linear_workflow() -> workflow_model.WorkflowRecipe:
+def _linear_workflow() -> workflow_recipe.WorkflowRecipe:
     """`add(x, y) -> mul(result, z) -> output`."""
-    return workflow_model.WorkflowRecipe(
+    return workflow_recipe.WorkflowRecipe(
         inputs=["x", "y", "z"],
         outputs=["result"],
         nodes={
@@ -107,9 +107,9 @@ def _diamond_workflow(a: int, b: int = 1) -> int:
     return result
 
 
-def _for_negate() -> for_model.ForEachRecipe:
+def _for_negate() -> for_recipe.ForEachRecipe:
     """For each `x` in `xs`, negate it; collect into `ys`."""
-    return for_model.ForEachRecipe(
+    return for_recipe.ForEachRecipe(
         inputs=["xs"],
         outputs=["ys"],
         body_node=helper_models.LabeledRecipe(
@@ -129,12 +129,12 @@ def _for_negate() -> for_model.ForEachRecipe:
     )
 
 
-def _for_add_broadcast() -> for_model.ForEachRecipe:
+def _for_add_broadcast() -> for_recipe.ForEachRecipe:
     """
     For each `x` in `xs`, compute `add(x, offset)` (offset is broadcast).
     Also transfers scattered `xs` elements to output `inputs_used`.
     """
-    return for_model.ForEachRecipe(
+    return for_recipe.ForEachRecipe(
         inputs=["xs", "offset"],
         outputs=["ys", "inputs_used"],
         body_node=helper_models.LabeledRecipe(
@@ -160,9 +160,9 @@ def _for_add_broadcast() -> for_model.ForEachRecipe:
     )
 
 
-def _for_add_zipped() -> for_model.ForEachRecipe:
+def _for_add_zipped() -> for_recipe.ForEachRecipe:
     """Zip `xs` and `ys` element-wise, compute `add(a, b)` for each pair."""
-    return for_model.ForEachRecipe(
+    return for_recipe.ForEachRecipe(
         inputs=["xs", "ys"],
         outputs=["sums"],
         body_node=helper_models.LabeledRecipe(
@@ -185,7 +185,7 @@ def _for_add_zipped() -> for_model.ForEachRecipe:
     )
 
 
-def _decrement_body_workflow() -> workflow_model.WorkflowRecipe:
+def _decrement_body_workflow() -> workflow_recipe.WorkflowRecipe:
     """`n -> decrement(n) -> n` — single-step body for while loops."""
     return _single_node_workflow(
         inputs=["n"],
@@ -197,9 +197,9 @@ def _decrement_body_workflow() -> workflow_model.WorkflowRecipe:
     )
 
 
-def _while_countdown() -> while_model.WhileRecipe:
+def _while_countdown() -> while_recipe.WhileRecipe:
     """Decrement `n` while `is_positive(n)`."""
-    return while_model.WhileRecipe(
+    return while_recipe.WhileRecipe(
         inputs=["n"],
         outputs=["n"],
         case=helper_models.ConditionalCase(
@@ -226,7 +226,7 @@ def _while_countdown() -> while_model.WhileRecipe:
     )
 
 
-def _identity_body_workflow() -> workflow_model.WorkflowRecipe:
+def _identity_body_workflow() -> workflow_recipe.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["x"],
         outputs=["y"],
@@ -237,7 +237,7 @@ def _identity_body_workflow() -> workflow_model.WorkflowRecipe:
     )
 
 
-def _negate_body_workflow() -> workflow_model.WorkflowRecipe:
+def _negate_body_workflow() -> workflow_recipe.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["x"],
         outputs=["y"],
@@ -248,9 +248,9 @@ def _negate_body_workflow() -> workflow_model.WorkflowRecipe:
     )
 
 
-def _if_abs() -> if_model.IfRecipe:
+def _if_abs() -> if_recipe.IfRecipe:
     """If `is_positive(x)` return `identity(x)` else `negate(x)`."""
-    return if_model.IfRecipe(
+    return if_recipe.IfRecipe(
         inputs=["x"],
         outputs=["y"],
         cases=[
@@ -295,12 +295,12 @@ def _value_and_flag(x: int) -> tuple[int, bool]:
     return x, x > 0
 
 
-def _if_abs_multi_output_condition() -> if_model.IfRecipe:
+def _if_abs_multi_output_condition() -> if_recipe.IfRecipe:
     """
     Like :func:`_if_abs` but the condition node returns two outputs (``value``,
     ``flag``) and the case explicitly selects ``flag`` via ``condition_output``.
     """
-    return if_model.IfRecipe(
+    return if_recipe.IfRecipe(
         inputs=["x"],
         outputs=["y"],
         cases=[
@@ -340,7 +340,7 @@ def _if_abs_multi_output_condition() -> if_model.IfRecipe:
     )
 
 
-def _divide_body_workflow() -> workflow_model.WorkflowRecipe:
+def _divide_body_workflow() -> workflow_recipe.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["a", "b"],
         outputs=["result"],
@@ -351,7 +351,7 @@ def _divide_body_workflow() -> workflow_model.WorkflowRecipe:
     )
 
 
-def _fallback_body_workflow() -> workflow_model.WorkflowRecipe:
+def _fallback_body_workflow() -> workflow_recipe.WorkflowRecipe:
     """Return `a` unchanged as `result`."""
     return _single_node_workflow(
         inputs=["a"],
@@ -363,9 +363,9 @@ def _fallback_body_workflow() -> workflow_model.WorkflowRecipe:
     )
 
 
-def _try_safe_divide() -> try_model.TryRecipe:
+def _try_safe_divide() -> try_recipe.TryRecipe:
     """Try `divide(a, b)`; on `ZeroDivisionError` return `identity(a)`."""
-    return try_model.TryRecipe(
+    return try_recipe.TryRecipe(
         inputs=["a", "b"],
         outputs=["result"],
         try_node=helper_models.LabeledRecipe(
@@ -457,11 +457,11 @@ def variadic_mixed(x: int = 0, *extras):
 
 
 def _variadic_recipe(func, inputs, outputs=("result",)):
-    return atomic_model.AtomicRecipe(
+    return atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(info=versions.VersionInfo.of(func)),
         inputs=list(inputs),
         outputs=list(outputs),
-        unpack_mode=atomic_model.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     )
 
 
@@ -539,11 +539,11 @@ class TestAtomicFromRecipe(unittest.TestCase):
         self.assertIsNone(node.output_ports["output_1"].annotation)
 
     def test_not_unpacking(self):
-        recipe = atomic_model.AtomicRecipe(
+        recipe = atomic_recipe.AtomicRecipe(
             inputs=["a", "b"],
             outputs=["result"],
             reference=library.divmod_func.flowrep_recipe.reference,
-            unpack_mode=atomic_model.UnpackMode.NONE,
+            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         node = live.LiveAtomic.from_recipe(recipe)
         origin = get_origin(node.output_ports["result"].annotation)
@@ -552,7 +552,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
     def test_unpacking_dataclass(self):
         recipe = atomic_parser.parse_atomic(
             takes_positional_only,
-            unpack_mode=atomic_model.UnpackMode.DATACLASS,
+            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
         )
         node = live.LiveAtomic.from_recipe(recipe)
         self.assertIs(node.output_ports["x"].annotation, int)
@@ -562,7 +562,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
         recipe = atomic_parser.parse_atomic(
             takes_positional_only,
             "dc",
-            unpack_mode=atomic_model.UnpackMode.NONE,
+            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         node = live.LiveAtomic.from_recipe(recipe)
         self.assertIs(node.output_ports["dc"].annotation, SumClass)
@@ -570,7 +570,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
     def test_input_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
             live.LiveAtomic.from_recipe(
-                atomic_model.AtomicRecipe(
+                atomic_recipe.AtomicRecipe(
                     inputs=["these", "are_not", "correct"],
                     outputs=["x"],
                     reference=library.identity.flowrep_recipe.reference,
@@ -581,7 +581,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
     def test_output_not_splittable_raises(self):
         with self.assertRaises(ValueError) as ctx:
             live.LiveAtomic.from_recipe(
-                atomic_model.AtomicRecipe(
+                atomic_recipe.AtomicRecipe(
                     inputs=["x"],
                     outputs=["x", "y"],
                     reference=unsplittable_output.flowrep_recipe.reference,
@@ -592,7 +592,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
     def test_output_hint_length_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
             live.LiveAtomic.from_recipe(
-                atomic_model.AtomicRecipe(
+                atomic_recipe.AtomicRecipe(
                     inputs=["a", "b"],
                     outputs=["x", "y", "z"],
                     reference=library.divmod_func.flowrep_recipe.reference,
@@ -603,7 +603,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
     def test_output_length_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
             live.LiveAtomic.from_recipe(
-                atomic_model.AtomicRecipe(
+                atomic_recipe.AtomicRecipe(
                     inputs=["a", "b"],
                     outputs=["quotient", "remainder", "extra"],
                     reference=library.divmod_func.flowrep_recipe.reference,
@@ -732,7 +732,7 @@ class TestAtomicFromRecipeVariadic(unittest.TestCase):
 
     def test_extras_without_variadic_always_raise(self):
         """`library.identity` has no variadic absorber; extras must fail."""
-        recipe = atomic_model.AtomicRecipe(
+        recipe = atomic_recipe.AtomicRecipe(
             inputs=["x", "extra"],
             outputs=["x"],
             reference=library.identity.flowrep_recipe.reference,
@@ -833,11 +833,11 @@ class TestRunAtomic(unittest.TestCase):
         self.assertEqual(node.input_ports["b"].value, 4)
 
     def test_not_unpacking(self):
-        recipe = atomic_model.AtomicRecipe(
+        recipe = atomic_recipe.AtomicRecipe(
             inputs=["a", "b"],
             outputs=["result"],
             reference=library.divmod_func.flowrep_recipe.reference,
-            unpack_mode=atomic_model.UnpackMode.NONE,
+            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         node = wfms.run_recipe(recipe, a=1, b=2)
         self.assertEqual(node.output_ports["result"].value, (0, 1))
@@ -847,7 +847,7 @@ class TestRunAtomic(unittest.TestCase):
             takes_positional_only,
             "dc_x_field",
             "dc_y_field",
-            unpack_mode=atomic_model.UnpackMode.DATACLASS,
+            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
         )
         node = wfms.run_recipe(recipe, x=1, y=2)
         self.assertEqual(node.output_ports["dc_x_field"].value, 1)
@@ -892,7 +892,7 @@ class TestRunWorkflow(unittest.TestCase):
 
     def test_child_defaults(self):
         """Atomic child with a default not wired by any edge still works."""
-        recipe = workflow_model.WorkflowRecipe(
+        recipe = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["result"],
             nodes={"inc_0": library.increment.flowrep_recipe},
@@ -927,7 +927,7 @@ class TestRunWorkflow(unittest.TestCase):
         Deterministic alphabetical ordering requires: a, b, c.
         A naive append-without-resort produces: a, c, b.
         """
-        recipe = workflow_model.WorkflowRecipe(
+        recipe = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["result"],
             nodes={

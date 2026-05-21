@@ -12,12 +12,12 @@ import unittest
 
 from flowrep import edge_models
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
-    if_model,
-    try_model,
-    while_model,
-    workflow_model,
+    atomic_recipe,
+    for_recipe,
+    if_recipe,
+    try_recipe,
+    while_recipe,
+    workflow_recipe,
 )
 from flowrep.parsers import atomic_parser, for_parser, workflow_parser
 
@@ -29,12 +29,12 @@ from flowrep_static import library
 # ---------------------------------------------------------------------------
 
 
-@atomic_parser.atomic(unpack_mode=atomic_model.UnpackMode.NONE)
+@atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.NONE)
 def pair(a, b):
     return a, b
 
 
-@atomic_parser.atomic(unpack_mode=atomic_model.UnpackMode.TUPLE)
+@atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.TUPLE)
 def split(a, b):
     return a, b
 
@@ -361,10 +361,10 @@ class TestForParserEdgeWiring(unittest.TestCase):
     # --- helpers ---
 
     @staticmethod
-    def _get_for_node(func) -> for_model.ForEachRecipe:
+    def _get_for_node(func) -> for_recipe.ForEachRecipe:
         wf = workflow_parser.parse_workflow(func)
         for_nodes = [
-            n for n in wf.nodes.values() if isinstance(n, for_model.ForEachRecipe)
+            n for n in wf.nodes.values() if isinstance(n, for_recipe.ForEachRecipe)
         ]
         assert len(for_nodes) == 1, f"Expected 1 ForEachRecipe, got {len(for_nodes)}"
         return for_nodes[0]
@@ -516,7 +516,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
 
 
 class TestForParserStructure(unittest.TestCase):
-    def _parse(self, func) -> workflow_model.WorkflowRecipe:
+    def _parse(self, func) -> workflow_recipe.WorkflowRecipe:
         return workflow_parser.parse_workflow(func)
 
     def test_for_node_registered_in_parent(self):
@@ -529,7 +529,7 @@ class TestForParserStructure(unittest.TestCase):
 
         node = self._parse(wf)
         self.assertIn("for_each_0", node.nodes)
-        self.assertIsInstance(node.nodes["for_each_0"], for_model.ForEachRecipe)
+        self.assertIsInstance(node.nodes["for_each_0"], for_recipe.ForEachRecipe)
 
     def test_body_node_label_is_body(self):
         def wf(xs):
@@ -551,7 +551,7 @@ class TestForParserStructure(unittest.TestCase):
             return results
 
         fn = self._parse(wf).nodes["for_each_0"]
-        self.assertIsInstance(fn.body_node.node, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(fn.body_node.node, workflow_recipe.WorkflowRecipe)
 
     def test_multiple_accumulators(self):
         def wf(xs):
@@ -612,9 +612,9 @@ class TestForParserStructure(unittest.TestCase):
 
         fn = self._parse(wf).nodes["for_each_0"]
         body = fn.body_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         self.assertIn("for_each_0", body.nodes)
-        self.assertIsInstance(body.nodes["for_each_0"], for_model.ForEachRecipe)
+        self.assertIsInstance(body.nodes["for_each_0"], for_recipe.ForEachRecipe)
 
     def test_accumulator_cleanup_allows_second_for(self):
         """After a for-node consumes accumulators, new ones can be defined."""
@@ -649,9 +649,9 @@ class TestForParserStructure(unittest.TestCase):
 
         fn = self._parse(wf).nodes["for_each_0"]
         body = fn.body_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         while_nodes = [
-            n for n in body.nodes.values() if isinstance(n, while_model.WhileRecipe)
+            n for n in body.nodes.values() if isinstance(n, while_recipe.WhileRecipe)
         ]
         self.assertEqual(len(while_nodes), 1)
         # The while-node's output feeds the accumulator
@@ -672,8 +672,8 @@ class TestForParserStructure(unittest.TestCase):
 
         fn = self._parse(wf).nodes["for_each_0"]
         body = fn.body_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
-        if_nodes = [n for n in body.nodes.values() if isinstance(n, if_model.IfRecipe)]
+        self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
+        if_nodes = [n for n in body.nodes.values() if isinstance(n, if_recipe.IfRecipe)]
         self.assertEqual(len(if_nodes), 1)
 
     def test_try_nested_inside_for_body(self):
@@ -691,9 +691,9 @@ class TestForParserStructure(unittest.TestCase):
 
         fn = self._parse(wf).nodes["for_each_0"]
         body = fn.body_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         try_nodes = [
-            n for n in body.nodes.values() if isinstance(n, try_model.TryRecipe)
+            n for n in body.nodes.values() if isinstance(n, try_recipe.TryRecipe)
         ]
         self.assertEqual(len(try_nodes), 1)
 
@@ -716,7 +716,7 @@ class TestForEachRecipeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = fn.model_dump(mode=mode)
-                restored = for_model.ForEachRecipe.model_validate(dumped)
+                restored = for_recipe.ForEachRecipe.model_validate(dumped)
                 self.assertEqual(fn, restored)
 
     def test_workflow_round_trip(self):
@@ -735,7 +735,7 @@ class TestForEachRecipeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = node.model_dump(mode=mode)
-                restored = workflow_model.WorkflowRecipe.model_validate(dumped)
+                restored = workflow_recipe.WorkflowRecipe.model_validate(dumped)
                 self.assertEqual(node, restored)
 
 

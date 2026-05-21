@@ -23,13 +23,13 @@ from pyiron_snippets import retrieve, singleton
 
 from flowrep import base_models, edge_models
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
-    if_model,
-    try_model,
+    atomic_recipe,
+    for_recipe,
+    if_recipe,
+    try_recipe,
     union,
-    while_model,
-    workflow_model,
+    while_recipe,
+    workflow_recipe,
 )
 
 
@@ -96,19 +96,19 @@ def recipe2live(
     recipe: union.RecipeDiscrimination, allow_variadic_inputs: bool = True
 ) -> LiveNode:
     match recipe:
-        case atomic_model.AtomicRecipe():
+        case atomic_recipe.AtomicRecipe():
             return LiveAtomic.from_recipe(
                 recipe, allow_variadic_inputs=allow_variadic_inputs
             )
-        case for_model.ForEachRecipe():
+        case for_recipe.ForEachRecipe():
             return LiveForEach.from_recipe(recipe)
-        case if_model.IfRecipe():
+        case if_recipe.IfRecipe():
             return LiveIf.from_recipe(recipe)
-        case try_model.TryRecipe():
+        case try_recipe.TryRecipe():
             return LiveTry.from_recipe(recipe)
-        case while_model.WhileRecipe():
+        case while_recipe.WhileRecipe():
             return LiveWhile.from_recipe(recipe)
-        case workflow_model.WorkflowRecipe():
+        case workflow_recipe.WorkflowRecipe():
             return LiveWorkflow.from_recipe(
                 recipe, allow_variadic_inputs=allow_variadic_inputs
             )
@@ -117,12 +117,12 @@ def recipe2live(
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveAtomic(LiveNode[atomic_model.AtomicRecipe]):
+class LiveAtomic(LiveNode[atomic_recipe.AtomicRecipe]):
     function: Callable
 
     @classmethod
     def from_recipe(
-        cls, recipe: atomic_model.AtomicRecipe, allow_variadic_inputs: bool = True
+        cls, recipe: atomic_recipe.AtomicRecipe, allow_variadic_inputs: bool = True
     ) -> LiveAtomic:
         function, input_ports, output_ports = _parse_function(
             recipe.reference.info.fully_qualified_name,
@@ -148,10 +148,10 @@ class Composite(LiveNode, Generic[RecipeType], abc.ABC):
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveWorkflow(Composite[workflow_model.WorkflowRecipe]):
+class LiveWorkflow(Composite[workflow_recipe.WorkflowRecipe]):
     @classmethod
     def from_recipe(
-        cls, recipe: workflow_model.WorkflowRecipe, allow_variadic_inputs: bool = True
+        cls, recipe: workflow_recipe.WorkflowRecipe, allow_variadic_inputs: bool = True
     ) -> LiveWorkflow:
         if recipe.reference:
             function, input_ports, output_ports = _parse_function(
@@ -206,26 +206,26 @@ class FlowControl(Composite, Generic[RecipeType]):
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveForEach(FlowControl[for_model.ForEachRecipe]): ...
+class LiveForEach(FlowControl[for_recipe.ForEachRecipe]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveIf(FlowControl[if_model.IfRecipe]): ...
+class LiveIf(FlowControl[if_recipe.IfRecipe]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveTry(FlowControl[try_model.TryRecipe]): ...
+class LiveTry(FlowControl[try_recipe.TryRecipe]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveWhile(FlowControl[while_model.WhileRecipe]): ...
+class LiveWhile(FlowControl[while_recipe.WhileRecipe]): ...
 
 
 def _parse_function(
     fully_qualified_name: str,
     inputs: list[str],
     outputs: list[str],
-    unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
+    unpack_mode: atomic_recipe.UnpackMode = atomic_recipe.UnpackMode.TUPLE,
     allow_variadic_inputs: bool = True,
 ) -> tuple[
     types.FunctionType,
@@ -273,11 +273,11 @@ def _parse_function(
 
     # --- output ports ---
     return_annotation = hints.get("return", None)
-    if unpack_mode == atomic_model.UnpackMode.NONE:
+    if unpack_mode == atomic_recipe.UnpackMode.NONE:
         output_ports = _parse_return_without_unpacking(return_annotation, outputs)
-    elif unpack_mode == atomic_model.UnpackMode.TUPLE:
+    elif unpack_mode == atomic_recipe.UnpackMode.TUPLE:
         output_ports = _parse_return_tuple(return_annotation, outputs)
-    elif unpack_mode == atomic_model.UnpackMode.DATACLASS:
+    elif unpack_mode == atomic_recipe.UnpackMode.DATACLASS:
         output_ports = _parse_return_dataclass(return_annotation, outputs)
 
     return function, input_ports, output_ports
@@ -304,7 +304,7 @@ def _parse_return_tuple(return_annotation, outputs: list[str]) -> dict[str, Outp
         if return_annotation is not None:
             unpacking_hint = (
                 f"To collect the entire tuple in a single port use "
-                f"{atomic_model.UnpackMode.NONE} unpacking mode."
+                f"{atomic_recipe.UnpackMode.NONE} unpacking mode."
             )
 
             if origin is not tuple:

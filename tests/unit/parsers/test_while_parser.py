@@ -2,11 +2,11 @@ import unittest
 
 from flowrep import edge_models
 from flowrep.nodes import (
-    for_model,
-    if_model,
-    try_model,
-    while_model,
-    workflow_model,
+    for_recipe,
+    if_recipe,
+    try_recipe,
+    while_recipe,
+    workflow_recipe,
 )
 from flowrep.parsers import while_parser, workflow_parser
 
@@ -102,10 +102,10 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
     """Verify the input/output edge construction for parsed while nodes."""
 
     @staticmethod
-    def _get_while_node(func) -> while_model.WhileRecipe:
+    def _get_while_node(func) -> while_recipe.WhileRecipe:
         wf = workflow_parser.parse_workflow(func)
         while_nodes = [
-            n for n in wf.nodes.values() if isinstance(n, while_model.WhileRecipe)
+            n for n in wf.nodes.values() if isinstance(n, while_recipe.WhileRecipe)
         ]
         assert len(while_nodes) == 1, f"Expected 1 WhileRecipe, got {len(while_nodes)}"
         return while_nodes[0]
@@ -235,7 +235,7 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
 class TestWhileParserStructure(unittest.TestCase):
 
-    def _parse(self, func) -> workflow_model.WorkflowRecipe:
+    def _parse(self, func) -> workflow_recipe.WorkflowRecipe:
         return workflow_parser.parse_workflow(func)
 
     def test_while_node_registered_in_parent(self):
@@ -246,7 +246,7 @@ class TestWhileParserStructure(unittest.TestCase):
 
         node = self._parse(wf)
         self.assertIn("while_0", node.nodes)
-        self.assertIsInstance(node.nodes["while_0"], while_model.WhileRecipe)
+        self.assertIsInstance(node.nodes["while_0"], while_recipe.WhileRecipe)
 
     def test_condition_label(self):
         def wf(x, bound):
@@ -279,7 +279,7 @@ class TestWhileParserStructure(unittest.TestCase):
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        self.assertIsInstance(wn.case.body.node, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(wn.case.body.node, workflow_recipe.WorkflowRecipe)
 
     def test_outputs_subset_of_inputs(self):
         def wf(x, step, bound):
@@ -360,9 +360,9 @@ class TestWhileParserStructure(unittest.TestCase):
 
         wn = self._parse(wf).nodes["while_0"]
         body = wn.case.body.node
-        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         for_nodes = [
-            n for n in body.nodes.values() if isinstance(n, for_model.ForEachRecipe)
+            n for n in body.nodes.values() if isinstance(n, for_recipe.ForEachRecipe)
         ]
         self.assertEqual(len(for_nodes), 1)
         # The for-node's output is consumed downstream in the while body
@@ -381,8 +381,8 @@ class TestWhileParserStructure(unittest.TestCase):
 
         wn = self._parse(wf).nodes["while_0"]
         body = wn.case.body.node
-        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
-        if_nodes = [n for n in body.nodes.values() if isinstance(n, if_model.IfRecipe)]
+        self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
+        if_nodes = [n for n in body.nodes.values() if isinstance(n, if_recipe.IfRecipe)]
         self.assertEqual(len(if_nodes), 1)
         # The if-node's output feeds the while reassignment
         self.assertIn("x", if_nodes[0].outputs)
@@ -400,9 +400,9 @@ class TestWhileParserStructure(unittest.TestCase):
 
         wn = self._parse(wf).nodes["while_0"]
         body = wn.case.body.node
-        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         try_nodes = [
-            n for n in body.nodes.values() if isinstance(n, try_model.TryRecipe)
+            n for n in body.nodes.values() if isinstance(n, try_recipe.TryRecipe)
         ]
         self.assertEqual(len(try_nodes), 1)
         self.assertIn("x", try_nodes[0].outputs)
@@ -419,7 +419,7 @@ class TestWhileParserRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = wn.model_dump(mode=mode)
-                restored = while_model.WhileRecipe.model_validate(dumped)
+                restored = while_recipe.WhileRecipe.model_validate(dumped)
                 self.assertEqual(wn, restored)
 
     def test_workflow_with_while_round_trip(self):
@@ -435,7 +435,7 @@ class TestWhileParserRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = node.model_dump(mode=mode)
-                restored = workflow_model.WorkflowRecipe.model_validate(dumped)
+                restored = workflow_recipe.WorkflowRecipe.model_validate(dumped)
                 self.assertEqual(node, restored)
 
 

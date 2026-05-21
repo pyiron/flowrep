@@ -8,7 +8,7 @@ from typing import Annotated, cast, get_args, get_origin, get_type_hints
 from pyiron_snippets import versions
 
 from flowrep import base_models
-from flowrep.nodes import atomic_model, helper_models
+from flowrep.nodes import atomic_recipe, helper_models
 from flowrep.parsers import label_helpers, object_scope, parser_helpers
 from flowrep.parsers.label_helpers import default_output_label
 
@@ -17,14 +17,14 @@ def atomic(
     func: FunctionType | str | None = None,
     /,
     *output_labels: str,
-    unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
+    unpack_mode: atomic_recipe.UnpackMode = atomic_recipe.UnpackMode.TUPLE,
     version_scraping: versions.VersionScrapingMap | None = None,
     forbid_main: bool = False,
     forbid_locals: bool = False,
     require_version: bool = False,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
-    Decorator that attaches a :class:`~flowrep.models.nodes.atomic_model.AtomicRecipe`
+    Decorator that attaches a :class:`~flowrep.models.nodes.atomic_recipe.AtomicRecipe`
     to the ``flowrep_recipe`` attribute of a function.
 
     The decorated function's module, qualname, and (optionally) package version are
@@ -40,7 +40,7 @@ def atomic(
             their count must match the number of outputs inferred from the function
             and the chosen ``unpack_mode``.
         unpack_mode: How to convert the function's return value into output ports.
-            See :class:`~flowrep.models.nodes.atomic_model.UnpackMode`.
+            See :class:`~flowrep.models.nodes.atomic_recipe.UnpackMode`.
         version_scraping: Optional mapping from top-level package names to callables
             that return a version string, for packages that don't expose
             ``__version__``. Forwarded to
@@ -53,7 +53,7 @@ def atomic(
 
     Returns:
         The original function with a ``flowrep_recipe`` attribute holding an
-        :class:`~flowrep.models.nodes.atomic_model.AtomicRecipe`.
+        :class:`~flowrep.models.nodes.atomic_recipe.AtomicRecipe`.
     """
     return parser_helpers.parser2decorator(
         func,
@@ -73,14 +73,14 @@ def atomic(
 def parse_atomic(
     func: FunctionType,
     *output_labels: str,
-    unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
+    unpack_mode: atomic_recipe.UnpackMode = atomic_recipe.UnpackMode.TUPLE,
     version_scraping: versions.VersionScrapingMap | None = None,
     forbid_main: bool = False,
     forbid_locals: bool = False,
     require_version: bool = False,
-) -> atomic_model.AtomicRecipe:
+) -> atomic_recipe.AtomicRecipe:
     """
-    Build an :class:`~flowrep.models.nodes.atomic_model.AtomicRecipe` from a plain
+    Build an :class:`~flowrep.models.nodes.atomic_recipe.AtomicRecipe` from a plain
     Python function.
 
     Introspects the function to determine its fully qualified name, package version,
@@ -126,7 +126,7 @@ def parse_atomic(
             f"{output_labels}; inferred labels were {scraped_output_labels}."
         )
 
-    return atomic_model.AtomicRecipe(
+    return atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=function_info,
             inputs_with_defaults=sig_info.have_defaults,
@@ -142,17 +142,17 @@ def parse_atomic(
 
 
 def _get_output_labels(
-    func: FunctionType, unpack_mode: atomic_model.UnpackMode
+    func: FunctionType, unpack_mode: atomic_recipe.UnpackMode
 ) -> list[str]:
-    if unpack_mode == atomic_model.UnpackMode.NONE:
+    if unpack_mode == atomic_recipe.UnpackMode.NONE:
         return _parse_return_label_without_unpacking(func)
-    elif unpack_mode == atomic_model.UnpackMode.TUPLE:
+    elif unpack_mode == atomic_recipe.UnpackMode.TUPLE:
         return _parse_tuple_return_labels(func)
-    elif unpack_mode == atomic_model.UnpackMode.DATACLASS:
+    elif unpack_mode == atomic_recipe.UnpackMode.DATACLASS:
         return _parse_dataclass_return_labels(func)
     raise TypeError(
         f"Invalid unpack mode: {unpack_mode}. Possible values are "
-        f"{', '.join(atomic_model.UnpackMode.__members__.values())}"
+        f"{', '.join(atomic_recipe.UnpackMode.__members__.values())}"
     )
 
 

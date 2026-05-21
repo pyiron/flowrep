@@ -7,8 +7,8 @@ import pydantic
 from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.nodes import (
     helper_models,
-    while_model,
-    workflow_model,
+    while_recipe,
+    workflow_recipe,
 )
 
 from flowrep_static import makers
@@ -25,7 +25,7 @@ def make_valid_while_node(
     body_label: str = "body",
     input_edges: dict | None = None,
     output_edges: dict | None = None,
-) -> while_model.WhileRecipe:
+) -> while_recipe.WhileRecipe:
     inputs = inputs if inputs is not None else ["x"]
     outputs = outputs if outputs is not None else []
     condition_inputs = condition_inputs if condition_inputs is not None else ["val"]
@@ -35,7 +35,7 @@ def make_valid_while_node(
     body_inputs = body_inputs if body_inputs is not None else ["inp"]
     body_outputs = body_outputs if body_outputs is not None else ["out"]
 
-    return while_model.WhileRecipe(
+    return while_recipe.WhileRecipe(
         inputs=inputs,
         outputs=outputs,
         case=helper_models.ConditionalCase(
@@ -60,7 +60,7 @@ def make_valid_while_node(
 class TestWhileRecipeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
-        while_model.WhileRecipe.model_json_schema()
+        while_recipe.WhileRecipe.model_json_schema()
 
     def test_obeys_build_subgraph_with_static_output(self):
         """WhileRecipe should obey build subgraph with static output."""
@@ -78,7 +78,7 @@ class TestWhileRecipeBasic(unittest.TestCase):
 
     def test_valid_fully_wired(self):
         """WhileRecipe with all edge types populated."""
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=["n", "acc"],
             outputs=["acc"],
             case=helper_models.ConditionalCase(
@@ -252,7 +252,7 @@ class TestWhileRecipeFullySourcing(unittest.TestCase):
     def test_condition_unsourced_no_default_raises(self):
         """Condition input without edge or default → rejected."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            while_model.WhileRecipe(
+            while_recipe.WhileRecipe(
                 inputs=["x"],
                 outputs=[],
                 case=helper_models.ConditionalCase(
@@ -278,7 +278,7 @@ class TestWhileRecipeFullySourcing(unittest.TestCase):
 
     def test_condition_unsourced_with_default_passes(self):
         """Condition input without edge but with default → accepted."""
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=["x"],
             outputs=[],
             case=helper_models.ConditionalCase(
@@ -306,7 +306,7 @@ class TestWhileRecipeFullySourcing(unittest.TestCase):
     def test_body_unsourced_no_default_raises(self):
         """Body input without edge or default → rejected."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            while_model.WhileRecipe(
+            while_recipe.WhileRecipe(
                 inputs=["x"],
                 outputs=[],
                 case=helper_models.ConditionalCase(
@@ -332,7 +332,7 @@ class TestWhileRecipeFullySourcing(unittest.TestCase):
 
     def test_body_unsourced_with_default_passes(self):
         """Body input without edge but with default → accepted."""
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=["x"],
             outputs=[],
             case=helper_models.ConditionalCase(
@@ -431,7 +431,7 @@ class TestWhileRecipeInferredIterationEdges(unittest.TestCase):
 
     def test_body_body_edges_inferred(self):
         """body→body edges are inferred from output_edges ∘ input_edges."""
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=["n", "acc"],
             outputs=["n", "acc"],
             case=helper_models.ConditionalCase(
@@ -466,7 +466,7 @@ class TestWhileRecipeInferredIterationEdges(unittest.TestCase):
 
     def test_body_condition_edges_inferred(self):
         """body→condition edges are inferred from output_edges ∘ input_edges."""
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=["n", "acc"],
             outputs=["n"],
             case=helper_models.ConditionalCase(
@@ -517,7 +517,7 @@ class TestWhileRecipeInferredIterationEdges(unittest.TestCase):
 
     def test_inferred_edges_only_for_matching_target(self):
         """body_body_edges excludes condition targets and vice versa."""
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=["a"],
             outputs=["a"],
             case=helper_models.ConditionalCase(
@@ -551,7 +551,7 @@ class TestWhileRecipeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = while_model.WhileRecipe.model_validate(data)
+                restored = while_recipe.WhileRecipe.model_validate(data)
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
                 self.assertEqual(
@@ -561,7 +561,7 @@ class TestWhileRecipeSerialization(unittest.TestCase):
 
     def test_fully_wired_roundtrip(self):
         """Fully wired WhileRecipe roundtrip."""
-        original = while_model.WhileRecipe(
+        original = while_recipe.WhileRecipe(
             inputs=["n", "acc"],
             outputs=["n", "acc"],
             case=helper_models.ConditionalCase(
@@ -580,7 +580,7 @@ class TestWhileRecipeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = while_model.WhileRecipe.model_validate(data)
+                restored = while_recipe.WhileRecipe.model_validate(data)
 
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
@@ -594,7 +594,7 @@ class TestWhileRecipeSerialization(unittest.TestCase):
 
     def test_inferred_edges_not_serialized(self):
         """body_body_edges and body_condition_edges should not appear in dump."""
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=["a"],
             outputs=["a"],
             case=helper_models.ConditionalCase(
@@ -616,7 +616,7 @@ class TestWhileRecipeSerialization(unittest.TestCase):
 
     def test_edge_serialization_format(self):
         """Edges serialize to dot-notation strings."""
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=["x"],
             outputs=["x"],
             case=helper_models.ConditionalCase(
@@ -644,7 +644,7 @@ class TestWhileRecipeSerialization(unittest.TestCase):
 
     def test_nested_workflow_in_body(self):
         """WhileRecipe can contain WorkflowRecipe in body."""
-        inner = workflow_model.WorkflowRecipe(
+        inner = workflow_recipe.WorkflowRecipe(
             inputs=["a"],
             outputs=["b"],
             nodes={
@@ -656,7 +656,7 @@ class TestWhileRecipeSerialization(unittest.TestCase):
             edges={},
             output_edges={"b": "leaf.y"},
         )
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=["start"],
             outputs=["start"],
             case=helper_models.ConditionalCase(
@@ -672,14 +672,14 @@ class TestWhileRecipeSerialization(unittest.TestCase):
             output_edges={"start": "process.b"},
         )
         data = wn.model_dump(mode="json")
-        restored = while_model.WhileRecipe.model_validate(data)
-        self.assertIsInstance(restored.case.body.node, workflow_model.WorkflowRecipe)
+        restored = while_recipe.WhileRecipe.model_validate(data)
+        self.assertIsInstance(restored.case.body.node, workflow_recipe.WorkflowRecipe)
 
 
 class TestWhileRecipeEdgeCases(unittest.TestCase):
     def test_empty_inputs_outputs(self):
         """WhileRecipe with no inputs or outputs."""
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=[],
             outputs=[],
             case=helper_models.ConditionalCase(
@@ -719,7 +719,7 @@ class TestWhileRecipeEdgeCases(unittest.TestCase):
 
         This is normal — on the first iteration both get data from the loop input.
         """
-        wn = while_model.WhileRecipe(
+        wn = while_recipe.WhileRecipe(
             inputs=["x"],
             outputs=["x"],
             case=helper_models.ConditionalCase(

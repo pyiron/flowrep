@@ -2,7 +2,7 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep.nodes import workflow_model
+from flowrep.nodes import workflow_recipe
 from flowrep.parsers import workflow_parser
 
 from flowrep_static import library
@@ -20,7 +20,7 @@ def simple_try_except(x, y):
     return z
 
 
-simple_node = workflow_model.WorkflowRecipe.model_validate(
+simple_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y"],
@@ -103,7 +103,7 @@ def try_multi_except(x, y):
     return z
 
 
-multi_except_node = workflow_model.WorkflowRecipe.model_validate(
+multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y"],
@@ -208,7 +208,7 @@ def try_with_context(a, b):
     return z
 
 
-context_node = workflow_model.WorkflowRecipe.model_validate(
+context_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["a", "b"],
@@ -296,7 +296,7 @@ def multi_output_try(x, y):
     return a, b
 
 
-multi_output_node = workflow_model.WorkflowRecipe.model_validate(
+multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y"],
@@ -393,7 +393,7 @@ def try_tuple_exceptions(x, y):
     return z
 
 
-tuple_exc_node = workflow_model.WorkflowRecipe.model_validate(
+tuple_exc_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y"],
@@ -469,7 +469,7 @@ tuple_exc_node = workflow_model.WorkflowRecipe.model_validate(
 
 
 def _field_differences(
-    reference: workflow_model.WorkflowRecipe, actual: workflow_model.WorkflowRecipe
+    reference: workflow_recipe.WorkflowRecipe, actual: workflow_recipe.WorkflowRecipe
 ) -> dict:
     dict1 = reference.model_dump(mode="json")
     dict2 = actual.model_dump(mode="json")

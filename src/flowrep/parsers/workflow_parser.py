@@ -10,7 +10,7 @@ from typing import cast
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import helper_models, union, workflow_model
+from flowrep.nodes import helper_models, union, workflow_recipe
 from flowrep.parsers import (
     atomic_parser,
     for_parser,
@@ -35,7 +35,7 @@ def workflow(
     require_version: bool = False,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
-    Decorator that attaches a :class:`~flowrep.models.nodes.workflow_model.WorkflowRecipe`
+    Decorator that attaches a :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe`
     to the ``flowrep_recipe`` attribute of a function, under constraints that the
     function body is parseable as a workflow recipe.
 
@@ -61,7 +61,7 @@ def workflow(
 
     Returns:
         The original function with a ``flowrep_recipe`` attribute holding a
-        :class:`~flowrep.models.nodes.workflow_model.WorkflowRecipe`.
+        :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe`.
     """
     return parser_helpers.parser2decorator(
         func,
@@ -86,7 +86,7 @@ def parse_workflow(
     require_version: bool = False,
 ):
     """
-    Build a :class:`~flowrep.models.nodes.workflow_model.WorkflowRecipe` by
+    Build a :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe` by
     statically analysing a Python function's AST.
 
     The function body is walked statement-by-statement; assignments with calls on
@@ -212,8 +212,8 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self,
         inputs_override: list[str] | None = None,
         description: str | None = None,
-    ) -> workflow_model.WorkflowRecipe:
-        return workflow_model.WorkflowRecipe(
+    ) -> workflow_recipe.WorkflowRecipe:
+        return workflow_recipe.WorkflowRecipe(
             inputs=self.inputs if inputs_override is None else inputs_override,
             outputs=self.outputs,
             description=description,

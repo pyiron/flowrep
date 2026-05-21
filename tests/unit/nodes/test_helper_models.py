@@ -5,9 +5,9 @@ from pyiron_snippets import versions
 
 from flowrep import base_models
 from flowrep.nodes import (
-    atomic_model,
+    atomic_recipe,
     helper_models,
-    workflow_model,
+    workflow_recipe,
 )
 
 from flowrep_static import makers
@@ -69,8 +69,8 @@ class TestConditionalCaseValidation(unittest.TestCase):
 
 class TestExceptionCaseValidation(unittest.TestCase):
     @staticmethod
-    def _make_except_body(inputs=None, outputs=None) -> atomic_model.AtomicRecipe:
-        return atomic_model.AtomicRecipe(
+    def _make_except_body(inputs=None, outputs=None) -> atomic_recipe.AtomicRecipe:
+        return atomic_recipe.AtomicRecipe(
             reference=makers.make_reference("mod", "handle_error"),
             inputs=inputs or ["x"],
             outputs=outputs or ["y"],
@@ -123,7 +123,7 @@ class TestExceptionCaseSerialization(unittest.TestCase):
             ],
             body=helper_models.LabeledRecipe(
                 label="handler",
-                node=atomic_model.AtomicRecipe(
+                node=atomic_recipe.AtomicRecipe(
                     reference=makers.make_reference("mod", "handle_error"),
                     inputs=["x"],
                     outputs=["y"],
@@ -150,11 +150,11 @@ class TestLabeledNode(unittest.TestCase):
             node=makers.make_atomic(inputs=["x"], outputs=["y"]),
         )
         self.assertEqual(ln.label, "my_node")
-        self.assertIsInstance(ln.node, atomic_model.AtomicRecipe)
+        self.assertIsInstance(ln.node, atomic_recipe.AtomicRecipe)
 
     def test_labeled_node_with_workflow(self):
         """LabeledNode can contain a WorkflowRecipe."""
-        inner = workflow_model.WorkflowRecipe(
+        inner = workflow_recipe.WorkflowRecipe(
             inputs=["a"],
             outputs=["b"],
             nodes={"leaf": makers.make_atomic(inputs=["x"], outputs=["y"])},
@@ -163,7 +163,7 @@ class TestLabeledNode(unittest.TestCase):
             output_edges={"b": "leaf.y"},
         )
         ln = helper_models.LabeledRecipe(label="nested", node=inner)
-        self.assertIsInstance(ln.node, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(ln.node, workflow_recipe.WorkflowRecipe)
 
     def test_invalid_label_keyword(self):
         """LabeledNode rejects Python keywords as labels."""

@@ -1,7 +1,7 @@
 import inspect
 import unittest
 
-from flowrep.nodes import for_model, workflow_model
+from flowrep.nodes import for_recipe, workflow_recipe
 from flowrep.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library
@@ -27,7 +27,7 @@ def single_iteration(ns):
     return l, vecs
 
 
-for_body = workflow_model.WorkflowRecipe.model_validate(
+for_body = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["n"],
@@ -42,7 +42,7 @@ for_body = workflow_model.WorkflowRecipe.model_validate(
     }
 )
 
-for_node = for_model.ForEachRecipe.model_validate(
+for_node = for_recipe.ForEachRecipe.model_validate(
     {
         "type": "for_each",
         "inputs": ["pass_through"],
@@ -56,7 +56,7 @@ for_node = for_model.ForEachRecipe.model_validate(
 )
 
 
-single_iteration_node = workflow_model.WorkflowRecipe.model_validate(
+single_iteration_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["ns"],
@@ -110,7 +110,7 @@ def zipped_broadcast_and_transferred(a, bs, cs, ds):
 
 # In principle, when it's the body is a single node we could remove this layer
 # but for now let's keep uniform treatment rather than minimal representation
-zbat_for_body = workflow_model.WorkflowRecipe.model_validate(
+zbat_for_body = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["a", "b", "c", "d"],
@@ -127,7 +127,7 @@ zbat_for_body = workflow_model.WorkflowRecipe.model_validate(
     }
 )
 
-zbat_for_node = for_model.ForEachRecipe.model_validate(
+zbat_for_node = for_recipe.ForEachRecipe.model_validate(
     {
         "type": "for_each",
         "inputs": ["a", "bs", "cs", "ds"],
@@ -155,7 +155,7 @@ zbat_for_node = for_model.ForEachRecipe.model_validate(
     }
 )
 
-zbat_wf_node = workflow_model.WorkflowRecipe.model_validate(
+zbat_wf_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["a", "bs", "cs", "ds"],
@@ -221,7 +221,7 @@ def nested(ns):
 
 # at this point, the parser is fully-featured, so we can use its own output to generate
 # the reference and then proof-read it
-nested_node = workflow_model.WorkflowRecipe.model_validate(
+nested_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["ns"],
@@ -327,7 +327,7 @@ def nested_with_passed_input(ns, range_offset, square_offset):
     return sq_sums
 
 
-nested_with_passed_input_node = workflow_model.WorkflowRecipe.model_validate(
+nested_with_passed_input_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["ns", "range_offset", "square_offset"],
@@ -421,7 +421,7 @@ nested_with_passed_input_node = workflow_model.WorkflowRecipe.model_validate(
 
 
 def _field_differences(
-    reference: workflow_model.WorkflowRecipe, actual: workflow_model.WorkflowRecipe
+    reference: workflow_recipe.WorkflowRecipe, actual: workflow_recipe.WorkflowRecipe
 ) -> dict:
     dict1 = reference.model_dump(mode="json")
     dict2 = actual.model_dump(mode="json")

@@ -4,7 +4,7 @@ import ast
 import dataclasses
 
 from flowrep import edge_models
-from flowrep.nodes import helper_models, if_model
+from flowrep.nodes import helper_models, if_recipe
 from flowrep.parsers import case_helpers, parser_protocol
 
 IF_CONDITION_LABEL_PREFIX: str = "condition"
@@ -23,7 +23,7 @@ class _CaseComponents:
 
 def parse_if_node(
     walker: parser_protocol.BodyWalker, tree: ast.If
-) -> if_model.IfRecipe:
+) -> if_recipe.IfRecipe:
     """
     Walk an if/elif/else chain.
 
@@ -78,7 +78,7 @@ def parse_if_node(
         for cc in cases
     ]
 
-    return if_model.IfRecipe(
+    return if_recipe.IfRecipe(
         inputs=inputs,
         outputs=outputs,
         cases=model_cases,

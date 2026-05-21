@@ -3,7 +3,7 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep.nodes import workflow_model
+from flowrep.nodes import workflow_recipe
 from flowrep.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library
@@ -239,7 +239,7 @@ _try_node = {
 
 # --- Top-level workflow ---
 
-full_composite_node = workflow_model.WorkflowRecipe.model_validate(
+full_composite_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y", "bound"],
@@ -278,7 +278,7 @@ full_composite_node = workflow_model.WorkflowRecipe.model_validate(
 
 
 def _field_differences(
-    reference: workflow_model.WorkflowRecipe, actual: workflow_model.WorkflowRecipe
+    reference: workflow_recipe.WorkflowRecipe, actual: workflow_recipe.WorkflowRecipe
 ) -> dict:
     dict1 = reference.model_dump(mode="json")
     dict2 = actual.model_dump(mode="json")

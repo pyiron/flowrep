@@ -4,22 +4,22 @@ import pydantic
 
 from flowrep import base_models
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
-    if_model,
-    try_model,
-    while_model,
-    workflow_model,
+    atomic_recipe,
+    for_recipe,
+    if_recipe,
+    try_recipe,
+    while_recipe,
+    workflow_recipe,
 )
 
 # Discriminated Union
 RecipeDiscrimination = Annotated[
-    atomic_model.AtomicRecipe
-    | for_model.ForEachRecipe
-    | if_model.IfRecipe
-    | try_model.TryRecipe
-    | while_model.WhileRecipe
-    | workflow_model.WorkflowRecipe,
+    atomic_recipe.AtomicRecipe
+    | for_recipe.ForEachRecipe
+    | if_recipe.IfRecipe
+    | try_recipe.TryRecipe
+    | while_recipe.WhileRecipe
+    | workflow_recipe.WorkflowRecipe,
     pydantic.Field(discriminator="type"),
 ]
 
