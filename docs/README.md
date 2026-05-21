@@ -256,13 +256,13 @@ run), flowrep provides two additional layers accessible through the API:
 
 ```
 
-**`flowrep.api.tools.recipe2live`** converts a recipe into a *live* object — a mutable
+**`flowrep.api.tools.recipe2data`** converts a recipe into a *live* object — a mutable
 data structure whose input and output ports can hold actual Python values. Live
 objects mirror the recipe graph but trade JSON-serializability for the ability to
 carry arbitrary data:
 
 ```python
->>> live_wf = frt.recipe2live(double_and_add.flowrep_recipe)
+>> > live_wf = frt.recipe2data(double_and_add.flowrep_recipe)
 
 ```
 

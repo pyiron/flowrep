@@ -9,7 +9,7 @@ and the python-workflow-definition format. (When PWD is available in the environ
 Where PWD supports the workflow structure; round-trip from flowrep to PWD and back is
 lossy in versioning info.)
 
-Use `recipe2live` to convert recipes into state-ful data-ful instances of recipes,
+Use `recipe2data` to convert recipes into state-ful data-ful instances of recipes,
 which directly hold python objects (including, potentially, IO data values), but
 which no longer trivially serialize to JSON.
 
@@ -26,6 +26,6 @@ from flowrep.parsers.atomic_parser import atomic as atomic
 from flowrep.parsers.atomic_parser import parse_atomic as parse_atomic
 from flowrep.parsers.workflow_parser import parse_workflow as parse_workflow
 from flowrep.parsers.workflow_parser import workflow as workflow
-from flowrep.retrospective import recipe2live as recipe2live
+from flowrep.retrospective import recipe2data as recipe2data
 from flowrep.storage import LexicalBagBrowser as LexicalBagBrowser
 from flowrep.wfms import run_recipe as run_recipe

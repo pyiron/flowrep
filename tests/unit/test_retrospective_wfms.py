@@ -678,11 +678,11 @@ class TestRecipe2Live(unittest.TestCase):
             (_while_countdown(), retrospective.FlowControlData),
         ):
             with self.subTest(recipe=recipe, type=type_):
-                self.assertIsInstance(retrospective.recipe2live(recipe), type_)
+                self.assertIsInstance(retrospective.recipe2data(recipe), type_)
 
     def test_clean_type_failure(self):
         with self.assertRaisesRegex(TypeError, "Unrecognized recipe type"):
-            retrospective.recipe2live("this is not even a recipe")
+            retrospective.recipe2data("this is not even a recipe")
 
 
 class TestAtomicFromRecipeVariadic(unittest.TestCase):
@@ -770,13 +770,13 @@ class TestAtomicFromRecipeVariadic(unittest.TestCase):
 
 
 class TestRecipe2LiveVariadicPropagation(unittest.TestCase):
-    """`allow_variadic_inputs` propagates through `recipe2live` into children."""
+    """`allow_variadic_inputs` propagates through `recipe2data` into children."""
 
     def test_propagates_to_atomic(self):
         recipe = _variadic_recipe(variadic_args, inputs=["a", "b"])
         with self.assertRaises(ValueError):
-            retrospective.recipe2live(recipe, allow_variadic_inputs=False)
-        node = retrospective.recipe2live(recipe)
+            retrospective.recipe2data(recipe, allow_variadic_inputs=False)
+        node = retrospective.recipe2data(recipe)
         self.assertIsInstance(node, retrospective.AtomicData)
 
     def test_propagates_into_workflow_children(self):
@@ -790,9 +790,9 @@ class TestRecipe2LiveVariadicPropagation(unittest.TestCase):
             output_map={"result": "result"},
         )
         with self.assertRaises(ValueError):
-            retrospective.recipe2live(wf_recipe, allow_variadic_inputs=False)
+            retrospective.recipe2data(wf_recipe, allow_variadic_inputs=False)
 
-        wf = retrospective.recipe2live(wf_recipe, allow_variadic_inputs=True)
+        wf = retrospective.recipe2data(wf_recipe, allow_variadic_inputs=True)
         self.assertIsInstance(wf, retrospective.DagData)
         self.assertIsInstance(wf.nodes["splitter_0"], retrospective.AtomicData)
 

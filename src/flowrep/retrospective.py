@@ -92,7 +92,7 @@ class NodeData(Generic[RecipeType], abc.ABC):
     def from_recipe(cls, recipe: RecipeType) -> Self: ...
 
 
-def recipe2live(
+def recipe2data(
     recipe: union_types.RecipeDiscrimination, allow_variadic_inputs: bool = True
 ) -> NodeData:
     match recipe:
@@ -164,7 +164,7 @@ class DagData(CompositeData[workflow_recipe.WorkflowRecipe]):
             input_ports = {label: InputDataPort() for label in recipe.inputs}
             output_ports = {label: OutputDataPort() for label in recipe.outputs}
         nodes = {
-            label: recipe2live(child, allow_variadic_inputs=allow_variadic_inputs)
+            label: recipe2data(child, allow_variadic_inputs=allow_variadic_inputs)
             for label, child in recipe.nodes.items()
         }
         return DagData(
