@@ -10,7 +10,7 @@ from typing import cast
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import helper_models, union, workflow_recipe
+from flowrep.nodes import helper_models, union_types, workflow_recipe
 from flowrep.parsers import (
     atomic_parser,
     for_parser,
@@ -185,7 +185,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self.scope = scope
         self.symbol_map = symbol_map
         self.info_factory = info_factory
-        self.nodes: union.Recipes = {}
+        self.nodes: union_types.Recipes = {}
         self.source = source
 
     @property
@@ -283,14 +283,14 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             )
 
     def _digest_flow_control(
-        self, label_prefix: str, node: union.RecipeDiscrimination
+        self, label_prefix: str, node: union_types.RecipeDiscrimination
     ) -> None:
         label = label_helpers.unique_suffix(label_prefix, self.nodes)
         self.nodes[label] = node
         self._connect_node_to_enclosing_scope(label, node)
 
     def _connect_node_to_enclosing_scope(
-        self, label: str, node: union.RecipeDiscrimination
+        self, label: str, node: union_types.RecipeDiscrimination
     ):
         for port in node.inputs:
             self.symbol_map.consume(port, label, port)

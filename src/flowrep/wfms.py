@@ -23,7 +23,7 @@ from flowrep.nodes import (
     helper_models,
     if_recipe,
     try_recipe,
-    union,
+    union_types,
     while_recipe,
     workflow_recipe,
 )
@@ -31,7 +31,7 @@ from flowrep.parsers import label_helpers
 
 
 def run_recipe(
-    recipe: union.RecipeDiscrimination, **kwargs: Any
+    recipe: union_types.RecipeDiscrimination, **kwargs: Any
 ) -> retrospective.NodeData:
     """
     Execute a flowrep recipe, returning a populated :class:`LiveNode`.

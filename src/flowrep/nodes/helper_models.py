@@ -8,7 +8,7 @@ from pyiron_snippets import versions
 from flowrep import base_models
 
 if TYPE_CHECKING:
-    from flowrep.nodes.union import RecipeDiscrimination  # Satisfies mypy
+    from flowrep.nodes.union_types import RecipeDiscrimination  # Satisfies mypy
 
     # Still not enough to satisfy ruff, which doesn't understand the string forward
     # reference, even with the TYPE_CHECKING import

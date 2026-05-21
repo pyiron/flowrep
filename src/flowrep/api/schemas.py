@@ -28,8 +28,8 @@ from flowrep.nodes.helper_models import ExceptionCase as ExceptionCase
 from flowrep.nodes.helper_models import LabeledRecipe as LabeledRecipe
 from flowrep.nodes.if_recipe import IfRecipe as IfRecipe
 from flowrep.nodes.try_recipe import TryRecipe as TryRecipe
-from flowrep.nodes.union import RecipeDiscrimination as RecipeDiscrimination
-from flowrep.nodes.union import Recipes as Recipes
+from flowrep.nodes.union_types import RecipeDiscrimination as RecipeDiscrimination
+from flowrep.nodes.union_types import Recipes as Recipes
 from flowrep.nodes.while_recipe import WhileRecipe as WhileRecipe
 from flowrep.nodes.workflow_recipe import WorkflowRecipe as WorkflowRecipe
 from flowrep.retrospective import NOT_DATA as NOT_DATA

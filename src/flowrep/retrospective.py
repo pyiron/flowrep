@@ -27,7 +27,7 @@ from flowrep.nodes import (
     for_recipe,
     if_recipe,
     try_recipe,
-    union,
+    union_types,
     while_recipe,
     workflow_recipe,
 )
@@ -93,7 +93,7 @@ class NodeData(Generic[RecipeType], abc.ABC):
 
 
 def recipe2live(
-    recipe: union.RecipeDiscrimination, allow_variadic_inputs: bool = True
+    recipe: union_types.RecipeDiscrimination, allow_variadic_inputs: bool = True
 ) -> NodeData:
     match recipe:
         case atomic_recipe.AtomicRecipe():
