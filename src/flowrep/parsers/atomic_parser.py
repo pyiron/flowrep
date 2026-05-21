@@ -24,7 +24,7 @@ def atomic(
     require_version: bool = False,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
-    Decorator that attaches a :class:`~flowrep.models.nodes.atomic_model.AtomicNode`
+    Decorator that attaches a :class:`~flowrep.models.nodes.atomic_model.AtomicRecipe`
     to the ``flowrep_recipe`` attribute of a function.
 
     The decorated function's module, qualname, and (optionally) package version are
@@ -53,7 +53,7 @@ def atomic(
 
     Returns:
         The original function with a ``flowrep_recipe`` attribute holding an
-        :class:`~flowrep.models.nodes.atomic_model.AtomicNode`.
+        :class:`~flowrep.models.nodes.atomic_model.AtomicRecipe`.
     """
     return parser_helpers.parser2decorator(
         func,
@@ -78,9 +78,9 @@ def parse_atomic(
     forbid_main: bool = False,
     forbid_locals: bool = False,
     require_version: bool = False,
-) -> atomic_model.AtomicNode:
+) -> atomic_model.AtomicRecipe:
     """
-    Build an :class:`~flowrep.models.nodes.atomic_model.AtomicNode` from a plain
+    Build an :class:`~flowrep.models.nodes.atomic_model.AtomicRecipe` from a plain
     Python function.
 
     Introspects the function to determine its fully qualified name, package version,
@@ -101,7 +101,7 @@ def parse_atomic(
         require_version: If ``True``, raise if no version can be determined.
 
     Returns:
-        A fully constructed :class:`AtomicNode`.
+        A fully constructed :class:`AtomicRecipe`.
 
     Raises:
         ValueError: If ``output_labels`` length mismatches the inferred output count,
@@ -126,7 +126,7 @@ def parse_atomic(
             f"{output_labels}; inferred labels were {scraped_output_labels}."
         )
 
-    return atomic_model.AtomicNode(
+    return atomic_model.AtomicRecipe(
         reference=base_models.PythonReference(
             info=function_info,
             inputs_with_defaults=sig_info.have_defaults,
@@ -262,9 +262,9 @@ def get_labeled_recipe(
     existing_names: Iterable[str],
     scope: object_scope.ScopeProxy,
     info_factory: versions.VersionInfoFactory,
-) -> helper_models.LabeledNode:
+) -> helper_models.LabeledRecipe:
     child_call = object_scope.resolve_symbol_to_object(ast_call.func, scope)
-    if isinstance(child_call, base_models.NodeModel):
+    if isinstance(child_call, base_models.NodeRecipe):
         child_recipe = child_call
         label_prefix = _infer_node_name(child_recipe, ast_call.func)
     else:
@@ -292,10 +292,10 @@ def get_labeled_recipe(
                 require_version=info_factory.require_version,
             )
     label = label_helpers.unique_suffix(label_prefix, existing_names)
-    return helper_models.LabeledNode(label=label, node=child_recipe)
+    return helper_models.LabeledRecipe(label=label, node=child_recipe)
 
 
-def _infer_node_name(node: base_models.NodeModel, ast_call: ast.expr) -> str:
+def _infer_node_name(node: base_models.NodeRecipe, ast_call: ast.expr) -> str:
     reference = getattr(node, "reference", None)
     if reference is not None:
         underlying_function_name = reference.info.qualname.rsplit(".", 1)[-1]

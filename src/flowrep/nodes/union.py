@@ -13,14 +13,14 @@ from flowrep.nodes import (
 )
 
 # Discriminated Union
-NodeDiscrimination = Annotated[
-    atomic_model.AtomicNode
-    | for_model.ForEachNode
-    | if_model.IfNode
-    | try_model.TryNode
-    | while_model.WhileNode
-    | workflow_model.WorkflowNode,
+RecipeDiscrimination = Annotated[
+    atomic_model.AtomicRecipe
+    | for_model.ForEachRecipe
+    | if_model.IfRecipe
+    | try_model.TryRecipe
+    | while_model.WhileRecipe
+    | workflow_model.WorkflowRecipe,
     pydantic.Field(discriminator="type"),
 ]
 
-Nodes = dict[base_models.Label, NodeDiscrimination]
+Recipes = dict[base_models.Label, RecipeDiscrimination]

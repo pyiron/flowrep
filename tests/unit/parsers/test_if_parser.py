@@ -185,10 +185,10 @@ class TestIfParserEdgeWiring(unittest.TestCase):
     """Verify the input/output/prospective-output edge construction."""
 
     @staticmethod
-    def _get_if_node(func) -> if_model.IfNode:
+    def _get_if_node(func) -> if_model.IfRecipe:
         wf = workflow_parser.parse_workflow(func)
-        if_nodes = [n for n in wf.nodes.values() if isinstance(n, if_model.IfNode)]
-        assert len(if_nodes) == 1, f"Expected 1 IfNode, got {len(if_nodes)}"
+        if_nodes = [n for n in wf.nodes.values() if isinstance(n, if_model.IfRecipe)]
+        assert len(if_nodes) == 1, f"Expected 1 IfRecipe, got {len(if_nodes)}"
         return if_nodes[0]
 
     # --- condition wiring ---
@@ -388,7 +388,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
 
 
 class TestIfParserStructure(unittest.TestCase):
-    def _parse(self, func) -> workflow_model.WorkflowNode:
+    def _parse(self, func) -> workflow_model.WorkflowRecipe:
         return workflow_parser.parse_workflow(func)
 
     def test_if_node_registered_in_parent(self):
@@ -401,7 +401,7 @@ class TestIfParserStructure(unittest.TestCase):
 
         node = self._parse(wf)
         self.assertIn("if_0", node.nodes)
-        self.assertIsInstance(node.nodes["if_0"], if_model.IfNode)
+        self.assertIsInstance(node.nodes["if_0"], if_model.IfRecipe)
 
     def test_condition_labels(self):
         def wf(x, y, flag):
@@ -454,7 +454,7 @@ class TestIfParserStructure(unittest.TestCase):
         self.assertIsNone(ifn.else_case)
 
     def test_body_nodes_are_workflows(self):
-        """All body nodes are WorkflowNodes for uniformity."""
+        """All body nodes are WorkflowRecipes for uniformity."""
 
         def wf(x, y):
             if library.my_condition(x, y):
@@ -464,8 +464,8 @@ class TestIfParserStructure(unittest.TestCase):
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
-        self.assertIsInstance(ifn.cases[0].body.node, workflow_model.WorkflowNode)
-        self.assertIsInstance(ifn.else_case.node, workflow_model.WorkflowNode)
+        self.assertIsInstance(ifn.cases[0].body.node, workflow_model.WorkflowRecipe)
+        self.assertIsInstance(ifn.else_case.node, workflow_model.WorkflowRecipe)
 
     def test_multiple_outputs(self):
         def wf(x, y):
@@ -553,7 +553,7 @@ class TestIfParserStructure(unittest.TestCase):
     # --- nesting other control flows inside if bodies ---
 
     def test_for_nested_inside_if_body(self):
-        """A for-loop inside an if-body produces a ForEachNode in the body workflow."""
+        """A for-loop inside an if-body produces a ForEachRecipe in the body workflow."""
 
         def wf(xs, y):
             if library.my_condition(y, y):
@@ -568,14 +568,14 @@ class TestIfParserStructure(unittest.TestCase):
 
         ifn = self._parse(wf).nodes["if_0"]
         body = ifn.cases[0].body.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
         for_nodes = [
-            n for n in body.nodes.values() if isinstance(n, for_model.ForEachNode)
+            n for n in body.nodes.values() if isinstance(n, for_model.ForEachRecipe)
         ]
         self.assertEqual(len(for_nodes), 1)
 
     def test_while_nested_inside_if_body(self):
-        """A while-loop inside an if-body produces a WhileNode in the body workflow."""
+        """A while-loop inside an if-body produces a WhileRecipe in the body workflow."""
 
         def wf(x, y, bound):
             if library.my_condition(x, y):
@@ -588,14 +588,14 @@ class TestIfParserStructure(unittest.TestCase):
 
         ifn = self._parse(wf).nodes["if_0"]
         body = ifn.cases[0].body.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
         while_nodes = [
-            n for n in body.nodes.values() if isinstance(n, while_model.WhileNode)
+            n for n in body.nodes.values() if isinstance(n, while_model.WhileRecipe)
         ]
         self.assertEqual(len(while_nodes), 1)
 
     def test_if_nested_inside_if_body(self):
-        """An if-node inside an if-body produces an IfNode in the body workflow."""
+        """An if-node inside an if-body produces an IfRecipe in the body workflow."""
 
         def wf(x, y, m):
             if library.my_condition(x, y):
@@ -609,14 +609,14 @@ class TestIfParserStructure(unittest.TestCase):
 
         ifn = self._parse(wf).nodes["if_0"]
         body = ifn.cases[0].body.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
         inner_if_nodes = [
-            n for n in body.nodes.values() if isinstance(n, if_model.IfNode)
+            n for n in body.nodes.values() if isinstance(n, if_model.IfRecipe)
         ]
         self.assertEqual(len(inner_if_nodes), 1)
 
     def test_for_nested_inside_else_body(self):
-        """A for-loop inside an else-body produces a ForEachNode in the else workflow."""
+        """A for-loop inside an else-body produces a ForEachRecipe in the else workflow."""
 
         def wf(xs, y):
             if library.my_condition(y, y):
@@ -631,14 +631,16 @@ class TestIfParserStructure(unittest.TestCase):
 
         ifn = self._parse(wf).nodes["if_0"]
         else_body = ifn.else_case.node
-        self.assertIsInstance(else_body, workflow_model.WorkflowNode)
+        self.assertIsInstance(else_body, workflow_model.WorkflowRecipe)
         for_nodes = [
-            n for n in else_body.nodes.values() if isinstance(n, for_model.ForEachNode)
+            n
+            for n in else_body.nodes.values()
+            if isinstance(n, for_model.ForEachRecipe)
         ]
         self.assertEqual(len(for_nodes), 1)
 
     def test_try_nested_inside_if_body(self):
-        """A try/except inside an if-body produces a TryNode in the body workflow."""
+        """A try/except inside an if-body produces a TryRecipe in the body workflow."""
 
         def wf(x, y):
             if library.my_condition(x, y):
@@ -652,12 +654,14 @@ class TestIfParserStructure(unittest.TestCase):
 
         ifn = self._parse(wf).nodes["if_0"]
         body = ifn.cases[0].body.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
-        try_nodes = [n for n in body.nodes.values() if isinstance(n, try_model.TryNode)]
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
+        try_nodes = [
+            n for n in body.nodes.values() if isinstance(n, try_model.TryRecipe)
+        ]
         self.assertEqual(len(try_nodes), 1)
 
     def test_try_nested_inside_else_body(self):
-        """A try/except inside an else-body produces a TryNode in the else workflow."""
+        """A try/except inside an else-body produces a TryRecipe in the else workflow."""
 
         def wf(x, y):
             if library.my_condition(x, y):
@@ -671,9 +675,9 @@ class TestIfParserStructure(unittest.TestCase):
 
         ifn = self._parse(wf).nodes["if_0"]
         else_body = ifn.else_case.node
-        self.assertIsInstance(else_body, workflow_model.WorkflowNode)
+        self.assertIsInstance(else_body, workflow_model.WorkflowRecipe)
         try_nodes = [
-            n for n in else_body.nodes.values() if isinstance(n, try_model.TryNode)
+            n for n in else_body.nodes.values() if isinstance(n, try_model.TryRecipe)
         ]
         self.assertEqual(len(try_nodes), 1)
 
@@ -683,7 +687,7 @@ class TestIfParserStructure(unittest.TestCase):
 # ===================================================================
 
 
-class TestIfNodeRoundTrip(unittest.TestCase):
+class TestIfRecipeRoundTrip(unittest.TestCase):
     def test_if_else_round_trip(self):
         def wf(x, y):
             if library.my_condition(x, y):
@@ -696,7 +700,7 @@ class TestIfNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = ifn.model_dump(mode=mode)
-                restored = if_model.IfNode.model_validate(dumped)
+                restored = if_model.IfRecipe.model_validate(dumped)
                 self.assertEqual(ifn, restored)
 
     def test_if_elif_else_round_trip(self):
@@ -713,7 +717,7 @@ class TestIfNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = ifn.model_dump(mode=mode)
-                restored = if_model.IfNode.model_validate(dumped)
+                restored = if_model.IfRecipe.model_validate(dumped)
                 self.assertEqual(ifn, restored)
 
     def test_if_no_else_round_trip(self):
@@ -727,7 +731,7 @@ class TestIfNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = ifn.model_dump(mode=mode)
-                restored = if_model.IfNode.model_validate(dumped)
+                restored = if_model.IfRecipe.model_validate(dumped)
                 self.assertEqual(ifn, restored)
 
     def test_workflow_with_if_round_trip(self):
@@ -745,7 +749,7 @@ class TestIfNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = node.model_dump(mode=mode)
-                restored = workflow_model.WorkflowNode.model_validate(dumped)
+                restored = workflow_model.WorkflowRecipe.model_validate(dumped)
                 self.assertEqual(node, restored)
 
     def test_multi_output_if_round_trip(self):
@@ -762,7 +766,7 @@ class TestIfNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = node.model_dump(mode=mode)
-                restored = workflow_model.WorkflowNode.model_validate(dumped)
+                restored = workflow_model.WorkflowRecipe.model_validate(dumped)
                 self.assertEqual(node, restored)
 
 
@@ -867,7 +871,7 @@ class TestIfParserLocalImport(unittest.TestCase):
             return sum_
 
         node = workflow_parser.parse_workflow(my_wf)
-        self.assertIsInstance(node, workflow_model.WorkflowNode)
+        self.assertIsInstance(node, workflow_model.WorkflowRecipe)
 
     def test_local_imports_do_not_leak_to_sibling(self):
 

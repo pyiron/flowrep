@@ -17,7 +17,7 @@ class BodyWalker(Protocol):
     scope: object_scope.ScopeProxy
     symbol_map: symbol_scope.SymbolScope
     info_factory: versions.VersionInfoFactory
-    nodes: union.Nodes
+    nodes: union.Recipes
 
     @property
     def inputs(self) -> list[str]: ...
@@ -34,7 +34,7 @@ class BodyWalker(Protocol):
     @property
     def outputs(self) -> list[str]: ...
 
-    def build_model(self) -> workflow_model.WorkflowNode: ...
+    def build_model(self) -> workflow_model.WorkflowRecipe: ...
 
     def fork(
         self,

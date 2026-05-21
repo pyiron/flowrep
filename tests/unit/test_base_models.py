@@ -10,7 +10,7 @@ from flowrep import base_models
 from flowrep_static import makers
 
 
-class _ValidTestNode(base_models.NodeModel):
+class _ValidTestRecipe(base_models.NodeRecipe):
     """Minimal valid NodeModel subclass for testing base class behavior."""
 
     type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
@@ -25,7 +25,7 @@ class TestLabelValidation(unittest.TestCase):
         valid = ["x", "foo", "_private", "camelCase", "snake_case", "x1", "_1"]
         for label in valid:
             with self.subTest(label=label):
-                node = _ValidTestNode(inputs=[label], outputs=[])
+                node = _ValidTestRecipe(inputs=[label], outputs=[])
                 self.assertEqual(node.inputs, [label])
 
     def test_python_keywords_rejected(self):
@@ -33,14 +33,14 @@ class TestLabelValidation(unittest.TestCase):
         for kw in keywords:
             with self.subTest(keyword=kw):
                 with self.assertRaises(pydantic.ValidationError) as ctx:
-                    _ValidTestNode(inputs=[kw], outputs=[])
+                    _ValidTestRecipe(inputs=[kw], outputs=[])
                 self.assertIn("valid Python identifier", str(ctx.exception))
 
     def test_reserved_names_rejected(self):
         for reserved in base_models.RESERVED_NAMES:
             with self.subTest(reserved=reserved):
                 with self.assertRaises(pydantic.ValidationError) as ctx:
-                    _ValidTestNode(inputs=[reserved], outputs=[])
+                    _ValidTestRecipe(inputs=[reserved], outputs=[])
                 self.assertIn("valid Python identifier", str(ctx.exception))
                 self.assertIn(reserved, str(ctx.exception))
 
@@ -55,7 +55,7 @@ class TestLabelValidation(unittest.TestCase):
         for label, reason in invalid:
             with self.subTest(label=label, reason=reason):
                 with self.assertRaises(pydantic.ValidationError) as ctx:
-                    _ValidTestNode(inputs=[label] if label else [""], outputs=[])
+                    _ValidTestRecipe(inputs=[label] if label else [""], outputs=[])
                 self.assertIn("valid Python identifier", str(ctx.exception))
 
 
@@ -63,34 +63,34 @@ class TestUniqueListValidation(unittest.TestCase):
     """Tests for UniqueList and validate_unique."""
 
     def test_unique_elements_accepted(self):
-        node = _ValidTestNode(inputs=["a", "b", "c"], outputs=["x", "y"])
+        node = _ValidTestRecipe(inputs=["a", "b", "c"], outputs=["x", "y"])
         self.assertEqual(node.inputs, ["a", "b", "c"])
         self.assertEqual(node.outputs, ["x", "y"])
 
     def test_duplicate_inputs_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            _ValidTestNode(inputs=["x", "y", "x"], outputs=[])
+            _ValidTestRecipe(inputs=["x", "y", "x"], outputs=[])
         self.assertIn("unique", str(ctx.exception).lower())
         self.assertIn("x", str(ctx.exception))
 
     def test_duplicate_outputs_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            _ValidTestNode(inputs=[], outputs=["a", "b", "a"])
+            _ValidTestRecipe(inputs=[], outputs=["a", "b", "a"])
         self.assertIn("unique", str(ctx.exception).lower())
         self.assertIn("a", str(ctx.exception))
 
     def test_order_preserved(self):
-        node = _ValidTestNode(inputs=["c", "a", "b"], outputs=["z", "x", "y"])
+        node = _ValidTestRecipe(inputs=["c", "a", "b"], outputs=["z", "x", "y"])
         self.assertEqual(node.inputs, ["c", "a", "b"])
         self.assertEqual(node.outputs, ["z", "x", "y"])
 
     def test_empty_list_valid(self):
-        node = _ValidTestNode(inputs=[], outputs=[])
+        node = _ValidTestRecipe(inputs=[], outputs=[])
         self.assertEqual(node.inputs, [])
         self.assertEqual(node.outputs, [])
 
     def test_single_element_valid(self):
-        node = _ValidTestNode(inputs=["only"], outputs=["one"])
+        node = _ValidTestRecipe(inputs=["only"], outputs=["one"])
         self.assertEqual(node.inputs, ["only"])
         self.assertEqual(node.outputs, ["one"])
 
@@ -101,7 +101,7 @@ class TestNodeModelTypeFieldConstraints(unittest.TestCase):
     def test_subclass_without_type_default_rejected(self):
         with self.assertRaises(TypeError) as ctx:
 
-            class _NoDefault(base_models.NodeModel):
+            class _NoDefault(base_models.NodeRecipe):
                 type: Literal[base_models.RecipeElementType.ATOMIC]
 
         self.assertIn("_NoDefault", str(ctx.exception))
@@ -110,7 +110,7 @@ class TestNodeModelTypeFieldConstraints(unittest.TestCase):
     def test_subclass_without_frozen_type_rejected(self):
         with self.assertRaises(TypeError) as ctx:
 
-            class _NotFrozen(base_models.NodeModel):
+            class _NotFrozen(base_models.NodeRecipe):
                 type: Literal[base_models.RecipeElementType.ATOMIC] = (
                     base_models.RecipeElementType.ATOMIC
                 )
@@ -122,7 +122,7 @@ class TestNodeModelTypeFieldConstraints(unittest.TestCase):
         """Subclass must redefine type, not inherit base definition."""
         with self.assertRaises(TypeError) as ctx:
 
-            class _InheritsType(base_models.NodeModel):
+            class _InheritsType(base_models.NodeRecipe):
                 extra_field: str = "foo"
 
         self.assertIn("_InheritsType", str(ctx.exception))
@@ -130,7 +130,7 @@ class TestNodeModelTypeFieldConstraints(unittest.TestCase):
 
     def test_valid_subclass_accepted(self):
         # Should not raise
-        class _Valid(base_models.NodeModel):
+        class _Valid(base_models.NodeRecipe):
             type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
                 default=base_models.RecipeElementType.WORKFLOW, frozen=True
             )
@@ -144,7 +144,7 @@ class TestNodeModelTypeImmutability(unittest.TestCase):
 
     def test_type_cannot_be_overridden_at_construction(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            _ValidTestNode(
+            _ValidTestRecipe(
                 type=base_models.RecipeElementType.WORKFLOW,
                 inputs=[],
                 outputs=[],
@@ -154,13 +154,13 @@ class TestNodeModelTypeImmutability(unittest.TestCase):
         self.assertIn(base_models.RecipeElementType.ATOMIC.value, exc_str)
 
     def test_type_cannot_be_mutated_after_construction(self):
-        node = _ValidTestNode(inputs=[], outputs=[])
+        node = _ValidTestRecipe(inputs=[], outputs=[])
         with self.assertRaises(pydantic.ValidationError) as ctx:
             node.type = base_models.RecipeElementType.WORKFLOW
         self.assertIn("frozen", str(ctx.exception).lower())
 
     def test_type_defaults_correctly(self):
-        node = _ValidTestNode(inputs=[], outputs=[])
+        node = _ValidTestRecipe(inputs=[], outputs=[])
         self.assertEqual(node.type, base_models.RecipeElementType.ATOMIC)
 
 
@@ -168,12 +168,12 @@ class TestNodeModelDescription(unittest.TestCase):
     """Tests that NodeModel description is validated."""
 
     def test_description_is_optional(self):
-        node = _ValidTestNode(inputs=[], outputs=[])
+        node = _ValidTestRecipe(inputs=[], outputs=[])
         self.assertIsNone(node.description)
 
     def test_description_recoverable(self):
         description = "This is a description."
-        node = _ValidTestNode(inputs=[], outputs=[], description=description)
+        node = _ValidTestRecipe(inputs=[], outputs=[], description=description)
         self.assertEqual(node.description, description)
 
 
@@ -267,18 +267,18 @@ class TestNodeModelSerialization(unittest.TestCase):
     """Tests for NodeModel serialization behavior."""
 
     def test_roundtrip(self):
-        original = _ValidTestNode(inputs=["a", "b"], outputs=["x"])
+        original = _ValidTestRecipe(inputs=["a", "b"], outputs=["x"])
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-            restored = _ValidTestNode.model_validate(data)
+            restored = _ValidTestRecipe.model_validate(data)
             self.assertEqual(original.inputs, restored.inputs)
             self.assertEqual(original.outputs, restored.outputs)
             self.assertEqual(original.type, restored.type)
 
     def test_schema_generation(self):
         # Should not raise
-        schema = _ValidTestNode.model_json_schema()
+        schema = _ValidTestRecipe.model_json_schema()
         self.assertIn("properties", schema)
         self.assertIn("inputs", schema["properties"])
         self.assertIn("outputs", schema["properties"])
@@ -289,12 +289,12 @@ class TestNodeModelMultipleSubclasses(unittest.TestCase):
     """Tests that multiple valid subclasses can coexist."""
 
     def test_different_type_literals_allowed(self):
-        class _TypeA(base_models.NodeModel):
+        class _TypeA(base_models.NodeRecipe):
             type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
                 default=base_models.RecipeElementType.ATOMIC, frozen=True
             )
 
-        class _TypeB(base_models.NodeModel):
+        class _TypeB(base_models.NodeRecipe):
             type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
                 default=base_models.RecipeElementType.WORKFLOW, frozen=True
             )

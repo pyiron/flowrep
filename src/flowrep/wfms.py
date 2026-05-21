@@ -30,24 +30,24 @@ from flowrep.nodes import (
 from flowrep.parsers import label_helpers
 
 
-def run_recipe(recipe: union.NodeDiscrimination, **kwargs: Any) -> live.LiveNode:
+def run_recipe(recipe: union.RecipeDiscrimination, **kwargs: Any) -> live.LiveNode:
     """
     Execute a flowrep recipe, returning a populated :class:`LiveNode`.
 
     All inputs are passed as keyword arguments matching the recipe's input port names.
     """
     match recipe:
-        case atomic_model.AtomicNode():
+        case atomic_model.AtomicRecipe():
             return _run_atomic(recipe, **kwargs)
-        case workflow_model.WorkflowNode():
+        case workflow_model.WorkflowRecipe():
             return _run_workflow(recipe, **kwargs)
-        case for_model.ForEachNode():
+        case for_model.ForEachRecipe():
             return _run_for(recipe, **kwargs)
-        case if_model.IfNode():
+        case if_model.IfRecipe():
             return _run_if(recipe, **kwargs)
-        case try_model.TryNode():
+        case try_model.TryRecipe():
             return _run_try(recipe, **kwargs)
-        case while_model.WhileNode():
+        case while_model.WhileRecipe():
             return _run_while(recipe, **kwargs)
         case _:
             raise TypeError(f"Unsupported recipe type: {type(recipe).__name__}")
@@ -58,7 +58,7 @@ def run_recipe(recipe: union.NodeDiscrimination, **kwargs: Any) -> live.LiveNode
 # ---------------------------------------------------------------------------
 
 
-def _run_atomic(recipe: atomic_model.AtomicNode, **kwargs: Any) -> live.LiveAtomic:
+def _run_atomic(recipe: atomic_model.AtomicRecipe, **kwargs: Any) -> live.LiveAtomic:
     node = live.LiveAtomic.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
     result = _call_atomic(node)
@@ -74,7 +74,7 @@ def _call_atomic(node: live.LiveAtomic) -> Any:
     default is used.  A :class:`ValueError` is raised when neither is available.
     """
     recipe = node.recipe
-    assert isinstance(recipe, atomic_model.AtomicNode)
+    assert isinstance(recipe, atomic_model.AtomicRecipe)
 
     positional: list[Any] = []
     keyword: dict[str, Any] = {}
@@ -96,7 +96,7 @@ def _call_atomic(node: live.LiveAtomic) -> Any:
 
 def _store_atomic_outputs(node: live.LiveAtomic, result: Any) -> None:
     recipe = node.recipe
-    assert isinstance(recipe, atomic_model.AtomicNode)
+    assert isinstance(recipe, atomic_model.AtomicRecipe)
     output_names = list(node.output_ports.keys())
 
     if recipe.unpack_mode == atomic_model.UnpackMode.NONE:
@@ -121,7 +121,7 @@ def _store_atomic_outputs(node: live.LiveAtomic, result: Any) -> None:
 
 
 def _run_workflow(
-    recipe: workflow_model.WorkflowNode, **kwargs: Any
+    recipe: workflow_model.WorkflowRecipe, **kwargs: Any
 ) -> live.LiveWorkflow:
     node = live.LiveWorkflow.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
@@ -136,7 +136,7 @@ def _run_workflow(
     return node
 
 
-def _topo_sort_children(recipe: workflow_model.WorkflowNode) -> list[str]:
+def _topo_sort_children(recipe: workflow_model.WorkflowRecipe) -> list[str]:
     """Kahn's algorithm over sibling edges; deterministic tie-breaking by label."""
     in_degree: dict[str, int] = {label: 0 for label in recipe.nodes}
     successors: dict[str, list[str]] = {label: [] for label in recipe.nodes}
@@ -167,7 +167,7 @@ def _topo_sort_children(recipe: workflow_model.WorkflowNode) -> list[str]:
 
 def _gather_child_inputs(
     child_label: str,
-    recipe: workflow_model.WorkflowNode,
+    recipe: workflow_model.WorkflowRecipe,
     workflow_node: live.LiveWorkflow,
 ) -> dict[str, Any]:
     """
@@ -196,7 +196,7 @@ def _gather_child_inputs(
 
 
 def _populate_workflow_outputs(
-    node: live.LiveWorkflow, recipe: workflow_model.WorkflowNode
+    node: live.LiveWorkflow, recipe: workflow_model.WorkflowRecipe
 ) -> None:
     for target, source in recipe.output_edges.items():
         if isinstance(source, edge_models.InputSource):
@@ -212,7 +212,7 @@ def _populate_workflow_outputs(
 # ---------------------------------------------------------------------------
 
 
-def _run_for(recipe: for_model.ForEachNode, **kwargs: Any) -> live.FlowControl:
+def _run_for(recipe: for_model.ForEachRecipe, **kwargs: Any) -> live.FlowControl:
     """
     Execute a for-node by scattering iterated inputs across body instances and
     collecting outputs into lists.
@@ -301,7 +301,7 @@ def _run_for(recipe: for_model.ForEachNode, **kwargs: Any) -> live.FlowControl:
 # ---------------------------------------------------------------------------
 
 
-def _run_while(recipe: while_model.WhileNode, **kwargs: Any) -> live.FlowControl:
+def _run_while(recipe: while_model.WhileRecipe, **kwargs: Any) -> live.FlowControl:
     """
     Execute a while-node by repeatedly evaluating a condition and running a body.
 
@@ -358,7 +358,7 @@ def _run_while(recipe: while_model.WhileNode, **kwargs: Any) -> live.FlowControl
 # ---------------------------------------------------------------------------
 
 
-def _run_if(recipe: if_model.IfNode, **kwargs: Any) -> live.FlowControl:
+def _run_if(recipe: if_model.IfRecipe, **kwargs: Any) -> live.FlowControl:
     """
     Execute an if-node by walking cases until a condition evaluates positively,
     then executing the matching body (or the else case).
@@ -389,8 +389,8 @@ def _run_if(recipe: if_model.IfNode, **kwargs: Any) -> live.FlowControl:
 
 def _execute_if_branch(
     node: live.FlowControl,
-    recipe: if_model.IfNode,
-    branch: helper_models.LabeledNode,
+    recipe: if_model.IfRecipe,
+    branch: helper_models.LabeledRecipe,
 ) -> None:
     branch_kwargs = _gather_dynamic_child_inputs(branch.label, recipe.input_edges, node)
     branch_node = run_recipe(branch.node, **branch_kwargs)
@@ -404,7 +404,7 @@ def _execute_if_branch(
 # ---------------------------------------------------------------------------
 
 
-def _run_try(recipe: try_model.TryNode, **kwargs: Any) -> live.FlowControl:
+def _run_try(recipe: try_model.TryRecipe, **kwargs: Any) -> live.FlowControl:
     """
     Execute a try-node: run the try body and, on exception, walk exception cases
     for a matching handler.  If no handler matches, the exception propagates.

@@ -307,11 +307,11 @@ class TestConsumeCallArguments(unittest.TestCase):
 
     def _make_labeled_node(
         self, label: str, inputs: list[str], outputs: list[str] | None = None
-    ) -> helper_models.LabeledNode:
+    ) -> helper_models.LabeledRecipe:
         outputs = outputs or ["output_0"]
-        return helper_models.LabeledNode(
+        return helper_models.LabeledRecipe(
             label=label,
-            node=atomic_model.AtomicNode(
+            node=atomic_model.AtomicRecipe(
                 reference=makers.make_reference(module="test.module", qualname="func"),
                 inputs=inputs,
                 outputs=outputs,

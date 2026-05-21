@@ -361,12 +361,12 @@ class TestForParserEdgeWiring(unittest.TestCase):
     # --- helpers ---
 
     @staticmethod
-    def _get_for_node(func) -> for_model.ForEachNode:
+    def _get_for_node(func) -> for_model.ForEachRecipe:
         wf = workflow_parser.parse_workflow(func)
         for_nodes = [
-            n for n in wf.nodes.values() if isinstance(n, for_model.ForEachNode)
+            n for n in wf.nodes.values() if isinstance(n, for_model.ForEachRecipe)
         ]
-        assert len(for_nodes) == 1, f"Expected 1 ForEachNode, got {len(for_nodes)}"
+        assert len(for_nodes) == 1, f"Expected 1 ForEachRecipe, got {len(for_nodes)}"
         return for_nodes[0]
 
     # --- output edges from body computation ---
@@ -516,7 +516,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
 
 
 class TestForParserStructure(unittest.TestCase):
-    def _parse(self, func) -> workflow_model.WorkflowNode:
+    def _parse(self, func) -> workflow_model.WorkflowRecipe:
         return workflow_parser.parse_workflow(func)
 
     def test_for_node_registered_in_parent(self):
@@ -529,7 +529,7 @@ class TestForParserStructure(unittest.TestCase):
 
         node = self._parse(wf)
         self.assertIn("for_each_0", node.nodes)
-        self.assertIsInstance(node.nodes["for_each_0"], for_model.ForEachNode)
+        self.assertIsInstance(node.nodes["for_each_0"], for_model.ForEachRecipe)
 
     def test_body_node_label_is_body(self):
         def wf(xs):
@@ -551,7 +551,7 @@ class TestForParserStructure(unittest.TestCase):
             return results
 
         fn = self._parse(wf).nodes["for_each_0"]
-        self.assertIsInstance(fn.body_node.node, workflow_model.WorkflowNode)
+        self.assertIsInstance(fn.body_node.node, workflow_model.WorkflowRecipe)
 
     def test_multiple_accumulators(self):
         def wf(xs):
@@ -612,9 +612,9 @@ class TestForParserStructure(unittest.TestCase):
 
         fn = self._parse(wf).nodes["for_each_0"]
         body = fn.body_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
         self.assertIn("for_each_0", body.nodes)
-        self.assertIsInstance(body.nodes["for_each_0"], for_model.ForEachNode)
+        self.assertIsInstance(body.nodes["for_each_0"], for_model.ForEachRecipe)
 
     def test_accumulator_cleanup_allows_second_for(self):
         """After a for-node consumes accumulators, new ones can be defined."""
@@ -636,7 +636,7 @@ class TestForParserStructure(unittest.TestCase):
         self.assertEqual(sorted(node.outputs), ["first", "second"])
 
     def test_while_nested_inside_for_body(self):
-        """A while-loop inside a for-body produces a WhileNode in the body workflow."""
+        """A while-loop inside a for-body produces a WhileRecipe in the body workflow."""
 
         def wf(xs, bound):
             results = []
@@ -649,16 +649,16 @@ class TestForParserStructure(unittest.TestCase):
 
         fn = self._parse(wf).nodes["for_each_0"]
         body = fn.body_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
         while_nodes = [
-            n for n in body.nodes.values() if isinstance(n, while_model.WhileNode)
+            n for n in body.nodes.values() if isinstance(n, while_model.WhileRecipe)
         ]
         self.assertEqual(len(while_nodes), 1)
         # The while-node's output feeds the accumulator
         self.assertIn("y", while_nodes[0].outputs)
 
     def test_if_nested_inside_for_body(self):
-        """An if-node inside a for-body produces an IfNode in the body workflow."""
+        """An if-node inside a for-body produces an IfRecipe in the body workflow."""
 
         def wf(xs, y):
             results = []
@@ -672,12 +672,12 @@ class TestForParserStructure(unittest.TestCase):
 
         fn = self._parse(wf).nodes["for_each_0"]
         body = fn.body_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
-        if_nodes = [n for n in body.nodes.values() if isinstance(n, if_model.IfNode)]
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
+        if_nodes = [n for n in body.nodes.values() if isinstance(n, if_model.IfRecipe)]
         self.assertEqual(len(if_nodes), 1)
 
     def test_try_nested_inside_for_body(self):
-        """A try/except inside a for-body produces a TryNode in the body workflow."""
+        """A try/except inside a for-body produces a TryRecipe in the body workflow."""
 
         def wf(xs, y):
             results = []
@@ -691,8 +691,10 @@ class TestForParserStructure(unittest.TestCase):
 
         fn = self._parse(wf).nodes["for_each_0"]
         body = fn.body_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
-        try_nodes = [n for n in body.nodes.values() if isinstance(n, try_model.TryNode)]
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
+        try_nodes = [
+            n for n in body.nodes.values() if isinstance(n, try_model.TryRecipe)
+        ]
         self.assertEqual(len(try_nodes), 1)
 
 
@@ -701,7 +703,7 @@ class TestForParserStructure(unittest.TestCase):
 # ===================================================================
 
 
-class TestForEachNodeRoundTrip(unittest.TestCase):
+class TestForEachRecipeRoundTrip(unittest.TestCase):
     def test_for_node_round_trip(self):
         def wf(xs):
             results = []
@@ -714,7 +716,7 @@ class TestForEachNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = fn.model_dump(mode=mode)
-                restored = for_model.ForEachNode.model_validate(dumped)
+                restored = for_model.ForEachRecipe.model_validate(dumped)
                 self.assertEqual(fn, restored)
 
     def test_workflow_round_trip(self):
@@ -733,7 +735,7 @@ class TestForEachNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = node.model_dump(mode=mode)
-                restored = workflow_model.WorkflowNode.model_validate(dumped)
+                restored = workflow_model.WorkflowRecipe.model_validate(dumped)
                 self.assertEqual(node, restored)
 
 

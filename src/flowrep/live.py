@@ -78,37 +78,37 @@ class OutputPort(_Port): ...
 InputPorts = MutableMapping[base_models.Label, InputPort]
 OutputPorts = MutableMapping[base_models.Label, OutputPort]
 
-NodeType = TypeVar("NodeType", bound=base_models.NodeModel)
+RecipeType = TypeVar("RecipeType", bound=base_models.NodeRecipe)
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveNode(Generic[NodeType], abc.ABC):
-    recipe: NodeType
+class LiveNode(Generic[RecipeType], abc.ABC):
+    recipe: RecipeType
     input_ports: InputPorts
     output_ports: OutputPorts
 
     @classmethod
     @abc.abstractmethod
-    def from_recipe(cls, recipe: NodeType) -> Self: ...
+    def from_recipe(cls, recipe: RecipeType) -> Self: ...
 
 
 def recipe2live(
-    recipe: union.NodeDiscrimination, allow_variadic_inputs: bool = True
+    recipe: union.RecipeDiscrimination, allow_variadic_inputs: bool = True
 ) -> LiveNode:
     match recipe:
-        case atomic_model.AtomicNode():
+        case atomic_model.AtomicRecipe():
             return LiveAtomic.from_recipe(
                 recipe, allow_variadic_inputs=allow_variadic_inputs
             )
-        case for_model.ForEachNode():
+        case for_model.ForEachRecipe():
             return LiveForEach.from_recipe(recipe)
-        case if_model.IfNode():
+        case if_model.IfRecipe():
             return LiveIf.from_recipe(recipe)
-        case try_model.TryNode():
+        case try_model.TryRecipe():
             return LiveTry.from_recipe(recipe)
-        case while_model.WhileNode():
+        case while_model.WhileRecipe():
             return LiveWhile.from_recipe(recipe)
-        case workflow_model.WorkflowNode():
+        case workflow_model.WorkflowRecipe():
             return LiveWorkflow.from_recipe(
                 recipe, allow_variadic_inputs=allow_variadic_inputs
             )
@@ -117,12 +117,12 @@ def recipe2live(
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveAtomic(LiveNode[atomic_model.AtomicNode]):
+class LiveAtomic(LiveNode[atomic_model.AtomicRecipe]):
     function: Callable
 
     @classmethod
     def from_recipe(
-        cls, recipe: atomic_model.AtomicNode, allow_variadic_inputs: bool = True
+        cls, recipe: atomic_model.AtomicRecipe, allow_variadic_inputs: bool = True
     ) -> LiveAtomic:
         function, input_ports, output_ports = _parse_function(
             recipe.reference.info.fully_qualified_name,
@@ -140,7 +140,7 @@ class LiveAtomic(LiveNode[atomic_model.AtomicNode]):
 
 
 @dataclasses.dataclass(frozen=False)
-class Composite(LiveNode, Generic[NodeType], abc.ABC):
+class Composite(LiveNode, Generic[RecipeType], abc.ABC):
     nodes: MutableMapping[base_models.Label, LiveNode]
     input_edges: edge_models.InputEdges
     edges: edge_models.Edges
@@ -148,10 +148,10 @@ class Composite(LiveNode, Generic[NodeType], abc.ABC):
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveWorkflow(Composite[workflow_model.WorkflowNode]):
+class LiveWorkflow(Composite[workflow_model.WorkflowRecipe]):
     @classmethod
     def from_recipe(
-        cls, recipe: workflow_model.WorkflowNode, allow_variadic_inputs: bool = True
+        cls, recipe: workflow_model.WorkflowRecipe, allow_variadic_inputs: bool = True
     ) -> LiveWorkflow:
         if recipe.reference:
             function, input_ports, output_ports = _parse_function(
@@ -183,12 +183,12 @@ class LiveWorkflow(Composite[workflow_model.WorkflowNode]):
 
 
 @dataclasses.dataclass(frozen=False)
-class FlowControl(Composite, Generic[NodeType]):
+class FlowControl(Composite, Generic[RecipeType]):
 
     @classmethod
     def from_recipe(
         cls,
-        recipe: NodeType,
+        recipe: RecipeType,
     ) -> Self:
         """
         Flow control nodes are composite with dynamic bodies; WfMS must populate the
@@ -206,19 +206,19 @@ class FlowControl(Composite, Generic[NodeType]):
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveForEach(FlowControl[for_model.ForEachNode]): ...
+class LiveForEach(FlowControl[for_model.ForEachRecipe]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveIf(FlowControl[if_model.IfNode]): ...
+class LiveIf(FlowControl[if_model.IfRecipe]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveTry(FlowControl[try_model.TryNode]): ...
+class LiveTry(FlowControl[try_model.TryRecipe]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveWhile(FlowControl[while_model.WhileNode]): ...
+class LiveWhile(FlowControl[while_model.WhileRecipe]): ...
 
 
 def _parse_function(

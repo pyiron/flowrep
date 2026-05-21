@@ -138,7 +138,7 @@ def resolve_symbols_to_strings(
 def consume_call_arguments(
     scope: symbol_scope.SymbolScope,
     ast_call: ast.Call,
-    child: helper_models.LabeledNode,
+    child: helper_models.LabeledRecipe,
 ) -> None:
     """Record all argument->port consumptions for a node-creating call."""
 

@@ -153,10 +153,10 @@ class TestTryParserEdgeWiring(unittest.TestCase):
     """Verify the input/output/prospective-output edge construction."""
 
     @staticmethod
-    def _get_try_node(func) -> try_model.TryNode:
+    def _get_try_node(func) -> try_model.TryRecipe:
         wf = workflow_parser.parse_workflow(func)
-        try_nodes = [n for n in wf.nodes.values() if isinstance(n, try_model.TryNode)]
-        assert len(try_nodes) == 1, f"Expected 1 TryNode, got {len(try_nodes)}"
+        try_nodes = [n for n in wf.nodes.values() if isinstance(n, try_model.TryRecipe)]
+        assert len(try_nodes) == 1, f"Expected 1 TryRecipe, got {len(try_nodes)}"
         return try_nodes[0]
 
     # --- try body wiring ---
@@ -316,7 +316,7 @@ class TestTryParserEdgeWiring(unittest.TestCase):
 
 
 class TestTryParserStructure(unittest.TestCase):
-    def _parse(self, func) -> workflow_model.WorkflowNode:
+    def _parse(self, func) -> workflow_model.WorkflowRecipe:
         return workflow_parser.parse_workflow(func)
 
     def test_try_node_registered_in_parent(self):
@@ -329,7 +329,7 @@ class TestTryParserStructure(unittest.TestCase):
 
         node = self._parse(wf)
         self.assertIn("try_0", node.nodes)
-        self.assertIsInstance(node.nodes["try_0"], try_model.TryNode)
+        self.assertIsInstance(node.nodes["try_0"], try_model.TryRecipe)
 
     def test_try_body_label(self):
         def wf(x, y):
@@ -357,7 +357,7 @@ class TestTryParserStructure(unittest.TestCase):
         self.assertEqual(tn.exception_cases[1].body.label, "except_body_1")
 
     def test_body_nodes_are_workflows(self):
-        """All body nodes are WorkflowNodes for uniformity."""
+        """All body nodes are WorkflowRecipes for uniformity."""
 
         def wf(x, y):
             try:
@@ -367,9 +367,9 @@ class TestTryParserStructure(unittest.TestCase):
             return z
 
         tn = self._parse(wf).nodes["try_0"]
-        self.assertIsInstance(tn.try_node.node, workflow_model.WorkflowNode)
+        self.assertIsInstance(tn.try_node.node, workflow_model.WorkflowRecipe)
         self.assertIsInstance(
-            tn.exception_cases[0].body.node, workflow_model.WorkflowNode
+            tn.exception_cases[0].body.node, workflow_model.WorkflowRecipe
         )
 
     def test_exception_types_resolved(self):
@@ -492,7 +492,7 @@ class TestTryParserStructure(unittest.TestCase):
     # --- nesting other control flows inside try/except bodies ---
 
     def test_for_nested_inside_try_body(self):
-        """A for-loop inside a try-body produces a ForEachNode in the body workflow."""
+        """A for-loop inside a try-body produces a ForEachRecipe in the body workflow."""
 
         def wf(xs, y):
             try:
@@ -507,14 +507,14 @@ class TestTryParserStructure(unittest.TestCase):
 
         tn = self._parse(wf).nodes["try_0"]
         body = tn.try_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
         for_nodes = [
-            n for n in body.nodes.values() if isinstance(n, for_model.ForEachNode)
+            n for n in body.nodes.values() if isinstance(n, for_model.ForEachRecipe)
         ]
         self.assertEqual(len(for_nodes), 1)
 
     def test_while_nested_inside_try_body(self):
-        """A while-loop inside a try-body produces a WhileNode in the body workflow."""
+        """A while-loop inside a try-body produces a WhileRecipe in the body workflow."""
 
         def wf(x, y, bound):
             try:
@@ -527,14 +527,14 @@ class TestTryParserStructure(unittest.TestCase):
 
         tn = self._parse(wf).nodes["try_0"]
         body = tn.try_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
         while_nodes = [
-            n for n in body.nodes.values() if isinstance(n, while_model.WhileNode)
+            n for n in body.nodes.values() if isinstance(n, while_model.WhileRecipe)
         ]
         self.assertEqual(len(while_nodes), 1)
 
     def test_if_nested_inside_try_body(self):
-        """An if-node inside a try-body produces an IfNode in the body workflow."""
+        """An if-node inside a try-body produces an IfRecipe in the body workflow."""
 
         def wf(x, y):
             try:
@@ -548,12 +548,12 @@ class TestTryParserStructure(unittest.TestCase):
 
         tn = self._parse(wf).nodes["try_0"]
         body = tn.try_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
-        if_nodes = [n for n in body.nodes.values() if isinstance(n, if_model.IfNode)]
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
+        if_nodes = [n for n in body.nodes.values() if isinstance(n, if_model.IfRecipe)]
         self.assertEqual(len(if_nodes), 1)
 
     def test_try_nested_inside_try_body(self):
-        """A try/except inside a try-body produces a TryNode in the body workflow."""
+        """A try/except inside a try-body produces a TryRecipe in the body workflow."""
 
         def wf(x, y):
             try:
@@ -567,14 +567,14 @@ class TestTryParserStructure(unittest.TestCase):
 
         tn = self._parse(wf).nodes["try_0"]
         body = tn.try_node.node
-        self.assertIsInstance(body, workflow_model.WorkflowNode)
+        self.assertIsInstance(body, workflow_model.WorkflowRecipe)
         inner_try_nodes = [
-            n for n in body.nodes.values() if isinstance(n, try_model.TryNode)
+            n for n in body.nodes.values() if isinstance(n, try_model.TryRecipe)
         ]
         self.assertEqual(len(inner_try_nodes), 1)
 
     def test_for_nested_inside_except_body(self):
-        """A for-loop inside an except-body produces a ForEachNode in the except
+        """A for-loop inside an except-body produces a ForEachRecipe in the except
         workflow."""
 
         def wf(xs, y):
@@ -590,16 +590,16 @@ class TestTryParserStructure(unittest.TestCase):
 
         tn = self._parse(wf).nodes["try_0"]
         except_body = tn.exception_cases[0].body.node
-        self.assertIsInstance(except_body, workflow_model.WorkflowNode)
+        self.assertIsInstance(except_body, workflow_model.WorkflowRecipe)
         for_nodes = [
             n
             for n in except_body.nodes.values()
-            if isinstance(n, for_model.ForEachNode)
+            if isinstance(n, for_model.ForEachRecipe)
         ]
         self.assertEqual(len(for_nodes), 1)
 
     def test_while_nested_inside_except_body(self):
-        """A while-loop inside an except-body produces a WhileNode in the except
+        """A while-loop inside an except-body produces a WhileRecipe in the except
         workflow."""
 
         def wf(x, y, bound):
@@ -613,16 +613,16 @@ class TestTryParserStructure(unittest.TestCase):
 
         tn = self._parse(wf).nodes["try_0"]
         except_body = tn.exception_cases[0].body.node
-        self.assertIsInstance(except_body, workflow_model.WorkflowNode)
+        self.assertIsInstance(except_body, workflow_model.WorkflowRecipe)
         while_nodes = [
             n
             for n in except_body.nodes.values()
-            if isinstance(n, while_model.WhileNode)
+            if isinstance(n, while_model.WhileRecipe)
         ]
         self.assertEqual(len(while_nodes), 1)
 
     def test_if_nested_inside_except_body(self):
-        """An if-node inside an except-body produces an IfNode in the except
+        """An if-node inside an except-body produces an IfRecipe in the except
         workflow."""
 
         def wf(x, y):
@@ -637,9 +637,9 @@ class TestTryParserStructure(unittest.TestCase):
 
         tn = self._parse(wf).nodes["try_0"]
         except_body = tn.exception_cases[0].body.node
-        self.assertIsInstance(except_body, workflow_model.WorkflowNode)
+        self.assertIsInstance(except_body, workflow_model.WorkflowRecipe)
         if_nodes = [
-            n for n in except_body.nodes.values() if isinstance(n, if_model.IfNode)
+            n for n in except_body.nodes.values() if isinstance(n, if_model.IfRecipe)
         ]
         self.assertEqual(len(if_nodes), 1)
 
@@ -649,7 +649,7 @@ class TestTryParserStructure(unittest.TestCase):
 # ===================================================================
 
 
-class TestTryNodeRoundTrip(unittest.TestCase):
+class TestTryRecipeRoundTrip(unittest.TestCase):
     def test_simple_try_except_round_trip(self):
         def wf(x, y):
             try:
@@ -662,7 +662,7 @@ class TestTryNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = tn.model_dump(mode=mode)
-                restored = try_model.TryNode.model_validate(dumped)
+                restored = try_model.TryRecipe.model_validate(dumped)
                 self.assertEqual(tn, restored)
 
     def test_multi_except_round_trip(self):
@@ -679,7 +679,7 @@ class TestTryNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = tn.model_dump(mode=mode)
-                restored = try_model.TryNode.model_validate(dumped)
+                restored = try_model.TryRecipe.model_validate(dumped)
                 self.assertEqual(tn, restored)
 
     def test_tuple_exceptions_round_trip(self):
@@ -694,7 +694,7 @@ class TestTryNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = tn.model_dump(mode=mode)
-                restored = try_model.TryNode.model_validate(dumped)
+                restored = try_model.TryRecipe.model_validate(dumped)
                 self.assertEqual(tn, restored)
 
     def test_workflow_with_try_round_trip(self):
@@ -712,7 +712,7 @@ class TestTryNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = node.model_dump(mode=mode)
-                restored = workflow_model.WorkflowNode.model_validate(dumped)
+                restored = workflow_model.WorkflowRecipe.model_validate(dumped)
                 self.assertEqual(node, restored)
 
     def test_multi_output_try_round_trip(self):
@@ -729,7 +729,7 @@ class TestTryNodeRoundTrip(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 dumped = node.model_dump(mode=mode)
-                restored = workflow_model.WorkflowNode.model_validate(dumped)
+                restored = workflow_model.WorkflowRecipe.model_validate(dumped)
                 self.assertEqual(node, restored)
 
 
@@ -832,7 +832,7 @@ class TestTryParserLocalImport(unittest.TestCase):
             return sum_
 
         node = workflow_parser.parse_workflow(my_wf)
-        self.assertIsInstance(node, workflow_model.WorkflowNode)
+        self.assertIsInstance(node, workflow_model.WorkflowRecipe)
 
     def test_local_imports_do_not_leak_to_sibling(self):
 

@@ -13,7 +13,7 @@ WHILE_BODY_LABEL: str = "body"
 
 def parse_while_node(
     walker: parser_protocol.BodyWalker, tree: ast.While
-) -> while_model.WhileNode:
+) -> while_model.WhileRecipe:
     """
     Walk a while-loop.
 
@@ -49,12 +49,12 @@ def parse_while_node(
 
     case = helper_models.ConditionalCase(
         condition=labeled_condition,
-        body=helper_models.LabeledNode(
+        body=helper_models.LabeledRecipe(
             label=WHILE_BODY_LABEL, node=body_walker.build_model()
         ),
     )
 
-    return while_model.WhileNode(
+    return while_model.WhileRecipe(
         inputs=inputs,
         outputs=outputs,
         case=case,

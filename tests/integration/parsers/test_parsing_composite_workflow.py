@@ -239,7 +239,7 @@ _try_node = {
 
 # --- Top-level workflow ---
 
-full_composite_node = workflow_model.WorkflowNode.model_validate(
+full_composite_node = workflow_model.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y", "bound"],
@@ -278,7 +278,7 @@ full_composite_node = workflow_model.WorkflowNode.model_validate(
 
 
 def _field_differences(
-    reference: workflow_model.WorkflowNode, actual: workflow_model.WorkflowNode
+    reference: workflow_model.WorkflowRecipe, actual: workflow_model.WorkflowRecipe
 ) -> dict:
     dict1 = reference.model_dump(mode="json")
     dict2 = actual.model_dump(mode="json")

@@ -16,7 +16,7 @@ def simple_while(a=10, b=20, c=40):
 
 # We always wrap the flow control bodies in a workflow, even if they're just a single
 # node. This is just a tradeoff of more verbosity for less parsing complexity
-simple_while_while_node_body = workflow_model.WorkflowNode.model_validate(
+simple_while_while_node_body = workflow_model.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "b"],
@@ -28,7 +28,7 @@ simple_while_while_node_body = workflow_model.WorkflowNode.model_validate(
     }
 )
 
-simple_while_while_node = while_model.WhileNode.model_validate(
+simple_while_while_node = while_model.WhileRecipe.model_validate(
     {
         "type": "while",
         "inputs": ["x", "c", "b"],
@@ -53,7 +53,7 @@ simple_while_while_node = while_model.WhileNode.model_validate(
     }
 )
 
-simple_while_node = workflow_model.WorkflowNode.model_validate(
+simple_while_node = workflow_model.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["a", "b", "c"],
@@ -95,7 +95,7 @@ def nested_while(x, m, n, a):
     return x, y
 
 
-nest_while_node = workflow_model.WorkflowNode.model_validate(
+nest_while_node = workflow_model.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "m", "n", "a"],
@@ -210,7 +210,7 @@ def multi_reassign(x, y, bound):
     return x, y
 
 
-multi_reassign_body = workflow_model.WorkflowNode.model_validate(
+multi_reassign_body = workflow_model.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y"],
@@ -234,7 +234,7 @@ multi_reassign_body = workflow_model.WorkflowNode.model_validate(
     }
 )
 
-multi_reassign_node = workflow_model.WorkflowNode.model_validate(
+multi_reassign_node = workflow_model.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y", "bound"],
@@ -298,7 +298,7 @@ def sequential_whiles(x, y, m, n):
     return x
 
 
-seq_while_body = workflow_model.WorkflowNode.model_validate(
+seq_while_body = workflow_model.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y"],
@@ -310,7 +310,7 @@ seq_while_body = workflow_model.WorkflowNode.model_validate(
     }
 )
 
-sequential_whiles_node = workflow_model.WorkflowNode.model_validate(
+sequential_whiles_node = workflow_model.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y", "m", "n"],
@@ -387,7 +387,7 @@ def chained_body(x, a, b, bound):
     return x
 
 
-chained_body_node = workflow_model.WorkflowNode.model_validate(
+chained_body_node = workflow_model.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "a", "b", "bound"],

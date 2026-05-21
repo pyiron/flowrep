@@ -31,17 +31,17 @@ def _single_node_workflow(
     inputs: list[str],
     outputs: list[str],
     child_label: str,
-    child_recipe: atomic_model.AtomicNode,
+    child_recipe: atomic_model.AtomicRecipe,
     input_map: dict[str, str],
     output_map: dict[str, str],
-) -> workflow_model.WorkflowNode:
+) -> workflow_model.WorkflowRecipe:
     """
     Convenience wrapper: one-atomic-child workflow.
 
     *input_map*: `{child_port: wf_input}`.
     *output_map*: `{wf_output: child_port}`.
     """
-    return workflow_model.WorkflowNode(
+    return workflow_model.WorkflowRecipe(
         inputs=inputs,
         outputs=outputs,
         nodes={child_label: child_recipe},
@@ -61,9 +61,9 @@ def _single_node_workflow(
     )
 
 
-def _linear_workflow() -> workflow_model.WorkflowNode:
+def _linear_workflow() -> workflow_model.WorkflowRecipe:
     """`add(x, y) -> mul(result, z) -> output`."""
-    return workflow_model.WorkflowNode(
+    return workflow_model.WorkflowRecipe(
         inputs=["x", "y", "z"],
         outputs=["result"],
         nodes={
@@ -107,12 +107,12 @@ def _diamond_workflow(a: int, b: int = 1) -> int:
     return result
 
 
-def _for_negate() -> for_model.ForEachNode:
+def _for_negate() -> for_model.ForEachRecipe:
     """For each `x` in `xs`, negate it; collect into `ys`."""
-    return for_model.ForEachNode(
+    return for_model.ForEachRecipe(
         inputs=["xs"],
         outputs=["ys"],
-        body_node=helper_models.LabeledNode(
+        body_node=helper_models.LabeledRecipe(
             label="body", node=library.negate.flowrep_recipe
         ),
         input_edges={
@@ -129,15 +129,15 @@ def _for_negate() -> for_model.ForEachNode:
     )
 
 
-def _for_add_broadcast() -> for_model.ForEachNode:
+def _for_add_broadcast() -> for_model.ForEachRecipe:
     """
     For each `x` in `xs`, compute `add(x, offset)` (offset is broadcast).
     Also transfers scattered `xs` elements to output `inputs_used`.
     """
-    return for_model.ForEachNode(
+    return for_model.ForEachRecipe(
         inputs=["xs", "offset"],
         outputs=["ys", "inputs_used"],
-        body_node=helper_models.LabeledNode(
+        body_node=helper_models.LabeledRecipe(
             label="body", node=library.my_add.flowrep_recipe
         ),
         input_edges={
@@ -160,12 +160,12 @@ def _for_add_broadcast() -> for_model.ForEachNode:
     )
 
 
-def _for_add_zipped() -> for_model.ForEachNode:
+def _for_add_zipped() -> for_model.ForEachRecipe:
     """Zip `xs` and `ys` element-wise, compute `add(a, b)` for each pair."""
-    return for_model.ForEachNode(
+    return for_model.ForEachRecipe(
         inputs=["xs", "ys"],
         outputs=["sums"],
-        body_node=helper_models.LabeledNode(
+        body_node=helper_models.LabeledRecipe(
             label="body", node=library.my_add.flowrep_recipe
         ),
         input_edges={
@@ -185,7 +185,7 @@ def _for_add_zipped() -> for_model.ForEachNode:
     )
 
 
-def _decrement_body_workflow() -> workflow_model.WorkflowNode:
+def _decrement_body_workflow() -> workflow_model.WorkflowRecipe:
     """`n -> decrement(n) -> n` — single-step body for while loops."""
     return _single_node_workflow(
         inputs=["n"],
@@ -197,16 +197,16 @@ def _decrement_body_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _while_countdown() -> while_model.WhileNode:
+def _while_countdown() -> while_model.WhileRecipe:
     """Decrement `n` while `is_positive(n)`."""
-    return while_model.WhileNode(
+    return while_model.WhileRecipe(
         inputs=["n"],
         outputs=["n"],
         case=helper_models.ConditionalCase(
-            condition=helper_models.LabeledNode(
+            condition=helper_models.LabeledRecipe(
                 label="condition", node=library.is_positive.flowrep_recipe
             ),
-            body=helper_models.LabeledNode(
+            body=helper_models.LabeledRecipe(
                 label="body", node=_decrement_body_workflow()
             ),
         ),
@@ -226,7 +226,7 @@ def _while_countdown() -> while_model.WhileNode:
     )
 
 
-def _identity_body_workflow() -> workflow_model.WorkflowNode:
+def _identity_body_workflow() -> workflow_model.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["x"],
         outputs=["y"],
@@ -237,7 +237,7 @@ def _identity_body_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _negate_body_workflow() -> workflow_model.WorkflowNode:
+def _negate_body_workflow() -> workflow_model.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["x"],
         outputs=["y"],
@@ -248,24 +248,24 @@ def _negate_body_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _if_abs() -> if_model.IfNode:
+def _if_abs() -> if_model.IfRecipe:
     """If `is_positive(x)` return `identity(x)` else `negate(x)`."""
-    return if_model.IfNode(
+    return if_model.IfRecipe(
         inputs=["x"],
         outputs=["y"],
         cases=[
             helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="condition_0",
                     node=library.is_positive.flowrep_recipe,
                 ),
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="body_0",
                     node=_identity_body_workflow(),
                 ),
             )
         ],
-        else_case=helper_models.LabeledNode(
+        else_case=helper_models.LabeledRecipe(
             label="else_body",
             node=_negate_body_workflow(),
         ),
@@ -295,28 +295,28 @@ def _value_and_flag(x: int) -> tuple[int, bool]:
     return x, x > 0
 
 
-def _if_abs_multi_output_condition() -> if_model.IfNode:
+def _if_abs_multi_output_condition() -> if_model.IfRecipe:
     """
     Like :func:`_if_abs` but the condition node returns two outputs (``value``,
     ``flag``) and the case explicitly selects ``flag`` via ``condition_output``.
     """
-    return if_model.IfNode(
+    return if_model.IfRecipe(
         inputs=["x"],
         outputs=["y"],
         cases=[
             helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="condition_0",
                     node=_value_and_flag.flowrep_recipe,
                 ),
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="body_0",
                     node=_identity_body_workflow(),
                 ),
                 condition_output="flag",
             )
         ],
-        else_case=helper_models.LabeledNode(
+        else_case=helper_models.LabeledRecipe(
             label="else_body",
             node=_negate_body_workflow(),
         ),
@@ -340,7 +340,7 @@ def _if_abs_multi_output_condition() -> if_model.IfNode:
     )
 
 
-def _divide_body_workflow() -> workflow_model.WorkflowNode:
+def _divide_body_workflow() -> workflow_model.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["a", "b"],
         outputs=["result"],
@@ -351,7 +351,7 @@ def _divide_body_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _fallback_body_workflow() -> workflow_model.WorkflowNode:
+def _fallback_body_workflow() -> workflow_model.WorkflowRecipe:
     """Return `a` unchanged as `result`."""
     return _single_node_workflow(
         inputs=["a"],
@@ -363,12 +363,12 @@ def _fallback_body_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _try_safe_divide() -> try_model.TryNode:
+def _try_safe_divide() -> try_model.TryRecipe:
     """Try `divide(a, b)`; on `ZeroDivisionError` return `identity(a)`."""
-    return try_model.TryNode(
+    return try_model.TryRecipe(
         inputs=["a", "b"],
         outputs=["result"],
-        try_node=helper_models.LabeledNode(
+        try_node=helper_models.LabeledRecipe(
             label="try_body", node=_divide_body_workflow()
         ),
         exception_cases=[
@@ -376,7 +376,7 @@ def _try_safe_divide() -> try_model.TryNode:
                 exceptions=[
                     versions.VersionInfo.of(ZeroDivisionError),
                 ],
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="except_body_0", node=_fallback_body_workflow()
                 ),
             )
@@ -457,7 +457,7 @@ def variadic_mixed(x: int = 0, *extras):
 
 
 def _variadic_recipe(func, inputs, outputs=("result",)):
-    return atomic_model.AtomicNode(
+    return atomic_model.AtomicRecipe(
         reference=base_models.PythonReference(info=versions.VersionInfo.of(func)),
         inputs=list(inputs),
         outputs=list(outputs),
@@ -539,7 +539,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
         self.assertIsNone(node.output_ports["output_1"].annotation)
 
     def test_not_unpacking(self):
-        recipe = atomic_model.AtomicNode(
+        recipe = atomic_model.AtomicRecipe(
             inputs=["a", "b"],
             outputs=["result"],
             reference=library.divmod_func.flowrep_recipe.reference,
@@ -570,7 +570,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
     def test_input_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
             live.LiveAtomic.from_recipe(
-                atomic_model.AtomicNode(
+                atomic_model.AtomicRecipe(
                     inputs=["these", "are_not", "correct"],
                     outputs=["x"],
                     reference=library.identity.flowrep_recipe.reference,
@@ -581,7 +581,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
     def test_output_not_splittable_raises(self):
         with self.assertRaises(ValueError) as ctx:
             live.LiveAtomic.from_recipe(
-                atomic_model.AtomicNode(
+                atomic_model.AtomicRecipe(
                     inputs=["x"],
                     outputs=["x", "y"],
                     reference=unsplittable_output.flowrep_recipe.reference,
@@ -592,7 +592,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
     def test_output_hint_length_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
             live.LiveAtomic.from_recipe(
-                atomic_model.AtomicNode(
+                atomic_model.AtomicRecipe(
                     inputs=["a", "b"],
                     outputs=["x", "y", "z"],
                     reference=library.divmod_func.flowrep_recipe.reference,
@@ -603,7 +603,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
     def test_output_length_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
             live.LiveAtomic.from_recipe(
-                atomic_model.AtomicNode(
+                atomic_model.AtomicRecipe(
                     inputs=["a", "b"],
                     outputs=["quotient", "remainder", "extra"],
                     reference=library.divmod_func.flowrep_recipe.reference,
@@ -732,7 +732,7 @@ class TestAtomicFromRecipeVariadic(unittest.TestCase):
 
     def test_extras_without_variadic_always_raise(self):
         """`library.identity` has no variadic absorber; extras must fail."""
-        recipe = atomic_model.AtomicNode(
+        recipe = atomic_model.AtomicRecipe(
             inputs=["x", "extra"],
             outputs=["x"],
             reference=library.identity.flowrep_recipe.reference,
@@ -833,7 +833,7 @@ class TestRunAtomic(unittest.TestCase):
         self.assertEqual(node.input_ports["b"].value, 4)
 
     def test_not_unpacking(self):
-        recipe = atomic_model.AtomicNode(
+        recipe = atomic_model.AtomicRecipe(
             inputs=["a", "b"],
             outputs=["result"],
             reference=library.divmod_func.flowrep_recipe.reference,
@@ -892,7 +892,7 @@ class TestRunWorkflow(unittest.TestCase):
 
     def test_child_defaults(self):
         """Atomic child with a default not wired by any edge still works."""
-        recipe = workflow_model.WorkflowNode(
+        recipe = workflow_model.WorkflowRecipe(
             inputs=["x"],
             outputs=["result"],
             nodes={"inc_0": library.increment.flowrep_recipe},
@@ -927,7 +927,7 @@ class TestRunWorkflow(unittest.TestCase):
         Deterministic alphabetical ordering requires: a, b, c.
         A naive append-without-resort produces: a, c, b.
         """
-        recipe = workflow_model.WorkflowNode(
+        recipe = workflow_model.WorkflowRecipe(
             inputs=["x"],
             outputs=["result"],
             nodes={

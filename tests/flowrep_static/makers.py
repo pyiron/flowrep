@@ -30,8 +30,8 @@ def make_atomic(
     qualname: str = "func",
     version: str | None = None,
     inputs_with_defaults: list[str] | None = None,
-) -> atomic_model.AtomicNode:
-    return atomic_model.AtomicNode(
+) -> atomic_model.AtomicRecipe:
+    return atomic_model.AtomicRecipe(
         reference=make_reference(
             module=module,
             qualname=qualname,
@@ -51,8 +51,8 @@ def make_labeled_atomic(
     qualname: str = "func",
     version: str | None = None,
     inputs_with_defaults: list[str] | None = None,
-) -> helper_models.LabeledNode:
-    return helper_models.LabeledNode(
+) -> helper_models.LabeledRecipe:
+    return helper_models.LabeledRecipe(
         label=label,
         node=make_atomic(
             inputs=inputs or [],
@@ -65,7 +65,7 @@ def make_labeled_atomic(
     )
 
 
-def make_labeled_with_defaults(label: str) -> helper_models.LabeledNode:
+def make_labeled_with_defaults(label: str) -> helper_models.LabeledRecipe:
     """Just add a label and go! IO exists and input has a default."""
     return make_labeled_atomic(
         label,
@@ -76,9 +76,9 @@ def make_labeled_with_defaults(label: str) -> helper_models.LabeledNode:
     )
 
 
-def make_simple_workflow_recipe() -> workflow_model.WorkflowNode:
+def make_simple_workflow_recipe() -> workflow_model.WorkflowRecipe:
     """One-child workflow: ``add(a, b) -> result``."""
-    return workflow_model.WorkflowNode(
+    return workflow_model.WorkflowRecipe(
         inputs=["a", "b"],
         outputs=["result"],
         nodes={"add_0": library.my_add.flowrep_recipe},

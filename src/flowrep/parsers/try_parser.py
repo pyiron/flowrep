@@ -13,7 +13,7 @@ EXCEPT_BODY_LABEL_PREFIX: str = "except_body"
 
 def parse_try_node(
     walker: parser_protocol.BodyWalker, tree: ast.Try
-) -> try_model.TryNode:
+) -> try_model.TryRecipe:
     """
     Walk a try/except block.
 
@@ -59,7 +59,7 @@ def parse_try_node(
         for exceptions, branch in zip(exception_groups, except_branches, strict=True)
     ]
 
-    return try_model.TryNode(
+    return try_model.TryRecipe(
         inputs=inputs,
         outputs=outputs,
         try_node=try_branch.to_labeled_node(),

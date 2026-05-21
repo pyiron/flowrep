@@ -66,7 +66,7 @@ def _desanitize_port(port: str) -> str:
 @_import_alarm
 def pwd2flowrep(
     wf: pwd.PythonWorkflowDefinitionWorkflow,
-) -> tuple[workflow_model.WorkflowNode, dict[str, pwd.AllowableDefaults]]:
+) -> tuple[workflow_model.WorkflowRecipe, dict[str, pwd.AllowableDefaults]]:
     """
     Convert a *python-workflow-definition* workflow to flowrep.
 
@@ -74,7 +74,7 @@ def pwd2flowrep(
         wf: A validated PWD workflow instance.
 
     Returns:
-        A ``(WorkflowNode, defaults)`` pair where *defaults* maps each
+        A ``(WorkflowRecipe, defaults)`` pair where *defaults* maps each
         workflow-input name to the default value carried by the corresponding
         PWD input node.
     """
@@ -101,7 +101,7 @@ def pwd2flowrep(
         label_map,
     )
 
-    result = workflow_model.WorkflowNode(
+    result = workflow_model.WorkflowRecipe(
         inputs=wf_inputs,
         outputs=wf_outputs,
         nodes=nodes,
@@ -114,13 +114,13 @@ def pwd2flowrep(
 
 @_import_alarm
 def flowrep2pwd(
-    wf: workflow_model.WorkflowNode,
+    wf: workflow_model.WorkflowRecipe,
     **terminal_inputs: pwd.AllowableDefaults,
 ) -> pwd.PythonWorkflowDefinitionWorkflow:
     """
-    Convert a flowrep :class:`WorkflowNode` to *python-workflow-definition*.
+    Convert a flowrep :class:`WorkflowRecipe` to *python-workflow-definition*.
 
-    Every child of *wf* must be an :class:`AtomicNode` (the pwd format does not
+    Every child of *wf* must be an :class:`AtomicRecipe` (the pwd format does not
     support nested sub-graphs).  A default value must be supplied for **every**
     workflow input via *terminal_inputs*.
 
@@ -176,7 +176,7 @@ def flowrep2pwd(
         nid = id_counter.next()
         func_node_ids[label] = nid
         # Guaranteed by _validate_flat_workflow
-        assert isinstance(node, atomic_model.AtomicNode)
+        assert isinstance(node, atomic_model.AtomicRecipe)
         pwd_nodes.append(
             pwd.PythonWorkflowDefinitionFunctionNode(
                 id=nid,
@@ -280,9 +280,9 @@ def _build_atomic_nodes(
     label_map: dict[int, str],
     node_inputs: dict[int, list[str]],
     node_outputs: dict[int, list[str]],
-) -> dict[str, atomic_model.AtomicNode]:
-    """Build flowrep :class:`AtomicNode` instances from PWD function nodes."""
-    nodes: dict[str, atomic_model.AtomicNode] = {}
+) -> dict[str, atomic_model.AtomicRecipe]:
+    """Build flowrep :class:`AtomicRecipe` instances from PWD function nodes."""
+    nodes: dict[str, atomic_model.AtomicRecipe] = {}
     for node_id in sorted(function_nodes):
         fn_node = function_nodes[node_id]
         label = label_map[node_id]
@@ -295,7 +295,7 @@ def _build_atomic_nodes(
         # This rsplit is at least consistent with the assumptions made in the PWD
         # ecosystem:
         # https://github.com/pythonworkflow/python-workflow-definition/blob/a372769e190176fe49e71740ad899937df0eeb94/src/python_workflow_definition/purepython.py#L80-L82
-        nodes[label] = atomic_model.AtomicNode(
+        nodes[label] = atomic_model.AtomicRecipe(
             reference=base_models.PythonReference(
                 info=versions.VersionInfo(
                     module=module,
@@ -375,18 +375,18 @@ class _IdCounter:
         return nid
 
 
-def _validate_flat_workflow(wf: workflow_model.WorkflowNode) -> None:
-    """Raise :class:`ValueError` if any child is not an :class:`AtomicNode`."""
+def _validate_flat_workflow(wf: workflow_model.WorkflowRecipe) -> None:
+    """Raise :class:`ValueError` if any child is not an :class:`AtomicRecipe`."""
     for label, node in wf.nodes.items():
-        if not isinstance(node, atomic_model.AtomicNode):
+        if not isinstance(node, atomic_model.AtomicRecipe):
             raise ValueError(
-                f"flowrep2pwd requires all children to be AtomicNode, but "
+                f"flowrep2pwd requires all children to be AtomicRecipe, but "
                 f"'{label}' is {type(node).__name__}."
             )
 
 
 def _validate_terminal_inputs(
-    wf: workflow_model.WorkflowNode,
+    wf: workflow_model.WorkflowRecipe,
     terminal_inputs: dict[str, Any],
 ) -> None:
     """Raise :class:`ValueError` if *terminal_inputs* != workflow inputs."""
@@ -419,7 +419,7 @@ def _flowrep_port_to_pwd_source_port(port: str) -> str | None:
 
 
 def _build_pwd_edges(
-    wf: workflow_model.WorkflowNode,
+    wf: workflow_model.WorkflowRecipe,
     input_node_ids: dict[str, int],
     output_node_ids: dict[str, int],
     func_node_ids: dict[str, int],

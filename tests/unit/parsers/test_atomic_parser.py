@@ -84,7 +84,7 @@ class TestAtomicDecorator(unittest.TestCase):
             return x + y
 
         self.assertTrue(hasattr(simple_func, "flowrep_recipe"))
-        self.assertIsInstance(simple_func.flowrep_recipe, atomic_model.AtomicNode)
+        self.assertIsInstance(simple_func.flowrep_recipe, atomic_model.AtomicRecipe)
         self.assertEqual(simple_func(2, 3), 5)
         self.assertEqual(
             simple_func.flowrep_recipe, atomic_parser.parse_atomic(simple_func)
@@ -1067,7 +1067,7 @@ class TestParseAtomicHasDefault(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = node.model_dump(mode=mode)
-                restored = atomic_model.AtomicNode.model_validate(data)
+                restored = atomic_model.AtomicRecipe.model_validate(data)
                 self.assertEqual(restored.reference.inputs_with_defaults, ["b", "c"])
 
 

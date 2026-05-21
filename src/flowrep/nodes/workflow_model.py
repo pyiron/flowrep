@@ -8,10 +8,10 @@ from pyiron_snippets import retrieve
 from flowrep import base_models, edge_models, subgraph_validation
 
 if TYPE_CHECKING:
-    from flowrep.nodes.union import Nodes
+    from flowrep.nodes.union import Recipes
 
 
-class WorkflowNode(base_models.NodeModel):
+class WorkflowRecipe(base_models.NodeRecipe):
     """
     Hold and execute a subgraph of nodes.
     This is a completely static graph; everything is known about it at the class level,
@@ -40,7 +40,7 @@ class WorkflowNode(base_models.NodeModel):
     type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
         default=base_models.RecipeElementType.WORKFLOW, frozen=True
     )
-    nodes: "Nodes"  # noqa: UP037
+    nodes: "Recipes"  # noqa: UP037
     input_edges: edge_models.InputEdges
     edges: edge_models.Edges
     output_edges: edge_models.OutputEdges
