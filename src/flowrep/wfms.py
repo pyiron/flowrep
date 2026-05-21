@@ -16,7 +16,7 @@ from typing import Any, cast
 
 from pyiron_snippets import retrieve
 
-from flowrep import base_models, edge_models, live
+from flowrep import base_models, edge_models, retrospective
 from flowrep.nodes import (
     atomic_recipe,
     for_recipe,
@@ -30,7 +30,9 @@ from flowrep.nodes import (
 from flowrep.parsers import label_helpers
 
 
-def run_recipe(recipe: union.RecipeDiscrimination, **kwargs: Any) -> live.LiveNode:
+def run_recipe(
+    recipe: union.RecipeDiscrimination, **kwargs: Any
+) -> retrospective.LiveNode:
     """
     Execute a flowrep recipe, returning a populated :class:`LiveNode`.
 
@@ -58,15 +60,17 @@ def run_recipe(recipe: union.RecipeDiscrimination, **kwargs: Any) -> live.LiveNo
 # ---------------------------------------------------------------------------
 
 
-def _run_atomic(recipe: atomic_recipe.AtomicRecipe, **kwargs: Any) -> live.LiveAtomic:
-    node = live.LiveAtomic.from_recipe(recipe)
+def _run_atomic(
+    recipe: atomic_recipe.AtomicRecipe, **kwargs: Any
+) -> retrospective.LiveAtomic:
+    node = retrospective.LiveAtomic.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
     result = _call_atomic(node)
     _store_atomic_outputs(node, result)
     return node
 
 
-def _call_atomic(node: live.LiveAtomic) -> Any:
+def _call_atomic(node: retrospective.LiveAtomic) -> Any:
     """
     Invoke the underlying function, respecting positional-only parameter kinds.
 
@@ -81,8 +85,12 @@ def _call_atomic(node: live.LiveAtomic) -> Any:
 
     for name in recipe.inputs:
         port = node.input_ports[name]
-        val = port.value if not isinstance(port.value, live.NotData) else port.default
-        if isinstance(val, live.NotData):
+        val = (
+            port.value
+            if not isinstance(port.value, retrospective.NotData)
+            else port.default
+        )
+        if isinstance(val, retrospective.NotData):
             raise ValueError(f"Input port '{name}' has no value and no default")
 
         kind = recipe.reference.restricted_input_kinds.get(name)
@@ -94,7 +102,7 @@ def _call_atomic(node: live.LiveAtomic) -> Any:
     return node.function(*positional, **keyword)
 
 
-def _store_atomic_outputs(node: live.LiveAtomic, result: Any) -> None:
+def _store_atomic_outputs(node: retrospective.LiveAtomic, result: Any) -> None:
     recipe = node.recipe
     assert isinstance(recipe, atomic_recipe.AtomicRecipe)
     output_names = list(node.output_ports.keys())
@@ -122,8 +130,8 @@ def _store_atomic_outputs(node: live.LiveAtomic, result: Any) -> None:
 
 def _run_workflow(
     recipe: workflow_recipe.WorkflowRecipe, **kwargs: Any
-) -> live.LiveWorkflow:
-    node = live.LiveWorkflow.from_recipe(recipe)
+) -> retrospective.LiveWorkflow:
+    node = retrospective.LiveWorkflow.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     for child_label in _topo_sort_children(recipe):
@@ -168,7 +176,7 @@ def _topo_sort_children(recipe: workflow_recipe.WorkflowRecipe) -> list[str]:
 def _gather_child_inputs(
     child_label: str,
     recipe: workflow_recipe.WorkflowRecipe,
-    workflow_node: live.LiveWorkflow,
+    workflow_node: retrospective.LiveWorkflow,
 ) -> dict[str, Any]:
     """
     Resolve input values for a child node from workflow input ports and sibling
@@ -196,7 +204,7 @@ def _gather_child_inputs(
 
 
 def _populate_workflow_outputs(
-    node: live.LiveWorkflow, recipe: workflow_recipe.WorkflowRecipe
+    node: retrospective.LiveWorkflow, recipe: workflow_recipe.WorkflowRecipe
 ) -> None:
     for target, source in recipe.output_edges.items():
         if isinstance(source, edge_models.InputSource):
@@ -212,7 +220,9 @@ def _populate_workflow_outputs(
 # ---------------------------------------------------------------------------
 
 
-def _run_for(recipe: for_recipe.ForEachRecipe, **kwargs: Any) -> live.FlowControl:
+def _run_for(
+    recipe: for_recipe.ForEachRecipe, **kwargs: Any
+) -> retrospective.FlowControl:
     """
     Execute a for-node by scattering iterated inputs across body instances and
     collecting outputs into lists.
@@ -222,7 +232,7 @@ def _run_for(recipe: for_recipe.ForEachRecipe, **kwargs: Any) -> live.FlowContro
     Transferred outputs collect the per-iteration value of a scattered input,
     preserving the link between input element and body output element.
     """
-    node = live.FlowControl.from_recipe(recipe)
+    node = retrospective.FlowControl.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     body_label = recipe.body_node.label
@@ -301,7 +311,9 @@ def _run_for(recipe: for_recipe.ForEachRecipe, **kwargs: Any) -> live.FlowContro
 # ---------------------------------------------------------------------------
 
 
-def _run_while(recipe: while_recipe.WhileRecipe, **kwargs: Any) -> live.FlowControl:
+def _run_while(
+    recipe: while_recipe.WhileRecipe, **kwargs: Any
+) -> retrospective.FlowControl:
     """
     Execute a while-node by repeatedly evaluating a condition and running a body.
 
@@ -309,7 +321,7 @@ def _run_while(recipe: while_recipe.WhileRecipe, **kwargs: Any) -> live.FlowCont
     feed back into the next condition/body evaluation.  If the condition is false on
     the first check, outputs are sourced from the initial input values.
     """
-    node = live.FlowControl.from_recipe(recipe)
+    node = retrospective.FlowControl.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     cond_label = recipe.case.condition.label
@@ -358,14 +370,14 @@ def _run_while(recipe: while_recipe.WhileRecipe, **kwargs: Any) -> live.FlowCont
 # ---------------------------------------------------------------------------
 
 
-def _run_if(recipe: if_recipe.IfRecipe, **kwargs: Any) -> live.FlowControl:
+def _run_if(recipe: if_recipe.IfRecipe, **kwargs: Any) -> retrospective.FlowControl:
     """
     Execute an if-node by walking cases until a condition evaluates positively,
     then executing the matching body (or the else case).
 
     Output ports that have no source from the executed branch remain NOT_DATA.
     """
-    node = live.FlowControl.from_recipe(recipe)
+    node = retrospective.FlowControl.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     for case in recipe.cases:
@@ -388,7 +400,7 @@ def _run_if(recipe: if_recipe.IfRecipe, **kwargs: Any) -> live.FlowControl:
 
 
 def _execute_if_branch(
-    node: live.FlowControl,
+    node: retrospective.FlowControl,
     recipe: if_recipe.IfRecipe,
     branch: helper_models.LabeledRecipe,
 ) -> None:
@@ -404,12 +416,12 @@ def _execute_if_branch(
 # ---------------------------------------------------------------------------
 
 
-def _run_try(recipe: try_recipe.TryRecipe, **kwargs: Any) -> live.FlowControl:
+def _run_try(recipe: try_recipe.TryRecipe, **kwargs: Any) -> retrospective.FlowControl:
     """
     Execute a try-node: run the try body and, on exception, walk exception cases
     for a matching handler.  If no handler matches, the exception propagates.
     """
-    node = live.FlowControl.from_recipe(recipe)
+    node = retrospective.FlowControl.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     try_kwargs = _gather_dynamic_child_inputs(
@@ -447,7 +459,7 @@ def _run_try(recipe: try_recipe.TryRecipe, **kwargs: Any) -> live.FlowControl:
 # ---------------------------------------------------------------------------
 
 
-def _populate_input_ports(node: live.LiveNode, values: dict[str, Any]) -> None:
+def _populate_input_ports(node: retrospective.LiveNode, values: dict[str, Any]) -> None:
     for name, val in values.items():
         if name in node.input_ports:
             node.input_ports[name].value = val
@@ -461,7 +473,7 @@ def _populate_input_ports(node: live.LiveNode, values: dict[str, Any]) -> None:
 def _gather_dynamic_child_inputs(
     child_label: str,
     input_edges: edge_models.InputEdges,
-    source: live.LiveNode | dict[str, Any],
+    source: retrospective.LiveNode | dict[str, Any],
 ) -> dict[str, Any]:
     """
     Gather inputs for a dynamic subgraph child.
@@ -481,7 +493,7 @@ def _gather_dynamic_child_inputs(
 
 def _evaluate_condition(
     case: helper_models.ConditionalCase,
-    cond_node: live.LiveNode,
+    cond_node: retrospective.LiveNode,
 ) -> bool:
     if case.condition_output is not None:
         return bool(cond_node.output_ports[case.condition_output].value)
@@ -490,7 +502,7 @@ def _evaluate_condition(
 
 
 def _populate_prospective_outputs(
-    node: live.FlowControl,
+    node: retrospective.FlowControl,
     prospective_output_edges: dict[
         edge_models.OutputTarget, list[edge_models.SourceHandle]
     ],
