@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from flowrep import live, storage, storage_widget, wfms
+from flowrep import retrospective, storage, storage_widget, wfms
 
 from flowrep_static import library
 
@@ -22,18 +22,18 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _save_workflow(path: str, **kwargs: object) -> live.LiveWorkflow:
+def _save_workflow(path: str, **kwargs: object) -> retrospective.DagData:
     recipe = library.simple_workflow.flowrep_recipe
-    live_wf = wfms.run_recipe(recipe, **kwargs)
-    boh.H5Bag.save(live_wf, path)
-    return live_wf
+    wf_data = wfms.run_recipe(recipe, **kwargs)
+    boh.H5Bag.save(wf_data, path)
+    return wf_data
 
 
 def _save_voidflow(path: str):
     recipe = library.no_input_workflow.flowrep_recipe
-    live_wf = wfms.run_recipe(recipe)
-    boh.H5Bag.save(live_wf, path)
-    return live_wf
+    wf_data = wfms.run_recipe(recipe)
+    boh.H5Bag.save(wf_data, path)
+    return wf_data
 
 
 @unittest.skipUnless(_has_ipytree, "ipytree not installed")
@@ -166,7 +166,7 @@ class TestLoadSelected(_WidgetTestCase):
         """Manually set the selected path, then load."""
         self.tree.selected_lexical_path = "add_0"
         obj = self.tree.load_selected()
-        self.assertIsInstance(obj, live.LiveAtomic)
+        self.assertIsInstance(obj, retrospective.AtomicData)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

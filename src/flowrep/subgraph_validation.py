@@ -7,7 +7,7 @@ from flowrep import base_models, edge_models
 ProspectiveOutputEdges = dict[edge_models.OutputTarget, list[edge_models.SourceHandle]]
 
 
-class NodeProtocol(Protocol):
+class RecipeProtocol(Protocol):
     inputs: base_models.Labels
     outputs: base_models.Labels
 
@@ -17,12 +17,12 @@ class NodeProtocol(Protocol):
     def validate_internal_data_completeness(self): ...
 
 
-NodesAlias = dict[base_models.Label, NodeProtocol]
+NodesAlias = dict[base_models.Label, RecipeProtocol]
 
 
 @runtime_checkable
 class StaticSubgraphOwner(Protocol):
-    """Owns a concrete subgraph known at definition time (WorkflowNode)."""
+    """Owns a concrete subgraph known at definition time (WorkflowRecipe)."""
 
     inputs: base_models.Labels
     outputs: base_models.Labels
@@ -33,7 +33,10 @@ class StaticSubgraphOwner(Protocol):
 
 
 class DynamicSubgraphOwner(Protocol):
-    """Owns a subgraph instantiated at runtime (ForEachNode, WhileNode, IfNode, TryNode)."""
+    """
+    Owns a subgraph instantiated at runtime (ForEachRecipe, WhileRecipe, IfRecipe,
+    TryRecipe).
+    """
 
     inputs: base_models.Labels
     outputs: base_models.Labels
@@ -45,14 +48,16 @@ class DynamicSubgraphOwner(Protocol):
 
 @runtime_checkable
 class DynamicSubgraphStaticOutput(DynamicSubgraphOwner, Protocol):
-    """Dynamic subgraph with output interface known a-priori (ForEachNode, WhileNode)."""
+    """
+    Dynamic subgraph with output interface known a-priori (ForEachRecipe, WhileRecipe).
+    """
 
     output_edges: edge_models.OutputEdges
 
 
 @runtime_checkable
 class DynamicSubgraphDynamicOutput(DynamicSubgraphOwner, Protocol):
-    """Dynamic subgraph with output interface known at runtime (IfNode, TryNode)."""
+    """Dynamic subgraph with output interface known at runtime (IfRecipe, TryRecipe)."""
 
     prospective_output_edges: ProspectiveOutputEdges
 

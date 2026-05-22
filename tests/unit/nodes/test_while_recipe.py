@@ -1,4 +1,4 @@
-"""Unit tests for WhileNode and related classes."""
+"""Unit tests for WhileRecipe and related classes."""
 
 import unittest
 
@@ -7,8 +7,8 @@ import pydantic
 from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.nodes import (
     helper_models,
-    while_model,
-    workflow_model,
+    while_recipe,
+    workflow_recipe,
 )
 
 from flowrep_static import makers
@@ -25,7 +25,7 @@ def make_valid_while_node(
     body_label: str = "body",
     input_edges: dict | None = None,
     output_edges: dict | None = None,
-) -> while_model.WhileNode:
+) -> while_recipe.WhileRecipe:
     inputs = inputs if inputs is not None else ["x"]
     outputs = outputs if outputs is not None else []
     condition_inputs = condition_inputs if condition_inputs is not None else ["val"]
@@ -35,7 +35,7 @@ def make_valid_while_node(
     body_inputs = body_inputs if body_inputs is not None else ["inp"]
     body_outputs = body_outputs if body_outputs is not None else ["out"]
 
-    return while_model.WhileNode(
+    return while_recipe.WhileRecipe(
         inputs=inputs,
         outputs=outputs,
         case=helper_models.ConditionalCase(
@@ -57,18 +57,18 @@ def make_valid_while_node(
     )
 
 
-class TestWhileNodeBasic(unittest.TestCase):
+class TestWhileRecipeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
-        while_model.WhileNode.model_json_schema()
+        while_recipe.WhileRecipe.model_json_schema()
 
     def test_obeys_build_subgraph_with_static_output(self):
-        """WhileNode should obey build subgraph with static output."""
+        """WhileRecipe should obey build subgraph with static output."""
         node = make_valid_while_node()
         self.assertIsInstance(node, subgraph_validation.DynamicSubgraphStaticOutput)
 
     def test_valid_minimal(self):
-        """Minimal valid WhileNode with empty edges."""
+        """Minimal valid WhileRecipe with empty edges."""
         wn = make_valid_while_node()
         self.assertEqual(wn.type, base_models.RecipeElementType.WHILE)
         self.assertEqual(wn.inputs, ["x"])
@@ -77,8 +77,8 @@ class TestWhileNodeBasic(unittest.TestCase):
         self.assertEqual(wn.output_edges, {})
 
     def test_valid_fully_wired(self):
-        """WhileNode with all edge types populated."""
-        wn = while_model.WhileNode(
+        """WhileRecipe with all edge types populated."""
+        wn = while_recipe.WhileRecipe(
             inputs=["n", "acc"],
             outputs=["acc"],
             case=helper_models.ConditionalCase(
@@ -107,7 +107,7 @@ class TestWhileNodeBasic(unittest.TestCase):
             recipe(42)
 
 
-class TestWhileNodeIOValidation(unittest.TestCase):
+class TestWhileRecipeIOValidation(unittest.TestCase):
     def test_duplicate_inputs_rejected(self):
         """Duplicate inputs are rejected."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
@@ -171,7 +171,7 @@ class TestWhileNodeIOValidation(unittest.TestCase):
         self.assertEqual(wn.outputs, ["a"])
 
 
-class TestWhileNodeInputEdges(unittest.TestCase):
+class TestWhileRecipeInputEdges(unittest.TestCase):
     def test_valid_input_edge_to_condition(self):
         """Input edge to condition node."""
         wn = make_valid_while_node(
@@ -246,13 +246,13 @@ class TestWhileNodeInputEdges(unittest.TestCase):
         self.assertIn("missing", str(ctx.exception))
 
 
-class TestWhileNodeFullySourcing(unittest.TestCase):
+class TestWhileRecipeFullySourcing(unittest.TestCase):
     """Tests for validate_internal_data_completeness on condition/body nodes."""
 
     def test_condition_unsourced_no_default_raises(self):
         """Condition input without edge or default → rejected."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            while_model.WhileNode(
+            while_recipe.WhileRecipe(
                 inputs=["x"],
                 outputs=[],
                 case=helper_models.ConditionalCase(
@@ -278,7 +278,7 @@ class TestWhileNodeFullySourcing(unittest.TestCase):
 
     def test_condition_unsourced_with_default_passes(self):
         """Condition input without edge but with default → accepted."""
-        wn = while_model.WhileNode(
+        wn = while_recipe.WhileRecipe(
             inputs=["x"],
             outputs=[],
             case=helper_models.ConditionalCase(
@@ -306,7 +306,7 @@ class TestWhileNodeFullySourcing(unittest.TestCase):
     def test_body_unsourced_no_default_raises(self):
         """Body input without edge or default → rejected."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            while_model.WhileNode(
+            while_recipe.WhileRecipe(
                 inputs=["x"],
                 outputs=[],
                 case=helper_models.ConditionalCase(
@@ -332,7 +332,7 @@ class TestWhileNodeFullySourcing(unittest.TestCase):
 
     def test_body_unsourced_with_default_passes(self):
         """Body input without edge but with default → accepted."""
-        wn = while_model.WhileNode(
+        wn = while_recipe.WhileRecipe(
             inputs=["x"],
             outputs=[],
             case=helper_models.ConditionalCase(
@@ -357,7 +357,7 @@ class TestWhileNodeFullySourcing(unittest.TestCase):
         self.assertIn("extra", wn.case.body.node.inputs)
 
 
-class TestWhileNodeOutputEdges(unittest.TestCase):
+class TestWhileRecipeOutputEdges(unittest.TestCase):
     def test_valid_output_edge_from_body(self):
         """Output edge from body node."""
         wn = make_valid_while_node(
@@ -426,12 +426,12 @@ class TestWhileNodeOutputEdges(unittest.TestCase):
         self.assertIn("missing", str(ctx.exception))
 
 
-class TestWhileNodeInferredIterationEdges(unittest.TestCase):
+class TestWhileRecipeInferredIterationEdges(unittest.TestCase):
     """Tests for the derived body_body_edges and body_condition_edges properties."""
 
     def test_body_body_edges_inferred(self):
         """body→body edges are inferred from output_edges ∘ input_edges."""
-        wn = while_model.WhileNode(
+        wn = while_recipe.WhileRecipe(
             inputs=["n", "acc"],
             outputs=["n", "acc"],
             case=helper_models.ConditionalCase(
@@ -466,7 +466,7 @@ class TestWhileNodeInferredIterationEdges(unittest.TestCase):
 
     def test_body_condition_edges_inferred(self):
         """body→condition edges are inferred from output_edges ∘ input_edges."""
-        wn = while_model.WhileNode(
+        wn = while_recipe.WhileRecipe(
             inputs=["n", "acc"],
             outputs=["n"],
             case=helper_models.ConditionalCase(
@@ -517,7 +517,7 @@ class TestWhileNodeInferredIterationEdges(unittest.TestCase):
 
     def test_inferred_edges_only_for_matching_target(self):
         """body_body_edges excludes condition targets and vice versa."""
-        wn = while_model.WhileNode(
+        wn = while_recipe.WhileRecipe(
             inputs=["a"],
             outputs=["a"],
             case=helper_models.ConditionalCase(
@@ -544,14 +544,14 @@ class TestWhileNodeInferredIterationEdges(unittest.TestCase):
         )
 
 
-class TestWhileNodeSerialization(unittest.TestCase):
+class TestWhileRecipeSerialization(unittest.TestCase):
     def test_minimal_roundtrip(self):
-        """Minimal WhileNode roundtrip."""
+        """Minimal WhileRecipe roundtrip."""
         original = make_valid_while_node()
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = while_model.WhileNode.model_validate(data)
+                restored = while_recipe.WhileRecipe.model_validate(data)
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
                 self.assertEqual(
@@ -560,16 +560,16 @@ class TestWhileNodeSerialization(unittest.TestCase):
                 self.assertEqual(original.case.body.label, restored.case.body.label)
 
     def test_fully_wired_roundtrip(self):
-        """Fully wired WhileNode roundtrip."""
-        original = while_model.WhileNode(
+        """Fully wired WhileRecipe roundtrip."""
+        original = while_recipe.WhileRecipe(
             inputs=["n", "acc"],
             outputs=["n", "acc"],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="check",
                     node=makers.make_atomic(inputs=["val"], outputs=["flag"]),
                 ),
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="step",
                     node=makers.make_atomic(inputs=["x", "y"], outputs=["a", "b"]),
                 ),
@@ -580,7 +580,7 @@ class TestWhileNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = while_model.WhileNode.model_validate(data)
+                restored = while_recipe.WhileRecipe.model_validate(data)
 
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
@@ -594,15 +594,15 @@ class TestWhileNodeSerialization(unittest.TestCase):
 
     def test_inferred_edges_not_serialized(self):
         """body_body_edges and body_condition_edges should not appear in dump."""
-        wn = while_model.WhileNode(
+        wn = while_recipe.WhileRecipe(
             inputs=["a"],
             outputs=["a"],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="cond",
                     node=makers.make_atomic(inputs=["v"], outputs=["ok"]),
                 ),
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="body",
                     node=makers.make_atomic(inputs=["p"], outputs=["q"]),
                 ),
@@ -616,15 +616,15 @@ class TestWhileNodeSerialization(unittest.TestCase):
 
     def test_edge_serialization_format(self):
         """Edges serialize to dot-notation strings."""
-        wn = while_model.WhileNode(
+        wn = while_recipe.WhileRecipe(
             inputs=["x"],
             outputs=["x"],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="cond",
                     node=makers.make_atomic(inputs=["inp"], outputs=["out"]),
                 ),
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="body",
                     node=makers.make_atomic(inputs=["a"], outputs=["b"]),
                 ),
@@ -643,8 +643,8 @@ class TestWhileNodeSerialization(unittest.TestCase):
         self.assertEqual(data["output_edges"]["x"], "body.b")
 
     def test_nested_workflow_in_body(self):
-        """WhileNode can contain WorkflowNode in body."""
-        inner = workflow_model.WorkflowNode(
+        """WhileRecipe can contain WorkflowRecipe in body."""
+        inner = workflow_recipe.WorkflowRecipe(
             inputs=["a"],
             outputs=["b"],
             nodes={
@@ -656,38 +656,38 @@ class TestWhileNodeSerialization(unittest.TestCase):
             edges={},
             output_edges={"b": "leaf.y"},
         )
-        wn = while_model.WhileNode(
+        wn = while_recipe.WhileRecipe(
             inputs=["start"],
             outputs=["start"],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="check",
                     node=makers.make_atomic(
                         inputs=["v"], outputs=["done"], inputs_with_defaults=["v"]
                     ),
                 ),
-                body=helper_models.LabeledNode(label="process", node=inner),
+                body=helper_models.LabeledRecipe(label="process", node=inner),
             ),
             input_edges={"process.a": "start"},
             output_edges={"start": "process.b"},
         )
         data = wn.model_dump(mode="json")
-        restored = while_model.WhileNode.model_validate(data)
-        self.assertIsInstance(restored.case.body.node, workflow_model.WorkflowNode)
+        restored = while_recipe.WhileRecipe.model_validate(data)
+        self.assertIsInstance(restored.case.body.node, workflow_recipe.WorkflowRecipe)
 
 
-class TestWhileNodeEdgeCases(unittest.TestCase):
+class TestWhileRecipeEdgeCases(unittest.TestCase):
     def test_empty_inputs_outputs(self):
-        """WhileNode with no inputs or outputs."""
-        wn = while_model.WhileNode(
+        """WhileRecipe with no inputs or outputs."""
+        wn = while_recipe.WhileRecipe(
             inputs=[],
             outputs=[],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="c",
                     node=makers.make_atomic(inputs=[], outputs=["done"]),
                 ),
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="b",
                     node=makers.make_atomic(inputs=[], outputs=[]),
                 ),
@@ -702,11 +702,11 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
         """Condition must have at least one output for evaluation."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
             helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="c",
                     node=makers.make_atomic(inputs=[], outputs=[]),  # No outputs!
                 ),
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="b",
                     node=makers.make_atomic(inputs=[], outputs=[]),
                 ),
@@ -719,15 +719,15 @@ class TestWhileNodeEdgeCases(unittest.TestCase):
 
         This is normal — on the first iteration both get data from the loop input.
         """
-        wn = while_model.WhileNode(
+        wn = while_recipe.WhileRecipe(
             inputs=["x"],
             outputs=["x"],
             case=helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="cond",
                     node=makers.make_atomic(inputs=["val"], outputs=["ok"]),
                 ),
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="body",
                     node=makers.make_atomic(inputs=["inp"], outputs=["out"]),
                 ),

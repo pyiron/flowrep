@@ -8,10 +8,10 @@ from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.nodes import helper_models
 
 if TYPE_CHECKING:
-    from flowrep.nodes.union import Nodes
+    from flowrep.nodes.union_types import Recipes
 
 
-class ForEachNode(base_models.NodeModel):
+class ForEachRecipe(base_models.NodeRecipe):
     """
     Loop over a body node and collect outputs as a list.
     Each loop step is to be treated independently, such that the overall loop behaves
@@ -76,14 +76,14 @@ class ForEachNode(base_models.NodeModel):
     type: Literal[base_models.RecipeElementType.FOR_EACH] = pydantic.Field(
         default=base_models.RecipeElementType.FOR_EACH, frozen=True
     )
-    body_node: helper_models.LabeledNode
+    body_node: helper_models.LabeledRecipe
     input_edges: edge_models.InputEdges
     output_edges: edge_models.OutputEdges
     nested_ports: base_models.Labels = pydantic.Field(default_factory=list)
     zipped_ports: base_models.Labels = pydantic.Field(default_factory=list)
 
     @property
-    def prospective_nodes(self) -> Nodes:
+    def prospective_nodes(self) -> Recipes:
         return {self.body_node.label: self.body_node.node}
 
     @property

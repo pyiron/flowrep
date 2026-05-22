@@ -4,7 +4,7 @@ import ast
 from ast import While
 
 from flowrep import edge_models
-from flowrep.nodes import helper_models, while_model
+from flowrep.nodes import helper_models, while_recipe
 from flowrep.parsers import case_helpers, parser_protocol
 
 WHILE_CONDITION_LABEL: str = "condition"
@@ -13,7 +13,7 @@ WHILE_BODY_LABEL: str = "body"
 
 def parse_while_node(
     walker: parser_protocol.BodyWalker, tree: ast.While
-) -> while_model.WhileNode:
+) -> while_recipe.WhileRecipe:
     """
     Walk a while-loop.
 
@@ -49,12 +49,12 @@ def parse_while_node(
 
     case = helper_models.ConditionalCase(
         condition=labeled_condition,
-        body=helper_models.LabeledNode(
+        body=helper_models.LabeledRecipe(
             label=WHILE_BODY_LABEL, node=body_walker.build_model()
         ),
     )
 
-    return while_model.WhileNode(
+    return while_recipe.WhileRecipe(
         inputs=inputs,
         outputs=outputs,
         case=case,

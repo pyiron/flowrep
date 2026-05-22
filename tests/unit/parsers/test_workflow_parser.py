@@ -7,7 +7,7 @@ import pydantic
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import atomic_model, workflow_model
+from flowrep.nodes import atomic_recipe, workflow_recipe
 from flowrep.parsers import (
     atomic_parser,
     label_helpers,
@@ -40,7 +40,7 @@ def labeled_operation(x, y):
 
 recipe_variable = labeled_operation.flowrep_recipe
 
-raw_recipe_variable = workflow_model.WorkflowNode(
+raw_recipe_variable = workflow_recipe.WorkflowRecipe(
     type="workflow",
     inputs=["x", "y"],
     outputs=["x", "y"],
@@ -70,7 +70,7 @@ def annotated_operation(
     return x + y, x - y
 
 
-@atomic_parser.atomic("aggregate_result", unpack_mode=atomic_model.UnpackMode.NONE)
+@atomic_parser.atomic("aggregate_result", unpack_mode=atomic_recipe.UnpackMode.NONE)
 def tuple_operation(x: float, y: float) -> tuple[float, float]:
     return x + y, x - y
 
@@ -122,7 +122,7 @@ class TestWorkflowDecorator(unittest.TestCase):
             return y
 
         self.assertTrue(hasattr(simple_wf, "flowrep_recipe"))
-        self.assertIsInstance(simple_wf.flowrep_recipe, workflow_model.WorkflowNode)
+        self.assertIsInstance(simple_wf.flowrep_recipe, workflow_recipe.WorkflowRecipe)
         self.assertEqual(
             simple_wf(2), add(2), msg="Should still just be regular functions"
         )
@@ -383,7 +383,9 @@ class TestParseWorkflowNested(unittest.TestCase):
 
         node = workflow_parser.parse_workflow(outer_wf)
         self.assertIn("inner_macro_0", node.nodes)
-        self.assertIsInstance(node.nodes["inner_macro_0"], workflow_model.WorkflowNode)
+        self.assertIsInstance(
+            node.nodes["inner_macro_0"], workflow_recipe.WorkflowRecipe
+        )
 
     def test_nested_workflow_edges(self):
         def outer_wf(a):
@@ -641,7 +643,7 @@ class TestAnnotatedAssignment(unittest.TestCase):
         self.assertIn("add_0", node.nodes)
 
 
-class TestWorkflowNodeNaming(unittest.TestCase):
+class TestWorkflowRecipeNaming(unittest.TestCase):
     """Test that node naming handles collisions correctly."""
 
     def test_multiple_calls_same_function(self):
@@ -669,7 +671,7 @@ class TestWorkflowWithAtomicRecipes(unittest.TestCase):
 
         recipe = wf.flowrep_recipe
         self.assertIsInstance(
-            recipe.nodes["labeled_operation_0"], atomic_model.AtomicNode
+            recipe.nodes["labeled_operation_0"], atomic_recipe.AtomicRecipe
         )
         self.assertDictEqual(
             {
@@ -691,7 +693,7 @@ class TestWorkflowWithAtomicRecipes(unittest.TestCase):
 
         recipe = wf.flowrep_recipe
         self.assertIsInstance(
-            recipe.nodes["annotated_operation_0"], atomic_model.AtomicNode
+            recipe.nodes["annotated_operation_0"], atomic_recipe.AtomicRecipe
         )
         self.assertDictEqual(
             {
@@ -713,7 +715,7 @@ class TestWorkflowWithAtomicRecipes(unittest.TestCase):
 
         recipe = wf.flowrep_recipe
         self.assertIsInstance(
-            recipe.nodes["tuple_operation_0"], atomic_model.AtomicNode
+            recipe.nodes["tuple_operation_0"], atomic_recipe.AtomicRecipe
         )
         self.assertDictEqual(
             {
@@ -784,7 +786,7 @@ class TestWorkflowFullyQualifiedName(unittest.TestCase):
         for mode in ["python", "json"]:
             with self.subTest(mode=mode):
                 data = node.model_dump(mode=mode)
-                restored = workflow_model.WorkflowNode.model_validate(data)
+                restored = workflow_recipe.WorkflowRecipe.model_validate(data)
                 self.assertEqual(
                     node.fully_qualified_name, restored.fully_qualified_name
                 )
@@ -1009,7 +1011,7 @@ class TestParseWorkflowHasDefault(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = node.model_dump(mode=mode)
-                restored = workflow_model.WorkflowNode.model_validate(data)
+                restored = workflow_recipe.WorkflowRecipe.model_validate(data)
                 self.assertEqual(restored.reference.inputs_with_defaults, ["b"])
 
 

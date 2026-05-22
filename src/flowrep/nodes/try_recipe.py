@@ -8,10 +8,10 @@ from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.nodes import helper_models
 
 if TYPE_CHECKING:
-    from flowrep.nodes.union import Nodes
+    from flowrep.nodes.union_types import Recipes
 
 
-class TryNode(base_models.NodeModel):
+class TryRecipe(base_models.NodeRecipe):
     """
     Try and except your way through a series of exceptions, with the option to perform
     a finally step.
@@ -49,7 +49,7 @@ class TryNode(base_models.NodeModel):
     type: Literal[base_models.RecipeElementType.TRY] = pydantic.Field(
         default=base_models.RecipeElementType.TRY, frozen=True
     )
-    try_node: helper_models.LabeledNode
+    try_node: helper_models.LabeledRecipe
     exception_cases: list[helper_models.ExceptionCase]
     input_edges: edge_models.InputEdges
     prospective_output_edges: dict[
@@ -57,7 +57,7 @@ class TryNode(base_models.NodeModel):
     ]
 
     @property
-    def prospective_nodes(self) -> Nodes:
+    def prospective_nodes(self) -> Recipes:
         nodes = {self.try_node.label: self.try_node.node}
         for case in self.exception_cases:
             nodes[case.body.label] = case.body.node
@@ -73,7 +73,7 @@ class TryNode(base_models.NodeModel):
     @classmethod
     def validate_exception_cases_not_empty(cls, v):
         if len(v) < 1:
-            raise ValueError("TryNode must have at least one exception case")
+            raise ValueError("TryRecipe must have at least one exception case")
         return v
 
     @pydantic.model_validator(mode="after")

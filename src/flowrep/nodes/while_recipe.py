@@ -8,10 +8,10 @@ from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.nodes import helper_models
 
 if TYPE_CHECKING:
-    from flowrep.nodes.union import Nodes
+    from flowrep.nodes.union_types import Recipes
 
 
-class WhileNode(base_models.NodeModel):
+class WhileRecipe(base_models.NodeRecipe):
     """
     A loop node that repeatedly executes a body while a condition is true.
     This is a dynamic node, which must actualize the body of its subgraph at runtime.
@@ -71,7 +71,7 @@ class WhileNode(base_models.NodeModel):
     output_edges: edge_models.OutputEdges
 
     @property
-    def prospective_nodes(self) -> Nodes:
+    def prospective_nodes(self) -> Recipes:
         return {
             self.case.condition.label: self.case.condition.node,
             self.case.body.label: self.case.body.node,

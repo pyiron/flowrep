@@ -7,13 +7,13 @@ from pyiron_snippets import versions
 
 from flowrep import base_models
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
-    if_model,
-    try_model,
-    union,
-    while_model,
-    workflow_model,
+    atomic_recipe,
+    for_recipe,
+    if_recipe,
+    try_recipe,
+    union_types,
+    while_recipe,
+    workflow_recipe,
 )
 
 from flowrep_static import makers
@@ -49,7 +49,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "inputs": ["x"],
                     "outputs": ["y"],
                 },
-                atomic_model.AtomicNode,
+                atomic_recipe.AtomicRecipe,
             ),
             (
                 base_models.RecipeElementType.WORKFLOW,
@@ -62,7 +62,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "edges": {},
                     "output_edges": {},
                 },
-                workflow_model.WorkflowNode,
+                workflow_recipe.WorkflowRecipe,
             ),
             (
                 base_models.RecipeElementType.FOR_EACH,
@@ -85,7 +85,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "zipped_ports": [],
                     "transfer_edges": {},
                 },
-                for_model.ForEachNode,
+                for_recipe.ForEachRecipe,
             ),
             (
                 base_models.RecipeElementType.WHILE,
@@ -118,7 +118,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "body_body_edges": {},
                     "body_condition_edges": {},
                 },
-                while_model.WhileNode,
+                while_recipe.WhileRecipe,
             ),
             (  # Without else clause
                 base_models.RecipeElementType.IF,
@@ -158,7 +158,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "prospective_output_edges": {"out": ["body_0.y"]},
                     "else_case": None,
                 },
-                if_model.IfNode,
+                if_recipe.IfRecipe,
             ),
             (  # With else clause
                 base_models.RecipeElementType.IF,
@@ -207,7 +207,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                         },
                     },
                 },
-                if_model.IfNode,
+                if_recipe.IfRecipe,
             ),
             (
                 base_models.RecipeElementType.TRY,
@@ -245,13 +245,13 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "input_edges": {"try_body.x": "inp", "except_0.x": "inp"},
                     "prospective_output_edges": {"out": ["try_body.y", "except_0.y"]},
                 },
-                try_model.TryNode,
+                try_recipe.TryRecipe,
             ),
         ]
 
     def test_discriminator_resolves_correct_type(self):
         """Each node type is correctly identified via 'type' discriminator."""
-        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
+        adapter = pydantic.TypeAdapter(union_types.RecipeDiscrimination)
         for type_enum, data, expected_class in self.test_cases:
             with self.subTest(type=type_enum.value):
                 node = adapter.validate_python(data)
@@ -260,7 +260,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
 
     def test_roundtrip_through_union(self):
         """Serialize then deserialize through the union type."""
-        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
+        adapter = pydantic.TypeAdapter(union_types.RecipeDiscrimination)
         for type_enum, data, expected_class in self.test_cases:
             with self.subTest(type=type_enum.value):
                 node = adapter.validate_python(data)
@@ -271,7 +271,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
 
     def test_json_schema_includes_all_types(self):
         """Union schema should reference all node types."""
-        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
+        adapter = pydantic.TypeAdapter(union_types.RecipeDiscrimination)
         schema = adapter.json_schema()
         # Discriminated unions use anyOf or oneOf
         self.assertTrue(
@@ -286,17 +286,19 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
             "inputs": ["a", "b"],
             "outputs": ["c"],
         }
-        node = pydantic.TypeAdapter(union.NodeDiscrimination).validate_python(data)
-        self.assertIsInstance(node, atomic_model.AtomicNode)
+        node = pydantic.TypeAdapter(union_types.RecipeDiscrimination).validate_python(
+            data
+        )
+        self.assertIsInstance(node, atomic_recipe.AtomicRecipe)
         self.assertEqual(node.reference.inputs_with_defaults, ["b"])
 
         # Full roundtrip
-        dumped = pydantic.TypeAdapter(union.NodeDiscrimination).dump_python(
+        dumped = pydantic.TypeAdapter(union_types.RecipeDiscrimination).dump_python(
             node, mode="json"
         )
-        restored = pydantic.TypeAdapter(union.NodeDiscrimination).validate_python(
-            dumped
-        )
+        restored = pydantic.TypeAdapter(
+            union_types.RecipeDiscrimination
+        ).validate_python(dumped)
         self.assertEqual(restored.reference.inputs_with_defaults, ["b"])
 
     def test_workflow_roundtrip_preserves_defaults(self):
@@ -310,8 +312,10 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
             "edges": {},
             "output_edges": {},
         }
-        node = pydantic.TypeAdapter(union.NodeDiscrimination).validate_python(data)
-        self.assertIsInstance(node, workflow_model.WorkflowNode)
+        node = pydantic.TypeAdapter(union_types.RecipeDiscrimination).validate_python(
+            data
+        )
+        self.assertIsInstance(node, workflow_recipe.WorkflowRecipe)
         self.assertEqual(node.reference.inputs_with_defaults, ["x"])
 
 
@@ -319,7 +323,7 @@ class TestDiscriminatorValidation(unittest.TestCase):
     """Tests for discriminator error handling."""
 
     def test_unknown_type_rejected(self):
-        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
+        adapter = pydantic.TypeAdapter(union_types.RecipeDiscrimination)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             adapter.validate_python(
                 {
@@ -332,7 +336,7 @@ class TestDiscriminatorValidation(unittest.TestCase):
         self.assertIn("type", exc_str.lower())
 
     def test_missing_type_rejected(self):
-        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
+        adapter = pydantic.TypeAdapter(union_types.RecipeDiscrimination)
         with self.assertRaises(pydantic.ValidationError):
             adapter.validate_python(
                 {
@@ -344,7 +348,7 @@ class TestDiscriminatorValidation(unittest.TestCase):
 
     def test_type_mismatch_with_fields_rejected(self):
         """Type says 'atomic' but fields are for workflow."""
-        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
+        adapter = pydantic.TypeAdapter(union_types.RecipeDiscrimination)
         with self.assertRaises(pydantic.ValidationError):
             adapter.validate_python(
                 {
@@ -378,11 +382,11 @@ class TestNodesTypeAlias(unittest.TestCase):
                 "outputs": [],
             },
         }
-        adapter = pydantic.TypeAdapter(union.Nodes)
+        adapter = pydantic.TypeAdapter(union_types.Recipes)
         nodes = adapter.validate_python(nodes_data)
         self.assertEqual(len(nodes), 2)
-        self.assertIsInstance(nodes["step1"], atomic_model.AtomicNode)
-        self.assertIsInstance(nodes["step2"], atomic_model.AtomicNode)
+        self.assertIsInstance(nodes["step1"], atomic_recipe.AtomicRecipe)
+        self.assertIsInstance(nodes["step2"], atomic_recipe.AtomicRecipe)
 
     def test_invalid_label_in_nodes_rejected(self):
         """Nodes dict keys must be valid Labels."""
@@ -394,7 +398,7 @@ class TestNodesTypeAlias(unittest.TestCase):
                 "outputs": [],
             },
         }
-        adapter = pydantic.TypeAdapter(union.Nodes)
+        adapter = pydantic.TypeAdapter(union_types.Recipes)
         with self.assertRaises(pydantic.ValidationError) as ctx:
             adapter.validate_python(nodes_data)
         self.assertIn("for", str(ctx.exception))
@@ -411,7 +415,7 @@ class TestNodesTypeAlias(unittest.TestCase):
                         "outputs": [],
                     },
                 }
-                adapter = pydantic.TypeAdapter(union.Nodes)
+                adapter = pydantic.TypeAdapter(union_types.Recipes)
                 with self.assertRaises(pydantic.ValidationError):
                     adapter.validate_python(nodes_data)
 
@@ -442,13 +446,13 @@ class TestNodesTypeAlias(unittest.TestCase):
             },
             "workflow_node": inner_workflow,
         }
-        adapter = pydantic.TypeAdapter(union.Nodes)
+        adapter = pydantic.TypeAdapter(union_types.Recipes)
         nodes = adapter.validate_python(nodes_data)
-        self.assertIsInstance(nodes["atomic_node"], atomic_model.AtomicNode)
-        self.assertIsInstance(nodes["workflow_node"], workflow_model.WorkflowNode)
+        self.assertIsInstance(nodes["atomic_node"], atomic_recipe.AtomicRecipe)
+        self.assertIsInstance(nodes["workflow_node"], workflow_recipe.WorkflowRecipe)
 
     def test_empty_nodes_dict(self):
-        adapter = pydantic.TypeAdapter(union.Nodes)
+        adapter = pydantic.TypeAdapter(union_types.Recipes)
         nodes = adapter.validate_python({})
         self.assertEqual(nodes, {})
 
@@ -457,7 +461,7 @@ class TestNestedUnionResolution(unittest.TestCase):
     """Tests for nested node type resolution in complex structures."""
 
     def test_workflow_with_nested_for_node(self):
-        """Workflow containing a ForEachNode deserializes correctly."""
+        """Workflow containing a ForEachRecipe deserializes correctly."""
         data = {
             "type": "workflow",
             "inputs": ["data"],
@@ -487,12 +491,12 @@ class TestNestedUnionResolution(unittest.TestCase):
             "edges": {},
             "output_edges": {"results": "for_node.out"},
         }
-        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
+        adapter = pydantic.TypeAdapter(union_types.RecipeDiscrimination)
         wf = adapter.validate_python(data)
-        self.assertIsInstance(wf, workflow_model.WorkflowNode)
-        self.assertIsInstance(wf.nodes["for_node"], for_model.ForEachNode)
+        self.assertIsInstance(wf, workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(wf.nodes["for_node"], for_recipe.ForEachRecipe)
         self.assertIsInstance(
-            wf.nodes["for_node"].body_node.node, atomic_model.AtomicNode
+            wf.nodes["for_node"].body_node.node, atomic_recipe.AtomicRecipe
         )
 
     def test_deeply_nested_workflows(self):
@@ -521,10 +525,12 @@ class TestNestedUnionResolution(unittest.TestCase):
             "edges": {},
             "output_edges": {"out": "middle.b"},
         }
-        adapter = pydantic.TypeAdapter(union.NodeDiscrimination)
+        adapter = pydantic.TypeAdapter(union_types.RecipeDiscrimination)
         wf = adapter.validate_python(outer)
-        self.assertIsInstance(wf.nodes["middle"], workflow_model.WorkflowNode)
-        self.assertIsInstance(wf.nodes["middle"].nodes["leaf"], atomic_model.AtomicNode)
+        self.assertIsInstance(wf.nodes["middle"], workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(
+            wf.nodes["middle"].nodes["leaf"], atomic_recipe.AtomicRecipe
+        )
 
 
 if __name__ == "__main__":

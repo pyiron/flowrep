@@ -4,10 +4,10 @@ import pydantic
 
 from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.nodes import (
-    atomic_model,
+    atomic_recipe,
     helper_models,
-    if_model,
-    workflow_model,
+    if_recipe,
+    workflow_recipe,
 )
 
 from flowrep_static import makers
@@ -56,7 +56,7 @@ def _make_valid_if_node(n_cases=1, with_else=True):
     cases = _make_conditional_cases(n_cases)
     else_case = makers.make_labeled_with_defaults("else_body") if with_else else None
 
-    return if_model.IfNode(
+    return if_recipe.IfRecipe(
         inputs=["inp"],
         outputs=["out"],
         cases=cases,
@@ -66,35 +66,35 @@ def _make_valid_if_node(n_cases=1, with_else=True):
     )
 
 
-class TestIfNodeBasic(unittest.TestCase):
+class TestIfRecipeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
-        if_model.IfNode.model_json_schema()
+        if_recipe.IfRecipe.model_json_schema()
 
     def test_obeys_build_subgraph_with_dynamic_output(self):
-        """IfNode should obey build subgraph with dynamic output."""
+        """IfRecipe should obey build subgraph with dynamic output."""
         node = _make_valid_if_node()
         self.assertIsInstance(node, subgraph_validation.DynamicSubgraphDynamicOutput)
 
     def test_valid_single_case(self):
-        """IfNode with one case should validate."""
+        """IfRecipe with one case should validate."""
         node = _make_valid_if_node(n_cases=1)
         self.assertEqual(node.type, base_models.RecipeElementType.IF)
         self.assertEqual(len(node.cases), 1)
 
     def test_valid_multiple_cases(self):
-        """IfNode with multiple cases should validate."""
+        """IfRecipe with multiple cases should validate."""
         node = _make_valid_if_node(n_cases=3)
         self.assertEqual(len(node.cases), 3)
 
     def test_valid_without_else_case(self):
-        """IfNode without else_case should validate."""
+        """IfRecipe without else_case should validate."""
         node = _make_valid_if_node(n_cases=2, with_else=False)
         self.assertIsNone(node.else_case)
         self.assertEqual(len(node.cases), 2)
 
     def test_type_field_immutable(self):
-        """IfNode type field should be frozen."""
+        """IfRecipe type field should be frozen."""
         node = _make_valid_if_node()
         with self.assertRaises(pydantic.ValidationError) as ctx:
             node.type = base_models.RecipeElementType.WORKFLOW
@@ -106,10 +106,10 @@ class TestIfNodeBasic(unittest.TestCase):
             recipe(42)
 
 
-class TestIfNodeCasesValidation(unittest.TestCase):
+class TestIfRecipeCasesValidation(unittest.TestCase):
     def test_empty_cases_rejected(self):
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=[],
@@ -129,7 +129,7 @@ class TestIfNodeCasesValidation(unittest.TestCase):
             body=makers.make_labeled_with_defaults("shared_label"),
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=[case0, case1],
@@ -144,11 +144,11 @@ class TestIfNodeCasesValidation(unittest.TestCase):
         self.assertIn("unique", str(ctx.exception).lower())
 
     def test_cases_accepts_various_node_types(self):
-        workflow_condition = workflow_model.WorkflowNode(
+        workflow_condition = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["result"],
             nodes={
-                "inner": atomic_model.AtomicNode(
+                "inner": atomic_recipe.AtomicRecipe(
                     reference=makers.make_reference(qualname="f"),
                     inputs=["a"],
                     outputs=["b"],
@@ -169,28 +169,30 @@ class TestIfNodeCasesValidation(unittest.TestCase):
 
         cases = [
             helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="workflow_condition", node=workflow_condition
                 ),
                 body=makers.make_labeled_with_defaults("body"),
             )
         ]
 
-        node = if_model.IfNode(
+        node = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
             input_edges=_make_input_edges(cases),
             prospective_output_edges=_make_output_edges(cases),
         )
-        self.assertIsInstance(node.cases[0].condition.node, workflow_model.WorkflowNode)
+        self.assertIsInstance(
+            node.cases[0].condition.node, workflow_recipe.WorkflowRecipe
+        )
 
 
-class TestIfNodeInputEdgesValidation(unittest.TestCase):
+class TestIfRecipeInputEdgesValidation(unittest.TestCase):
     def test_input_edges_invalid_target_node(self):
         cases = _make_conditional_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -207,7 +209,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
     def test_input_edges_can_target_condition(self):
         """input_edges targets can include condition nodes."""
         cases = _make_conditional_cases(2)
-        node = if_model.IfNode(
+        node = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,  # body has input "x"
@@ -226,7 +228,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
     def test_input_edges_can_target_bodies(self):
         """input_edges targets can include body nodes."""
         cases = _make_conditional_cases(2)
-        node = if_model.IfNode(
+        node = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,  # body has input "x"
@@ -246,7 +248,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
         """input_edges targets can include the else node."""
         cases = _make_conditional_cases(2)
         else_case = makers.make_labeled_with_defaults("else_body")
-        node = if_model.IfNode(
+        node = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,  # body has input "x"
@@ -261,7 +263,7 @@ class TestIfNodeInputEdgesValidation(unittest.TestCase):
         self.assertEqual(len(node.input_edges), 1)
 
 
-class TestIfNodeFullySourcing(unittest.TestCase):
+class TestIfRecipeFullySourcing(unittest.TestCase):
     """Tests for validate_internal_data_completeness on if-node children."""
 
     def test_body_unsourced_no_default_raises(self):
@@ -278,7 +280,7 @@ class TestIfNodeFullySourcing(unittest.TestCase):
             )
         ]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -312,7 +314,7 @@ class TestIfNodeFullySourcing(unittest.TestCase):
             )
         ]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -342,7 +344,7 @@ class TestIfNodeFullySourcing(unittest.TestCase):
             inputs_with_defaults=["x"],
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -370,7 +372,7 @@ class TestIfNodeFullySourcing(unittest.TestCase):
                 ),
             )
         ]
-        node = if_model.IfNode(
+        node = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
@@ -393,16 +395,16 @@ class TestIfNodeFullySourcing(unittest.TestCase):
     def test_mixed_across_cases_unsourced_else_raises(self):
         """Condition edged, body defaulted, else unsourced → fails on else."""
         cases = _make_conditional_cases(1)
-        else_case = helper_models.LabeledNode(
+        else_case = helper_models.LabeledRecipe(
             label="else_body",
-            node=atomic_model.AtomicNode(
+            node=atomic_recipe.AtomicRecipe(
                 reference=makers.make_reference(qualname="handle"),  # no defaults
                 inputs=["x", "z"],
                 outputs=["y"],
             ),
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -420,12 +422,12 @@ class TestIfNodeFullySourcing(unittest.TestCase):
         self.assertIn("else_body.z", exc_str)
 
 
-class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
+class TestIfRecipeProspectiveOutputEdgesValidation(unittest.TestCase):
     def test_prospective_output_edges_invalid_source_node(self):
         """Sources must reference valid prospective nodes."""
         cases = _make_conditional_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -454,7 +456,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
             )
         ]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -472,7 +474,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
     def test_prospective_output_edges_keys_must_match_outputs(self):
         cases = _make_conditional_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out", "other"],
                 cases=cases,
@@ -492,7 +494,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         """output_edges cannot have keys not in outputs."""
         cases = _make_conditional_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -514,7 +516,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         """An output must have at least one source."""
         cases = _make_conditional_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,
@@ -528,7 +530,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         """An output can have sources from only some prospective nodes."""
         cases = _make_conditional_cases(3)
         else_case = makers.make_labeled_with_defaults("else_body")
-        node = if_model.IfNode(
+        node = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
@@ -550,7 +552,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         """An output can have sources from all prospective nodes."""
         cases = _make_conditional_cases(2)
         else_case = makers.make_labeled_with_defaults("else_body")
-        node = if_model.IfNode(
+        node = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
@@ -576,7 +578,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         feel a bit silly.
         """
         cases = _make_conditional_cases(1)
-        node = if_model.IfNode(
+        node = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
@@ -592,7 +594,7 @@ class TestIfNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         )
 
 
-class TestIfNodeProspectiveNodes(unittest.TestCase):
+class TestIfRecipeProspectiveNodes(unittest.TestCase):
     def test_prospective_nodes_with_else(self):
         """prospective_nodes includes conditions, bodies, and else_case."""
         node = _make_valid_if_node(n_cases=2, with_else=True)
@@ -624,7 +626,7 @@ class TestIfNodeProspectiveNodes(unittest.TestCase):
         cases = _make_conditional_cases(1)
         else_case = makers.make_labeled_with_defaults(cases[0].body.label)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=[],
                 cases=cases,
@@ -637,13 +639,13 @@ class TestIfNodeProspectiveNodes(unittest.TestCase):
         self.assertIn("duplicates", ctx_str.lower())
 
 
-class TestIfNodeSerialization(unittest.TestCase):
+class TestIfRecipeSerialization(unittest.TestCase):
     def test_roundtrip(self):
         original = _make_valid_if_node()
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = if_model.IfNode.model_validate(data)
+                restored = if_recipe.IfRecipe.model_validate(data)
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
                 self.assertEqual(len(original.cases), len(restored.cases))
@@ -654,7 +656,7 @@ class TestIfNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = if_model.IfNode.model_validate(data)
+                restored = if_recipe.IfRecipe.model_validate(data)
                 self.assertIsNone(restored.else_case)
                 self.assertEqual(len(restored.cases), 2)
 
@@ -663,7 +665,7 @@ class TestIfNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = if_model.IfNode.model_validate(data)
+                restored = if_recipe.IfRecipe.model_validate(data)
                 self.assertEqual(len(restored.cases), 3)
                 self.assertEqual(
                     len(restored.input_edges), 7
@@ -678,24 +680,26 @@ class TestIfNodeSerialization(unittest.TestCase):
                 )
 
     def test_roundtrip_with_condition_output(self):
-        condition = atomic_model.AtomicNode(
+        condition = atomic_recipe.AtomicRecipe(
             reference=makers.make_reference(qualname="check"),
             inputs=["x"],
             outputs=["a", "b"],
         )
-        body = atomic_model.AtomicNode(
+        body = atomic_recipe.AtomicRecipe(
             reference=makers.make_reference(qualname="handle"),
             inputs=["x"],
             outputs=["y"],
         )
         cases = [
             helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(label="condition", node=condition),
-                body=helper_models.LabeledNode(label="body", node=body),
+                condition=helper_models.LabeledRecipe(
+                    label="condition", node=condition
+                ),
+                body=helper_models.LabeledRecipe(label="body", node=body),
                 condition_output="a",
             )
         ]
-        original = if_model.IfNode(
+        original = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["out"],
             cases=cases,
@@ -706,14 +710,14 @@ class TestIfNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = if_model.IfNode.model_validate(data)
+                restored = if_recipe.IfRecipe.model_validate(data)
                 self.assertEqual(restored.cases[0].condition_output, "a")
 
 
-class TestIfNodeInWorkflow(unittest.TestCase):
+class TestIfRecipeInWorkflow(unittest.TestCase):
     def test_if_node_as_workflow_child(self):
         if_node = _make_valid_if_node()
-        workflow = workflow_model.WorkflowNode(
+        workflow = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["y"],
             nodes={"if_block": if_node},
@@ -730,11 +734,11 @@ class TestIfNodeInWorkflow(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["if_block"], if_model.IfNode)
+        self.assertIsInstance(workflow.nodes["if_block"], if_recipe.IfRecipe)
 
     def test_if_node_without_else_as_workflow_child(self):
         if_node = _make_valid_if_node(with_else=False)
-        workflow = workflow_model.WorkflowNode(
+        workflow = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["y"],
             nodes={"if_block": if_node},
@@ -751,15 +755,15 @@ class TestIfNodeInWorkflow(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["if_block"], if_model.IfNode)
+        self.assertIsInstance(workflow.nodes["if_block"], if_recipe.IfRecipe)
         self.assertIsNone(workflow.nodes["if_block"].else_case)
 
 
-class TestIfNodeInputEdgesPortValidation(unittest.TestCase):
+class TestIfRecipeInputEdgesPortValidation(unittest.TestCase):
     def test_input_edges_invalid_target_port(self):
         cases = _make_conditional_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,  # condition has input "x"
@@ -775,12 +779,12 @@ class TestIfNodeInputEdgesPortValidation(unittest.TestCase):
         self.assertIn("nonexistent", exc_str)
 
 
-class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
+class TestIfRecipeProspectiveOutputEdgesPortValidation(unittest.TestCase):
     def test_prospective_output_edges_invalid_body_source_port(self):
         """output_edges source port must exist on the body node."""
         cases = _make_conditional_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,  # body has output "y"
@@ -802,7 +806,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
         cases = _make_conditional_cases(1)
         else_case = makers.make_labeled_with_defaults("else_body")
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            if_model.IfNode(
+            if_recipe.IfRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 cases=cases,  # body has output "y"
@@ -833,7 +837,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
                 ),
             )
         ]
-        node = if_model.IfNode(
+        node = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["a", "b"],
             cases=cases,
@@ -871,7 +875,7 @@ class TestIfNodeProspectiveOutputEdgesPortValidation(unittest.TestCase):
         input_edges[edge_models.TargetHandle(node=else_case.label, port="x")] = (
             edge_models.InputSource(port="inp")
         )
-        node = if_model.IfNode(
+        node = if_recipe.IfRecipe(
             inputs=["inp"],
             outputs=["a", "b"],
             cases=cases,

@@ -22,7 +22,7 @@ def parse_case(
     symbol_map: symbol_scope.SymbolScope,
     info_factory: versions.VersionInfoFactory,
     label: str,
-) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
+) -> tuple[helper_models.LabeledRecipe, edge_models.InputEdges]:
     """
     Parse a conditional expression.
 
@@ -47,11 +47,13 @@ def parse_case(
 
 
 def _relabel_node_data(
-    labeled_node: helper_models.LabeledNode,
+    labeled_node: helper_models.LabeledRecipe,
     inputs: edge_models.InputEdges,
     new_label: str,
-) -> tuple[helper_models.LabeledNode, edge_models.InputEdges]:
-    relabeled_node = helper_models.LabeledNode(label=new_label, node=labeled_node.node)
+) -> tuple[helper_models.LabeledRecipe, edge_models.InputEdges]:
+    relabeled_node = helper_models.LabeledRecipe(
+        label=new_label, node=labeled_node.node
+    )
     relabeled_inputs: edge_models.InputEdges = {
         edge_models.TargetHandle(node=new_label, port=target.port): source
         for target, source in inputs.items()
@@ -65,8 +67,8 @@ class WalkedBranch:
     walker: parser_protocol.BodyWalker
     assigned: list[str]
 
-    def to_labeled_node(self) -> helper_models.LabeledNode:
-        return helper_models.LabeledNode(
+    def to_labeled_node(self) -> helper_models.LabeledRecipe:
+        return helper_models.LabeledRecipe(
             label=self.label,
             node=self.walker.build_model(),
         )

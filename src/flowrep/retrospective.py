@@ -1,8 +1,9 @@
 """
 Flowrep recipes represent a class-view of how data can be processed via a workflow.
 
-In this module, we provide a prototypical data structure for live, instance-view
-workflows, which can be mutated as they are executed to be enriched with data.
+In this module, we provide a prototypical data structure for retrospective,
+instance-view workflows, which can be mutated as they are executed to be enriched with
+data.
 
 Intended to be a common export- and communication-format for WfMS of instance-views.
 
@@ -23,13 +24,13 @@ from pyiron_snippets import retrieve, singleton
 
 from flowrep import base_models, edge_models
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
-    if_model,
-    try_model,
-    union,
-    while_model,
-    workflow_model,
+    atomic_recipe,
+    for_recipe,
+    if_recipe,
+    try_recipe,
+    union_types,
+    while_recipe,
+    workflow_recipe,
 )
 
 
@@ -57,13 +58,13 @@ NOT_DATA = NotData()
 
 
 @dataclasses.dataclass(frozen=False)
-class _Port:
+class _DataPort:
     value: object | NotData = NOT_DATA
     annotation: Any | None = None
 
 
 @dataclasses.dataclass(frozen=False)
-class InputPort(_Port):
+class InputDataPort(_DataPort):
     default: object | NotData = NOT_DATA
 
     def get_data(self) -> object | NotData:
@@ -72,44 +73,44 @@ class InputPort(_Port):
 
 
 @dataclasses.dataclass(frozen=False)
-class OutputPort(_Port): ...
+class OutputDataPort(_DataPort): ...
 
 
-InputPorts = MutableMapping[base_models.Label, InputPort]
-OutputPorts = MutableMapping[base_models.Label, OutputPort]
+InputDataPorts = MutableMapping[base_models.Label, InputDataPort]
+OutputDataPorts = MutableMapping[base_models.Label, OutputDataPort]
 
-NodeType = TypeVar("NodeType", bound=base_models.NodeModel)
+RecipeType = TypeVar("RecipeType", bound=base_models.NodeRecipe)
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveNode(Generic[NodeType], abc.ABC):
-    recipe: NodeType
-    input_ports: InputPorts
-    output_ports: OutputPorts
+class NodeData(Generic[RecipeType], abc.ABC):
+    recipe: RecipeType
+    input_ports: InputDataPorts
+    output_ports: OutputDataPorts
 
     @classmethod
     @abc.abstractmethod
-    def from_recipe(cls, recipe: NodeType) -> Self: ...
+    def from_recipe(cls, recipe: RecipeType) -> Self: ...
 
 
-def recipe2live(
-    recipe: union.NodeDiscrimination, allow_variadic_inputs: bool = True
-) -> LiveNode:
+def recipe2data(
+    recipe: union_types.RecipeDiscrimination, allow_variadic_inputs: bool = True
+) -> NodeData:
     match recipe:
-        case atomic_model.AtomicNode():
-            return LiveAtomic.from_recipe(
+        case atomic_recipe.AtomicRecipe():
+            return AtomicData.from_recipe(
                 recipe, allow_variadic_inputs=allow_variadic_inputs
             )
-        case for_model.ForEachNode():
-            return LiveForEach.from_recipe(recipe)
-        case if_model.IfNode():
-            return LiveIf.from_recipe(recipe)
-        case try_model.TryNode():
-            return LiveTry.from_recipe(recipe)
-        case while_model.WhileNode():
-            return LiveWhile.from_recipe(recipe)
-        case workflow_model.WorkflowNode():
-            return LiveWorkflow.from_recipe(
+        case for_recipe.ForEachRecipe():
+            return ForEachData.from_recipe(recipe)
+        case if_recipe.IfRecipe():
+            return IfData.from_recipe(recipe)
+        case try_recipe.TryRecipe():
+            return TryData.from_recipe(recipe)
+        case while_recipe.WhileRecipe():
+            return WhileData.from_recipe(recipe)
+        case workflow_recipe.WorkflowRecipe():
+            return DagData.from_recipe(
                 recipe, allow_variadic_inputs=allow_variadic_inputs
             )
         case _:
@@ -117,13 +118,13 @@ def recipe2live(
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveAtomic(LiveNode[atomic_model.AtomicNode]):
+class AtomicData(NodeData[atomic_recipe.AtomicRecipe]):
     function: Callable
 
     @classmethod
     def from_recipe(
-        cls, recipe: atomic_model.AtomicNode, allow_variadic_inputs: bool = True
-    ) -> LiveAtomic:
+        cls, recipe: atomic_recipe.AtomicRecipe, allow_variadic_inputs: bool = True
+    ) -> AtomicData:
         function, input_ports, output_ports = _parse_function(
             recipe.reference.info.fully_qualified_name,
             recipe.inputs,
@@ -131,7 +132,7 @@ class LiveAtomic(LiveNode[atomic_model.AtomicNode]):
             recipe.unpack_mode,
             allow_variadic_inputs=allow_variadic_inputs,
         )
-        return LiveAtomic(
+        return AtomicData(
             recipe=recipe,
             input_ports=dict(input_ports),
             output_ports=dict(output_ports),
@@ -140,19 +141,19 @@ class LiveAtomic(LiveNode[atomic_model.AtomicNode]):
 
 
 @dataclasses.dataclass(frozen=False)
-class Composite(LiveNode, Generic[NodeType], abc.ABC):
-    nodes: MutableMapping[base_models.Label, LiveNode]
+class CompositeData(NodeData, Generic[RecipeType], abc.ABC):
+    nodes: MutableMapping[base_models.Label, NodeData]
     input_edges: edge_models.InputEdges
     edges: edge_models.Edges
     output_edges: edge_models.OutputEdges
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveWorkflow(Composite[workflow_model.WorkflowNode]):
+class DagData(CompositeData[workflow_recipe.WorkflowRecipe]):
     @classmethod
     def from_recipe(
-        cls, recipe: workflow_model.WorkflowNode, allow_variadic_inputs: bool = True
-    ) -> LiveWorkflow:
+        cls, recipe: workflow_recipe.WorkflowRecipe, allow_variadic_inputs: bool = True
+    ) -> DagData:
         if recipe.reference:
             function, input_ports, output_ports = _parse_function(
                 recipe.reference.info.fully_qualified_name,
@@ -161,13 +162,13 @@ class LiveWorkflow(Composite[workflow_model.WorkflowNode]):
                 allow_variadic_inputs=allow_variadic_inputs,
             )
         else:
-            input_ports = {label: InputPort() for label in recipe.inputs}
-            output_ports = {label: OutputPort() for label in recipe.outputs}
+            input_ports = {label: InputDataPort() for label in recipe.inputs}
+            output_ports = {label: OutputDataPort() for label in recipe.outputs}
         nodes = {
-            label: recipe2live(child, allow_variadic_inputs=allow_variadic_inputs)
+            label: recipe2data(child, allow_variadic_inputs=allow_variadic_inputs)
             for label, child in recipe.nodes.items()
         }
-        return LiveWorkflow(
+        return DagData(
             recipe=recipe,
             input_ports=dict(input_ports),
             output_ports=dict(output_ports),
@@ -183,12 +184,12 @@ class LiveWorkflow(Composite[workflow_model.WorkflowNode]):
 
 
 @dataclasses.dataclass(frozen=False)
-class FlowControl(Composite, Generic[NodeType]):
+class FlowControlData(CompositeData, Generic[RecipeType]):
 
     @classmethod
     def from_recipe(
         cls,
-        recipe: NodeType,
+        recipe: RecipeType,
     ) -> Self:
         """
         Flow control nodes are composite with dynamic bodies; WfMS must populate the
@@ -196,8 +197,8 @@ class FlowControl(Composite, Generic[NodeType]):
         """
         return cls(
             recipe=recipe,
-            input_ports=dict({label: InputPort() for label in recipe.inputs}),
-            output_ports=dict({label: OutputPort() for label in recipe.outputs}),
+            input_ports=dict({label: InputDataPort() for label in recipe.inputs}),
+            output_ports=dict({label: OutputDataPort() for label in recipe.outputs}),
             nodes=dict(),
             input_edges={},
             edges={},
@@ -206,31 +207,31 @@ class FlowControl(Composite, Generic[NodeType]):
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveForEach(FlowControl[for_model.ForEachNode]): ...
+class ForEachData(FlowControlData[for_recipe.ForEachRecipe]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveIf(FlowControl[if_model.IfNode]): ...
+class IfData(FlowControlData[if_recipe.IfRecipe]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveTry(FlowControl[try_model.TryNode]): ...
+class TryData(FlowControlData[try_recipe.TryRecipe]): ...
 
 
 @dataclasses.dataclass(frozen=False)
-class LiveWhile(FlowControl[while_model.WhileNode]): ...
+class WhileData(FlowControlData[while_recipe.WhileRecipe]): ...
 
 
 def _parse_function(
     fully_qualified_name: str,
     inputs: list[str],
     outputs: list[str],
-    unpack_mode: atomic_model.UnpackMode = atomic_model.UnpackMode.TUPLE,
+    unpack_mode: atomic_recipe.UnpackMode = atomic_recipe.UnpackMode.TUPLE,
     allow_variadic_inputs: bool = True,
 ) -> tuple[
     types.FunctionType,
-    dict[base_models.Label, InputPort],
-    dict[base_models.Label, OutputPort],
+    dict[base_models.Label, InputDataPort],
+    dict[base_models.Label, OutputDataPort],
 ]:
     function = retrieve.import_from_string(fully_qualified_name)
     hints = get_type_hints(function, include_extras=True)
@@ -258,10 +259,10 @@ def _parse_function(
             f"Requested inputs {missing} not found in signature of {fully_qualified_name!r}"
         )
 
-    input_ports: dict[str, InputPort] = {}
+    input_ports: dict[str, InputDataPort] = {}
     for name in inputs:
         param = sig.parameters.get(name)
-        input_port = InputPort()
+        input_port = InputDataPort()
         if param is not None:
             input_port.annotation = hints.get(name, None)
             input_port.default = (
@@ -273,11 +274,11 @@ def _parse_function(
 
     # --- output ports ---
     return_annotation = hints.get("return", None)
-    if unpack_mode == atomic_model.UnpackMode.NONE:
+    if unpack_mode == atomic_recipe.UnpackMode.NONE:
         output_ports = _parse_return_without_unpacking(return_annotation, outputs)
-    elif unpack_mode == atomic_model.UnpackMode.TUPLE:
+    elif unpack_mode == atomic_recipe.UnpackMode.TUPLE:
         output_ports = _parse_return_tuple(return_annotation, outputs)
-    elif unpack_mode == atomic_model.UnpackMode.DATACLASS:
+    elif unpack_mode == atomic_recipe.UnpackMode.DATACLASS:
         output_ports = _parse_return_dataclass(return_annotation, outputs)
 
     return function, input_ports, output_ports
@@ -285,18 +286,20 @@ def _parse_function(
 
 def _parse_return_without_unpacking(
     return_annotation, outputs: list[str]
-) -> dict[str, OutputPort]:
+) -> dict[str, OutputDataPort]:
     if len(outputs) != 1:  # pragma: no cover
         raise ValueError(
             f"Without return unpacking, only one output is allowed, but got {outputs}. "
             f"This should have been caught by the underlying recipe validation. Please "
             f"raise a GitHub issue reporting how you got here!"
         )
-    return {outputs[0]: OutputPort(annotation=return_annotation)}
+    return {outputs[0]: OutputDataPort(annotation=return_annotation)}
 
 
-def _parse_return_tuple(return_annotation, outputs: list[str]) -> dict[str, OutputPort]:
-    output_ports: dict[str, OutputPort]
+def _parse_return_tuple(
+    return_annotation, outputs: list[str]
+) -> dict[str, OutputDataPort]:
+    output_ports: dict[str, OutputDataPort]
     if len(outputs) > 1:
         origin = get_origin(return_annotation)
         args = get_args(return_annotation)
@@ -304,7 +307,7 @@ def _parse_return_tuple(return_annotation, outputs: list[str]) -> dict[str, Outp
         if return_annotation is not None:
             unpacking_hint = (
                 f"To collect the entire tuple in a single port use "
-                f"{atomic_model.UnpackMode.NONE} unpacking mode."
+                f"{atomic_recipe.UnpackMode.NONE} unpacking mode."
             )
 
             if origin is not tuple:
@@ -321,19 +324,19 @@ def _parse_return_tuple(return_annotation, outputs: list[str]) -> dict[str, Outp
                     f" {unpacking_hint}"
                 )
             output_ports = {
-                label: OutputPort(annotation=annotation)
+                label: OutputDataPort(annotation=annotation)
                 for label, annotation in zip(outputs, args, strict=True)
             }
         else:
-            output_ports = {label: OutputPort() for label in outputs}
+            output_ports = {label: OutputDataPort() for label in outputs}
     else:
-        output_ports = {outputs[0]: OutputPort(annotation=return_annotation)}
+        output_ports = {outputs[0]: OutputDataPort(annotation=return_annotation)}
     return output_ports
 
 
 def _parse_return_dataclass(
     return_annotation, outputs: list[str]
-) -> dict[str, OutputPort]:
+) -> dict[str, OutputDataPort]:
     if not dataclasses.is_dataclass(return_annotation):  # pragma: no cover
         raise TypeError(
             f"Return annotation {return_annotation!r} is not a dataclass. This should "
@@ -351,7 +354,7 @@ def _parse_return_dataclass(
         )
 
     return {
-        label: OutputPort(
+        label: OutputDataPort(
             annotation=(field.type if field.type is not dataclasses.MISSING else None),
         )
         for label, field in zip(outputs, fields, strict=True)
