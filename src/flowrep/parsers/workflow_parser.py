@@ -10,7 +10,7 @@ from typing import cast
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import helper_models, union, workflow_model
+from flowrep.nodes import helper_models, union_types, workflow_recipe
 from flowrep.parsers import (
     atomic_parser,
     for_parser,
@@ -35,7 +35,7 @@ def workflow(
     require_version: bool = False,
 ) -> FunctionType | Callable[[FunctionType], FunctionType]:
     """
-    Decorator that attaches a :class:`~flowrep.models.nodes.workflow_model.WorkflowNode`
+    Decorator that attaches a :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe`
     to the ``flowrep_recipe`` attribute of a function, under constraints that the
     function body is parseable as a workflow recipe.
 
@@ -61,7 +61,7 @@ def workflow(
 
     Returns:
         The original function with a ``flowrep_recipe`` attribute holding a
-        :class:`~flowrep.models.nodes.workflow_model.WorkflowNode`.
+        :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe`.
     """
     return parser_helpers.parser2decorator(
         func,
@@ -86,7 +86,7 @@ def parse_workflow(
     require_version: bool = False,
 ):
     """
-    Build a :class:`~flowrep.models.nodes.workflow_model.WorkflowNode` by
+    Build a :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe` by
     statically analysing a Python function's AST.
 
     The function body is walked statement-by-statement; assignments with calls on
@@ -107,7 +107,7 @@ def parse_workflow(
         require_version: If ``True``, raise if no version can be determined.
 
     Returns:
-        A fully constructed :class:`WorkflowNode`.
+        A fully constructed :class:`WorkflowRecipe`.
 
     Raises:
         ValueError: If the function has no return, multiple returns, returns
@@ -185,7 +185,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self.scope = scope
         self.symbol_map = symbol_map
         self.info_factory = info_factory
-        self.nodes: union.Nodes = {}
+        self.nodes: union_types.Recipes = {}
         self.source = source
 
     @property
@@ -212,8 +212,8 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self,
         inputs_override: list[str] | None = None,
         description: str | None = None,
-    ) -> workflow_model.WorkflowNode:
-        return workflow_model.WorkflowNode(
+    ) -> workflow_recipe.WorkflowRecipe:
+        return workflow_recipe.WorkflowRecipe(
             inputs=self.inputs if inputs_override is None else inputs_override,
             outputs=self.outputs,
             description=description,
@@ -283,38 +283,38 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             )
 
     def _digest_flow_control(
-        self, label_prefix: str, node: union.NodeDiscrimination
+        self, label_prefix: str, node: union_types.RecipeDiscrimination
     ) -> None:
         label = label_helpers.unique_suffix(label_prefix, self.nodes)
         self.nodes[label] = node
         self._connect_node_to_enclosing_scope(label, node)
 
     def _connect_node_to_enclosing_scope(
-        self, label: str, node: union.NodeDiscrimination
+        self, label: str, node: union_types.RecipeDiscrimination
     ):
         for port in node.inputs:
             self.symbol_map.consume(port, label, port)
 
-        labeled_node = helper_models.LabeledNode(label=label, node=node)
+        labeled_node = helper_models.LabeledRecipe(label=label, node=node)
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
 
     def visit_For(self, tree: ast.For) -> None:
-        for_node = for_parser.parse_for_node(self, tree)
+        for_recipe = for_parser.parse_for_node(self, tree)
         # Accumulators consumed by the for body are no longer available here
-        self.symbol_map.declared_accumulators -= set(for_node.outputs)
-        self._digest_flow_control("for_each", for_node)
+        self.symbol_map.declared_accumulators -= set(for_recipe.outputs)
+        self._digest_flow_control("for_each", for_recipe)
 
     def visit_While(self, tree: ast.While) -> None:
-        while_node = while_parser.parse_while_node(self, tree)
-        self._digest_flow_control("while", while_node)
+        while_recipe = while_parser.parse_while_node(self, tree)
+        self._digest_flow_control("while", while_recipe)
 
     def visit_If(self, tree: ast.If) -> None:
-        if_node = if_parser.parse_if_node(self, tree)
-        self._digest_flow_control("if", if_node)
+        if_recipe = if_parser.parse_if_node(self, tree)
+        self._digest_flow_control("if", if_recipe)
 
     def visit_Try(self, tree: ast.Try) -> None:
-        try_node = try_parser.parse_try_node(self, tree)
-        self._digest_flow_control("try", try_node)
+        try_recipe = try_parser.parse_try_node(self, tree)
+        self._digest_flow_control("try", try_recipe)
 
     def visit_Expr(self, stmt: ast.Expr) -> None:
         if is_append_call(stmt.value):

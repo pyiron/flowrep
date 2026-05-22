@@ -3,15 +3,15 @@ from typing import cast
 import pydantic
 
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
+    atomic_recipe,
+    for_recipe,
     helper_models,
-    if_model,
-    try_model,
-    while_model,
-    workflow_model,
+    if_recipe,
+    try_recipe,
+    while_recipe,
+    workflow_recipe,
 )
-from flowrep.nodes.union import NodeDiscrimination, Nodes
+from flowrep.nodes.union_types import RecipeDiscrimination, Recipes
 
 # Subtlety: Anywhere we use `typing.TYPE_CHECKING` to avoid a real import _and_ use
 # the guarded object as a pydantic field annotator, we are going to need to make sure
@@ -21,12 +21,12 @@ from flowrep.nodes.union import NodeDiscrimination, Nodes
 # security that pydantic can find all the necessary types.
 
 for cls in [
-    atomic_model.AtomicNode,
-    for_model.ForEachNode,
-    helper_models.LabeledNode,
-    if_model.IfNode,
-    try_model.TryNode,
-    while_model.WhileNode,
-    workflow_model.WorkflowNode,
+    atomic_recipe.AtomicRecipe,
+    for_recipe.ForEachRecipe,
+    helper_models.LabeledRecipe,
+    if_recipe.IfRecipe,
+    try_recipe.TryRecipe,
+    while_recipe.WhileRecipe,
+    workflow_recipe.WorkflowRecipe,
 ]:
     cast(type[pydantic.BaseModel], cls).model_rebuild()

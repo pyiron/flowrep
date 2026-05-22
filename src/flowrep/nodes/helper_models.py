@@ -8,7 +8,7 @@ from pyiron_snippets import versions
 from flowrep import base_models
 
 if TYPE_CHECKING:
-    from flowrep.nodes.union import NodeDiscrimination  # Satisfies mypy
+    from flowrep.nodes.union_types import RecipeDiscrimination  # Satisfies mypy
 
     # Still not enough to satisfy ruff, which doesn't understand the string forward
     # reference, even with the TYPE_CHECKING import
@@ -17,14 +17,14 @@ if TYPE_CHECKING:
     # Ultimately, just silence ruff as needed
 
 
-class LabeledNode(pydantic.BaseModel):
+class LabeledRecipe(pydantic.BaseModel):
     label: base_models.Label
-    node: "NodeDiscrimination"  # noqa: F821, UP037
+    node: "RecipeDiscrimination"  # noqa: F821, UP037
 
 
 class ConditionalCase(pydantic.BaseModel):
-    condition: LabeledNode
-    body: LabeledNode
+    condition: LabeledRecipe
+    body: LabeledRecipe
     condition_output: base_models.Label | None = None
 
     @pydantic.model_validator(mode="after")
@@ -70,7 +70,7 @@ class ExceptionCase(pydantic.BaseModel):
     """
 
     exceptions: list[versions.VersionInfo]
-    body: LabeledNode
+    body: LabeledRecipe
 
     @pydantic.field_validator("exceptions")
     @classmethod

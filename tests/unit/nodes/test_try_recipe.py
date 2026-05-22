@@ -5,10 +5,10 @@ from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.nodes import (
-    atomic_model,
+    atomic_recipe,
     helper_models,
-    try_model,
-    workflow_model,
+    try_recipe,
+    workflow_recipe,
 )
 
 from flowrep_static import makers
@@ -53,7 +53,7 @@ def _make_valid_try_node(n_exception_cases=1):
     try_node = makers.make_labeled_with_defaults(label="try_body")
     exception_cases = _make_exception_cases(n_exception_cases)
 
-    return try_model.TryNode(
+    return try_recipe.TryRecipe(
         inputs=["inp"],
         outputs=["out"],
         try_node=try_node,
@@ -65,24 +65,24 @@ def _make_valid_try_node(n_exception_cases=1):
     )
 
 
-class TestTryNodeBasic(unittest.TestCase):
+class TestTryRecipeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
-        try_model.TryNode.model_json_schema()
+        try_recipe.TryRecipe.model_json_schema()
 
     def test_obeys_build_subgraph_with_dynamic_output(self):
-        """TryNode should obey build subgraph with dynamic output."""
+        """TryRecipe should obey build subgraph with dynamic output."""
         node = _make_valid_try_node()
         self.assertIsInstance(node, subgraph_validation.DynamicSubgraphDynamicOutput)
 
     def test_valid_single_exception_case(self):
-        """TryNode with one exception case should validate."""
+        """TryRecipe with one exception case should validate."""
         node = _make_valid_try_node(n_exception_cases=1)
         self.assertEqual(node.type, base_models.RecipeElementType.TRY)
         self.assertEqual(len(node.exception_cases), 1)
 
     def test_valid_multiple_exception_cases(self):
-        """TryNode with multiple exception cases should validate."""
+        """TryRecipe with multiple exception cases should validate."""
         node = _make_valid_try_node(n_exception_cases=3)
         self.assertEqual(len(node.exception_cases), 3)
 
@@ -92,11 +92,11 @@ class TestTryNodeBasic(unittest.TestCase):
             recipe(42)
 
 
-class TestTryNodeExceptionCasesValidation(unittest.TestCase):
+class TestTryRecipeExceptionCasesValidation(unittest.TestCase):
     def test_empty_exception_cases_rejected(self):
-        """TryNode must have at least one exception case."""
+        """TryRecipe must have at least one exception case."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=makers.make_labeled_with_defaults(label="try_body"),
@@ -113,7 +113,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             body=makers.make_labeled_with_defaults(label="shared_label"),  # Dup
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=makers.make_labeled_with_defaults(label="shared_label"),
@@ -138,7 +138,7 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             body=makers.make_labeled_with_defaults(label="handler"),  # Duplicate
         )
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=makers.make_labeled_with_defaults(label="try_body"),
@@ -155,11 +155,11 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
 
     def test_exception_cases_accept_various_node_types(self):
         """Exception case bodies can be any NodeModel type."""
-        workflow_body = workflow_model.WorkflowNode(
+        workflow_body = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["y"],
             nodes={
-                "inner": atomic_model.AtomicNode(
+                "inner": atomic_recipe.AtomicRecipe(
                     reference=base_models.PythonReference(
                         info=versions.VersionInfo(
                             module="mod", qualname="f", version=None
@@ -185,12 +185,12 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_case = helper_models.ExceptionCase(
             exceptions=[_VALUE_ERROR_INFO],
-            body=helper_models.LabeledNode(
+            body=helper_models.LabeledRecipe(
                 label="workflow_handler", node=workflow_body
             ),
         )
 
-        node = try_model.TryNode(
+        node = try_recipe.TryRecipe(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -201,17 +201,17 @@ class TestTryNodeExceptionCasesValidation(unittest.TestCase):
             ),
         )
         self.assertIsInstance(
-            node.exception_cases[0].body.node, workflow_model.WorkflowNode
+            node.exception_cases[0].body.node, workflow_recipe.WorkflowRecipe
         )
 
 
-class TestTryNodeInputEdgesValidation(unittest.TestCase):
+class TestTryRecipeInputEdgesValidation(unittest.TestCase):
     def test_input_edges_invalid_target_node(self):
         """input_edges targets must reference existing prospective nodes."""
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -232,7 +232,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         """input_edges can target the try_node."""
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(1)
-        node = try_model.TryNode(
+        node = try_recipe.TryRecipe(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -252,7 +252,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         """input_edges can target exception case bodies."""
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(2)
-        node = try_model.TryNode(
+        node = try_recipe.TryRecipe(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -276,7 +276,7 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -295,11 +295,11 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         self.assertIn("nonexistent", exc_str)
 
     def test_input_edges_invalid_source_port(self):
-        """input_edges source port must exist on the TryNode inputs."""
+        """input_edges source port must exist on the TryRecipe inputs."""
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -318,14 +318,14 @@ class TestTryNodeInputEdgesValidation(unittest.TestCase):
         self.assertIn("nonexistent", exc_str)
 
 
-class TestTryNodeFullySourcing(unittest.TestCase):
+class TestTryRecipeFullySourcing(unittest.TestCase):
     """Tests for validate_internal_data_completeness on try/except bodies."""
 
     def test_try_body_unsourced_no_default_raises(self):
         """Try body input without edge or default → rejected."""
-        try_node = helper_models.LabeledNode(
+        try_node = helper_models.LabeledRecipe(
             label="try_body",
-            node=atomic_model.AtomicNode(
+            node=atomic_recipe.AtomicRecipe(
                 reference=makers.make_reference(qualname="try_func"),  # no defaults
                 inputs=["x", "extra"],
                 outputs=["y"],
@@ -333,7 +333,7 @@ class TestTryNodeFullySourcing(unittest.TestCase):
         )
         exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -359,9 +359,9 @@ class TestTryNodeFullySourcing(unittest.TestCase):
         exception_cases = [
             helper_models.ExceptionCase(
                 exceptions=[_VALUE_ERROR_INFO],
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="except_0",
-                    node=atomic_model.AtomicNode(
+                    node=atomic_recipe.AtomicRecipe(
                         reference=makers.make_reference(
                             qualname="handle_error"
                         ),  # no defaults
@@ -372,7 +372,7 @@ class TestTryNodeFullySourcing(unittest.TestCase):
             )
         ]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=makers.make_labeled_with_defaults(label="try_body"),
@@ -395,9 +395,9 @@ class TestTryNodeFullySourcing(unittest.TestCase):
 
     def test_try_body_unsourced_with_default_passes(self):
         """Try body input without edge but with default → accepted."""
-        try_node = helper_models.LabeledNode(
+        try_node = helper_models.LabeledRecipe(
             label="try_body",
-            node=atomic_model.AtomicNode(
+            node=atomic_recipe.AtomicRecipe(
                 reference=makers.make_reference(
                     qualname="try_func", inputs_with_defaults=["extra"]
                 ),
@@ -406,7 +406,7 @@ class TestTryNodeFullySourcing(unittest.TestCase):
             ),
         )
         exception_cases = _make_exception_cases(1)
-        node = try_model.TryNode(
+        node = try_recipe.TryRecipe(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -441,7 +441,7 @@ class TestTryNodeFullySourcing(unittest.TestCase):
             ),
         ]
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=makers.make_labeled_with_defaults(label="try_body"),
@@ -468,13 +468,13 @@ class TestTryNodeFullySourcing(unittest.TestCase):
         self.assertIn("except_1.z", exc_str)
 
 
-class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
+class TestTryRecipeProspectiveOutputEdgesValidation(unittest.TestCase):
     def test_prospective_output_edges_invalid_source_node(self):
         """Sources must reference valid prospective nodes."""
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -500,7 +500,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         )
         exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -520,11 +520,11 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         self.assertIn("duplicate", exc_str.lower())
 
     def test_prospective_output_edges_keys_must_match_outputs(self):
-        """prospective_output_edges keys must match TryNode outputs."""
+        """prospective_output_edges keys must match TryRecipe outputs."""
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out", "other"],
                 try_node=try_node,
@@ -546,7 +546,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -570,7 +570,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -586,7 +586,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         """An output can have sources from only some prospective nodes."""
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(3)
-        node = try_model.TryNode(
+        node = try_recipe.TryRecipe(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -608,7 +608,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         """An output can have sources from all prospective nodes."""
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(2)
-        node = try_model.TryNode(
+        node = try_recipe.TryRecipe(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -631,7 +631,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         try_node = makers.make_labeled_with_defaults(label="try_body")
         exception_cases = _make_exception_cases(1)
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            try_model.TryNode(
+            try_recipe.TryRecipe(
                 inputs=["inp"],
                 outputs=["out"],
                 try_node=try_node,
@@ -649,19 +649,19 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
 
     def test_prospective_output_edges_valid_multiple_outputs(self):
         """prospective_output_edges works with multiple outputs."""
-        body_node = atomic_model.AtomicNode(
+        body_node = atomic_recipe.AtomicRecipe(
             reference=base_models.PythonReference(
                 info=versions.VersionInfo(module="mod", qualname="func", version=None)
             ),
             inputs=["x"],
             outputs=["out1", "out2"],
         )
-        try_node = helper_models.LabeledNode(label="try_body", node=body_node)
+        try_node = helper_models.LabeledRecipe(label="try_body", node=body_node)
         exception_case = helper_models.ExceptionCase(
             exceptions=[_VALUE_ERROR_INFO],
-            body=helper_models.LabeledNode(label="except_body", node=body_node),
+            body=helper_models.LabeledRecipe(label="except_body", node=body_node),
         )
-        node = try_model.TryNode(
+        node = try_recipe.TryRecipe(
             inputs=["inp"],
             outputs=["a", "b"],
             try_node=try_node,
@@ -688,10 +688,10 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         self.assertEqual(len(node.prospective_output_edges), 2)
 
     def test_empty_outputs_with_empty_matrix(self):
-        """TryNode with no outputs requires empty prospective_output_edges."""
-        try_node = helper_models.LabeledNode(
+        """TryRecipe with no outputs requires empty prospective_output_edges."""
+        try_node = helper_models.LabeledRecipe(
             label="try_body",
-            node=atomic_model.AtomicNode(
+            node=atomic_recipe.AtomicRecipe(
                 reference=base_models.PythonReference(
                     info=versions.VersionInfo(
                         module="mod", qualname="func", version=None
@@ -703,16 +703,16 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         )
         exception_case = helper_models.ExceptionCase(
             exceptions=[_VALUE_ERROR_INFO],
-            body=helper_models.LabeledNode(
+            body=helper_models.LabeledRecipe(
                 label="handler",
-                node=atomic_model.AtomicNode(
+                node=atomic_recipe.AtomicRecipe(
                     reference=makers.make_reference(qualname="handler"),
                     inputs=["x"],
                     outputs=[],
                 ),
             ),
         )
-        node = try_model.TryNode(
+        node = try_recipe.TryRecipe(
             inputs=["inp"],
             outputs=[],
             try_node=try_node,
@@ -731,7 +731,7 @@ class TestTryNodeProspectiveOutputEdgesValidation(unittest.TestCase):
         self.assertEqual(node.prospective_output_edges, {})
 
 
-class TestTryNodeProspectiveNodes(unittest.TestCase):
+class TestTryRecipeProspectiveNodes(unittest.TestCase):
     def test_prospective_nodes_single_exception_case(self):
         """prospective_nodes includes try_node and exception case bodies."""
         node = _make_valid_try_node(n_exception_cases=1)
@@ -751,14 +751,14 @@ class TestTryNodeProspectiveNodes(unittest.TestCase):
         self.assertEqual(len(prospective), 4)
 
 
-class TestTryNodeSerialization(unittest.TestCase):
+class TestTryRecipeSerialization(unittest.TestCase):
     def test_roundtrip(self):
         """Serialization roundtrip."""
         original = _make_valid_try_node(n_exception_cases=2)
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = try_model.TryNode.model_validate(data)
+                restored = try_recipe.TryRecipe.model_validate(data)
                 self.assertEqual(original.inputs, restored.inputs)
                 self.assertEqual(original.outputs, restored.outputs)
                 self.assertEqual(
@@ -777,7 +777,7 @@ class TestTryNodeSerialization(unittest.TestCase):
             ],
             body=makers.make_labeled_with_defaults(label="handler"),
         )
-        original = try_model.TryNode(
+        original = try_recipe.TryRecipe(
             inputs=["inp"],
             outputs=["out"],
             try_node=try_node,
@@ -791,15 +791,15 @@ class TestTryNodeSerialization(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = try_model.TryNode.model_validate(data)
+                restored = try_recipe.TryRecipe.model_validate(data)
                 self.assertEqual(len(restored.exception_cases[0].exceptions), 3)
 
 
-class TestTryNodeInWorkflow(unittest.TestCase):
+class TestTryRecipeInWorkflow(unittest.TestCase):
     def test_try_node_as_workflow_child(self):
-        """TryNode can be used as a child node in a WorkflowNode."""
+        """TryRecipe can be used as a child node in a WorkflowRecipe."""
         try_node = _make_valid_try_node()
-        workflow = workflow_model.WorkflowNode(
+        workflow = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["y"],
             nodes={"try_block": try_node},
@@ -816,12 +816,12 @@ class TestTryNodeInWorkflow(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["try_block"], try_model.TryNode)
+        self.assertIsInstance(workflow.nodes["try_block"], try_recipe.TryRecipe)
 
     def test_try_node_multiple_exception_cases_as_workflow_child(self):
-        """TryNode with multiple exception cases can be a workflow child."""
+        """TryRecipe with multiple exception cases can be a workflow child."""
         try_node = _make_valid_try_node(n_exception_cases=3)
-        workflow = workflow_model.WorkflowNode(
+        workflow = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["y"],
             nodes={"try_block": try_node},
@@ -838,13 +838,13 @@ class TestTryNodeInWorkflow(unittest.TestCase):
             },
         )
 
-        self.assertIsInstance(workflow.nodes["try_block"], try_model.TryNode)
+        self.assertIsInstance(workflow.nodes["try_block"], try_recipe.TryRecipe)
         self.assertEqual(len(workflow.nodes["try_block"].exception_cases), 3)
 
     def test_workflow_with_try_node_roundtrip(self):
-        """Workflow containing TryNode serializes and deserializes correctly."""
+        """Workflow containing TryRecipe serializes and deserializes correctly."""
         try_node = _make_valid_try_node(n_exception_cases=2)
-        original = workflow_model.WorkflowNode(
+        original = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["y"],
             nodes={"try_block": try_node},
@@ -864,8 +864,8 @@ class TestTryNodeInWorkflow(unittest.TestCase):
         for mode in ["json", "python"]:
             with self.subTest(mode=mode):
                 data = original.model_dump(mode=mode)
-                restored = workflow_model.WorkflowNode.model_validate(data)
-                self.assertIsInstance(restored.nodes["try_block"], try_model.TryNode)
+                restored = workflow_recipe.WorkflowRecipe.model_validate(data)
+                self.assertIsInstance(restored.nodes["try_block"], try_recipe.TryRecipe)
                 self.assertEqual(len(restored.nodes["try_block"].exception_cases), 2)
 
 

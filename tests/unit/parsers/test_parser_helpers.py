@@ -2,7 +2,7 @@ import ast
 import unittest
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import atomic_model, helper_models
+from flowrep.nodes import atomic_recipe, helper_models
 from flowrep.parsers import parser_helpers, symbol_scope
 
 from flowrep_static import makers
@@ -307,11 +307,11 @@ class TestConsumeCallArguments(unittest.TestCase):
 
     def _make_labeled_node(
         self, label: str, inputs: list[str], outputs: list[str] | None = None
-    ) -> helper_models.LabeledNode:
+    ) -> helper_models.LabeledRecipe:
         outputs = outputs or ["output_0"]
-        return helper_models.LabeledNode(
+        return helper_models.LabeledRecipe(
             label=label,
-            node=atomic_model.AtomicNode(
+            node=atomic_recipe.AtomicRecipe(
                 reference=makers.make_reference(module="test.module", qualname="func"),
                 inputs=inputs,
                 outputs=outputs,

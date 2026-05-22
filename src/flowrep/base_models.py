@@ -69,7 +69,7 @@ UniqueList = Annotated[list[T], pydantic.AfterValidator(validate_unique)]
 Labels = UniqueList[Label]
 
 
-class NodeModel(pydantic.BaseModel):
+class NodeRecipe(pydantic.BaseModel):
     type: RecipeElementType
     inputs: Labels
     outputs: Labels
@@ -78,7 +78,7 @@ class NodeModel(pydantic.BaseModel):
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
         super().__pydantic_init_subclass__(**kwargs)
-        if cls.__name__ != NodeModel.__name__:  # I.e. for subclasses
+        if cls.__name__ != NodeRecipe.__name__:  # I.e. for subclasses
             type_field = cls.model_fields["type"]
             if type_field.default is pydantic_core.PydanticUndefined:
                 raise TypeError(

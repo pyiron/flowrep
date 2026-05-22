@@ -1,4 +1,4 @@
-"""Tests for the live data model and the minimal WfMS."""
+"""Tests for the retrospective data model and the minimal WfMS."""
 
 import dataclasses
 import pickle
@@ -7,18 +7,18 @@ from typing import get_origin
 
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models, live, wfms
-from flowrep.live import NOT_DATA
+from flowrep import base_models, edge_models, retrospective, wfms
 from flowrep.nodes import (
-    atomic_model,
-    for_model,
+    atomic_recipe,
+    for_recipe,
     helper_models,
-    if_model,
-    try_model,
-    while_model,
-    workflow_model,
+    if_recipe,
+    try_recipe,
+    while_recipe,
+    workflow_recipe,
 )
 from flowrep.parsers import atomic_parser, workflow_parser
+from flowrep.retrospective import NOT_DATA
 
 from flowrep_static import library
 
@@ -31,17 +31,17 @@ def _single_node_workflow(
     inputs: list[str],
     outputs: list[str],
     child_label: str,
-    child_recipe: atomic_model.AtomicNode,
+    child_recipe: atomic_recipe.AtomicRecipe,
     input_map: dict[str, str],
     output_map: dict[str, str],
-) -> workflow_model.WorkflowNode:
+) -> workflow_recipe.WorkflowRecipe:
     """
     Convenience wrapper: one-atomic-child workflow.
 
     *input_map*: `{child_port: wf_input}`.
     *output_map*: `{wf_output: child_port}`.
     """
-    return workflow_model.WorkflowNode(
+    return workflow_recipe.WorkflowRecipe(
         inputs=inputs,
         outputs=outputs,
         nodes={child_label: child_recipe},
@@ -61,9 +61,9 @@ def _single_node_workflow(
     )
 
 
-def _linear_workflow() -> workflow_model.WorkflowNode:
+def _linear_workflow() -> workflow_recipe.WorkflowRecipe:
     """`add(x, y) -> mul(result, z) -> output`."""
-    return workflow_model.WorkflowNode(
+    return workflow_recipe.WorkflowRecipe(
         inputs=["x", "y", "z"],
         outputs=["result"],
         nodes={
@@ -107,12 +107,12 @@ def _diamond_workflow(a: int, b: int = 1) -> int:
     return result
 
 
-def _for_negate() -> for_model.ForEachNode:
+def _for_negate() -> for_recipe.ForEachRecipe:
     """For each `x` in `xs`, negate it; collect into `ys`."""
-    return for_model.ForEachNode(
+    return for_recipe.ForEachRecipe(
         inputs=["xs"],
         outputs=["ys"],
-        body_node=helper_models.LabeledNode(
+        body_node=helper_models.LabeledRecipe(
             label="body", node=library.negate.flowrep_recipe
         ),
         input_edges={
@@ -129,15 +129,15 @@ def _for_negate() -> for_model.ForEachNode:
     )
 
 
-def _for_add_broadcast() -> for_model.ForEachNode:
+def _for_add_broadcast() -> for_recipe.ForEachRecipe:
     """
     For each `x` in `xs`, compute `add(x, offset)` (offset is broadcast).
     Also transfers scattered `xs` elements to output `inputs_used`.
     """
-    return for_model.ForEachNode(
+    return for_recipe.ForEachRecipe(
         inputs=["xs", "offset"],
         outputs=["ys", "inputs_used"],
-        body_node=helper_models.LabeledNode(
+        body_node=helper_models.LabeledRecipe(
             label="body", node=library.my_add.flowrep_recipe
         ),
         input_edges={
@@ -160,12 +160,12 @@ def _for_add_broadcast() -> for_model.ForEachNode:
     )
 
 
-def _for_add_zipped() -> for_model.ForEachNode:
+def _for_add_zipped() -> for_recipe.ForEachRecipe:
     """Zip `xs` and `ys` element-wise, compute `add(a, b)` for each pair."""
-    return for_model.ForEachNode(
+    return for_recipe.ForEachRecipe(
         inputs=["xs", "ys"],
         outputs=["sums"],
-        body_node=helper_models.LabeledNode(
+        body_node=helper_models.LabeledRecipe(
             label="body", node=library.my_add.flowrep_recipe
         ),
         input_edges={
@@ -185,7 +185,7 @@ def _for_add_zipped() -> for_model.ForEachNode:
     )
 
 
-def _decrement_body_workflow() -> workflow_model.WorkflowNode:
+def _decrement_body_workflow() -> workflow_recipe.WorkflowRecipe:
     """`n -> decrement(n) -> n` — single-step body for while loops."""
     return _single_node_workflow(
         inputs=["n"],
@@ -197,16 +197,16 @@ def _decrement_body_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _while_countdown() -> while_model.WhileNode:
+def _while_countdown() -> while_recipe.WhileRecipe:
     """Decrement `n` while `is_positive(n)`."""
-    return while_model.WhileNode(
+    return while_recipe.WhileRecipe(
         inputs=["n"],
         outputs=["n"],
         case=helper_models.ConditionalCase(
-            condition=helper_models.LabeledNode(
+            condition=helper_models.LabeledRecipe(
                 label="condition", node=library.is_positive.flowrep_recipe
             ),
-            body=helper_models.LabeledNode(
+            body=helper_models.LabeledRecipe(
                 label="body", node=_decrement_body_workflow()
             ),
         ),
@@ -226,7 +226,7 @@ def _while_countdown() -> while_model.WhileNode:
     )
 
 
-def _identity_body_workflow() -> workflow_model.WorkflowNode:
+def _identity_body_workflow() -> workflow_recipe.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["x"],
         outputs=["y"],
@@ -237,7 +237,7 @@ def _identity_body_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _negate_body_workflow() -> workflow_model.WorkflowNode:
+def _negate_body_workflow() -> workflow_recipe.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["x"],
         outputs=["y"],
@@ -248,24 +248,24 @@ def _negate_body_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _if_abs() -> if_model.IfNode:
+def _if_abs() -> if_recipe.IfRecipe:
     """If `is_positive(x)` return `identity(x)` else `negate(x)`."""
-    return if_model.IfNode(
+    return if_recipe.IfRecipe(
         inputs=["x"],
         outputs=["y"],
         cases=[
             helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="condition_0",
                     node=library.is_positive.flowrep_recipe,
                 ),
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="body_0",
                     node=_identity_body_workflow(),
                 ),
             )
         ],
-        else_case=helper_models.LabeledNode(
+        else_case=helper_models.LabeledRecipe(
             label="else_body",
             node=_negate_body_workflow(),
         ),
@@ -295,28 +295,28 @@ def _value_and_flag(x: int) -> tuple[int, bool]:
     return x, x > 0
 
 
-def _if_abs_multi_output_condition() -> if_model.IfNode:
+def _if_abs_multi_output_condition() -> if_recipe.IfRecipe:
     """
     Like :func:`_if_abs` but the condition node returns two outputs (``value``,
     ``flag``) and the case explicitly selects ``flag`` via ``condition_output``.
     """
-    return if_model.IfNode(
+    return if_recipe.IfRecipe(
         inputs=["x"],
         outputs=["y"],
         cases=[
             helper_models.ConditionalCase(
-                condition=helper_models.LabeledNode(
+                condition=helper_models.LabeledRecipe(
                     label="condition_0",
                     node=_value_and_flag.flowrep_recipe,
                 ),
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="body_0",
                     node=_identity_body_workflow(),
                 ),
                 condition_output="flag",
             )
         ],
-        else_case=helper_models.LabeledNode(
+        else_case=helper_models.LabeledRecipe(
             label="else_body",
             node=_negate_body_workflow(),
         ),
@@ -340,7 +340,7 @@ def _if_abs_multi_output_condition() -> if_model.IfNode:
     )
 
 
-def _divide_body_workflow() -> workflow_model.WorkflowNode:
+def _divide_body_workflow() -> workflow_recipe.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["a", "b"],
         outputs=["result"],
@@ -351,7 +351,7 @@ def _divide_body_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _fallback_body_workflow() -> workflow_model.WorkflowNode:
+def _fallback_body_workflow() -> workflow_recipe.WorkflowRecipe:
     """Return `a` unchanged as `result`."""
     return _single_node_workflow(
         inputs=["a"],
@@ -363,12 +363,12 @@ def _fallback_body_workflow() -> workflow_model.WorkflowNode:
     )
 
 
-def _try_safe_divide() -> try_model.TryNode:
+def _try_safe_divide() -> try_recipe.TryRecipe:
     """Try `divide(a, b)`; on `ZeroDivisionError` return `identity(a)`."""
-    return try_model.TryNode(
+    return try_recipe.TryRecipe(
         inputs=["a", "b"],
         outputs=["result"],
-        try_node=helper_models.LabeledNode(
+        try_node=helper_models.LabeledRecipe(
             label="try_body", node=_divide_body_workflow()
         ),
         exception_cases=[
@@ -376,7 +376,7 @@ def _try_safe_divide() -> try_model.TryNode:
                 exceptions=[
                     versions.VersionInfo.of(ZeroDivisionError),
                 ],
-                body=helper_models.LabeledNode(
+                body=helper_models.LabeledRecipe(
                     label="except_body_0", node=_fallback_body_workflow()
                 ),
             )
@@ -457,54 +457,54 @@ def variadic_mixed(x: int = 0, *extras):
 
 
 def _variadic_recipe(func, inputs, outputs=("result",)):
-    return atomic_model.AtomicNode(
+    return atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(info=versions.VersionInfo.of(func)),
         inputs=list(inputs),
         outputs=list(outputs),
-        unpack_mode=atomic_model.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# live.py tests
+# retrospective.py tests
 # ═══════════════════════════════════════════════════════════════════════════
 
 
 class TestNotData(unittest.TestCase):
     def test_singleton(self):
-        self.assertIs(live.NotData(), live.NOT_DATA)
+        self.assertIs(retrospective.NotData(), retrospective.NOT_DATA)
 
     def test_falsy(self):
-        self.assertFalse(live.NOT_DATA)
+        self.assertFalse(retrospective.NOT_DATA)
 
     def test_repr(self):
-        self.assertEqual(repr(live.NotData()), "NOT_DATA")
+        self.assertEqual(repr(retrospective.NotData()), "NOT_DATA")
 
     def test_pickle_roundtrip(self):
-        loaded = pickle.loads(pickle.dumps(live.NOT_DATA))
-        self.assertIs(loaded, live.NOT_DATA)
+        loaded = pickle.loads(pickle.dumps(retrospective.NOT_DATA))
+        self.assertIs(loaded, retrospective.NOT_DATA)
 
 
 class TestPorts(unittest.TestCase):
     def test_input_port_defaults(self):
-        port = live.InputPort()
-        self.assertIsInstance(port.value, live.NotData)
+        port = retrospective.InputDataPort()
+        self.assertIsInstance(port.value, retrospective.NotData)
         self.assertIsNone(port.annotation)
-        self.assertIsInstance(port.default, live.NotData)
+        self.assertIsInstance(port.default, retrospective.NotData)
 
     def test_input_port_get_data(self):
-        self.assertIs(live.InputPort().get_data(), live.NOT_DATA)
-        self.assertIs(live.InputPort(default=0).get_data(), 0)
-        self.assertIs(live.InputPort(value=1).get_data(), 1)
-        self.assertIs(live.InputPort(value=1, default=0).get_data(), 1)
+        self.assertIs(retrospective.InputDataPort().get_data(), retrospective.NOT_DATA)
+        self.assertIs(retrospective.InputDataPort(default=0).get_data(), 0)
+        self.assertIs(retrospective.InputDataPort(value=1).get_data(), 1)
+        self.assertIs(retrospective.InputDataPort(value=1, default=0).get_data(), 1)
 
     def test_output_port_defaults(self):
-        port = live.OutputPort()
-        self.assertIsInstance(port.value, live.NotData)
+        port = retrospective.OutputDataPort()
+        self.assertIsInstance(port.value, retrospective.NotData)
         self.assertIsNone(port.annotation)
 
     def test_input_port_with_values(self):
-        port = live.InputPort(value=42, annotation=int, default=0)
+        port = retrospective.InputDataPort(value=42, annotation=int, default=0)
         self.assertEqual(port.value, 42)
         self.assertIs(port.annotation, int)
         self.assertEqual(port.default, 0)
@@ -512,49 +512,51 @@ class TestPorts(unittest.TestCase):
 
 class TestAtomicFromRecipe(unittest.TestCase):
     def test_simple(self):
-        node = live.LiveAtomic.from_recipe(library.identity.flowrep_recipe)
+        node = retrospective.AtomicData.from_recipe(library.identity.flowrep_recipe)
         self.assertTrue(callable(node.function))
         self.assertIn("x", node.input_ports)
         self.assertIn("x", node.output_ports)
         self.assertEqual(len(node.output_ports), 1)
 
     def test_with_defaults(self):
-        node = live.LiveAtomic.from_recipe(library.increment.flowrep_recipe)
+        node = retrospective.AtomicData.from_recipe(library.increment.flowrep_recipe)
         self.assertEqual(node.input_ports["step"].default, 1)
-        self.assertIsInstance(node.input_ports["x"].default, live.NotData)
+        self.assertIsInstance(node.input_ports["x"].default, retrospective.NotData)
 
     def test_function_resolves_correctly(self):
-        node = live.LiveAtomic.from_recipe(library.my_add.flowrep_recipe)
+        node = retrospective.AtomicData.from_recipe(library.my_add.flowrep_recipe)
         self.assertEqual(node.function(3, 4), 7)
 
     def test_multi_output(self):
-        node = live.LiveAtomic.from_recipe(library.divmod_func.flowrep_recipe)
+        node = retrospective.AtomicData.from_recipe(library.divmod_func.flowrep_recipe)
         self.assertIn("quotient", node.output_ports)
         self.assertIn("remainder", node.output_ports)
         self.assertIs(node.output_ports["quotient"].annotation, float)
 
     def test_multi_outputwithout_hints(self):
-        node = live.LiveAtomic.from_recipe(multiple_returns_no_hint.flowrep_recipe)
+        node = retrospective.AtomicData.from_recipe(
+            multiple_returns_no_hint.flowrep_recipe
+        )
         self.assertIsNone(node.output_ports["output_0"].annotation)
         self.assertIsNone(node.output_ports["output_1"].annotation)
 
     def test_not_unpacking(self):
-        recipe = atomic_model.AtomicNode(
+        recipe = atomic_recipe.AtomicRecipe(
             inputs=["a", "b"],
             outputs=["result"],
             reference=library.divmod_func.flowrep_recipe.reference,
-            unpack_mode=atomic_model.UnpackMode.NONE,
+            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
-        node = live.LiveAtomic.from_recipe(recipe)
+        node = retrospective.AtomicData.from_recipe(recipe)
         origin = get_origin(node.output_ports["result"].annotation)
         self.assertIs(origin, tuple)
 
     def test_unpacking_dataclass(self):
         recipe = atomic_parser.parse_atomic(
             takes_positional_only,
-            unpack_mode=atomic_model.UnpackMode.DATACLASS,
+            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
         )
-        node = live.LiveAtomic.from_recipe(recipe)
+        node = retrospective.AtomicData.from_recipe(recipe)
         self.assertIs(node.output_ports["x"].annotation, int)
         self.assertIs(node.output_ports["y"].annotation, int)
 
@@ -562,15 +564,15 @@ class TestAtomicFromRecipe(unittest.TestCase):
         recipe = atomic_parser.parse_atomic(
             takes_positional_only,
             "dc",
-            unpack_mode=atomic_model.UnpackMode.NONE,
+            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
-        node = live.LiveAtomic.from_recipe(recipe)
+        node = retrospective.AtomicData.from_recipe(recipe)
         self.assertIs(node.output_ports["dc"].annotation, SumClass)
 
     def test_input_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
-            live.LiveAtomic.from_recipe(
-                atomic_model.AtomicNode(
+            retrospective.AtomicData.from_recipe(
+                atomic_recipe.AtomicRecipe(
                     inputs=["these", "are_not", "correct"],
                     outputs=["x"],
                     reference=library.identity.flowrep_recipe.reference,
@@ -580,8 +582,8 @@ class TestAtomicFromRecipe(unittest.TestCase):
 
     def test_output_not_splittable_raises(self):
         with self.assertRaises(ValueError) as ctx:
-            live.LiveAtomic.from_recipe(
-                atomic_model.AtomicNode(
+            retrospective.AtomicData.from_recipe(
+                atomic_recipe.AtomicRecipe(
                     inputs=["x"],
                     outputs=["x", "y"],
                     reference=unsplittable_output.flowrep_recipe.reference,
@@ -591,8 +593,8 @@ class TestAtomicFromRecipe(unittest.TestCase):
 
     def test_output_hint_length_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
-            live.LiveAtomic.from_recipe(
-                atomic_model.AtomicNode(
+            retrospective.AtomicData.from_recipe(
+                atomic_recipe.AtomicRecipe(
                     inputs=["a", "b"],
                     outputs=["x", "y", "z"],
                     reference=library.divmod_func.flowrep_recipe.reference,
@@ -602,8 +604,8 @@ class TestAtomicFromRecipe(unittest.TestCase):
 
     def test_output_length_mismatch_raises(self):
         with self.assertRaises(ValueError) as ctx:
-            live.LiveAtomic.from_recipe(
-                atomic_model.AtomicNode(
+            retrospective.AtomicData.from_recipe(
+                atomic_recipe.AtomicRecipe(
                     inputs=["a", "b"],
                     outputs=["quotient", "remainder", "extra"],
                     reference=library.divmod_func.flowrep_recipe.reference,
@@ -617,19 +619,19 @@ class TestAtomicFromRecipe(unittest.TestCase):
 class TestWorkflowFromRecipe(unittest.TestCase):
     def test_no_reference(self):
         recipe = _linear_workflow()
-        wf = live.LiveWorkflow.from_recipe(recipe)
+        wf = retrospective.DagData.from_recipe(recipe)
         self.assertIs(wf.recipe, recipe)
         self.assertEqual(set(wf.input_ports), {"x", "y", "z"})
         self.assertEqual(set(wf.output_ports), {"result"})
         self.assertIn("add_0", wf.nodes)
-        self.assertIsInstance(wf.nodes["add_0"], live.LiveAtomic)
+        self.assertIsInstance(wf.nodes["add_0"], retrospective.AtomicData)
 
     def test_with_reference(self):
         """
         Ensure that annotations and defaults are parsed from the reference
         """
         recipe = _diamond_workflow.flowrep_recipe
-        wf = live.LiveWorkflow.from_recipe(recipe)
+        wf = retrospective.DagData.from_recipe(recipe)
         self.assertIs(wf.recipe, recipe)
         self.assertEqual(set(wf.input_ports), {"a", "b"})
         self.assertIs(wf.input_ports["a"].annotation, int)
@@ -639,11 +641,11 @@ class TestWorkflowFromRecipe(unittest.TestCase):
         self.assertEqual(set(wf.output_ports), {"result"})
         self.assertIs(wf.output_ports["result"].annotation, int)
         self.assertIn("my_add_0", wf.nodes)
-        self.assertIsInstance(wf.nodes["my_add_0"], live.LiveAtomic)
+        self.assertIsInstance(wf.nodes["my_add_0"], retrospective.AtomicData)
 
     def test_edges_are_carried_over(self):
         recipe = _linear_workflow()
-        wf = live.LiveWorkflow.from_recipe(recipe)
+        wf = retrospective.DagData.from_recipe(recipe)
         self.assertDictEqual(wf.input_edges, recipe.input_edges)
         self.assertDictEqual(wf.edges, recipe.edges)
         self.assertDictEqual(wf.output_edges, recipe.output_edges)
@@ -658,7 +660,7 @@ class TestFlowControlFromRecipe(unittest.TestCase):
             _while_countdown(),
         ):
             with self.subTest(recipe=recipe):
-                fc = live.FlowControl.from_recipe(recipe)
+                fc = retrospective.FlowControlData.from_recipe(recipe)
                 self.assertEqual(len(fc.nodes), 0)
                 self.assertEqual(len(fc.edges), 0)
                 self.assertSetEqual(set(fc.input_ports), set(recipe.inputs))
@@ -668,19 +670,19 @@ class TestFlowControlFromRecipe(unittest.TestCase):
 class TestRecipe2Live(unittest.TestCase):
     def test_conversion_types(self):
         for recipe, type_ in (
-            (library.identity.flowrep_recipe, live.LiveAtomic),
-            (_linear_workflow(), live.LiveWorkflow),
-            (_for_negate(), live.FlowControl),
-            (_if_abs(), live.FlowControl),
-            (_try_safe_divide(), live.FlowControl),
-            (_while_countdown(), live.FlowControl),
+            (library.identity.flowrep_recipe, retrospective.AtomicData),
+            (_linear_workflow(), retrospective.DagData),
+            (_for_negate(), retrospective.FlowControlData),
+            (_if_abs(), retrospective.FlowControlData),
+            (_try_safe_divide(), retrospective.FlowControlData),
+            (_while_countdown(), retrospective.FlowControlData),
         ):
             with self.subTest(recipe=recipe, type=type_):
-                self.assertIsInstance(live.recipe2live(recipe), type_)
+                self.assertIsInstance(retrospective.recipe2data(recipe), type_)
 
     def test_clean_type_failure(self):
         with self.assertRaisesRegex(TypeError, "Unrecognized recipe type"):
-            live.recipe2live("this is not even a recipe")
+            retrospective.recipe2data("this is not even a recipe")
 
 
 class TestAtomicFromRecipeVariadic(unittest.TestCase):
@@ -688,23 +690,23 @@ class TestAtomicFromRecipeVariadic(unittest.TestCase):
 
     def test_var_positional_extras_accepted(self):
         recipe = _variadic_recipe(variadic_args, inputs=["a", "b", "c"])
-        node = live.LiveAtomic.from_recipe(recipe)
+        node = retrospective.AtomicData.from_recipe(recipe)
         self.assertEqual(set(node.input_ports), {"a", "b", "c"})
 
     def test_var_keyword_extras_accepted(self):
         recipe = _variadic_recipe(variadic_kwargs, inputs=["foo", "bar"])
-        node = live.LiveAtomic.from_recipe(recipe)
+        node = retrospective.AtomicData.from_recipe(recipe)
         self.assertEqual(set(node.input_ports), {"foo", "bar"})
 
     def test_extras_have_no_annotation_or_default(self):
         recipe = _variadic_recipe(variadic_args, inputs=["a"])
-        node = live.LiveAtomic.from_recipe(recipe)
+        node = retrospective.AtomicData.from_recipe(recipe)
         self.assertIsNone(node.input_ports["a"].annotation)
         self.assertIs(node.input_ports["a"].default, NOT_DATA)
 
     def test_concrete_param_keeps_metadata(self):
         recipe = _variadic_recipe(variadic_mixed, inputs=["x", "extra1", "extra2"])
-        node = live.LiveAtomic.from_recipe(recipe)
+        node = retrospective.AtomicData.from_recipe(recipe)
         self.assertIs(node.input_ports["x"].annotation, int)
         self.assertEqual(node.input_ports["x"].default, 0)
         for extra in ("extra1", "extra2"):
@@ -714,36 +716,36 @@ class TestAtomicFromRecipeVariadic(unittest.TestCase):
 
     def test_default_flag_is_lenient(self):
         recipe = _variadic_recipe(variadic_args, inputs=["a", "b"])
-        node = live.LiveAtomic.from_recipe(recipe)  # no flag → True
+        node = retrospective.AtomicData.from_recipe(recipe)  # no flag → True
         self.assertEqual(set(node.input_ports), {"a", "b"})
 
     def test_disallow_with_variadic_in_sig_raises(self):
         recipe = _variadic_recipe(variadic_args, inputs=["a", "b"])
         with self.assertRaises(ValueError) as ctx:
-            live.LiveAtomic.from_recipe(recipe, allow_variadic_inputs=False)
+            retrospective.AtomicData.from_recipe(recipe, allow_variadic_inputs=False)
         self.assertIn("not found in signature", str(ctx.exception))
 
     def test_disallow_with_only_concrete_inputs_is_fine(self):
         """Flag=False is fine as long as no inputs are missing from the sig."""
         recipe = _variadic_recipe(variadic_mixed, inputs=["x"])
-        node = live.LiveAtomic.from_recipe(recipe, allow_variadic_inputs=False)
+        node = retrospective.AtomicData.from_recipe(recipe, allow_variadic_inputs=False)
         self.assertIs(node.input_ports["x"].annotation, int)
         self.assertEqual(node.input_ports["x"].default, 0)
 
     def test_extras_without_variadic_always_raise(self):
         """`library.identity` has no variadic absorber; extras must fail."""
-        recipe = atomic_model.AtomicNode(
+        recipe = atomic_recipe.AtomicRecipe(
             inputs=["x", "extra"],
             outputs=["x"],
             reference=library.identity.flowrep_recipe.reference,
         )
         with self.assertRaises(ValueError) as ctx:
-            live.LiveAtomic.from_recipe(recipe, allow_variadic_inputs=True)
+            retrospective.AtomicData.from_recipe(recipe, allow_variadic_inputs=True)
         self.assertIn("not found in signature", str(ctx.exception))
 
     def test_no_inputs_against_variadic(self):
         recipe = _variadic_recipe(variadic_args, inputs=[])
-        node = live.LiveAtomic.from_recipe(recipe)
+        node = retrospective.AtomicData.from_recipe(recipe)
         self.assertEqual(set(node.input_ports), set())
 
     # --- collision tests; require the variadic-name collision check ----------
@@ -751,31 +753,31 @@ class TestAtomicFromRecipeVariadic(unittest.TestCase):
     def test_input_collides_with_var_positional_raises(self):
         recipe = _variadic_recipe(variadic_args, inputs=["items"])  # *items
         with self.assertRaises(ValueError) as ctx:
-            live.LiveAtomic.from_recipe(recipe)
+            retrospective.AtomicData.from_recipe(recipe)
         self.assertIn("collide", str(ctx.exception).lower())
         self.assertIn("items", str(ctx.exception))
 
     def test_input_collides_with_var_keyword_raises(self):
         recipe = _variadic_recipe(variadic_kwargs, inputs=["items"])  # **items
         with self.assertRaises(ValueError) as ctx:
-            live.LiveAtomic.from_recipe(recipe)
+            retrospective.AtomicData.from_recipe(recipe)
         self.assertIn("collide", str(ctx.exception).lower())
 
     def test_collision_check_independent_of_flag(self):
         recipe = _variadic_recipe(variadic_args, inputs=["items"])
         with self.assertRaises(ValueError):
-            live.LiveAtomic.from_recipe(recipe, allow_variadic_inputs=False)
+            retrospective.AtomicData.from_recipe(recipe, allow_variadic_inputs=False)
 
 
 class TestRecipe2LiveVariadicPropagation(unittest.TestCase):
-    """`allow_variadic_inputs` propagates through `recipe2live` into children."""
+    """`allow_variadic_inputs` propagates through `recipe2data` into children."""
 
     def test_propagates_to_atomic(self):
         recipe = _variadic_recipe(variadic_args, inputs=["a", "b"])
         with self.assertRaises(ValueError):
-            live.recipe2live(recipe, allow_variadic_inputs=False)
-        node = live.recipe2live(recipe)
-        self.assertIsInstance(node, live.LiveAtomic)
+            retrospective.recipe2data(recipe, allow_variadic_inputs=False)
+        node = retrospective.recipe2data(recipe)
+        self.assertIsInstance(node, retrospective.AtomicData)
 
     def test_propagates_into_workflow_children(self):
         child_recipe = _variadic_recipe(variadic_args, inputs=["a", "b"])
@@ -788,11 +790,11 @@ class TestRecipe2LiveVariadicPropagation(unittest.TestCase):
             output_map={"result": "result"},
         )
         with self.assertRaises(ValueError):
-            live.recipe2live(wf_recipe, allow_variadic_inputs=False)
+            retrospective.recipe2data(wf_recipe, allow_variadic_inputs=False)
 
-        wf = live.recipe2live(wf_recipe, allow_variadic_inputs=True)
-        self.assertIsInstance(wf, live.LiveWorkflow)
-        self.assertIsInstance(wf.nodes["splitter_0"], live.LiveAtomic)
+        wf = retrospective.recipe2data(wf_recipe, allow_variadic_inputs=True)
+        self.assertIsInstance(wf, retrospective.DagData)
+        self.assertIsInstance(wf.nodes["splitter_0"], retrospective.AtomicData)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -803,7 +805,7 @@ class TestRecipe2LiveVariadicPropagation(unittest.TestCase):
 class TestRunAtomic(unittest.TestCase):
     def test_simple(self):
         node = wfms.run_recipe(library.my_add.flowrep_recipe, a=3, b=4)
-        self.assertIsInstance(node, live.LiveAtomic)
+        self.assertIsInstance(node, retrospective.AtomicData)
         self.assertEqual(node.output_ports["output_0"].value, 7)
 
     def test_identity_preserves_value(self):
@@ -833,11 +835,11 @@ class TestRunAtomic(unittest.TestCase):
         self.assertEqual(node.input_ports["b"].value, 4)
 
     def test_not_unpacking(self):
-        recipe = atomic_model.AtomicNode(
+        recipe = atomic_recipe.AtomicRecipe(
             inputs=["a", "b"],
             outputs=["result"],
             reference=library.divmod_func.flowrep_recipe.reference,
-            unpack_mode=atomic_model.UnpackMode.NONE,
+            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         node = wfms.run_recipe(recipe, a=1, b=2)
         self.assertEqual(node.output_ports["result"].value, (0, 1))
@@ -847,7 +849,7 @@ class TestRunAtomic(unittest.TestCase):
             takes_positional_only,
             "dc_x_field",
             "dc_y_field",
-            unpack_mode=atomic_model.UnpackMode.DATACLASS,
+            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
         )
         node = wfms.run_recipe(recipe, x=1, y=2)
         self.assertEqual(node.output_ports["dc_x_field"].value, 1)
@@ -874,7 +876,7 @@ class TestRunAtomic(unittest.TestCase):
 class TestRunWorkflow(unittest.TestCase):
     def test_linear(self):
         wf = wfms.run_recipe(_linear_workflow(), x=1, y=2, z=3)
-        self.assertIsInstance(wf, live.LiveWorkflow)
+        self.assertIsInstance(wf, retrospective.DagData)
         self.assertEqual(wf.output_ports["result"].value, (1 + 2) * 3)
 
     def test_diamond(self):
@@ -887,12 +889,12 @@ class TestRunWorkflow(unittest.TestCase):
 
     def test_child_nodes_populated(self):
         wf = wfms.run_recipe(_linear_workflow(), x=1, y=2, z=3)
-        self.assertIsInstance(wf.nodes["add_0"], live.LiveAtomic)
+        self.assertIsInstance(wf.nodes["add_0"], retrospective.AtomicData)
         self.assertEqual(wf.nodes["add_0"].output_ports["output_0"].value, 3)
 
     def test_child_defaults(self):
         """Atomic child with a default not wired by any edge still works."""
-        recipe = workflow_model.WorkflowNode(
+        recipe = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["result"],
             nodes={"inc_0": library.increment.flowrep_recipe},
@@ -927,7 +929,7 @@ class TestRunWorkflow(unittest.TestCase):
         Deterministic alphabetical ordering requires: a, b, c.
         A naive append-without-resort produces: a, c, b.
         """
-        recipe = workflow_model.WorkflowNode(
+        recipe = workflow_recipe.WorkflowRecipe(
             inputs=["x"],
             outputs=["result"],
             nodes={
@@ -1117,7 +1119,7 @@ class TestProvenanceWalk(unittest.TestCase):
     def test_child_io_accessible(self):
         """Every child's input and output port values are available after execution."""
         wf = wfms.run_recipe(_linear_workflow(), x=5, y=3, z=2)
-        self.assertIsInstance(wf, live.LiveWorkflow)
+        self.assertIsInstance(wf, retrospective.DagData)
         add_node = wf.nodes["add_0"]
         self.assertEqual(add_node.input_ports["a"].value, 5)
         self.assertEqual(add_node.input_ports["b"].value, 3)

@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from flowrep import live, storage, storage_widget, wfms
+from flowrep import retrospective, storage, storage_widget, wfms
 
 from flowrep_static import library
 
@@ -32,19 +32,19 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _save_workflow(path: str, **kwargs: object) -> live.LiveWorkflow:
+def _save_workflow(path: str, **kwargs: object) -> retrospective.DagData:
     """Run the simple workflow recipe and save the result to *path*."""
     recipe = library.simple_workflow.flowrep_recipe
-    live_wf = wfms.run_recipe(recipe, **kwargs)
-    boh.H5Bag.save(live_wf, path)
-    return live_wf
+    wf_data = wfms.run_recipe(recipe, **kwargs)
+    boh.H5Bag.save(wf_data, path)
+    return wf_data
 
 
 def _save_voidflow(path: str):
     recipe = library.no_input_workflow.flowrep_recipe
-    live_wf = wfms.run_recipe(recipe)
-    boh.H5Bag.save(live_wf, path)
-    return live_wf
+    wf_data = wfms.run_recipe(recipe)
+    boh.H5Bag.save(wf_data, path)
+    return wf_data
 
 
 @unittest.skipUnless(_has_boh, "bagofholding not installed")
@@ -124,7 +124,7 @@ class TestValidateObjectMetadata(_BagTestCase):
         path = self._bag_path()
         boh.H5Bag.save(42, path)
         bag = boh.H5Bag(path)
-        with self.assertRaisesRegex(TypeError, live.LiveWorkflow.__qualname__):
+        with self.assertRaisesRegex(TypeError, retrospective.DagData.__qualname__):
             storage._validate_object_metadata(bag)
 
 
@@ -179,38 +179,38 @@ class TestLoadFromBag(_BagTestCase):
     def setUp(self) -> None:
         super().setUp()
         path = self._bag_path()
-        self._live_wf = _save_workflow(path, a=3, b=4)
+        self._wf_data = _save_workflow(path, a=3, b=4)
         self._bag = boh.H5Bag(path)
 
     def test_load_root_workflow(self):
         """Empty lexical path loads the root LiveWorkflow."""
         obj = storage.load_from_bag(self._bag, "")
-        self.assertIsInstance(obj, live.LiveWorkflow)
+        self.assertIsInstance(obj, retrospective.DagData)
 
     def test_load_child_node(self):
         obj = storage.load_from_bag(self._bag, "add_0")
-        self.assertIsInstance(obj, live.LiveAtomic)
+        self.assertIsInstance(obj, retrospective.AtomicData)
 
     def test_load_input_port(self):
         obj = storage.load_from_bag(self._bag, "inputs.a")
-        self.assertIsInstance(obj, live.InputPort)
+        self.assertIsInstance(obj, retrospective.InputDataPort)
 
     def test_load_output_port(self):
         obj = storage.load_from_bag(self._bag, "outputs.result")
-        self.assertIsInstance(obj, live.OutputPort)
+        self.assertIsInstance(obj, retrospective.OutputDataPort)
 
     def test_load_child_input_port(self):
         obj = storage.load_from_bag(self._bag, "add_0.inputs.x")
-        self.assertIsInstance(obj, live.InputPort)
+        self.assertIsInstance(obj, retrospective.InputDataPort)
 
     def test_load_child_output_port(self):
         obj = storage.load_from_bag(self._bag, "add_0.outputs.output_0")
-        self.assertIsInstance(obj, live.OutputPort)
+        self.assertIsInstance(obj, retrospective.OutputDataPort)
 
     def test_load_child_output_port_has_data(self):
         """The saved workflow was run with a=3, b=4, so output should be 7."""
         obj = storage.load_from_bag(self._bag, "add_0.outputs.output_0")
-        self.assertIsInstance(obj, live.OutputPort)
+        self.assertIsInstance(obj, retrospective.OutputDataPort)
         self.assertEqual(obj.value, 7)
 
     def test_terminated_in_inputs_raises(self):
@@ -331,11 +331,11 @@ class TestLexicalBagBrowserMethods(_BagTestCase):
 
     def test_load_node(self):
         obj = self.browser.load("add_0")
-        self.assertIsInstance(obj, live.LiveAtomic)
+        self.assertIsInstance(obj, retrospective.AtomicData)
 
     def test_load_port(self):
         obj = self.browser.load("inputs.a")
-        self.assertIsInstance(obj, live.InputPort)
+        self.assertIsInstance(obj, retrospective.InputDataPort)
 
     def test_browse_returns_widget(self):
         result = self.browser.browse()

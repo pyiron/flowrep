@@ -4,7 +4,7 @@ import ast
 import dataclasses
 
 from flowrep import edge_models
-from flowrep.nodes import helper_models, if_model
+from flowrep.nodes import helper_models, if_recipe
 from flowrep.parsers import case_helpers, parser_protocol
 
 IF_CONDITION_LABEL_PREFIX: str = "condition"
@@ -16,12 +16,14 @@ IF_ELSE_LABEL: str = "else_body"
 class _CaseComponents:
     """Intermediate data collected while processing a single if/elif branch."""
 
-    condition: helper_models.LabeledNode
+    condition: helper_models.LabeledRecipe
     condition_input_edges: edge_models.InputEdges
     body: case_helpers.WalkedBranch
 
 
-def parse_if_node(walker: parser_protocol.BodyWalker, tree: ast.If) -> if_model.IfNode:
+def parse_if_node(
+    walker: parser_protocol.BodyWalker, tree: ast.If
+) -> if_recipe.IfRecipe:
     """
     Walk an if/elif/else chain.
 
@@ -76,7 +78,7 @@ def parse_if_node(walker: parser_protocol.BodyWalker, tree: ast.If) -> if_model.
         for cc in cases
     ]
 
-    return if_model.IfNode(
+    return if_recipe.IfRecipe(
         inputs=inputs,
         outputs=outputs,
         cases=model_cases,
