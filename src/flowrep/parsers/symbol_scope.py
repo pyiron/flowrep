@@ -147,7 +147,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     def register(
         self,
         new_symbols: list[str],
-        child: helper_models.LabeledNode,
+        child: helper_models.LabeledRecipe,
     ) -> None:
         """Map new symbols 1:1 to child node outputs. Enforces uniqueness."""
         all_accumulators = self.all_accumulators

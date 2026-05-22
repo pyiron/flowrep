@@ -23,7 +23,7 @@ class UnpackMode(StrEnum):
     DATACLASS = "dataclass"
 
 
-class AtomicNode(base_models.NodeModel):
+class AtomicRecipe(base_models.NodeRecipe):
     """
     Atomos: uncuttable, indivisible.
 

@@ -14,10 +14,11 @@
 ## flowrep — Workflow Recipes from Python
 
 **flowrep** turns plain Python functions into shareable, versionable *workflow
-recipes* — JSON-serialisable graphs that describe *what* to compute (which
+recipes* — JSON-serialisable "class view" graphs that describe *what* to compute (which
 functions, how they connect) without doing the computation or holding any data.
 Recipes are prospective blueprints that a Workflow Management System (WfMS) can
-digest, visualise, and execute.
+digest, visualise, and execute. To support this, **flowrep** also provides a set of 
+retrospective, "instance view" data classes for WfMS to populate when executing recipes.
 
 Flowchart-style representations are already the lingua franca for describing
 processes in science and engineering. flowrep gives you a way to author them in
@@ -147,6 +148,9 @@ control structures you use in real code. Flow control nodes are inherently
 dynamic: their exact execution path depends on data and cannot be known until
 run-time, but their IO signature is always fully known a priori.
 
+**Clear separation.** Of prospective, "class view" recipes, and retrospective, 
+"instance view" data objects.
+
 ### Example: flow control and nesting
 
 So far we've seen `"workflow"` nodes, and alluded to `"atomic"` nodes.
@@ -245,7 +249,7 @@ the decorated functions are still just python functions; second, to show in the 
 section that the recipe we parse from this are intended to give the same result as 
 these underlying functions when we run the recipe with a WfMS.
 
-## Beyond Recipes: Live Data and Execution
+## Beyond Recipes: Retrospective "Instance View" Data and Execution
 
 Recipes are *prospective* — they describe a computation template without holding
 data. For retrospective analysis (inspecting what actually happened during a
@@ -256,18 +260,18 @@ run), flowrep provides two additional layers accessible through the API:
 
 ```
 
-**`flowrep.api.tools.recipe2live`** converts a recipe into a *live* object — a mutable
-data structure whose input and output ports can hold actual Python values. Live
-objects mirror the recipe graph but trade JSON-serializability for the ability to
-carry arbitrary data:
+**`flowrep.api.tools.recipe2data`** converts a recipe from the prospective "class view"
+to the retrospective "instance view" — a mutable data structure whose input and output 
+ports can hold actual Python values. Retrospective data objects mirror the recipe graph
+but trade JSON-serializability for the ability to carry arbitrary data:
 
 ```python
->>> live_wf = frt.recipe2live(double_and_add.flowrep_recipe)
+>>> wf_data = frt.recipe2data(double_and_add.flowrep_recipe)
 
 ```
 
 **`flowrep.api.tools.run_recipe`** goes one step further: it executes the recipe with
-the provided inputs and returns a fully populated live object. This is powered
+the provided inputs and returns a fully populated data object. This is powered
 by a minimal, built-in WfMS intended as a reference implementation and for use
 in tests and documentation (like this!):
 
@@ -280,8 +284,8 @@ in tests and documentation (like this!):
 
 ```
 
-Because every child node's ports are populated too, the live graph gives you
-full data provenance — you can walk the tree and inspect exactly what each node
+Because every child node's ports are populated too, the retrospective data graph gives 
+you full data provenance — you can walk the tree and inspect exactly what each node
 received and produced.
 For flow control nodes, which are _prospectively_ "black boxes", we find that 
 _retrospectively_ they are simple DAGs.
@@ -298,14 +302,13 @@ each loop iteration:
 ```
 
 For a deeper look at all available node types, edge semantics, version
-provenance, and the live/WfMS layer, see the
+provenance, and the retropective data/WfMS layer, see the
 [user guide](https://mybinder.org/v2/gh/pyiron/flowrep/HEAD?urlpath=%2Fdoc%2Ftree%2Fuser-guide.ipynb).
 
 
 ## Documentation
 
-- The user guide notebook comprehensively covers all node types, edge models, flow control, versioning, 
-  live/retrospective data formats, a demo WfMS implementation, and recipe format converters. 
+- The user guide notebook comprehensively covers all node types, edge models, flow control, versioning, retrospective data formats, a demo WfMS implementation, and recipe format converters. 
   Launch it interactively on
   [mybinder](https://mybinder.org/v2/gh/pyiron/flowrep/HEAD?urlpath=%2Fdoc%2Ftree%2Fuser-guide.ipynb).
 - [readthedocs](https://flowrep.readthedocs.io/en/latest/)

@@ -3,7 +3,7 @@ import unittest
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import atomic_model, helper_models
+from flowrep.nodes import atomic_recipe, helper_models
 from flowrep.parsers.symbol_scope import SymbolScope
 
 
@@ -15,10 +15,10 @@ def _make_source(node: str, port: str) -> edge_models.SourceHandle:
     return edge_models.SourceHandle(node=node, port=port)
 
 
-def _make_labeled_node(label: str, outputs: list[str]) -> helper_models.LabeledNode:
-    return helper_models.LabeledNode(
+def _make_labeled_node(label: str, outputs: list[str]) -> helper_models.LabeledRecipe:
+    return helper_models.LabeledRecipe(
         label=label,
-        node=atomic_model.AtomicNode(
+        node=atomic_recipe.AtomicRecipe(
             reference=base_models.PythonReference(
                 info=versions.VersionInfo(
                     module="test.module", qualname="func", version=None

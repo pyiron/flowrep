@@ -1,6 +1,6 @@
 import unittest
 
-from flowrep.nodes import workflow_model
+from flowrep.nodes import workflow_recipe
 from flowrep.parsers import workflow_parser
 
 from flowrep_static import library
@@ -15,7 +15,7 @@ def simple_if_else(x, y):
     return z
 
 
-simple_node = workflow_model.WorkflowNode.model_validate(
+simple_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y"],
@@ -99,7 +99,7 @@ def if_elif_else(x, y, flag):
     return z
 
 
-elif_node = workflow_model.WorkflowNode.model_validate(
+elif_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y", "flag"],
@@ -210,7 +210,7 @@ def if_with_context(a, b):
     return z
 
 
-context_node = workflow_model.WorkflowNode.model_validate(
+context_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["a", "b"],
@@ -296,7 +296,7 @@ def multi_output_if(x, y):
     return a, b
 
 
-multi_output_node = workflow_model.WorkflowNode.model_validate(
+multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y"],
@@ -399,7 +399,7 @@ def if_no_else(x, y):
     return z
 
 
-no_else_node = workflow_model.WorkflowNode.model_validate(
+no_else_node = workflow_recipe.WorkflowRecipe.model_validate(
     {
         "type": "workflow",
         "inputs": ["x", "y"],
@@ -459,7 +459,7 @@ no_else_node = workflow_model.WorkflowNode.model_validate(
 
 
 def _field_differences(
-    reference: workflow_model.WorkflowNode, actual: workflow_model.WorkflowNode
+    reference: workflow_recipe.WorkflowRecipe, actual: workflow_recipe.WorkflowRecipe
 ) -> dict:
     dict1 = reference.model_dump(mode="json")
     dict2 = actual.model_dump(mode="json")

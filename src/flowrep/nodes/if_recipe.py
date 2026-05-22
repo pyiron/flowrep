@@ -8,10 +8,10 @@ from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.nodes import helper_models
 
 if TYPE_CHECKING:
-    from flowrep.nodes.union import Nodes
+    from flowrep.nodes.union_types import Recipes
 
 
-class IfNode(base_models.NodeModel):
+class IfRecipe(base_models.NodeRecipe):
     """
     Walk through one or more cases, executing and returning the body result for the
     first case with a positive condition evaluation.
@@ -51,14 +51,14 @@ class IfNode(base_models.NodeModel):
         default=base_models.RecipeElementType.IF, frozen=True
     )
     cases: list[helper_models.ConditionalCase]
-    else_case: helper_models.LabeledNode | None = None
+    else_case: helper_models.LabeledRecipe | None = None
     input_edges: edge_models.InputEdges
     prospective_output_edges: dict[
         edge_models.OutputTarget, base_models.UniqueList[edge_models.SourceHandle]
     ]
 
     @property
-    def prospective_nodes(self) -> Nodes:
+    def prospective_nodes(self) -> Recipes:
         nodes = {}
         for case in self.cases:
             nodes[case.condition.label] = case.condition.node
