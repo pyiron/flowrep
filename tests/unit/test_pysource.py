@@ -3,8 +3,8 @@ import inspect
 import typing
 import unittest
 
-from flowrep import edge_models, pysource, retrospective
-from flowrep.nodes import workflow_recipe
+from flowrep import edge_models, pysource, retrospective, wfms
+from flowrep.nodes import helper_models, if_recipe, workflow_recipe
 from flowrep.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library, makers
@@ -14,6 +14,74 @@ from flowrep_static import library, makers
 def _pos_only_add(a, b, /):
     """Module-level atomic with positional-only inputs (importable by qualname)."""
     return a + b
+
+
+# A conditional workflow where the condition node has no underlying python reference
+workflow_condition_recipe = workflow_recipe.WorkflowRecipe(
+    inputs=["n"],
+    outputs=["m"],
+    nodes={
+        "if_0": if_recipe.IfRecipe(
+            inputs=["n"],
+            outputs=["m"],
+            cases=[
+                helper_models.ConditionalCase(
+                    condition=helper_models.LabeledRecipe(
+                        label="condition",
+                        node=workflow_recipe.WorkflowRecipe(
+                            inputs=["inp"],
+                            outputs=["out"],
+                            nodes={},
+                            input_edges={},
+                            edges={},
+                            output_edges={
+                                edge_models.OutputTarget(
+                                    port="out"
+                                ): edge_models.InputSource(port="inp"),
+                            },
+                        ),
+                    ),
+                    body=helper_models.LabeledRecipe(
+                        label="if_case",
+                        node=library.increment.flowrep_recipe,
+                    ),
+                ),
+            ],
+            else_case=helper_models.LabeledRecipe(
+                label="else_case",
+                node=library.decrement.flowrep_recipe,
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="condition", port="inp"
+                ): edge_models.InputSource(port="n"),
+                edge_models.TargetHandle(
+                    node="if_case", port="x"
+                ): edge_models.InputSource(port="n"),
+                edge_models.TargetHandle(
+                    node="else_case", port="x"
+                ): edge_models.InputSource(port="n"),
+            },
+            prospective_output_edges={
+                edge_models.OutputTarget(port="m"): [
+                    edge_models.SourceHandle(node="if_case", port="output_0"),
+                    edge_models.SourceHandle(node="else_case", port="output_0"),
+                ]
+            },
+        )
+    },
+    input_edges={
+        edge_models.TargetHandle(node="if_0", port="n"): edge_models.InputSource(
+            port="n"
+        )
+    },
+    edges={},
+    output_edges={
+        edge_models.OutputTarget(port="m"): edge_models.SourceHandle(
+            node="if_0", port="m"
+        )
+    },
+)
 
 
 class TestRenderedSourceAndGuard(unittest.TestCase):
@@ -282,6 +350,19 @@ class TestIf(unittest.TestCase):
         self.assertEqual(
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
+
+    def test_condition_without_underlying_python(self):
+        self.assertEqual(
+            wfms.run_recipe(workflow_condition_recipe, n=0).output_ports["m"].value,
+            0 - 1,
+            msg="Sanity check that the recipe is fine",
+        )
+        self.assertEqual(
+            wfms.run_recipe(workflow_condition_recipe, n=1).output_ports["m"].value,
+            1 + 1,
+            msg="Sanity check that the recipe is fine",
+        )
+        pysource.recipe2python("built", workflow_condition_recipe)
 
 
 class TestWhile(unittest.TestCase):
