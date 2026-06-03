@@ -3,10 +3,11 @@ import unittest
 
 from pyiron_snippets import versions
 
+from flowrep import pysource
 from flowrep.nodes import workflow_recipe
 from flowrep.parsers import atomic_parser, workflow_parser
 
-from flowrep_static import library
+from flowrep_static import library, makers
 
 
 @atomic_parser.atomic
@@ -301,6 +302,16 @@ class TestParsingFullComposite(unittest.TestCase):
             parsed_node,
             full_composite_node,
             msg=f"Differences: {_field_differences(full_composite_node, parsed_node)}",
+        )
+
+    def test_roundtrip_back_to_python(self):
+        free = makers.reference_free(full_composite)
+        rendered = pysource.recipe2python("rebuilt", free)
+        fn = rendered.build()
+        for x, y, bound in [(1, 2, 10), (3, 1, 8)]:
+            self.assertEqual(fn(x, y, bound=bound), full_composite(x, y, bound=bound))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
 
 

@@ -453,22 +453,6 @@ class TestTypeAnnotations(unittest.TestCase):
         self.assertEqual(rendered.source.count("typing.Any"), 2)
 
 
-class TestFullComposite(unittest.TestCase):
-    """try -> while -> for -> if/else, with siblings at every nesting level."""
-
-    def test_nested_all_constructs(self):
-        from integration.parsers.test_parsing_composite_workflow import full_composite
-
-        free = makers.reference_free(full_composite)
-        rendered = pysource.recipe2python("rebuilt", free)
-        fn = rendered.build()
-        for x, y, bound in [(1, 2, 10), (3, 1, 8)]:
-            self.assertEqual(fn(x, y, bound=bound), full_composite(x, y, bound=bound))
-        self.assertEqual(
-            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
-        )
-
-
 class TestGuardsAndEdgeCases(unittest.TestCase):
     def test_locals_qualname_raises(self):
         import dataclasses
