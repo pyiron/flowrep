@@ -112,11 +112,8 @@ class TestSingleAtomicDag(unittest.TestCase):
     def test_round_trips(self):
         _, free = self._free_recipe()
         rendered = pysource.recipe2python("rebuilt", free)
-        rebuilt = rendered.build()
-        reparsed = workflow_parser.parse_workflow(rebuilt).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(free))
+        fn = rendered.build()
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
 
 
 class TestMultiNodeDag(unittest.TestCase):
@@ -130,10 +127,7 @@ class TestMultiNodeDag(unittest.TestCase):
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(7, 3), chained(7, 3))
-        reparsed = workflow_parser.parse_workflow(fn).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(free))
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
 
     def test_emits_in_dependency_order_when_nodes_unordered(self):
         # Build a recipe whose .nodes dict is *not* topologically ordered, by
@@ -196,10 +190,7 @@ class TestOutputsEdgeCases(unittest.TestCase):
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(4, 6), passthrough(4, 6))
-        reparsed = workflow_parser.parse_workflow(fn).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(free))
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
 
     def test_duplicate_source_port_raises(self):
         # Hand-build a recipe where two outputs share one source handle.
@@ -262,10 +253,7 @@ class TestNestedWorkflowNode(unittest.TestCase):
         self.assertEqual(fn(2, 3), 5)
         # Re-parse: the nested def re-parses as a workflow node (with a reference);
         # comparing with references stripped yields structural equivalence.
-        reparsed = workflow_parser.parse_workflow(fn).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(recipe))
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(recipe))
 
 
 class TestForEach(unittest.TestCase):
@@ -281,10 +269,7 @@ class TestForEach(unittest.TestCase):
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn([1, 2, 3], 10), mapper([1, 2, 3], 10))
-        reparsed = workflow_parser.parse_workflow(fn).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(free))
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
 
     def test_zipped_for(self):
         def zipper(xs, ys):
@@ -313,10 +298,7 @@ class TestIf(unittest.TestCase):
         fn = rendered.build()
         self.assertEqual(fn(1, 5), chooser(1, 5))
         self.assertEqual(fn(5, 1), chooser(5, 1))
-        reparsed = workflow_parser.parse_workflow(fn).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(free))
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
 
 
 class TestWhile(unittest.TestCase):
@@ -330,10 +312,7 @@ class TestWhile(unittest.TestCase):
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(0, 5), countup(0, 5))
-        reparsed = workflow_parser.parse_workflow(fn).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(free))
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
 
 
 class TestTry(unittest.TestCase):
@@ -350,10 +329,7 @@ class TestTry(unittest.TestCase):
         fn = rendered.build()
         self.assertEqual(fn(6, 3), safe_div(6, 3))
         self.assertEqual(fn(6, 0), safe_div(6, 0))
-        reparsed = workflow_parser.parse_workflow(fn).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(free))
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
 
     def test_try_except_with_custom_exception(self):
         def custom_exception_branch(a, b):
@@ -372,10 +348,7 @@ class TestTry(unittest.TestCase):
         )
         fn = rendered.build()
         self.assertEqual(fn(6, 3), custom_exception_branch(6, 3))
-        reparsed = workflow_parser.parse_workflow(fn).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(free))
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
 
 
 def _with_default(a, b=10):
@@ -435,10 +408,7 @@ class TestDagData(unittest.TestCase):
                 typing.Annotated[float, {"label": "r"}],
             ],
         )
-        reparsed = workflow_parser.parse_workflow(fn).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(free))
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
 
 
 class TestTypeAnnotations(unittest.TestCase):
@@ -504,10 +474,7 @@ class TestFullComposite(unittest.TestCase):
         fn = rendered.build()
         for x, y, bound in [(1, 2, 10), (3, 1, 8)]:
             self.assertEqual(fn(x, y, bound=bound), full_composite(x, y, bound=bound))
-        reparsed = workflow_parser.parse_workflow(fn).model_copy(
-            update={"reference": None}
-        )
-        self.assertEqual(_dump_no_refs(reparsed), _dump_no_refs(free))
+        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
 
 
 class TestGuardsAndEdgeCases(unittest.TestCase):
