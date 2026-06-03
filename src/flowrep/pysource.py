@@ -156,13 +156,8 @@ class FunctionBuilder:
         return header + "\n" + indented + ret
 
 
-def _has_reference(node: Any) -> bool:
-    return getattr(node, "reference", None) is not None
-
-
-def _module_and_path(node: Any) -> tuple[str, str]:
+def _module_and_path(info: versions.VersionInfo) -> tuple[str, str]:
     """Return (module_to_import, dotted_call_path) for a referenced node."""
-    info = node.reference.info
     if "<locals>" in info.qualname:
         raise ValueError(
             f"Cannot emit a call to a function defined in a local scope: "
@@ -173,7 +168,10 @@ def _module_and_path(node: Any) -> tuple[str, str]:
 
 def _render_call(call_path: str, node: Any, in_resolver) -> str:
     """Render a call expression. `in_resolver(port)` returns a symbol or None."""
-    restricted = node.reference.restricted_input_kinds if _has_reference(node) else {}
+    if reference := getattr(node, "reference", None):
+        restricted = reference.restricted_input_kinds
+    else:
+        restricted = {}
     positional: list[str] = []
     keyword: list[str] = []
     for port in node.inputs:
@@ -391,8 +389,8 @@ def _emit_workflow_body(
     for label in _topological_nodes(recipe):
         node = recipe.nodes[label]
 
-        if _has_reference(node):
-            module, call_path = _module_and_path(node)
+        if reference := getattr(node, "reference", None):
+            module, call_path = _module_and_path(reference.info)
             imports.add(f"import {module}")
             lhs_syms = _allocate_outputs(
                 node, label, produced, required_by_handle, alloc
@@ -558,8 +556,11 @@ def _render_condition(
     """Render a condition call as an inline expression (no assignment)."""
     cond_node = case_condition.node
     cond_label = case_condition.label
-    module, call_path = _module_and_path(cond_node)
-    imports.add(f"import {module}")
+    if reference := getattr(cond_node, "reference", None):
+        module, call_path = _module_and_path(reference.info)
+        imports.add(f"import {module}")
+    else:
+        raise NotImplementedError()
 
     def cond_resolver(port: str) -> str | None:
         target = edge_models.TargetHandle(node=cond_label, port=port)
