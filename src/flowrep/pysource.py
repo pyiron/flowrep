@@ -148,10 +148,13 @@ class FunctionBuilder:
         if self.return_annotation is not None:
             header += f" -> {self.return_annotation}"
         header += ":"
-        body = self.body_lines or ["pass"]
         ret = ""
         if self.return_symbols:
             ret = "    return " + ", ".join(self.return_symbols) + "\n"
+        # Only emit `pass` when the body is entirely empty (no lines, no return);
+        # a passthrough workflow has no body lines but does have a return, so
+        # `pass` would be both redundant and illegal in a @flowrep.workflow function.
+        body = self.body_lines or ([] if ret else ["pass"])
         indented = "".join(f"    {line}\n" for line in body)
         return header + "\n" + indented + ret
 
@@ -183,6 +186,29 @@ def _render_call(call_path: str, node: Any, in_resolver) -> str:
         else:
             keyword.append(f"{port}={sym}")
     return f"{call_path}({', '.join(positional + keyword)})"
+
+
+def _node_call_path(
+    node: Any,
+    label: str,
+    emitter: _Emitter,
+    alloc: _NameAllocator,
+    imports: set[str],
+) -> str | None:
+    """Resolve the call path for a node that emits as a single call expression.
+
+    Returns the dotted call path for a referenced node (adding its import) or the
+    local function name for a reference-free ``WorkflowRecipe`` (emitting a nested
+    def). Returns ``None`` for any other node (e.g. flow control), which cannot be
+    expressed as a single call.
+    """
+    if reference := getattr(node, "reference", None):
+        module, call_path = _module_and_path(reference.info)
+        imports.add(f"import {module}")
+        return call_path
+    if isinstance(node, workflow_recipe.WorkflowRecipe):
+        return _emit_nested_workflow_node(node, label, emitter, alloc)
+    return None
 
 
 def _topological_nodes(
@@ -389,18 +415,8 @@ def _emit_workflow_body(
     for label in _topological_nodes(recipe):
         node = recipe.nodes[label]
 
-        if reference := getattr(node, "reference", None):
-            module, call_path = _module_and_path(reference.info)
-            imports.add(f"import {module}")
-            lhs_syms = _allocate_outputs(
-                node, label, produced, required_by_handle, alloc
-            )
-            in_resolver = _mk_resolver(label, recipe, resolve)
-            lines.append(
-                f"{', '.join(lhs_syms)} = {_render_call(call_path, node, in_resolver)}"
-            )
-        elif isinstance(node, workflow_recipe.WorkflowRecipe):
-            call_path = _emit_nested_workflow_node(node, label, emitter, alloc)
+        call_path = _node_call_path(node, label, emitter, alloc, imports)
+        if call_path is not None:
             lhs_syms = _allocate_outputs(
                 node, label, produced, required_by_handle, alloc
             )
@@ -509,13 +525,15 @@ def _emit_for_each(
         if body_port in node.iterated_ports:
             body_in_syms[body_port] = body_port  # iteration variable (same name)
         else:
-            body_in_syms[body_port] = collection_symbol(body_port)
+            target = edge_models.TargetHandle(node=body_label, port=body_port)
+            if target in node.input_edges:  # unwired defaulted inputs are omitted
+                body_in_syms[body_port] = collection_symbol(body_port)
 
     # Pin each body output to a symbol matching its port name, so the re-parser
     # reconstructs the same port names on round-trip.
     body_required = {port: port for port in body.outputs}
-    body_lines, body_out = _emit_workflow_body(
-        body, body_in_syms, body_required, emitter, alloc, imports
+    body_lines, body_out = _emit_body(
+        body, body_label, body_in_syms, body_required, emitter, alloc, imports
     )
 
     # 4. Append each body output to its accumulator.
@@ -552,14 +570,14 @@ def _render_condition(
     node: Any,
     in_resolver: Any,
     imports: set[str],
+    emitter: _Emitter,
+    alloc: _NameAllocator,
 ) -> str:
     """Render a condition call as an inline expression (no assignment)."""
     cond_node = case_condition.node
     cond_label = case_condition.label
-    if reference := getattr(cond_node, "reference", None):
-        module, call_path = _module_and_path(reference.info)
-        imports.add(f"import {module}")
-    else:
+    call_path = _node_call_path(cond_node, cond_label, emitter, alloc, imports)
+    if call_path is None:
         raise NotImplementedError()
 
     def cond_resolver(port: str) -> str | None:
@@ -569,6 +587,62 @@ def _render_condition(
         return None
 
     return _render_call(call_path, cond_node, cond_resolver)
+
+
+def _emit_body(
+    recipe: Any,
+    label: str,
+    in_syms: dict[str, str],
+    required: dict[str, str],
+    emitter: _Emitter,
+    alloc: _NameAllocator,
+    imports: set[str],
+) -> tuple[list[str], dict[str, str]]:
+    """Emit a branch/loop body that may be a workflow subgraph or a single node.
+
+    A reference-free ``WorkflowRecipe`` is inlined as a subgraph (as before); any
+    other node (atomic, or a referenced workflow) is emitted as one assignment.
+    """
+    if isinstance(recipe, workflow_recipe.WorkflowRecipe):
+        return _emit_workflow_body(recipe, in_syms, required, emitter, alloc, imports)
+    return _emit_single_node_body(
+        recipe, label, in_syms, required, emitter, alloc, imports
+    )
+
+
+def _emit_single_node_body(
+    node: Any,
+    label: str,
+    in_syms: dict[str, str],
+    required: dict[str, str],
+    emitter: _Emitter,
+    alloc: _NameAllocator,
+    imports: set[str],
+) -> tuple[list[str], dict[str, str]]:
+    """Emit a single (atomic/referenced) node as one assignment line.
+
+    Output ports are pinned to ``required`` symbols where given, else allocated
+    fresh. Inputs absent from ``in_syms`` (unwired defaults) are omitted from the
+    call, exactly as ``_render_call`` already does for ``None`` resolutions.
+    """
+
+    def in_resolver(port: str) -> str | None:
+        return in_syms.get(port)
+
+    out_syms: dict[str, str] = {}
+    lhs_syms: list[str] = []
+    for port in node.outputs:
+        name = required.get(port) or alloc.fresh(port)
+        out_syms[port] = name
+        lhs_syms.append(name)
+
+    call_path = _node_call_path(node, label, emitter, alloc, imports)
+    if call_path is None:  # pragma: no cover - flow control is never a direct body
+        raise NotImplementedError(
+            f"Cannot inline {type(node).__name__} as a single branch/body node."
+        )
+    line = f"{', '.join(lhs_syms)} = {_render_call(call_path, node, in_resolver)}"
+    return [line], out_syms
 
 
 def _emit_branch(
@@ -584,12 +658,23 @@ def _emit_branch(
     """Inline a case/else branch body, pinning its outputs to the shared symbols."""
     body_in_syms: dict[str, str] = {}
     for port in branch_recipe.inputs:
-        src = node.input_edges[edge_models.TargetHandle(node=branch_label, port=port)]
-        body_in_syms[port] = in_resolver(src.port)
-    # Pin only the outputs this branch actually produces to the shared names.
-    required = {p: out_syms[p] for p in branch_recipe.outputs if p in out_syms}
-    body_lines, _ = _emit_workflow_body(
-        branch_recipe, body_in_syms, required, emitter, alloc, imports
+        target = edge_models.TargetHandle(node=branch_label, port=port)
+        if target in node.input_edges:  # unwired defaulted inputs are omitted
+            body_in_syms[port] = in_resolver(node.input_edges[target].port)
+    # Pin this branch's outputs to the shared names. The flow-control node's
+    # prospective_output_edges map each flow output port to the (branch, branch
+    # output port) that feeds it, so we key `required` by the *branch's* output
+    # port name (which, for a bare atomic branch, differs from the flow output
+    # port -- e.g. "output_0" vs "m"). For a workflow-wrapped branch the two
+    # names coincide. Every prospective output target is one of the node's outputs
+    # (validated on the recipe), so it is always present in out_syms.
+    required: dict[str, str] = {}
+    for flow_target, sources in node.prospective_output_edges.items():
+        for source in sources:
+            if source.node == branch_label:
+                required[source.port] = out_syms[flow_target.port]
+    body_lines, _ = _emit_body(
+        branch_recipe, branch_label, body_in_syms, required, emitter, alloc, imports
     )
     return body_lines or ["pass"]
 
@@ -605,7 +690,9 @@ def _emit_if(
     """Emit an if/elif/else block as Python source lines."""
     lines: list[str] = []
     for idx, case in enumerate(node.cases):
-        cond_expr = _render_condition(case.condition, node, in_resolver, imports)
+        cond_expr = _render_condition(
+            case.condition, node, in_resolver, imports, emitter, alloc
+        )
         keyword = "if" if idx == 0 else "elif"
         lines.append(f"{keyword} {cond_expr}:")
         body = _emit_branch(
@@ -707,22 +794,29 @@ def _emit_while(
 ) -> list[str]:
     """Emit a while loop as Python source lines."""
     case = node.case
-    cond_expr = _render_condition(case.condition, node, in_resolver, imports)
+    cond_expr = _render_condition(
+        case.condition, node, in_resolver, imports, emitter, alloc
+    )
 
     body_label = case.body.label
     body = case.body.node
 
-    # Map body inputs to enclosing-scope symbols (all body ports come from while inputs).
+    # Map body inputs to enclosing-scope symbols (unwired defaults are omitted).
     body_in_syms: dict[str, str] = {}
     for port in body.inputs:
-        src = node.input_edges[edge_models.TargetHandle(node=body_label, port=port)]
-        body_in_syms[port] = in_resolver(src.port)
+        target = edge_models.TargetHandle(node=body_label, port=port)
+        if target in node.input_edges:
+            body_in_syms[port] = in_resolver(node.input_edges[target].port)
 
-    # Pin each body output to its own port name (== loop variable name) so the
-    # variable is reassigned in-place each iteration and the loop terminates correctly.
-    required = {port: port for port in body.outputs}
-    body_lines, _ = _emit_workflow_body(
-        body, body_in_syms, required, emitter, alloc, imports
+    # Pin each body output to the loop variable it feeds (output_edges map the
+    # body's output ports to the while-node output ports == loop variables), so the
+    # variable is reassigned in-place each iteration and the loop terminates.
+    required = {
+        source.port: out_syms[target.port]
+        for target, source in node.output_edges.items()
+    }
+    body_lines, _ = _emit_body(
+        body, body_label, body_in_syms, required, emitter, alloc, imports
     )
 
     lines = [f"while {cond_expr}:"]

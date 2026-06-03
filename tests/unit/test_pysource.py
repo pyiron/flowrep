@@ -3,8 +3,17 @@ import inspect
 import typing
 import unittest
 
+from pyiron_snippets import versions
+
 from flowrep import edge_models, pysource, retrospective, wfms
-from flowrep.nodes import helper_models, if_recipe, workflow_recipe
+from flowrep.nodes import (
+    for_recipe,
+    helper_models,
+    if_recipe,
+    try_recipe,
+    while_recipe,
+    workflow_recipe,
+)
 from flowrep.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library, makers
@@ -84,6 +93,164 @@ workflow_condition_recipe = workflow_recipe.WorkflowRecipe(
     output_edges={
         edge_models.OutputTarget(port="m"): edge_models.SourceHandle(
             node="if_0", port="m"
+        )
+    },
+)
+
+
+# A while-loop whose condition is a reference-free passthrough workflow and whose
+# body is a bare atomic node (decrement). Like workflow_condition_recipe, this can
+# only be built by hand -- the parser always wraps loop bodies in a workflow node.
+workflow_while_recipe = workflow_recipe.WorkflowRecipe(
+    inputs=["i"],
+    outputs=["i"],
+    nodes={
+        "while_0": while_recipe.WhileRecipe(
+            inputs=["i"],
+            outputs=["i"],
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledRecipe(
+                    label="condition",
+                    node=workflow_recipe.WorkflowRecipe(
+                        inputs=["inp"],
+                        outputs=["out"],
+                        nodes={},
+                        input_edges={},
+                        edges={},
+                        output_edges={
+                            edge_models.OutputTarget(
+                                port="out"
+                            ): edge_models.InputSource(port="inp"),
+                        },
+                    ),
+                ),
+                body=helper_models.LabeledRecipe(
+                    label="while_body",
+                    node=library.decrement.flowrep_recipe,
+                ),
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="condition", port="inp"
+                ): edge_models.InputSource(port="i"),
+                edge_models.TargetHandle(
+                    node="while_body", port="x"
+                ): edge_models.InputSource(port="i"),
+            },
+            output_edges={
+                edge_models.OutputTarget(port="i"): edge_models.SourceHandle(
+                    node="while_body", port="output_0"
+                )
+            },
+        )
+    },
+    input_edges={
+        edge_models.TargetHandle(node="while_0", port="i"): edge_models.InputSource(
+            port="i"
+        )
+    },
+    edges={},
+    output_edges={
+        edge_models.OutputTarget(port="i"): edge_models.SourceHandle(
+            node="while_0", port="i"
+        )
+    },
+)
+
+
+# A try/except whose try body and except body are bare atomic nodes. Try has no
+# condition node, so this isolates the atomic-branch path in _emit_branch.
+workflow_try_recipe = workflow_recipe.WorkflowRecipe(
+    inputs=["a", "b"],
+    outputs=["z"],
+    nodes={
+        "try_0": try_recipe.TryRecipe(
+            inputs=["a", "b"],
+            outputs=["z"],
+            try_node=helper_models.LabeledRecipe(
+                label="try_body",
+                node=library.divide.flowrep_recipe,
+            ),
+            exception_cases=[
+                helper_models.ExceptionCase(
+                    exceptions=[versions.VersionInfo.of(ZeroDivisionError)],
+                    body=helper_models.LabeledRecipe(
+                        label="except_body",
+                        node=library.identity.flowrep_recipe,
+                    ),
+                )
+            ],
+            input_edges={
+                edge_models.TargetHandle(
+                    node="try_body", port="a"
+                ): edge_models.InputSource(port="a"),
+                edge_models.TargetHandle(
+                    node="try_body", port="b"
+                ): edge_models.InputSource(port="b"),
+                edge_models.TargetHandle(
+                    node="except_body", port="x"
+                ): edge_models.InputSource(port="a"),
+            },
+            prospective_output_edges={
+                edge_models.OutputTarget(port="z"): [
+                    edge_models.SourceHandle(node="try_body", port="output_0"),
+                    edge_models.SourceHandle(node="except_body", port="x"),
+                ]
+            },
+        )
+    },
+    input_edges={
+        edge_models.TargetHandle(node="try_0", port="a"): edge_models.InputSource(
+            port="a"
+        ),
+        edge_models.TargetHandle(node="try_0", port="b"): edge_models.InputSource(
+            port="b"
+        ),
+    },
+    edges={},
+    output_edges={
+        edge_models.OutputTarget(port="z"): edge_models.SourceHandle(
+            node="try_0", port="z"
+        )
+    },
+)
+
+
+# A for-each that maps a bare atomic node (increment) over its `x` port. `step`
+# keeps its default and is intentionally unwired.
+workflow_for_each_recipe = workflow_recipe.WorkflowRecipe(
+    inputs=["xs"],
+    outputs=["ys"],
+    nodes={
+        "for_0": for_recipe.ForEachRecipe(
+            inputs=["xs"],
+            outputs=["ys"],
+            body_node=helper_models.LabeledRecipe(
+                label="for_body",
+                node=library.increment.flowrep_recipe,
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="for_body", port="x"
+                ): edge_models.InputSource(port="xs"),
+            },
+            output_edges={
+                edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
+                    node="for_body", port="output_0"
+                )
+            },
+            nested_ports=["x"],
+        )
+    },
+    input_edges={
+        edge_models.TargetHandle(node="for_0", port="xs"): edge_models.InputSource(
+            port="xs"
+        )
+    },
+    edges={},
+    output_edges={
+        edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
+            node="for_0", port="ys"
         )
     },
 )
@@ -337,6 +504,18 @@ class TestForEach(unittest.TestCase):
         fn = pysource.recipe2python("rebuilt", free).build()
         self.assertEqual(fn([1, 2], [3, 4]), zipper([1, 2], [3, 4]))
 
+    def test_for_each_body_without_underlying_python(self):
+        self.assertEqual(
+            wfms.run_recipe(workflow_for_each_recipe, xs=[1, 2, 3])
+            .output_ports["ys"]
+            .value,
+            [2, 3, 4],
+            msg="Sanity check that the recipe is fine",
+        )
+        rendered = pysource.recipe2python("built", workflow_for_each_recipe)
+        fn = rendered.build()
+        self.assertEqual(fn([1, 2, 3]), [2, 3, 4])
+
 
 class TestIf(unittest.TestCase):
     def test_if_else_round_trip_and_exec(self):
@@ -385,6 +564,20 @@ class TestWhile(unittest.TestCase):
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
 
+    def test_while_body_without_underlying_python(self):
+        self.assertEqual(
+            wfms.run_recipe(workflow_while_recipe, i=3).output_ports["i"].value,
+            0,
+            msg="Sanity check that the recipe is fine",
+        )
+        rendered = pysource.recipe2python("built", workflow_while_recipe)
+        fn = rendered.build()
+        self.assertEqual(
+            fn(3),
+            wfms.run_recipe(workflow_while_recipe, i=3).output_ports["i"].value,
+            msg="Emitted Python must match the recipe's runtime result",
+        )
+
 
 class TestTry(unittest.TestCase):
     def test_try_except_round_trip_and_exec(self):
@@ -424,6 +617,22 @@ class TestTry(unittest.TestCase):
         self.assertEqual(
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
+
+    def test_try_bodies_without_underlying_python(self):
+        self.assertEqual(
+            wfms.run_recipe(workflow_try_recipe, a=6, b=3).output_ports["z"].value,
+            2.0,
+            msg="Sanity check that the recipe is fine",
+        )
+        self.assertEqual(
+            wfms.run_recipe(workflow_try_recipe, a=6, b=0).output_ports["z"].value,
+            6,
+            msg="Sanity check that the except branch runs",
+        )
+        rendered = pysource.recipe2python("built", workflow_try_recipe)
+        fn = rendered.build()
+        self.assertEqual(fn(6, 3), 2.0)
+        self.assertEqual(fn(6, 0), 6)
 
 
 def _with_default(a, b=10):
