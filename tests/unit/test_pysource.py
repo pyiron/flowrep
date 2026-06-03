@@ -5,43 +5,13 @@ import unittest
 from flowrep import pysource, retrospective
 from flowrep.parsers import atomic_parser, workflow_parser
 
-from flowrep_static import library
+from flowrep_static import library, makers
 
 
 @atomic_parser.atomic
 def _pos_only_add(a, b, /):
     """Module-level atomic with positional-only inputs (importable by qualname)."""
     return a + b
-
-
-def _dump_no_refs(recipe) -> dict:
-    """Model dump with every (possibly nested) 'reference' and 'description' removed.
-
-    'reference' is dropped because a reference-free workflow used as a peer node
-    necessarily re-parses as a referenced node. 'description' is dropped because a
-    docstring round-trips through inspect.getdoc/cleandoc, which is not idempotent
-    for bodies indented relative to their first line, so the stored description
-    cannot always be reproduced exactly.
-    """
-
-    def strip(obj):
-        if isinstance(obj, dict):
-            return {
-                k: strip(v)
-                for k, v in obj.items()
-                if k not in ("reference", "description")
-            }
-        if isinstance(obj, list):
-            return [strip(v) for v in obj]
-        return obj
-
-    return strip(recipe.model_dump(mode="json"))
-
-
-def _reference_free(func) -> "object":
-    """Parse a decorated/plain function and drop the top-level reference."""
-    recipe = workflow_parser.parse_workflow(func)
-    return recipe.model_copy(update={"reference": None})
 
 
 class TestRenderedSourceAndGuard(unittest.TestCase):
@@ -102,7 +72,7 @@ class TestSingleAtomicDag(unittest.TestCase):
             result = library.my_add(a, b)
             return result
 
-        return one_add, _reference_free(one_add)
+        return one_add, makers.reference_free(one_add)
 
     def test_executes(self):
         original, free = self._free_recipe()
@@ -113,7 +83,9 @@ class TestSingleAtomicDag(unittest.TestCase):
         _, free = self._free_recipe()
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
 
 
 class TestMultiNodeDag(unittest.TestCase):
@@ -123,11 +95,13 @@ class TestMultiNodeDag(unittest.TestCase):
             q, r = library.divmod_func(s, b)  # tuple unpack -> two outputs
             return q, r
 
-        free = _reference_free(chained)
+        free = makers.reference_free(chained)
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(7, 3), chained(7, 3))
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
 
     def test_emits_in_dependency_order_when_nodes_unordered(self):
         # Build a recipe whose .nodes dict is *not* topologically ordered, by
@@ -137,7 +111,7 @@ class TestMultiNodeDag(unittest.TestCase):
             t = library.my_mul(s, b)
             return t
 
-        free = _reference_free(chained)
+        free = makers.reference_free(chained)
         reordered_nodes = dict(reversed(list(free.nodes.items())))
         scrambled = free.model_copy(update={"nodes": reordered_nodes})
         rendered = pysource.recipe2python("rebuilt", scrambled)
@@ -153,7 +127,7 @@ class TestSignatureParams(unittest.TestCase):
             r = library.identity(a)
             return r
 
-        free = _reference_free(with_default)
+        free = makers.reference_free(with_default)
         sig = inspect.signature(with_default)
         rendered = pysource.recipe2python("rebuilt", free, sig)
         fn = rendered.build()
@@ -167,7 +141,7 @@ class TestSignatureParams(unittest.TestCase):
             out = library.my_add(r, z)
             return out
 
-        free = _reference_free(kinds)
+        free = makers.reference_free(kinds)
         sig = inspect.signature(kinds)
         rendered = pysource.recipe2python("rebuilt", free, sig)
         fn = rendered.build()
@@ -186,15 +160,17 @@ class TestOutputsEdgeCases(unittest.TestCase):
             s = library.my_add(a, b)
             return s, a  # 'a' is a passthrough output
 
-        free = _reference_free(passthrough)
+        free = makers.reference_free(passthrough)
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(4, 6), passthrough(4, 6))
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
 
     def test_duplicate_source_port_raises(self):
         # Hand-build a recipe where two outputs share one source handle.
-        free = _reference_free(self._single_two_named_outputs_source())
+        free = makers.reference_free(self._single_two_named_outputs_source())
         # Force two output ports onto the same source handle.
         from flowrep import edge_models
 
@@ -240,8 +216,8 @@ class TestNestedWorkflowNode(unittest.TestCase):
             r = library.my_add(a, b)
             return r
 
-        free_outer = _reference_free(outer)
-        free_inner = _reference_free(inner)
+        free_outer = makers.reference_free(outer)
+        free_inner = makers.reference_free(inner)
         # Replace the atomic node with the reference-free sub-workflow node.
         label = next(iter(free_outer.nodes))
         nodes = dict(free_outer.nodes)
@@ -253,7 +229,9 @@ class TestNestedWorkflowNode(unittest.TestCase):
         self.assertEqual(fn(2, 3), 5)
         # Re-parse: the nested def re-parses as a workflow node (with a reference);
         # comparing with references stripped yields structural equivalence.
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(recipe))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(recipe)
+        )
 
 
 class TestForEach(unittest.TestCase):
@@ -265,11 +243,13 @@ class TestForEach(unittest.TestCase):
                 acc.append(v)
             return acc
 
-        free = _reference_free(mapper)
+        free = makers.reference_free(mapper)
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn([1, 2, 3], 10), mapper([1, 2, 3], 10))
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
 
     def test_zipped_for(self):
         def zipper(xs, ys):
@@ -279,7 +259,7 @@ class TestForEach(unittest.TestCase):
                 acc.append(v)
             return acc
 
-        free = _reference_free(zipper)
+        free = makers.reference_free(zipper)
         fn = pysource.recipe2python("rebuilt", free).build()
         self.assertEqual(fn([1, 2], [3, 4]), zipper([1, 2], [3, 4]))
 
@@ -293,12 +273,14 @@ class TestIf(unittest.TestCase):
                 v = library.my_mul(a, b)
             return v
 
-        free = _reference_free(chooser)
+        free = makers.reference_free(chooser)
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(1, 5), chooser(1, 5))
         self.assertEqual(fn(5, 1), chooser(5, 1))
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
 
 
 class TestWhile(unittest.TestCase):
@@ -308,11 +290,13 @@ class TestWhile(unittest.TestCase):
                 i = library.increment(i)
             return i
 
-        free = _reference_free(countup)
+        free = makers.reference_free(countup)
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(0, 5), countup(0, 5))
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
 
 
 class TestTry(unittest.TestCase):
@@ -324,12 +308,14 @@ class TestTry(unittest.TestCase):
                 z = library.identity(a)
             return z
 
-        free = _reference_free(safe_div)
+        free = makers.reference_free(safe_div)
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(6, 3), safe_div(6, 3))
         self.assertEqual(fn(6, 0), safe_div(6, 0))
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
 
     def test_try_except_with_custom_exception(self):
         def custom_exception_branch(a, b):
@@ -339,7 +325,7 @@ class TestTry(unittest.TestCase):
                 z = library.identity(a)
             return z
 
-        free = _reference_free(custom_exception_branch)
+        free = makers.reference_free(custom_exception_branch)
         rendered = pysource.recipe2python("rebuilt", free)
         self.assertIn(
             "flowrep_static.library.MyCustomException",
@@ -348,7 +334,9 @@ class TestTry(unittest.TestCase):
         )
         fn = rendered.build()
         self.assertEqual(fn(6, 3), custom_exception_branch(6, 3))
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
 
 
 def _with_default(a, b=10):
@@ -395,7 +383,7 @@ class TestDagData(unittest.TestCase):
         self.assertEqual(hints["return"], typing.Annotated[float, {"label": "r"}])
 
     def test_dagdata_multi_output_types_round_trip(self):
-        free = _reference_free(_typed_multi)
+        free = makers.reference_free(_typed_multi)
         dagdata = retrospective.DagData.from_recipe(
             workflow_parser.parse_workflow(_typed_multi)
         )
@@ -408,7 +396,9 @@ class TestDagData(unittest.TestCase):
                 typing.Annotated[float, {"label": "r"}],
             ],
         )
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
 
 
 class TestTypeAnnotations(unittest.TestCase):
@@ -417,7 +407,7 @@ class TestTypeAnnotations(unittest.TestCase):
             r = library.my_add(a, b)
             return r
 
-        free = _reference_free(typed)
+        free = makers.reference_free(typed)
         fn = pysource.recipe2python("rebuilt", free, inspect.signature(typed)).build()
         self.assertEqual(fn(3), typed(3))
         hints = typing.get_type_hints(fn, include_extras=True)
@@ -430,7 +420,7 @@ class TestTypeAnnotations(unittest.TestCase):
             q, r = library.divmod_func(a, b)
             return q, r
 
-        free = _reference_free(typed2)
+        free = makers.reference_free(typed2)
         fn = pysource.recipe2python("rebuilt", free, inspect.signature(typed2)).build()
         self.assertEqual(fn(7, 3), typed2(7, 3))
         self.assertEqual(
@@ -447,7 +437,7 @@ class TestTypeAnnotations(unittest.TestCase):
             r = library.my_add(a, b)
             return r
 
-        free = _reference_free(plain)
+        free = makers.reference_free(plain)
         rendered = pysource.recipe2python("rebuilt", free)
         self.assertIn('typing.Annotated[typing.Any, {"label": "r"}]', rendered.source)
 
@@ -458,7 +448,7 @@ class TestTypeAnnotations(unittest.TestCase):
             q, r = library.divmod_func(a, b)
             return q, r
 
-        free = _reference_free(typed_bad)
+        free = makers.reference_free(typed_bad)
         rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed_bad))
         self.assertEqual(rendered.source.count("typing.Any"), 2)
 
@@ -469,19 +459,21 @@ class TestFullComposite(unittest.TestCase):
     def test_nested_all_constructs(self):
         from integration.parsers.test_parsing_composite_workflow import full_composite
 
-        free = _reference_free(full_composite)
+        free = makers.reference_free(full_composite)
         rendered = pysource.recipe2python("rebuilt", free)
         fn = rendered.build()
         for x, y, bound in [(1, 2, 10), (3, 1, 8)]:
             self.assertEqual(fn(x, y, bound=bound), full_composite(x, y, bound=bound))
-        self.assertEqual(_dump_no_refs(fn.flowrep_recipe), _dump_no_refs(free))
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
 
 
 class TestGuardsAndEdgeCases(unittest.TestCase):
     def test_locals_qualname_raises(self):
         import dataclasses
 
-        free = _reference_free(_with_default)
+        free = makers.reference_free(_with_default)
         label = next(iter(free.nodes))
         node = free.nodes[label]
         # VersionInfo is a dataclass; PythonReference/AtomicRecipe are pydantic models.
@@ -502,7 +494,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             t = library.my_mul(s, b)
             return t
 
-        free = _reference_free(chained)
+        free = makers.reference_free(chained)
         labels = list(free.nodes)
         # Inject a back-edge to create a cycle. model_copy does not re-validate,
         # so it bypasses the recipe's acyclic check.
@@ -519,7 +511,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             r = library.my_add(a, b)
             return r
 
-        free = _reference_free(kinds)
+        free = makers.reference_free(kinds)
         rendered = pysource.recipe2python("rebuilt", free, inspect.signature(kinds))
         self.assertIn("/", rendered.source)
         fn = rendered.build()
@@ -534,7 +526,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             r = _pos_only_add(x, y)
             return r
 
-        free = _reference_free(uses)
+        free = makers.reference_free(uses)
         rendered = pysource.recipe2python("rebuilt", free)
         self.assertRegex(rendered.source, r"_pos_only_add\(\w+, \w+\)")
         self.assertEqual(rendered.build()(2, 3), 5)
@@ -544,7 +536,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             r = library.my_add(a, b)
             return r
 
-        free = _reference_free(f)
+        free = makers.reference_free(f)
         fn = pysource.recipe2python("rebuilt", free, inspect.signature(f)).build()
         self.assertEqual(
             typing.get_type_hints(fn, include_extras=True)["return"],
@@ -562,7 +554,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
                 kept.append(k)
             return acc, kept
 
-        free = _reference_free(fwd)
+        free = makers.reference_free(fwd)
         fn = pysource.recipe2python("rebuilt", free).build()
         self.assertEqual(fn([1, 2], [10, 20]), fwd([1, 2], [10, 20]))
 
@@ -575,7 +567,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
                 r = library.negate(a)
             return r
 
-        free = _reference_free(f)
+        free = makers.reference_free(f)
         rendered = pysource.recipe2python("rebuilt", free)
         self.assertIn("library.increment(x=", rendered.source)
         fn = rendered.build()
@@ -590,7 +582,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
                 z = library.identity(a)
             return z
 
-        free = _reference_free(f)
+        free = makers.reference_free(f)
         rendered = pysource.recipe2python("rebuilt", free)
         self.assertIn("except (", rendered.source)
         self.assertEqual(rendered.build()(6, 0), f(6, 0))
