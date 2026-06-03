@@ -5,6 +5,7 @@ import inspect
 import linecache
 import re
 import sys
+import textwrap
 import types
 import typing
 from typing import Annotated, Any, cast, get_args, get_origin
@@ -843,7 +844,13 @@ def recipe2python(
     # annotation flag (so return annotations are not evaluated at exec time) plus
     # `typing` (for the Annotated return labels) and `flowrep` (for the @workflow
     # decorator emitted on every function).
-    preamble = "from __future__ import annotations\n\nimport typing\n\nimport flowrep\n"
+    preamble = textwrap.dedent("""\
+        from __future__ import annotations
+        
+        import typing
+        
+        import flowrep
+        """)
     nested = "\n".join(emitter.nested_defs)
     func_src = target.render()
     parts = [preamble]
