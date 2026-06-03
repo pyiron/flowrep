@@ -10,6 +10,8 @@ import types
 import typing
 from typing import Annotated, Any, cast, get_args, get_origin
 
+from pyiron_snippets import versions
+
 from flowrep import base_models, edge_models, retrospective, subgraph_validation
 from flowrep.nodes import (
     for_recipe,
@@ -632,7 +634,7 @@ def _emit_if(
     return lines
 
 
-def _exception_name(info: Any, imports: set[str]) -> str:
+def _exception_name(info: versions.VersionInfo, imports: set[str]) -> str:
     """Return the Python name to use for an exception type in an except clause.
 
     For builtins (module == 'builtins'), returns the bare qualname and adds no
@@ -640,6 +642,11 @@ def _exception_name(info: Any, imports: set[str]) -> str:
     imports set and returns ``{module}.{qualname}``.
     """
     if info.module == "builtins":
+        if not info.qualname:  # pragma: no cover - guard against internal misuse only
+            raise ValueError(
+                "Should only be looking at exception type info here, and this "
+                "should only be internally-accessible. What have you done?"
+            )
         return info.qualname
     imports.add(f"import {info.module}")
     return info.fully_qualified_name
