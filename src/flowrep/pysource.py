@@ -10,7 +10,7 @@ import types
 import typing
 from typing import Annotated, Any, cast, get_args, get_origin
 
-from flowrep import base_models, edge_models, retrospective
+from flowrep import base_models, edge_models, retrospective, subgraph_validation
 from flowrep.nodes import (
     for_recipe,
     if_recipe,
@@ -191,26 +191,11 @@ def _topological_nodes(
     recipe: workflow_recipe.WorkflowRecipe,
 ) -> list[str]:
     """Node labels in dependency order. Preserves insertion order when already valid."""
-    successors: dict[str, list[str]] = {label: [] for label in recipe.nodes}
-    indegree: dict[str, int] = {label: 0 for label in recipe.nodes}
-    for target, source in recipe.edges.items():
-        successors[source.node].append(target.node)
-        indegree[target.node] += 1
-    # Stable Kahn: prefer original insertion order among ready nodes.
-    order = list(recipe.nodes)
-    ready = [n for n in order if indegree[n] == 0]
-    result: list[str] = []
-    while ready:
-        ready.sort(key=order.index)
-        node = ready.pop(0)
-        result.append(node)
-        for succ in successors[node]:
-            indegree[succ] -= 1
-            if indegree[succ] == 0:
-                ready.append(succ)
-    if len(result) != len(recipe.nodes):
-        raise ValueError("Recipe nodes contain a cycle; cannot serialise.")
-    return result
+    return subgraph_validation.topological_sort(
+        recipe.nodes,
+        [(source.node, target.node) for target, source in recipe.edges.items()],
+        cycle_message="Recipe nodes contain a cycle; cannot serialise.",
+    )
 
 
 def _flow_control_input_requirements(

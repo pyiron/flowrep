@@ -517,5 +517,51 @@ class TestValidateNodesFullySourced(unittest.TestCase):
         self.assertIn("recursive check triggered", str(ctx.exception))
 
 
+class TestTopologicalSort(unittest.TestCase):
+    """Tests for topological_sort."""
+
+    def test_empty(self):
+        self.assertEqual(subgraph_validation.topological_sort([], []), [])
+
+    def test_isolated_nodes_preserved(self):
+        # No edges: every node is "ready"; default tie-break keeps insertion order.
+        result = subgraph_validation.topological_sort(["c", "a", "b"], [])
+        self.assertEqual(result, ["c", "a", "b"])
+
+    def test_default_tie_break_is_insertion_order(self):
+        # b and c are both independent of a's chain; insertion order is c before b.
+        result = subgraph_validation.topological_sort(
+            ["a", "c", "b"], [("a", "c"), ("a", "b")]
+        )
+        self.assertEqual(result, ["a", "c", "b"])
+
+    def test_tie_breaker_alphabetical(self):
+        # Same graph, but identity tie-breaker orders ready nodes alphabetically.
+        result = subgraph_validation.topological_sort(
+            ["a", "c", "b"],
+            [("a", "c"), ("a", "b")],
+            tie_breaker=lambda label: label,
+        )
+        self.assertEqual(result, ["a", "b", "c"])
+
+    def test_linear_dependency_order(self):
+        result = subgraph_validation.topological_sort(
+            ["c", "b", "a"], [("a", "b"), ("b", "c")]
+        )
+        self.assertEqual(result, ["a", "b", "c"])
+
+    def test_cycle_raises_with_message(self):
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_validation.topological_sort(
+                ["a", "b"], [("a", "b"), ("b", "a")], cycle_message="boom"
+            )
+        self.assertEqual(str(ctx.exception), "boom")
+
+    def test_cycle_default_message(self):
+        with self.assertRaises(ValueError) as ctx:
+            subgraph_validation.topological_sort(["a"], [("a", "a")])
+        self.assertIn("cycle", str(ctx.exception).lower())
+
+
 if __name__ == "__main__":
     unittest.main()
