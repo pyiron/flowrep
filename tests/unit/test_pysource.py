@@ -17,6 +17,11 @@ def _pos_only_add(a, b, /):
 
 
 # A conditional workflow where the condition node has no underlying python reference
+# This also has conditional branches that are straight atomic nodes. This is perfectly
+# valid flowrep, but something you can only get by manual construction -- parsed
+# workflows currently wrap all bodies in a workflow node, whether the bodies are
+# multi-step or not.
+# Thus, we turn two assumptions on their head with this recipe
 workflow_condition_recipe = workflow_recipe.WorkflowRecipe(
     inputs=["n"],
     outputs=["m"],
