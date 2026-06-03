@@ -30,6 +30,52 @@ def _next_generated_filename(name: str) -> str:
     return f"<flowrep_generated_{name}_{_GENERATED_COUNTER}>"
 
 
+def recipe2python(
+    function_name: base_models.Label,
+    recipe: workflow_recipe.WorkflowRecipe,
+    signature: inspect.Signature | None = None,
+) -> RenderedSource:
+    if recipe.reference is not None:
+        raise ValueError(
+            f"This recipe already has an underlying Python reference: "
+            f"{recipe.reference}"
+        )
+    emitter = _Emitter()
+    target = _emit_workflow_function(recipe, function_name, emitter, signature)
+    # Per-node call imports are inlined into each function body by
+    # _emit_workflow_function. The module-level preamble provides the deferred-
+    # annotation flag (so return annotations are not evaluated at exec time) plus
+    # `typing` (for the Annotated return labels) and `flowrep` (for the @workflow
+    # decorator emitted on every function).
+    preamble = textwrap.dedent("""\
+        from __future__ import annotations
+
+        import typing
+
+        import flowrep
+        """)
+    nested = "\n".join(emitter.nested_defs)
+    func_src = target.render()
+    parts = [preamble]
+    if nested:
+        parts.append(nested)
+    parts.append(func_src)
+    source = "\n".join(parts) + "\n"
+    return RenderedSource(
+        source=source, namespace=emitter.namespace, function_name=function_name
+    )
+
+
+def dagdata2python(
+    function_name: base_models.Label,
+    dagdata: retrospective.DagData,
+) -> RenderedSource:
+    sig = _build_signature(dagdata.input_ports, dagdata.output_ports)
+    # Strip the reference so recipe2python accepts the recipe.
+    free_recipe = dagdata.recipe.model_copy(update={"reference": None})
+    return recipe2python(function_name, free_recipe, sig)
+
+
 @dataclasses.dataclass
 class RenderedSource:
     """Executable Python source plus the live namespace it must be exec'd against."""
@@ -825,52 +871,6 @@ def _render_params(
     if need_pos_only_marker and seen_positional_only and "/" not in params:
         params.append("/")
     return params
-
-
-def recipe2python(
-    function_name: base_models.Label,
-    recipe: workflow_recipe.WorkflowRecipe,
-    signature: inspect.Signature | None = None,
-) -> RenderedSource:
-    if recipe.reference is not None:
-        raise ValueError(
-            f"This recipe already has an underlying Python reference: "
-            f"{recipe.reference}"
-        )
-    emitter = _Emitter()
-    target = _emit_workflow_function(recipe, function_name, emitter, signature)
-    # Per-node call imports are inlined into each function body by
-    # _emit_workflow_function. The module-level preamble provides the deferred-
-    # annotation flag (so return annotations are not evaluated at exec time) plus
-    # `typing` (for the Annotated return labels) and `flowrep` (for the @workflow
-    # decorator emitted on every function).
-    preamble = textwrap.dedent("""\
-        from __future__ import annotations
-        
-        import typing
-        
-        import flowrep
-        """)
-    nested = "\n".join(emitter.nested_defs)
-    func_src = target.render()
-    parts = [preamble]
-    if nested:
-        parts.append(nested)
-    parts.append(func_src)
-    source = "\n".join(parts) + "\n"
-    return RenderedSource(
-        source=source, namespace=emitter.namespace, function_name=function_name
-    )
-
-
-def dagdata2python(
-    function_name: base_models.Label,
-    dagdata: retrospective.DagData,
-) -> RenderedSource:
-    sig = _build_signature(dagdata.input_ports, dagdata.output_ports)
-    # Strip the reference so recipe2python accepts the recipe.
-    free_recipe = dagdata.recipe.model_copy(update={"reference": None})
-    return recipe2python(function_name, free_recipe, sig)
 
 
 def _build_signature(
