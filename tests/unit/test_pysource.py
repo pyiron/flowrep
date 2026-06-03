@@ -1,8 +1,10 @@
+import dataclasses
 import inspect
 import typing
 import unittest
 
-from flowrep import pysource, retrospective
+from flowrep import edge_models, pysource, retrospective
+from flowrep.nodes import workflow_recipe
 from flowrep.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library, makers
@@ -172,7 +174,6 @@ class TestOutputsEdgeCases(unittest.TestCase):
         # Hand-build a recipe where two outputs share one source handle.
         free = makers.reference_free(self._single_two_named_outputs_source())
         # Force two output ports onto the same source handle.
-        from flowrep import edge_models
 
         single_src = next(iter(free.output_edges.values()))
         bad = free.model_copy(
@@ -455,8 +456,6 @@ class TestTypeAnnotations(unittest.TestCase):
 
 class TestGuardsAndEdgeCases(unittest.TestCase):
     def test_locals_qualname_raises(self):
-        import dataclasses
-
         free = makers.reference_free(_with_default)
         label = next(iter(free.nodes))
         node = free.nodes[label]
@@ -471,7 +470,6 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             pysource.recipe2python("rebuilt", recipe)
 
     def test_cycle_raises(self):
-        from flowrep import edge_models
 
         def chained(a, b):
             s = library.my_add(a, b)
@@ -574,7 +572,6 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
     def test_alias_conflict_raises(self):
         # Two outputs sourced from one handle but pinned to different names cannot
         # be emitted as assignments. Drive the guard directly via _emit_workflow_body.
-        from flowrep.nodes import workflow_recipe
 
         body = workflow_recipe.WorkflowRecipe.model_validate(
             {

@@ -10,7 +10,13 @@ import typing
 from typing import Annotated, Any, cast, get_args, get_origin
 
 from flowrep import base_models, edge_models, retrospective
-from flowrep.nodes import workflow_recipe
+from flowrep.nodes import (
+    for_recipe,
+    if_recipe,
+    try_recipe,
+    while_recipe,
+    workflow_recipe,
+)
 from flowrep.parsers import label_helpers
 
 # Counter used to make each generated source's linecache key unique.
@@ -173,7 +179,6 @@ def _flow_control_input_requirements(
     matching name. Referenced and nested-workflow nodes impose no requirement,
     since their calls pass arguments by keyword regardless of the symbol names.
     """
-    from flowrep.nodes import for_recipe, if_recipe, try_recipe, while_recipe
 
     flow_control_types = (
         for_recipe.ForEachRecipe,
@@ -418,13 +423,6 @@ def _emit_flow_control(
         name = required.get(port) or alloc.fresh(port)
         produced[(label, port)] = name
         out_syms[port] = name
-
-    from flowrep.nodes import (  # noqa: F401
-        for_recipe,
-        if_recipe,
-        try_recipe,
-        while_recipe,
-    )
 
     if isinstance(node, for_recipe.ForEachRecipe):
         return _emit_for_each(node, in_resolver, out_syms, emitter, alloc, imports)
