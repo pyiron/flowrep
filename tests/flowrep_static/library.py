@@ -97,3 +97,12 @@ def no_input_atomic():
 def no_input_workflow():
     a = no_input_atomic()
     return a
+
+
+class MyCustomException(ValueError): ...
+
+
+@atomic_parser.atomic
+def raises_custom(x, y):
+    raise MyCustomException("Custom exception")
+    return x + y
