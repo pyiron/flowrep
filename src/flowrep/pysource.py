@@ -161,14 +161,12 @@ def _has_reference(node: Any) -> bool:
 def _module_and_path(node: Any) -> tuple[str, str]:
     """Return (module_to_import, dotted_call_path) for a referenced node."""
     info = node.reference.info
-    module = info.module
-    qualname = info.qualname
-    if "<locals>" in qualname:
+    if "<locals>" in info.qualname:
         raise ValueError(
             f"Cannot emit a call to a function defined in a local scope: "
-            f"{module}.{qualname}"
+            f"{info.fully_qualified_name}"
         )
-    return module, f"{module}.{qualname}"
+    return info.module, info.fully_qualified_name
 
 
 def _render_call(call_path: str, node: Any, in_resolver) -> str:
