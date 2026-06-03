@@ -632,19 +632,17 @@ def _emit_if(
     return lines
 
 
-def _exception_name(version_info: Any, imports: set[str]) -> str:
+def _exception_name(info: Any, imports: set[str]) -> str:
     """Return the Python name to use for an exception type in an except clause.
 
     For builtins (module == 'builtins'), returns the bare qualname and adds no
     import.  For anything else, adds ``import {module}`` to the per-function
     imports set and returns ``{module}.{qualname}``.
     """
-    module = version_info.module
-    qualname = version_info.qualname
-    if module == "builtins":
-        return qualname
-    imports.add(f"import {module}")
-    return f"{module}.{qualname}"
+    if info.module == "builtins":
+        return info.qualname
+    imports.add(f"import {info.module}")
+    return info.fully_qualified_name
 
 
 def _emit_try(
