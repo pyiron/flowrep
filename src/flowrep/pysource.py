@@ -8,15 +8,18 @@ import sys
 import textwrap
 import types
 import typing
-from typing import Annotated, Any, cast, get_args, get_origin
+from typing import Annotated, Any, TypeAlias, cast, get_args, get_origin
 
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models, retrospective, subgraph_validation
 from flowrep.nodes import (
+    atomic_recipe,
     for_recipe,
+    helper_models,
     if_recipe,
     try_recipe,
+    union_types,
     while_recipe,
     workflow_recipe,
 )
@@ -32,6 +35,15 @@ _FLOW_CONTROL_TYPES = (
     try_recipe.TryRecipe,
     while_recipe.WhileRecipe,
 )
+
+_FlowControlRecipeAlias: TypeAlias = (
+    for_recipe.ForEachRecipe
+    | if_recipe.IfRecipe
+    | try_recipe.TryRecipe
+    | while_recipe.WhileRecipe
+)
+_BranchingRecipeAlias: TypeAlias = if_recipe.IfRecipe | try_recipe.TryRecipe
+_ConditionalRecipeAlias: TypeAlias = if_recipe.IfRecipe | while_recipe.WhileRecipe
 
 
 def _next_generated_filename(name: str) -> str:
@@ -177,7 +189,9 @@ def _module_and_path(info: versions.VersionInfo) -> tuple[str, str]:
     return info.module, info.fully_qualified_name
 
 
-def _render_call(call_path: str, node: Any, in_resolver) -> str:
+def _render_call(
+    call_path: str, node: union_types.RecipeDiscrimination, in_resolver
+) -> str:
     """Render a call expression. `in_resolver(port)` returns a symbol or None."""
     if reference := getattr(node, "reference", None):
         restricted = reference.restricted_input_kinds
@@ -197,7 +211,7 @@ def _render_call(call_path: str, node: Any, in_resolver) -> str:
 
 
 def _node_call_path(
-    node: Any,
+    node: union_types.RecipeDiscrimination,
     label: str,
     emitter: _Emitter,
     alloc: _NameAllocator,
@@ -207,16 +221,25 @@ def _node_call_path(
 
     Returns the dotted call path for a referenced node (adding its import) or the
     local function name for a reference-free ``WorkflowRecipe`` (emitting a nested
-    def). Returns ``None`` for any other node (e.g. flow control), which cannot be
-    expressed as a single call.
+    def). Returns ``None`` for flow controls, which cannot be expressed as a single
+    call.
     """
-    if reference := getattr(node, "reference", None):
-        module, call_path = _module_and_path(reference.info)
-        imports.add(f"import {module}")
-        return call_path
-    if isinstance(node, workflow_recipe.WorkflowRecipe):
+    if isinstance(node, atomic_recipe.AtomicRecipe):
+        return _set_call_path_from_info(node.reference.info, imports)
+    elif isinstance(node, workflow_recipe.WorkflowRecipe):
+        if reference := getattr(node, "reference", None):
+            return _set_call_path_from_info(reference.info, imports)
         return _emit_nested_workflow_node(node, label, emitter, alloc)
-    return None
+    elif isinstance(node, _FLOW_CONTROL_TYPES):
+        return None
+    else:  # pragma: no cover - all concrete flow control types are handled above
+        raise ValueError(f"Unexpected node type: {type(node).__name__}")
+
+
+def _set_call_path_from_info(info: versions.VersionInfo, imports: set[str]) -> str:
+    module, call_path = _module_and_path(info)
+    imports.add(f"import {module}")
+    return call_path
 
 
 def _topological_nodes(
@@ -332,7 +355,7 @@ def _resolve_output_type_refs(
 
 
 def _allocate_outputs(
-    node: Any,
+    node: union_types.RecipeDiscrimination,
     label: str,
     produced: dict[tuple[str, str], str],
     required_by_handle: dict[tuple[str, str], str],
@@ -426,11 +449,11 @@ def _emit_workflow_body(
             lines.append(
                 f"{', '.join(lhs_syms)} = {_render_call(call_path, node, in_resolver)}"
             )
-        else:
+        else:  # None branch indicates flow controller node
             in_resolver = _mk_resolver(label, recipe, resolve)
             lines.extend(
                 _emit_flow_control(
-                    node,
+                    cast(_FlowControlRecipeAlias, node),
                     label,
                     in_resolver,
                     produced,
@@ -450,7 +473,7 @@ def _emit_workflow_body(
 
 
 def _emit_flow_control(
-    node: Any,
+    node: _FlowControlRecipeAlias,
     label: str,
     in_resolver: Any,
     produced: dict[tuple[str, str], str],
@@ -491,7 +514,7 @@ def _emit_flow_control(
 
 
 def _emit_for_each(
-    node: Any,
+    node: for_recipe.ForEachRecipe,
     in_resolver: Any,
     out_syms: dict[str, str],
     emitter: _Emitter,
@@ -568,8 +591,8 @@ def _emit_for_each(
 
 
 def _render_condition(
-    case_condition: Any,
-    node: Any,
+    case_condition: helper_models.LabeledRecipe,
+    node: _ConditionalRecipeAlias,
     in_resolver: Any,
     imports: set[str],
     emitter: _Emitter,
@@ -597,7 +620,7 @@ def _render_condition(
 
 
 def _emit_body(
-    recipe: Any,
+    recipe: union_types.RecipeDiscrimination,
     label: str,
     in_syms: dict[str, str],
     required: dict[str, str],
@@ -622,7 +645,7 @@ def _emit_body(
 
 
 def _emit_flow_control_body(
-    node: Any,
+    node: _FlowControlRecipeAlias,
     label: str,
     in_syms: dict[str, str],
     required: dict[str, str],
@@ -650,7 +673,7 @@ def _emit_flow_control_body(
 
 
 def _emit_single_node_body(
-    node: Any,
+    node: atomic_recipe.AtomicRecipe,
     label: str,
     in_syms: dict[str, str],
     required: dict[str, str],
@@ -658,7 +681,7 @@ def _emit_single_node_body(
     alloc: _NameAllocator,
     imports: set[str],
 ) -> tuple[list[str], dict[str, str]]:
-    """Emit a single (atomic/referenced) node as one assignment line.
+    """Emit a single atomic node as one assignment line.
 
     Output ports are pinned to ``required`` symbols where given, else allocated
     fresh. Inputs absent from ``in_syms`` (unwired defaults) are omitted from the
@@ -675,19 +698,15 @@ def _emit_single_node_body(
         out_syms[port] = name
         lhs_syms.append(name)
 
-    call_path = _node_call_path(node, label, emitter, alloc, imports)
-    if call_path is None:  # pragma: no cover - flow control is never a direct body
-        raise NotImplementedError(
-            f"Cannot inline {type(node).__name__} as a single branch/body node."
-        )
+    call_path = _set_call_path_from_info(node.reference.info, imports)
     line = f"{', '.join(lhs_syms)} = {_render_call(call_path, node, in_resolver)}"
     return [line], out_syms
 
 
 def _emit_branch(
     branch_label: str,
-    branch_recipe: Any,
-    node: Any,
+    branch_recipe: union_types.RecipeDiscrimination,
+    node: _BranchingRecipeAlias,
     in_resolver: Any,
     out_syms: dict[str, str],
     emitter: _Emitter,
@@ -719,7 +738,7 @@ def _emit_branch(
 
 
 def _emit_if(
-    node: Any,
+    node: if_recipe.IfRecipe,
     in_resolver: Any,
     out_syms: dict[str, str],
     emitter: _Emitter,
@@ -780,7 +799,7 @@ def _exception_name(info: versions.VersionInfo, imports: set[str]) -> str:
 
 
 def _emit_try(
-    node: Any,
+    node: try_recipe.TryRecipe,
     in_resolver: Any,
     out_syms: dict[str, str],
     emitter: _Emitter,
@@ -824,7 +843,7 @@ def _emit_try(
 
 
 def _emit_while(
-    node: Any,
+    node: while_recipe.WhileRecipe,
     in_resolver: Any,
     out_syms: dict[str, str],
     emitter: _Emitter,
