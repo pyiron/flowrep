@@ -653,9 +653,7 @@ def _emit_body(
         return _emit_flow_control_body(
             recipe, label, in_syms, required, emitter, alloc, imports
         )
-    return _emit_single_node_body(
-        recipe, label, in_syms, required, emitter, alloc, imports
-    )
+    return _emit_single_node_body(recipe, in_syms, required, alloc, imports)
 
 
 def _emit_flow_control_body(
@@ -688,10 +686,8 @@ def _emit_flow_control_body(
 
 def _emit_single_node_body(
     node: atomic_recipe.AtomicRecipe,
-    label: str,
     in_syms: dict[str, str],
     required: dict[str, str],
-    emitter: _Emitter,
     alloc: _NameAllocator,
     imports: set[str],
 ) -> tuple[list[str], dict[str, str]]:
