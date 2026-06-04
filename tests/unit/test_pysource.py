@@ -573,6 +573,20 @@ class TestRenderedSourceAndGuard(unittest.TestCase):
         self.assertEqual(fn(), 99)
 
 
+class TestFunctionBuilderDecorator(unittest.TestCase):
+    def test_render_emits_output_labels_in_decorator(self):
+        fb = pysource.FunctionBuilder(
+            name="f", params=["a"], return_symbols=["a"], output_labels=["m", "n"]
+        )
+        self.assertIn('@flowrep.workflow("m", "n")', fb.render())
+
+    def test_render_bare_decorator_without_labels(self):
+        fb = pysource.FunctionBuilder(name="f", params=["a"], return_symbols=["a"])
+        src = fb.render()
+        self.assertIn("@flowrep.workflow\n", src)
+        self.assertNotIn("@flowrep.workflow(", src)
+
+
 class TestNameAllocator(unittest.TestCase):
     def test_fresh_returns_hint_then_suffixes(self):
         alloc = pysource._NameAllocator()
@@ -1028,7 +1042,7 @@ class TestDagData(unittest.TestCase):
         hints = typing.get_type_hints(fn, include_extras=True)
         self.assertIs(hints["a"], int)
         self.assertIs(hints["b"], float)
-        self.assertEqual(hints["return"], typing.Annotated[float, {"label": "r"}])
+        self.assertIs(hints["return"], float)
 
     def test_dagdata_multi_output_types_round_trip(self):
         free = makers.reference_free(_typed_multi)
@@ -1039,66 +1053,11 @@ class TestDagData(unittest.TestCase):
         self.assertEqual(fn(7.0, 3.0), _typed_multi(7.0, 3.0))
         self.assertEqual(
             typing.get_type_hints(fn, include_extras=True)["return"],
-            tuple[
-                typing.Annotated[int, {"label": "q"}],
-                typing.Annotated[float, {"label": "r"}],
-            ],
+            tuple[int, float],
         )
         self.assertEqual(
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
-
-
-class TestTypeAnnotations(unittest.TestCase):
-    def test_input_and_single_return_annotations_propagate(self):
-        def typed(a: int, b: float = 2.0) -> float:
-            r = library.my_add(a, b)
-            return r
-
-        free = makers.reference_free(typed)
-        fn = pysource.recipe2python("rebuilt", free, inspect.signature(typed)).build()
-        self.assertEqual(fn(3), typed(3))
-        hints = typing.get_type_hints(fn, include_extras=True)
-        self.assertIs(hints["a"], int)
-        self.assertIs(hints["b"], float)
-        self.assertEqual(hints["return"], typing.Annotated[float, {"label": "r"}])
-
-    def test_multi_output_return_annotations_propagate(self):
-        def typed2(a, b) -> tuple[int, float]:
-            q, r = library.divmod_func(a, b)
-            return q, r
-
-        free = makers.reference_free(typed2)
-        fn = pysource.recipe2python("rebuilt", free, inspect.signature(typed2)).build()
-        self.assertEqual(fn(7, 3), typed2(7, 3))
-        self.assertEqual(
-            typing.get_type_hints(fn, include_extras=True)["return"],
-            tuple[
-                typing.Annotated[int, {"label": "q"}],
-                typing.Annotated[float, {"label": "r"}],
-            ],
-        )
-
-    def test_unannotated_outputs_fall_back_to_any(self):
-        # No signature -> Any-typed return annotation, label still pinned.
-        def plain(a, b):
-            r = library.my_add(a, b)
-            return r
-
-        free = makers.reference_free(plain)
-        rendered = pysource.recipe2python("rebuilt", free)
-        self.assertIn('typing.Annotated[typing.Any, {"label": "r"}]', rendered.source)
-
-    def test_multi_output_without_matching_tuple_falls_back_to_any(self):
-        # A non-tuple return annotation for a 2-output workflow cannot be split,
-        # so both outputs fall back to typing.Any.
-        def typed_bad(a, b) -> int:
-            q, r = library.divmod_func(a, b)
-            return q, r
-
-        free = makers.reference_free(typed_bad)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed_bad))
-        self.assertEqual(rendered.source.count("typing.Any"), 2)
 
 
 class TestGuardsAndEdgeCases(unittest.TestCase):
@@ -1159,18 +1118,6 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
         rendered = pysource.recipe2python("rebuilt", free)
         self.assertRegex(rendered.source, r"_pos_only_add\(\w+, \w+\)")
         self.assertEqual(rendered.build()(2, 3), 5)
-
-    def test_annotated_return_type_is_unwrapped(self):
-        def f(a, b) -> typing.Annotated[float, "meta"]:
-            r = library.my_add(a, b)
-            return r
-
-        free = makers.reference_free(f)
-        fn = pysource.recipe2python("rebuilt", free, inspect.signature(f)).build()
-        self.assertEqual(
-            typing.get_type_hints(fn, include_extras=True)["return"],
-            typing.Annotated[float, {"label": "r"}],
-        )
 
     def test_for_each_transferred_input_output(self):
         # A zipped input forwarded straight to an output is collected per iteration.
@@ -1243,3 +1190,138 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
                 pysource._NameAllocator(),
                 set(),
             )
+
+
+class TestAnnotationReconstruction(unittest.TestCase):
+    def test_unannotated_outputs_stay_that_way(self):
+        # No signature -> Any-typed return annotation, label still pinned.
+        def plain(a, b):
+            r = library.my_add(a, b)
+            return r
+
+        free = makers.reference_free(plain)
+        rendered = pysource.recipe2python("rebuilt", free)
+        self.assertNotIn("typing.Any", rendered.source)
+        self.assertNotIn("->", rendered.source)
+        self.assertIn(
+            '@flowrep.workflow("r")',
+            rendered.source,
+            msg="The output port name is pinned by the decorator",
+        )
+        reconstructed_sig = inspect.signature(rendered.build())
+        self.assertIs(
+            reconstructed_sig.return_annotation,
+            inspect.Signature.empty,
+            msg="No signature -> no return annotation emitted",
+        )
+
+    def test_input_annotations_resolve_including_generics(self):
+        def typed(x: int, y: list[int], z: dict[str, int]):
+            r = library.my_add(x, y)
+            out = library.my_add(r, z)
+            return out
+
+        free = makers.reference_free(typed)
+        fn = pysource.recipe2python("rebuilt", free, inspect.signature(typed)).build()
+        sig = inspect.signature(fn)
+        self.assertIs(sig.parameters["x"].annotation, int)
+        self.assertEqual(sig.parameters["y"].annotation, list[int])
+        self.assertEqual(sig.parameters["z"].annotation, dict[str, int])
+
+    def test_annotated_input_preserved_verbatim(self):
+        def f(x: typing.Annotated[int, "meta"], y: float):
+            r = library.my_add(x, y)
+            return r
+
+        free = makers.reference_free(f)
+        fn = pysource.recipe2python("rebuilt", free, inspect.signature(f)).build()
+        hints = typing.get_type_hints(fn, include_extras=True)
+        self.assertEqual(hints["x"], typing.Annotated[int, "meta"])
+        self.assertIs(hints["y"], float)
+
+    def test_annotation_and_default_both_survive(self):
+        def f(x: int, y: float = 0.5):
+            r = library.my_add(x, y)
+            return r
+
+        free = makers.reference_free(f)
+        fn = pysource.recipe2python("rebuilt", free, inspect.signature(f)).build()
+        sig = inspect.signature(fn)
+        self.assertIs(sig.parameters["y"].annotation, float)
+        self.assertEqual(sig.parameters["y"].default, 0.5)
+
+    def test_single_return_annotation_is_verbatim(self):
+        def typed(a, b) -> float:
+            r = library.my_add(a, b)
+            return r
+
+        free = makers.reference_free(typed)
+        fn = pysource.recipe2python("rebuilt", free, inspect.signature(typed)).build()
+        self.assertIs(inspect.signature(fn).return_annotation, float)
+
+    def test_multi_return_annotation_is_verbatim(self):
+        def typed(a, b) -> tuple[int, float]:
+            q, r = library.divmod_func(a, b)
+            return q, r
+
+        free = makers.reference_free(typed)
+        fn = pysource.recipe2python("rebuilt", free, inspect.signature(typed)).build()
+        self.assertEqual(typing.get_type_hints(fn)["return"], tuple[int, float])
+
+    def test_mismatched_return_annotation_emitted_verbatim(self):
+        # A non-tuple return annotation for a 2-output workflow is emitted verbatim
+        # (no splitting, no typing.Any fallback); port names come from the decorator.
+        def typed_bad(a, b) -> int:
+            q, r = library.divmod_func(a, b)
+            return q, r
+
+        free = makers.reference_free(typed_bad)
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed_bad))
+        self.assertIn('@flowrep.workflow("q", "r")', rendered.source)
+        fn = rendered.build()
+        self.assertIs(typing.get_type_hints(fn)["return"], int)
+        rebuilt_recipe = workflow_parser.parse_workflow(fn)
+        with self.assertRaises(
+            ValueError,
+            msg="Recipes don't know about annotations, so we can get a recipe from "
+            "such a function, but it will fail to convert to a data object because of "
+            "the mismatch between ports and the return annotation",
+        ):
+            retrospective.DagData.from_recipe(rebuilt_recipe)
+
+    def test_output_port_name_pinned_via_decorator(self):
+        # Return symbol is "s" (my_add's output) but the port is renamed; the
+        # decorator must pin the port name regardless of the return symbol.
+        def one(a, b):
+            s = library.my_add(a, b)
+            return s
+
+        free = makers.reference_free(one)
+        src = next(iter(free.output_edges.values()))
+        renamed = free.model_copy(
+            update={
+                "outputs": ["renamed"],
+                "output_edges": {
+                    edge_models.OutputTarget(port="renamed"): src,
+                },
+            }
+        )
+        rendered = pysource.recipe2python("rebuilt", renamed)
+        self.assertIn('@flowrep.workflow("renamed")', rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn.flowrep_recipe.outputs, ["renamed"])
+
+    def test_input_and_return_annotations_do_not_interfere(self):
+        def f(
+            x: typing.Annotated[int, "in-meta"], y: float
+        ) -> typing.Annotated[float, "out-meta"]:
+            r = library.my_add(x, y)
+            return r
+
+        free = makers.reference_free(f)
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        self.assertIn('@flowrep.workflow("r")', rendered.source)
+        fn = rendered.build()
+        hints = typing.get_type_hints(fn, include_extras=True)
+        self.assertEqual(hints["x"], typing.Annotated[int, "in-meta"])
+        self.assertEqual(hints["return"], typing.Annotated[float, "out-meta"])

@@ -9,7 +9,7 @@ import textwrap
 import types
 import typing
 from collections.abc import Callable
-from typing import Annotated, Any, TypeAlias, cast, get_args, get_origin
+from typing import Any, TypeAlias, cast
 
 from pyiron_snippets import versions
 
@@ -77,7 +77,7 @@ def recipe2python(
     # Per-node call imports are inlined into each function body by
     # _emit_workflow_function. The module-level preamble provides the deferred-
     # annotation flag (so return annotations are not evaluated at exec time) plus
-    # `typing` (for the Annotated return labels) and `flowrep` (for the @workflow
+    # `typing` (available for user annotations) and `flowrep` (for the @workflow
     # decorator emitted on every function).
     preamble = textwrap.dedent("""\
         from __future__ import annotations
@@ -133,7 +133,13 @@ class RenderedSource:
         sys.modules[mod_name] = module
         code = compile(self.source, fname, "exec")
         exec(code, module.__dict__)  # noqa: S102 - controlled codegen, not user input
-        return module.__dict__[self.function_name]
+        fn = module.__dict__[self.function_name]
+        # The source uses `from __future__ import annotations`, so __annotations__
+        # holds PEP-563 strings (e.g. '_ann_x'). Resolve them against the module
+        # globals so inspect.signature reports the real type objects. The decorator
+        # has already run and re-parsing reads source text, so this is safe.
+        fn.__annotations__ = typing.get_type_hints(fn, include_extras=True)
+        return fn
 
 
 class _NameAllocator:
@@ -168,12 +174,20 @@ class FunctionBuilder:
     body_lines: list[str] = dataclasses.field(default_factory=list)
     return_annotation: str | None = None
     return_symbols: list[str] = dataclasses.field(default_factory=list)
+    output_labels: list[str] = dataclasses.field(default_factory=list)
 
     def render(self) -> str:
         sig = ", ".join(self.params)
         # Every generated function is decorated so that exec'ing the source attaches
         # a `.flowrep_recipe`; this also validates the body parses as a workflow.
-        header = "@flowrep.workflow\n"
+        # Output port names are pinned via decorator args; the parser resolves
+        # `output_labels` ahead of annotation labels and returned-symbol names, so
+        # this round-trips port names without polluting the return annotation.
+        if self.output_labels:
+            label_args = ", ".join(f'"{label}"' for label in self.output_labels)
+            header = f"@flowrep.workflow({label_args})\n"
+        else:
+            header = "@flowrep.workflow\n"
         header += f"def {self.name}({sig})"
         if self.return_annotation is not None:
             header += f" -> {self.return_annotation}"
@@ -288,81 +302,6 @@ def _flow_control_input_requirements(
             if isinstance(source, edge_models.SourceHandle):
                 requirements[(source.node, source.port)] = port
     return requirements
-
-
-def _output_label_annotation(labels: list[str], type_refs: list[str]) -> str:
-    """Build a return annotation that pins output port names via Annotated labels.
-
-    Each output gets ``typing.Annotated[<type_ref>, {"label": <label>}]`` where
-    ``type_ref`` is either ``"typing.Any"`` or the name of a namespace-bound type
-    object (see :func:`_resolve_output_type_refs`).
-    """
-
-    def one(label: str, type_ref: str) -> str:
-        return f'typing.Annotated[{type_ref}, {{"label": "{label}"}}]'
-
-    if len(labels) == 1:
-        return one(labels[0], type_refs[0])
-    inner = ", ".join(
-        one(label, ref) for label, ref in zip(labels, type_refs, strict=True)
-    )
-    return f"tuple[{inner}]"
-
-
-def _strip_annotated(annotation: Any) -> Any:
-    """Unwrap one layer of ``typing.Annotated`` to recover the underlying type."""
-    if get_origin(annotation) is Annotated:
-        return get_args(annotation)[0]
-    return annotation
-
-
-def _split_return_annotation(return_annotation: Any, n_outputs: int) -> list[Any]:
-    """Split a function-level return annotation into one entry per output port.
-
-    Returns a list of length ``n_outputs``; an entry is ``None`` when no usable
-    type is available for that port. A single-output workflow uses the whole
-    (Annotated-stripped) annotation; a multi-output workflow requires a matching
-    ``tuple[...]`` annotation, otherwise every entry is ``None``.
-    """
-    empty = inspect.Signature.empty
-    if return_annotation is empty or return_annotation is None:
-        return [None] * n_outputs
-    core = _strip_annotated(return_annotation)
-    if n_outputs == 1:
-        return [_strip_annotated(core)]
-    if get_origin(core) is tuple:
-        args = get_args(core)
-        if len(args) == n_outputs:
-            return [_strip_annotated(arg) for arg in args]
-    return [None] * n_outputs
-
-
-def _resolve_output_type_refs(
-    signature: inspect.Signature | None,
-    outputs: list[str],
-    emitter: _Emitter,
-) -> list[str]:
-    """Return a source-level type reference for each output port.
-
-    Real types are bound into ``emitter.namespace`` as ``_ann_ret_<port>`` and
-    referenced by name (arbitrary type objects do not round-trip through repr).
-    Ports without a usable type fall back to ``"typing.Any"``.
-    """
-    return_annotation = (
-        signature.return_annotation
-        if signature is not None
-        else inspect.Signature.empty
-    )
-    raw = _split_return_annotation(return_annotation, len(outputs))
-    refs: list[str] = []
-    for port, annotation in zip(outputs, raw, strict=True):
-        if annotation is None or annotation is Any:
-            refs.append("typing.Any")
-        else:
-            name = f"_ann_ret_{port}"
-            emitter.namespace[name] = annotation
-            refs.append(name)
-    return refs
 
 
 def _allocate_outputs(
@@ -901,10 +840,17 @@ def _emit_workflow_function(
     lines, out_syms = _emit_workflow_body(
         recipe, in_syms, {}, emitter, alloc, fn_imports
     )
+    # Output port names are pinned via the decorator (see FunctionBuilder.render),
+    # so the return annotation is free to carry the user's verbatim type. Bind the
+    # whole annotation as a live object (arbitrary types do not round-trip through
+    # repr) and reference it by name; emit nothing when there is no real annotation.
     return_annotation = None
-    if recipe.outputs:
-        type_refs = _resolve_output_type_refs(signature, list(recipe.outputs), emitter)
-        return_annotation = _output_label_annotation(list(recipe.outputs), type_refs)
+    if (
+        signature is not None
+        and signature.return_annotation is not inspect.Signature.empty
+    ):
+        emitter.namespace["_ann_return"] = signature.return_annotation
+        return_annotation = "_ann_return"
     # Prepend sorted imports at the top of the function body. A docstring (the
     # recipe description) must come first of all so the parser's skip_docstring
     # recognises it and `description` round-trips.
@@ -917,6 +863,7 @@ def _emit_workflow_function(
         body_lines=body_lines,
         return_annotation=return_annotation,
         return_symbols=[out_syms[p] for p in recipe.outputs],
+        output_labels=list(recipe.outputs),
     )
     return builder
 
@@ -1050,8 +997,7 @@ def _build_return_annotation(outputs: retrospective.OutputDataPorts) -> Any:
     """Encode per-output-port types as a single function-level return annotation.
 
     A single port yields its own annotation; multiple ports yield a
-    ``tuple[...]`` so :func:`_split_return_annotation` can recover them. Returns
-    ``inspect.Signature.empty`` when no port carries a type.
+    ``tuple[...]``. Returns ``inspect.Signature.empty`` when no port carries a type.
     """
     annotations = [port.annotation for port in outputs.values()]
     if all(annotation is None for annotation in annotations):
