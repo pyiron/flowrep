@@ -8,6 +8,7 @@ import sys
 import textwrap
 import types
 import typing
+from collections.abc import Callable
 from typing import Annotated, Any, TypeAlias, cast, get_args, get_origin
 
 from pyiron_snippets import versions
@@ -44,6 +45,15 @@ _FlowControlRecipeAlias: TypeAlias = (
 )
 _BranchingRecipeAlias: TypeAlias = if_recipe.IfRecipe | try_recipe.TryRecipe
 _ConditionalRecipeAlias: TypeAlias = if_recipe.IfRecipe | while_recipe.WhileRecipe
+
+_InResolverType: TypeAlias = Callable[[str], str]
+_PortTypeAlias: TypeAlias = (
+    edge_models.SourceHandle
+    | edge_models.TargetHandle
+    | edge_models.InputSource
+    | edge_models.OutputTarget
+)
+_ResolverType: TypeAlias = Callable[[_PortTypeAlias], str]
 
 
 def _next_generated_filename(name: str) -> str:
@@ -190,7 +200,7 @@ def _module_and_path(info: versions.VersionInfo) -> tuple[str, str]:
 
 
 def _render_call(
-    call_path: str, node: union_types.RecipeDiscrimination, in_resolver
+    call_path: str, node: union_types.RecipeDiscrimination, in_resolver: _InResolverType
 ) -> str:
     """Render a call expression. `in_resolver(port)` returns a symbol or None."""
     if reference := getattr(node, "reference", None):
@@ -200,8 +210,9 @@ def _render_call(
     positional: list[str] = []
     keyword: list[str] = []
     for port in node.inputs:
-        sym = in_resolver(port)
-        if sym is None:  # unsourced defaulted input -> rely on the default
+        try:
+            sym = in_resolver(port)
+        except KeyError:  # unsourced defaulted input -> rely on the default
             continue
         if restricted.get(port) == base_models.RestrictedParamKind.POSITIONAL_ONLY:
             positional.append(sym)
@@ -374,17 +385,22 @@ def _allocate_outputs(
 def _mk_resolver(
     label: str,
     recipe: workflow_recipe.WorkflowRecipe,
-    resolve: Any,
-):
-    """Build an in_resolver closure for a given node label in the recipe."""
+    resolve: _ResolverType,
+) -> _InResolverType:
+    """
+    Build an in_resolver closure for a given node label in the recipe.
 
-    def in_resolver(port: str) -> str | None:
+    Raises:
+        KeyError: if the node is not a target of input or peer edges.
+    """
+
+    def in_resolver(port: str) -> str:
         target = edge_models.TargetHandle(node=label, port=port)
         if target in recipe.input_edges:
             return resolve(recipe.input_edges[target])
         if target in recipe.edges:
             return resolve(recipe.edges[target])
-        return None  # unsourced defaulted input
+        raise KeyError(f"No input or peer edge for {target.serialize()}")
 
     return in_resolver
 
@@ -475,7 +491,7 @@ def _emit_workflow_body(
 def _emit_flow_control(
     node: _FlowControlRecipeAlias,
     label: str,
-    in_resolver: Any,
+    in_resolver: _InResolverType,
     produced: dict[tuple[str, str], str],
     required_by_handle: dict[tuple[str, str], str],
     emitter: _Emitter,
@@ -515,7 +531,7 @@ def _emit_flow_control(
 
 def _emit_for_each(
     node: for_recipe.ForEachRecipe,
-    in_resolver: Any,
+    in_resolver: _InResolverType,
     out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
@@ -593,7 +609,7 @@ def _emit_for_each(
 def _render_condition(
     case_condition: helper_models.LabeledRecipe,
     node: _ConditionalRecipeAlias,
-    in_resolver: Any,
+    in_resolver: _InResolverType,
     imports: set[str],
     emitter: _Emitter,
     alloc: _NameAllocator,
@@ -610,11 +626,9 @@ def _render_condition(
             f"cannot be emitted as the condition of an if/while."
         )
 
-    def cond_resolver(port: str) -> str | None:
+    def cond_resolver(port: str) -> str:
         target = edge_models.TargetHandle(node=cond_label, port=port)
-        if target in node.input_edges:
-            return in_resolver(node.input_edges[target].port)
-        return None
+        return in_resolver(node.input_edges[target].port)
 
     return _render_call(call_path, cond_node, cond_resolver)
 
@@ -660,8 +674,8 @@ def _emit_flow_control_body(
     then maps the produced output symbols back to ``out_syms`` for the caller.
     """
 
-    def in_resolver(port: str) -> str | None:
-        return in_syms.get(port)
+    def in_resolver(port: str) -> str:
+        return in_syms[port]
 
     produced: dict[tuple[str, str], str] = {}
     required_by_handle = {(label, port): sym for port, sym in required.items()}
@@ -688,8 +702,8 @@ def _emit_single_node_body(
     call, exactly as ``_render_call`` already does for ``None`` resolutions.
     """
 
-    def in_resolver(port: str) -> str | None:
-        return in_syms.get(port)
+    def in_resolver(port: str) -> str:
+        return in_syms[port]
 
     out_syms: dict[str, str] = {}
     lhs_syms: list[str] = []
@@ -707,7 +721,7 @@ def _emit_branch(
     branch_label: str,
     branch_recipe: union_types.RecipeDiscrimination,
     node: _BranchingRecipeAlias,
-    in_resolver: Any,
+    in_resolver: _InResolverType,
     out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
@@ -739,7 +753,7 @@ def _emit_branch(
 
 def _emit_if(
     node: if_recipe.IfRecipe,
-    in_resolver: Any,
+    in_resolver: _InResolverType,
     out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
@@ -800,7 +814,7 @@ def _exception_name(info: versions.VersionInfo, imports: set[str]) -> str:
 
 def _emit_try(
     node: try_recipe.TryRecipe,
-    in_resolver: Any,
+    in_resolver: _InResolverType,
     out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
@@ -844,7 +858,7 @@ def _emit_try(
 
 def _emit_while(
     node: while_recipe.WhileRecipe,
-    in_resolver: Any,
+    in_resolver: _InResolverType,
     out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
