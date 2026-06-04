@@ -256,6 +256,289 @@ workflow_for_each_recipe = workflow_recipe.WorkflowRecipe(
 )
 
 
+# A for-each over `increment` (body port `x`). Used as a flow-control node where a
+# single-callable is required, to prove reverse-render refuses it cleanly.
+def _for_each_increment(label_body: str):
+    from flowrep.nodes import for_recipe  # local import keeps this near its use
+
+    return for_recipe.ForEachRecipe(
+        inputs=["xs"],
+        outputs=["ys"],
+        body_node=helper_models.LabeledRecipe(
+            label=label_body, node=library.increment.flowrep_recipe
+        ),
+        input_edges={
+            edge_models.TargetHandle(
+                node=label_body, port="x"
+            ): edge_models.InputSource(port="xs"),
+        },
+        output_edges={
+            edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
+                node=label_body, port="output_0"
+            )
+        },
+        nested_ports=["x"],
+    )
+
+
+# An if-node whose CONDITION is a flow-control (for-each) recipe. Hand-built only;
+# the parser never produces a flow-control condition.
+if_flow_control_condition_recipe = workflow_recipe.WorkflowRecipe(
+    inputs=["xs"],
+    outputs=["ys"],
+    nodes={
+        "if_c": if_recipe.IfRecipe(
+            inputs=["xs"],
+            outputs=["ys"],
+            cases=[
+                helper_models.ConditionalCase(
+                    condition=helper_models.LabeledRecipe(
+                        label="flowcond", node=_for_each_increment("c_body")
+                    ),
+                    condition_output="ys",
+                    body=helper_models.LabeledRecipe(
+                        label="cbranch", node=_for_each_increment("inc_body")
+                    ),
+                )
+            ],
+            else_case=helper_models.LabeledRecipe(
+                label="cebranch", node=_for_each_increment("dec_body")
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="flowcond", port="xs"
+                ): edge_models.InputSource(port="xs"),
+                edge_models.TargetHandle(
+                    node="cbranch", port="xs"
+                ): edge_models.InputSource(port="xs"),
+                edge_models.TargetHandle(
+                    node="cebranch", port="xs"
+                ): edge_models.InputSource(port="xs"),
+            },
+            prospective_output_edges={
+                edge_models.OutputTarget(port="ys"): [
+                    edge_models.SourceHandle(node="cbranch", port="ys"),
+                    edge_models.SourceHandle(node="cebranch", port="ys"),
+                ]
+            },
+        )
+    },
+    input_edges={
+        edge_models.TargetHandle(node="if_c", port="xs"): edge_models.InputSource(
+            port="xs"
+        ),
+    },
+    edges={},
+    output_edges={
+        edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
+            node="if_c", port="ys"
+        ),
+    },
+)
+
+
+# A while-node whose CONDITION is a flow-control (for-each) recipe.
+while_flow_control_condition_recipe = workflow_recipe.WorkflowRecipe(
+    inputs=["xs"],
+    outputs=["xs"],
+    nodes={
+        "while_0": while_recipe.WhileRecipe(
+            inputs=["xs"],
+            outputs=["xs"],
+            case=helper_models.ConditionalCase(
+                condition=helper_models.LabeledRecipe(
+                    label="wcond", node=_for_each_increment("wc_body")
+                ),
+                condition_output="ys",
+                body=helper_models.LabeledRecipe(
+                    label="wbody", node=_for_each_increment("wb_body")
+                ),
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="wcond", port="xs"
+                ): edge_models.InputSource(port="xs"),
+                edge_models.TargetHandle(
+                    node="wbody", port="xs"
+                ): edge_models.InputSource(port="xs"),
+            },
+            output_edges={
+                edge_models.OutputTarget(port="xs"): edge_models.SourceHandle(
+                    node="wbody", port="ys"
+                )
+            },
+        )
+    },
+    input_edges={
+        edge_models.TargetHandle(node="while_0", port="xs"): edge_models.InputSource(
+            port="xs"
+        )
+    },
+    edges={},
+    output_edges={
+        edge_models.OutputTarget(port="xs"): edge_models.SourceHandle(
+            node="while_0", port="xs"
+        )
+    },
+)
+
+
+# An if-node whose if-branch AND else-branch are each a for-each (flow control sitting
+# directly as a branch body). Condition is the atomic is_positive(n).
+def _for_each(label_body: str, node):
+    from flowrep.nodes import for_recipe
+
+    return for_recipe.ForEachRecipe(
+        inputs=["xs"],
+        outputs=["ys"],
+        body_node=helper_models.LabeledRecipe(label=label_body, node=node),
+        input_edges={
+            edge_models.TargetHandle(
+                node=label_body, port="x"
+            ): edge_models.InputSource(port="xs"),
+        },
+        output_edges={
+            edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
+                node=label_body, port="output_0"
+            )
+        },
+        nested_ports=["x"],
+    )
+
+
+if_branch_is_for_each_recipe = workflow_recipe.WorkflowRecipe(
+    inputs=["xs", "n"],
+    outputs=["ys"],
+    nodes={
+        "if_0": if_recipe.IfRecipe(
+            inputs=["xs", "n"],
+            outputs=["ys"],
+            cases=[
+                helper_models.ConditionalCase(
+                    condition=helper_models.LabeledRecipe(
+                        label="cond", node=library.is_positive.flowrep_recipe
+                    ),
+                    body=helper_models.LabeledRecipe(
+                        label="if_branch",
+                        node=_for_each("inc_body", library.increment.flowrep_recipe),
+                    ),
+                )
+            ],
+            else_case=helper_models.LabeledRecipe(
+                label="else_branch",
+                node=_for_each("dec_body", library.decrement.flowrep_recipe),
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="cond", port="n"
+                ): edge_models.InputSource(port="n"),
+                edge_models.TargetHandle(
+                    node="if_branch", port="xs"
+                ): edge_models.InputSource(port="xs"),
+                edge_models.TargetHandle(
+                    node="else_branch", port="xs"
+                ): edge_models.InputSource(port="xs"),
+            },
+            prospective_output_edges={
+                edge_models.OutputTarget(port="ys"): [
+                    edge_models.SourceHandle(node="if_branch", port="ys"),
+                    edge_models.SourceHandle(node="else_branch", port="ys"),
+                ]
+            },
+        )
+    },
+    input_edges={
+        edge_models.TargetHandle(node="if_0", port="xs"): edge_models.InputSource(
+            port="xs"
+        ),
+        edge_models.TargetHandle(node="if_0", port="n"): edge_models.InputSource(
+            port="n"
+        ),
+    },
+    edges={},
+    output_edges={
+        edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
+            node="if_0", port="ys"
+        )
+    },
+)
+
+
+# A for-each whose body is itself an if-node (flow control sitting directly as the
+# loop body). The inner if maps increment/decrement by sign of each element.
+_inner_if_recipe = if_recipe.IfRecipe(
+    inputs=["x"],
+    outputs=["m"],
+    cases=[
+        helper_models.ConditionalCase(
+            condition=helper_models.LabeledRecipe(
+                label="icond", node=library.is_positive.flowrep_recipe
+            ),
+            body=helper_models.LabeledRecipe(
+                label="ibranch", node=library.increment.flowrep_recipe
+            ),
+        )
+    ],
+    else_case=helper_models.LabeledRecipe(
+        label="ebranch", node=library.decrement.flowrep_recipe
+    ),
+    input_edges={
+        edge_models.TargetHandle(node="icond", port="n"): edge_models.InputSource(
+            port="x"
+        ),
+        edge_models.TargetHandle(node="ibranch", port="x"): edge_models.InputSource(
+            port="x"
+        ),
+        edge_models.TargetHandle(node="ebranch", port="x"): edge_models.InputSource(
+            port="x"
+        ),
+    },
+    prospective_output_edges={
+        edge_models.OutputTarget(port="m"): [
+            edge_models.SourceHandle(node="ibranch", port="output_0"),
+            edge_models.SourceHandle(node="ebranch", port="output_0"),
+        ]
+    },
+)
+
+
+for_body_is_if_recipe = workflow_recipe.WorkflowRecipe(
+    inputs=["xs"],
+    outputs=["ys"],
+    nodes={
+        "for_0": for_recipe.ForEachRecipe(
+            inputs=["xs"],
+            outputs=["ys"],
+            body_node=helper_models.LabeledRecipe(
+                label="inner_if", node=_inner_if_recipe
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="inner_if", port="x"
+                ): edge_models.InputSource(port="xs"),
+            },
+            output_edges={
+                edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
+                    node="inner_if", port="m"
+                )
+            },
+            nested_ports=["x"],
+        )
+    },
+    input_edges={
+        edge_models.TargetHandle(node="for_0", port="xs"): edge_models.InputSource(
+            port="xs"
+        )
+    },
+    edges={},
+    output_edges={
+        edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
+            node="for_0", port="ys"
+        )
+    },
+)
+
+
 class TestRenderedSourceAndGuard(unittest.TestCase):
     def test_rejects_recipe_with_reference(self):
         recipe = library.simple_workflow.flowrep_recipe  # has a reference
@@ -576,6 +859,75 @@ class TestWhile(unittest.TestCase):
             fn(3),
             wfms.run_recipe(workflow_while_recipe, i=3).output_ports["i"].value,
             msg="Emitted Python must match the recipe's runtime result",
+        )
+
+
+class TestFlowControlConditionNode(unittest.TestCase):
+    def test_if_condition_flow_control_raises(self):
+        with self.assertRaises(NotImplementedError) as ctx:
+            pysource.recipe2python("built", if_flow_control_condition_recipe)
+        self.assertIn("flowcond", str(ctx.exception))
+        self.assertIn("single callable", str(ctx.exception))
+
+    def test_while_condition_flow_control_raises(self):
+        with self.assertRaises(NotImplementedError) as ctx:
+            pysource.recipe2python("built", while_flow_control_condition_recipe)
+        self.assertIn("wcond", str(ctx.exception))
+
+
+class TestFlowControlAsBranchBody(unittest.TestCase):
+    """A flow-control recipe sitting directly as a branch/loop body is inlined.
+
+    We do NOT assert structural round-trip equality: the parser re-wraps each branch
+    body in a workflow node, so recipe->python->recipe is not structurally identical.
+    Instead, we assert the original recipe, the reverse-rendered function, and the
+    round-trip recipe all evaluate the same (per the spec).
+    """
+
+    def _assert_three_way(self, recipe, args, kwargs):
+        original = (
+            wfms.run_recipe(recipe, **kwargs)
+            .output_ports[next(iter(recipe.outputs))]
+            .value
+        )
+        fn = pysource.recipe2python("built", recipe).build()
+        self.assertEqual(
+            fn(*args), original, msg="rendered function vs original recipe"
+        )
+        rt = fn.flowrep_recipe
+        rt_val = (
+            wfms.run_recipe(rt, **kwargs).output_ports[next(iter(rt.outputs))].value
+        )
+        self.assertEqual(rt_val, original, msg="round-trip recipe vs original recipe")
+        return original
+
+    def test_if_branch_is_for_each(self):
+        self.assertEqual(
+            self._assert_three_way(
+                if_branch_is_for_each_recipe,
+                args=([1, 2, 3], 1),
+                kwargs=dict(xs=[1, 2, 3], n=1),
+            ),
+            [2, 3, 4],
+            msg="positive n takes the increment for-each branch",
+        )
+        self.assertEqual(
+            self._assert_three_way(
+                if_branch_is_for_each_recipe,
+                args=([1, 2, 3], -1),
+                kwargs=dict(xs=[1, 2, 3], n=-1),
+            ),
+            [0, 1, 2],
+            msg="non-positive n takes the decrement for-each branch",
+        )
+
+    def test_for_body_is_if(self):
+        self.assertEqual(
+            self._assert_three_way(
+                for_body_is_if_recipe, args=([-2, 3],), kwargs=dict(xs=[-2, 3])
+            ),
+            [-3, 4],
+            msg="per-element if: decrement negatives, increment positives",
         )
 
 

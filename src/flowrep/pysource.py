@@ -25,6 +25,14 @@ from flowrep.parsers import label_helpers
 # Counter used to make each generated source's linecache key unique.
 _GENERATED_COUNTER = 0
 
+# Recipe types that emit as a flow-control statement rather than a single call.
+_FLOW_CONTROL_TYPES = (
+    for_recipe.ForEachRecipe,
+    if_recipe.IfRecipe,
+    try_recipe.TryRecipe,
+    while_recipe.WhileRecipe,
+)
+
 
 def _next_generated_filename(name: str) -> str:
     global _GENERATED_COUNTER
@@ -236,15 +244,9 @@ def _flow_control_input_requirements(
     since their calls pass arguments by keyword regardless of the symbol names.
     """
 
-    flow_control_types = (
-        for_recipe.ForEachRecipe,
-        if_recipe.IfRecipe,
-        try_recipe.TryRecipe,
-        while_recipe.WhileRecipe,
-    )
     requirements: dict[tuple[str, str], str] = {}
     for label, node in recipe.nodes.items():
-        if not isinstance(node, flow_control_types):
+        if not isinstance(node, _FLOW_CONTROL_TYPES):
             continue
         for port in node.inputs:
             target = edge_models.TargetHandle(node=label, port=port)
@@ -578,7 +580,12 @@ def _render_condition(
     cond_label = case_condition.label
     call_path = _node_call_path(cond_node, cond_label, emitter, alloc, imports)
     if call_path is None:
-        raise NotImplementedError()
+        raise NotImplementedError(
+            f"Condition node '{cond_label}' is a {type(cond_node).__name__}, but "
+            f"reverse-rendering requires a condition to be a single callable. A "
+            f"flow-control recipe has no Python condition-expression form, so it "
+            f"cannot be emitted as the condition of an if/while."
+        )
 
     def cond_resolver(port: str) -> str | None:
         target = edge_models.TargetHandle(node=cond_label, port=port)
@@ -605,9 +612,41 @@ def _emit_body(
     """
     if isinstance(recipe, workflow_recipe.WorkflowRecipe):
         return _emit_workflow_body(recipe, in_syms, required, emitter, alloc, imports)
+    if isinstance(recipe, _FLOW_CONTROL_TYPES):
+        return _emit_flow_control_body(
+            recipe, label, in_syms, required, emitter, alloc, imports
+        )
     return _emit_single_node_body(
         recipe, label, in_syms, required, emitter, alloc, imports
     )
+
+
+def _emit_flow_control_body(
+    node: Any,
+    label: str,
+    in_syms: dict[str, str],
+    required: dict[str, str],
+    emitter: _Emitter,
+    alloc: _NameAllocator,
+    imports: set[str],
+) -> tuple[list[str], dict[str, str]]:
+    """Inline a flow-control recipe that sits directly as a branch/loop body.
+
+    Bridges ``_emit_body``'s ``(in_syms, required)`` view to the
+    ``(in_resolver, produced, required_by_handle)`` view of :func:`_emit_flow_control`,
+    then maps the produced output symbols back to ``out_syms`` for the caller.
+    """
+
+    def in_resolver(port: str) -> str | None:
+        return in_syms.get(port)
+
+    produced: dict[tuple[str, str], str] = {}
+    required_by_handle = {(label, port): sym for port, sym in required.items()}
+    lines = _emit_flow_control(
+        node, label, in_resolver, produced, required_by_handle, emitter, alloc, imports
+    )
+    out_syms = {port: produced[(label, port)] for port in node.outputs}
+    return lines, out_syms
 
 
 def _emit_single_node_body(
