@@ -191,7 +191,7 @@ class FunctionBuilder:
 
 def _module_and_path(info: versions.VersionInfo) -> tuple[str, str]:
     """Return (module_to_import, dotted_call_path) for a referenced node."""
-    if "<locals>" in info.qualname:
+    if info.is_local:
         raise ValueError(
             f"Cannot emit a call to a function defined in a local scope: "
             f"{info.fully_qualified_name}"
@@ -801,15 +801,9 @@ def _exception_name(info: versions.VersionInfo, imports: set[str]) -> str:
     import.  For anything else, adds ``import {module}`` to the per-function
     imports set and returns ``{module}.{qualname}``.
     """
-    if info.module == "builtins":
-        if not info.qualname:  # pragma: no cover - guard against internal misuse only
-            raise ValueError(
-                "Should only be looking at exception type info here, and this "
-                "should only be internally-accessible. What have you done?"
-            )
-        return info.qualname
-    imports.add(f"import {info.module}")
-    return info.fully_qualified_name
+    if info.module != "builtins":
+        imports.add(f"import {info.module}")
+    return info.findable_at
 
 
 def _emit_try(
