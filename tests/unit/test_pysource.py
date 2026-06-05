@@ -6,7 +6,7 @@ import unittest
 from pyiron_snippets import versions
 
 from flowrep import edge_models, retrospective, wfms
-from flowrep.compiler import pysource
+from flowrep.compiler import render
 from flowrep.nodes import (
     for_recipe,
     helper_models,
@@ -544,10 +544,10 @@ class TestRenderedSourceAndGuard(unittest.TestCase):
     def test_rejects_recipe_with_reference(self):
         recipe = library.simple_workflow.flowrep_recipe  # has a reference
         with self.assertRaises(ValueError):
-            pysource.recipe2python("rebuilt", recipe)
+            render.recipe2python("rebuilt", recipe)
 
     def test_rendered_source_builds_callable(self):
-        rs = pysource.RenderedSource(
+        rs = render.RenderedSource(
             source="def rebuilt(a):\n    return a\n",
             namespace={},
             function_name="rebuilt",
@@ -556,7 +556,7 @@ class TestRenderedSourceAndGuard(unittest.TestCase):
         self.assertEqual(fn(7), 7)
 
     def test_rendered_source_uses_namespace(self):
-        rs = pysource.RenderedSource(
+        rs = render.RenderedSource(
             source="def rebuilt(a=_default_a):\n    return a\n",
             namespace={"_default_a": 99},
             function_name="rebuilt",
@@ -565,7 +565,7 @@ class TestRenderedSourceAndGuard(unittest.TestCase):
         self.assertEqual(fn(), 99)
 
     def test_rendered_source_uses_repr_defaults(self):
-        rs = pysource.RenderedSource(
+        rs = render.RenderedSource(
             source="def rebuilt(a=99):\n    return a\n",
             namespace={},
             function_name="rebuilt",
@@ -576,13 +576,13 @@ class TestRenderedSourceAndGuard(unittest.TestCase):
 
 class TestFunctionBuilderDecorator(unittest.TestCase):
     def test_render_emits_output_labels_in_decorator(self):
-        fb = pysource.FunctionBuilder(
+        fb = render.FunctionBuilder(
             name="f", params=["a"], return_symbols=["a"], output_labels=["m", "n"]
         )
         self.assertIn('@flowrep.workflow("m", "n")', fb.render())
 
     def test_render_bare_decorator_without_labels(self):
-        fb = pysource.FunctionBuilder(name="f", params=["a"], return_symbols=["a"])
+        fb = render.FunctionBuilder(name="f", params=["a"], return_symbols=["a"])
         src = fb.render()
         self.assertIn("@flowrep.workflow\n", src)
         self.assertNotIn("@flowrep.workflow(", src)
@@ -590,18 +590,18 @@ class TestFunctionBuilderDecorator(unittest.TestCase):
 
 class TestNameAllocator(unittest.TestCase):
     def test_fresh_returns_hint_then_suffixes(self):
-        alloc = pysource._NameAllocator()
+        alloc = render._NameAllocator()
         self.assertEqual(alloc.fresh("x"), "x")
         self.assertEqual(alloc.fresh("x"), "x_0")
         self.assertEqual(alloc.fresh("x"), "x_1")
 
     def test_fresh_sanitises_invalid_hint(self):
-        alloc = pysource._NameAllocator()
+        alloc = render._NameAllocator()
         out = alloc.fresh("output_0.bad")  # not a valid identifier
         self.assertTrue(out.isidentifier())
 
     def test_reserve_blocks_later_fresh_collision(self):
-        alloc = pysource._NameAllocator()
+        alloc = render._NameAllocator()
         self.assertEqual(alloc.reserve("result"), "result")
         self.assertEqual(alloc.fresh("result"), "result_0")
 
@@ -616,12 +616,12 @@ class TestSingleAtomicDag(unittest.TestCase):
 
     def test_executes(self):
         original, free = self._free_recipe()
-        fn = pysource.recipe2python("rebuilt", free).build()
+        fn = render.recipe2python("rebuilt", free).build()
         self.assertEqual(fn(2, 3), original(2, 3))
 
     def test_round_trips(self):
         _, free = self._free_recipe()
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
@@ -636,7 +636,7 @@ class TestMultiNodeDag(unittest.TestCase):
             return q, r
 
         free = makers.reference_free(chained)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(7, 3), chained(7, 3))
         self.assertEqual(
@@ -654,7 +654,7 @@ class TestMultiNodeDag(unittest.TestCase):
         free = makers.reference_free(chained)
         reordered_nodes = dict(reversed(list(free.nodes.items())))
         scrambled = free.model_copy(update={"nodes": reordered_nodes})
-        rendered = pysource.recipe2python("rebuilt", scrambled)
+        rendered = render.recipe2python("rebuilt", scrambled)
         fn = rendered.build()
         self.assertEqual(fn(2, 5), chained(2, 5))
 
@@ -669,7 +669,7 @@ class TestSignatureParams(unittest.TestCase):
 
         free = makers.reference_free(with_default)
         sig = inspect.signature(with_default)
-        rendered = pysource.recipe2python("rebuilt", free, sig)
+        rendered = render.recipe2python("rebuilt", free, sig)
         fn = rendered.build()
         # default object survives into __defaults__ as the *same* live object
         self.assertIs(fn.__defaults__[0], sentinel)
@@ -683,7 +683,7 @@ class TestSignatureParams(unittest.TestCase):
 
         free = makers.reference_free(kinds)
         sig = inspect.signature(kinds)
-        rendered = pysource.recipe2python("rebuilt", free, sig)
+        rendered = render.recipe2python("rebuilt", free, sig)
         fn = rendered.build()
         new_sig = inspect.signature(fn)
         self.assertEqual(
@@ -701,7 +701,7 @@ class TestOutputsEdgeCases(unittest.TestCase):
             return s, a  # 'a' is a passthrough output
 
         free = makers.reference_free(passthrough)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(4, 6), passthrough(4, 6))
         self.assertEqual(
@@ -726,7 +726,7 @@ class TestOutputsEdgeCases(unittest.TestCase):
         # p and q both come from the same handle; no required-name conflict at the
         # top level (we use annotations there), but the source code parser guards
         # against duplicate output symbols
-        rendered = pysource.recipe2python("rebuilt", bad)
+        rendered = render.recipe2python("rebuilt", bad)
         with self.assertRaisesRegex(
             ValueError,
             "Workflow python definitions must have unique returns",
@@ -763,7 +763,7 @@ class TestNestedWorkflowNode(unittest.TestCase):
         nodes[label] = free_inner  # workflow node, reference=None
         recipe = free_outer.model_copy(update={"nodes": nodes})
 
-        rendered = pysource.recipe2python("rebuilt", recipe)
+        rendered = render.recipe2python("rebuilt", recipe)
         fn = rendered.build()
         self.assertEqual(fn(2, 3), 5)
         # Re-parse: the nested def re-parses as a workflow node (with a reference);
@@ -783,7 +783,7 @@ class TestForEach(unittest.TestCase):
             return acc
 
         free = makers.reference_free(mapper)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn([1, 2, 3], 10), mapper([1, 2, 3], 10))
         self.assertEqual(
@@ -799,7 +799,7 @@ class TestForEach(unittest.TestCase):
             return acc
 
         free = makers.reference_free(zipper)
-        fn = pysource.recipe2python("rebuilt", free).build()
+        fn = render.recipe2python("rebuilt", free).build()
         self.assertEqual(fn([1, 2], [3, 4]), zipper([1, 2], [3, 4]))
 
     def test_for_each_body_without_underlying_python(self):
@@ -810,7 +810,7 @@ class TestForEach(unittest.TestCase):
             [2, 3, 4],
             msg="Sanity check that the recipe is fine",
         )
-        rendered = pysource.recipe2python("built", workflow_for_each_recipe)
+        rendered = render.recipe2python("built", workflow_for_each_recipe)
         fn = rendered.build()
         self.assertEqual(fn([1, 2, 3]), [2, 3, 4])
 
@@ -825,7 +825,7 @@ class TestIf(unittest.TestCase):
             return v
 
         free = makers.reference_free(chooser)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(1, 5), chooser(1, 5))
         self.assertEqual(fn(5, 1), chooser(5, 1))
@@ -844,7 +844,7 @@ class TestIf(unittest.TestCase):
             1 + 1,
             msg="Sanity check that the recipe is fine",
         )
-        pysource.recipe2python("built", workflow_condition_recipe)
+        render.recipe2python("built", workflow_condition_recipe)
 
 
 class TestWhile(unittest.TestCase):
@@ -855,7 +855,7 @@ class TestWhile(unittest.TestCase):
             return i
 
         free = makers.reference_free(countup)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(0, 5), countup(0, 5))
         self.assertEqual(
@@ -868,7 +868,7 @@ class TestWhile(unittest.TestCase):
             0,
             msg="Sanity check that the recipe is fine",
         )
-        rendered = pysource.recipe2python("built", workflow_while_recipe)
+        rendered = render.recipe2python("built", workflow_while_recipe)
         fn = rendered.build()
         self.assertEqual(
             fn(3),
@@ -880,13 +880,13 @@ class TestWhile(unittest.TestCase):
 class TestFlowControlConditionNode(unittest.TestCase):
     def test_if_condition_flow_control_raises(self):
         with self.assertRaises(NotImplementedError) as ctx:
-            pysource.recipe2python("built", if_flow_control_condition_recipe)
+            render.recipe2python("built", if_flow_control_condition_recipe)
         self.assertIn("flowcond", str(ctx.exception))
         self.assertIn("single callable", str(ctx.exception))
 
     def test_while_condition_flow_control_raises(self):
         with self.assertRaises(NotImplementedError) as ctx:
-            pysource.recipe2python("built", while_flow_control_condition_recipe)
+            render.recipe2python("built", while_flow_control_condition_recipe)
         self.assertIn("wcond", str(ctx.exception))
 
 
@@ -905,7 +905,7 @@ class TestFlowControlAsBranchBody(unittest.TestCase):
             .output_ports[next(iter(recipe.outputs))]
             .value
         )
-        fn = pysource.recipe2python("built", recipe).build()
+        fn = render.recipe2python("built", recipe).build()
         self.assertEqual(
             fn(*args), original, msg="rendered function vs original recipe"
         )
@@ -956,7 +956,7 @@ class TestTry(unittest.TestCase):
             return z
 
         free = makers.reference_free(safe_div)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         fn = rendered.build()
         self.assertEqual(fn(6, 3), safe_div(6, 3))
         self.assertEqual(fn(6, 0), safe_div(6, 0))
@@ -973,7 +973,7 @@ class TestTry(unittest.TestCase):
             return z
 
         free = makers.reference_free(custom_exception_branch)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         self.assertIn(
             "flowrep_static.library.MyCustomException",
             rendered.source,
@@ -996,7 +996,7 @@ class TestTry(unittest.TestCase):
             6,
             msg="Sanity check that the except branch runs",
         )
-        rendered = pysource.recipe2python("built", workflow_try_recipe)
+        rendered = render.recipe2python("built", workflow_try_recipe)
         fn = rendered.build()
         self.assertEqual(fn(6, 3), 2.0)
         self.assertEqual(fn(6, 0), 6)
@@ -1027,7 +1027,7 @@ class TestDagData(unittest.TestCase):
         # from the reference's fully-qualified name.
         recipe_with_ref = workflow_parser.parse_workflow(_with_default)
         dagdata = retrospective.DagData.from_recipe(recipe_with_ref)
-        rendered = pysource.dagdata2python("rebuilt", dagdata)
+        rendered = render.dagdata2python("rebuilt", dagdata)
         fn = rendered.build()
         self.assertEqual(fn(5), _with_default(5))
         # default recovered from the port
@@ -1037,7 +1037,7 @@ class TestDagData(unittest.TestCase):
         dagdata = retrospective.DagData.from_recipe(
             workflow_parser.parse_workflow(_typed_single)
         )
-        fn = pysource.dagdata2python("rebuilt", dagdata).build()
+        fn = render.dagdata2python("rebuilt", dagdata).build()
         self.assertEqual(fn(5), _typed_single(5))
         self.assertEqual(fn.__defaults__, (2.0,))
         hints = typing.get_type_hints(fn, include_extras=True)
@@ -1050,7 +1050,7 @@ class TestDagData(unittest.TestCase):
         dagdata = retrospective.DagData.from_recipe(
             workflow_parser.parse_workflow(_typed_multi)
         )
-        fn = pysource.dagdata2python("rebuilt", dagdata).build()
+        fn = render.dagdata2python("rebuilt", dagdata).build()
         self.assertEqual(fn(7.0, 3.0), _typed_multi(7.0, 3.0))
         self.assertEqual(
             typing.get_type_hints(fn, include_extras=True)["return"],
@@ -1074,7 +1074,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
         bad_node = node.model_copy(update={"reference": bad_ref})
         recipe = free.model_copy(update={"nodes": {label: bad_node}})
         with self.assertRaisesRegex(ValueError, "local scope"):
-            pysource.recipe2python("rebuilt", recipe)
+            render.recipe2python("rebuilt", recipe)
 
     def test_cycle_raises(self):
 
@@ -1093,7 +1093,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
         )
         cyclic = free.model_copy(update={"edges": cyclic_edges})
         with self.assertRaisesRegex(ValueError, "cycle"):
-            pysource.recipe2python("rebuilt", cyclic)
+            render.recipe2python("rebuilt", cyclic)
 
     def test_trailing_positional_only_marker(self):
         def kinds(a, b, /):
@@ -1101,7 +1101,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             return r
 
         free = makers.reference_free(kinds)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(kinds))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(kinds))
         self.assertIn("/", rendered.source)
         fn = rendered.build()
         self.assertEqual(
@@ -1116,7 +1116,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             return r
 
         free = makers.reference_free(uses)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         self.assertRegex(rendered.source, r"_pos_only_add\(\w+, \w+\)")
         self.assertEqual(rendered.build()(2, 3), 5)
 
@@ -1132,7 +1132,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             return acc, kept
 
         free = makers.reference_free(fwd)
-        fn = pysource.recipe2python("rebuilt", free).build()
+        fn = render.recipe2python("rebuilt", free).build()
         self.assertEqual(fn([1, 2], [10, 20]), fwd([1, 2], [10, 20]))
 
     def test_condition_with_defaulted_unsourced_input(self):
@@ -1145,7 +1145,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             return r
 
         free = makers.reference_free(f)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         self.assertIn("library.increment(x=", rendered.source)
         fn = rendered.build()
         self.assertEqual(fn(5), f(5))
@@ -1160,7 +1160,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             return z
 
         free = makers.reference_free(f)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         self.assertIn("except (", rendered.source)
         self.assertEqual(rendered.build()(6, 0), f(6, 0))
 
@@ -1183,12 +1183,12 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             }
         )
         with self.assertRaisesRegex(ValueError, "cannot be emitted as an assignment"):
-            pysource._emit_workflow_body(
+            render._emit_workflow_body(
                 body,
                 {"a": "a", "b": "b"},
                 {"p": "P", "q": "Q"},
-                pysource._Emitter(),
-                pysource._NameAllocator(),
+                render._Emitter(),
+                render._NameAllocator(),
                 set(),
             )
 
@@ -1201,7 +1201,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(plain)
-        rendered = pysource.recipe2python("rebuilt", free)
+        rendered = render.recipe2python("rebuilt", free)
         self.assertNotIn("typing.Any", rendered.source)
         self.assertNotIn("->", rendered.source)
         self.assertIn(
@@ -1223,7 +1223,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return out
 
         free = makers.reference_free(typed)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(typed))
         self.assertIn("x: int", rendered.source)
         self.assertIn("y: list[int]", rendered.source)
         self.assertIn("z: dict[str, int]", rendered.source)
@@ -1240,7 +1240,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(f)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(f))
         self.assertIn("typing.Annotated[int, 'meta']", rendered.source)
         fn = rendered.build()
         hints = typing.get_type_hints(fn, include_extras=True)
@@ -1253,7 +1253,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(f)
-        fn = pysource.recipe2python("rebuilt", free, inspect.signature(f)).build()
+        fn = render.recipe2python("rebuilt", free, inspect.signature(f)).build()
         sig = inspect.signature(fn)
         self.assertIs(sig.parameters["y"].annotation, float)
         self.assertEqual(sig.parameters["y"].default, 0.5)
@@ -1264,7 +1264,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(typed)
-        fn = pysource.recipe2python("rebuilt", free, inspect.signature(typed)).build()
+        fn = render.recipe2python("rebuilt", free, inspect.signature(typed)).build()
         self.assertIs(inspect.signature(fn).return_annotation, float)
 
     def test_multi_return_annotation_is_verbatim(self):
@@ -1273,7 +1273,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return q, r
 
         free = makers.reference_free(typed)
-        fn = pysource.recipe2python("rebuilt", free, inspect.signature(typed)).build()
+        fn = render.recipe2python("rebuilt", free, inspect.signature(typed)).build()
         self.assertEqual(typing.get_type_hints(fn)["return"], tuple[int, float])
 
     def test_mismatched_return_annotation_emitted_verbatim(self):
@@ -1284,7 +1284,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return q, r
 
         free = makers.reference_free(typed_bad)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed_bad))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(typed_bad))
         self.assertIn('@flowrep.workflow("q", "r")', rendered.source)
         self.assertIn("-> int:", rendered.source)
         fn = rendered.build()
@@ -1315,7 +1315,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
                 },
             }
         )
-        rendered = pysource.recipe2python("rebuilt", renamed)
+        rendered = render.recipe2python("rebuilt", renamed)
         self.assertIn('@flowrep.workflow("renamed")', rendered.source)
         fn = rendered.build()
         self.assertEqual(fn.flowrep_recipe.outputs, ["renamed"])
@@ -1328,7 +1328,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(f)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(f))
         self.assertIn('@flowrep.workflow("r")', rendered.source)
         fn = rendered.build()
         hints = typing.get_type_hints(fn, include_extras=True)
@@ -1341,7 +1341,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(typed)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(typed))
         self.assertIn("x: int", rendered.source)
         self.assertIn("y: float", rendered.source)
         self.assertNotIn("_ann_x", rendered.namespace)
@@ -1357,7 +1357,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(f)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(f))
         self.assertIn("y: float = 0.5", rendered.source)
         self.assertNotIn("_default_y", rendered.namespace)
         fn = rendered.build()
@@ -1371,7 +1371,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(f)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(f))
         # x annotation inlines; y default cannot, so it stays namespace-bound.
         self.assertIn("x: int", rendered.source)
         self.assertNotIn("_ann_x", rendered.namespace)
@@ -1392,7 +1392,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(typed)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(typed))
         self.assertIn("-> float:", rendered.source)
         self.assertNotIn("_ann_return", rendered.namespace)
         fn = rendered.build()
@@ -1404,7 +1404,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(simple)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(simple))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(simple))
         self.assertEqual(rendered.namespace, {})
         fn = rendered.build()
         sig = inspect.signature(fn)
@@ -1421,7 +1421,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(f)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(f))
         self.assertIn("x: _ann_x", rendered.source)
         self.assertIs(rendered.namespace["_ann_x"], Custom)
         fn = rendered.build()
@@ -1436,7 +1436,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(f)
-        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        rendered = render.recipe2python("rebuilt", free, inspect.signature(f))
         self.assertIn("-> _ann_return:", rendered.source)
         self.assertIs(rendered.namespace["_ann_return"], Custom)
         fn = rendered.build()
