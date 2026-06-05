@@ -1,5 +1,6 @@
 import dataclasses
 import inspect
+import re
 import typing
 import unittest
 
@@ -1507,3 +1508,179 @@ class TestImportHoisting(unittest.TestCase):
         self.assertEqual(
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(recipe)
         )
+
+
+class TestModuleNames(unittest.TestCase):
+    """Module-scope name allocator: collector, def names, namespace, reservations."""
+
+    def test_referenced_top_level_bindings_collects_and_skips_builtins(self):
+        def safe_div(a, b):
+            try:
+                z = library.divide(a, b)
+            except ZeroDivisionError:
+                z = library.identity(a)
+            return z
+
+        def custom(a, b):
+            try:
+                z = library.raises_custom(a, b)
+            except library.MyCustomException:
+                z = library.identity(a)
+            return z
+
+        free_safe = makers.reference_free(safe_div)
+        free_custom = makers.reference_free(custom)
+
+        # All calls live in flowrep_static.library -> top binding "flowrep_static".
+        # ZeroDivisionError is a builtin and must be skipped (no import emitted).
+        self.assertEqual(
+            set(render._referenced_top_level_bindings(free_safe)),
+            {"flowrep_static"},
+        )
+        self.assertNotIn(
+            "builtins", set(render._referenced_top_level_bindings(free_safe))
+        )
+        # The non-builtin custom exception still resolves to flowrep_static.
+        self.assertEqual(
+            set(render._referenced_top_level_bindings(free_custom)),
+            {"flowrep_static"},
+        )
+
+    def test_nested_subworkflow_def_names_do_not_collide(self):
+        # Outer reference-free sub-workflow whose body is itself a reference-free
+        # sub-workflow; both derive base label "my_add". Independent per-function
+        # allocators mint "my_add" twice -> two module-level `def my_add`, the
+        # second shadows the first -> the inner call recurses into itself.
+        def innermost(a, b):
+            output_0 = library.my_add(a, b)
+            return output_0
+
+        def middle(a, b):
+            output_0 = library.my_add(a, b)
+            return output_0
+
+        def outer(a, b):
+            r = library.my_add(a, b)
+            return r
+
+        free_inner = makers.reference_free(innermost)
+        free_mid = makers.reference_free(middle)
+        free_outer = makers.reference_free(outer)
+
+        mlabel = next(iter(free_mid.nodes))
+        mnodes = dict(free_mid.nodes)
+        mnodes[mlabel] = free_inner
+        free_mid = free_mid.model_copy(update={"nodes": mnodes})
+
+        olabel = next(iter(free_outer.nodes))
+        onodes = dict(free_outer.nodes)
+        onodes[olabel] = free_mid
+        recipe = free_outer.model_copy(update={"nodes": onodes})
+
+        rendered = render.workflow2python("rebuilt", recipe)
+        source = rendered.source
+        self.assertIn("def my_add(", source)
+        self.assertIn("def my_add_0(", source)
+        def_names = re.findall(r"^def (\w+)", source, re.MULTILINE)
+        self.assertEqual(
+            len(def_names), len(set(def_names)), f"duplicate def names: {def_names}"
+        )
+        fn = rendered.build()
+        self.assertEqual(fn(2, 3), 5)
+
+    @staticmethod
+    def _relabel_only_node(recipe, new_label):
+        from flowrep import edge_models
+
+        (old_label,) = recipe.nodes
+        node = recipe.nodes[old_label]
+
+        def retarget(target):
+            if target.node == old_label:
+                return edge_models.TargetHandle(node=new_label, port=target.port)
+            return target
+
+        def resource(source):
+            if getattr(source, "node", None) == old_label:
+                return edge_models.SourceHandle(node=new_label, port=source.port)
+            return source
+
+        return recipe.model_copy(
+            update={
+                "nodes": {new_label: node},
+                "input_edges": {retarget(t): s for t, s in recipe.input_edges.items()},
+                "output_edges": {
+                    o: resource(s) for o, s in recipe.output_edges.items()
+                },
+            }
+        )
+
+    def _subworkflow_labeled(self, label):
+        def inner(a, b):
+            output_0 = library.my_add(a, b)
+            return output_0
+
+        def outer(a, b):
+            r = library.my_add(a, b)
+            return r
+
+        free_outer = makers.reference_free(outer)
+        free_inner = makers.reference_free(inner)
+        olabel = next(iter(free_outer.nodes))
+        nodes = dict(free_outer.nodes)
+        nodes[olabel] = free_inner
+        recipe = free_outer.model_copy(update={"nodes": nodes})
+        return self._relabel_only_node(recipe, label)
+
+    def test_def_names_dodge_import_bindings(self):
+        # "flowrep" (always-reserved base import) and "flowrep_static" (dynamic
+        # pre-scan from the library calls) must not be taken by a nested def,
+        # else they shadow `import flowrep` / `import flowrep_static.library`.
+        for label, module_binding in (
+            ("flowrep", "import flowrep\n"),
+            ("flowrep_static", "import flowrep_static.library"),
+        ):
+            with self.subTest(label=label):
+                recipe = self._subworkflow_labeled(label)
+                rendered = render.workflow2python("rebuilt", recipe)
+                self.assertNotIn(
+                    f"\ndef {label}(",
+                    rendered.source,
+                    msg=f"nested def must not be bare '{label}'",
+                )
+                self.assertIn(module_binding, rendered.source)
+                fn = rendered.build()  # raises if the import was shadowed
+                self.assertEqual(fn(2, 3), 5)
+
+    def test_namespace_symbols_are_module_unique(self):
+        # Emit two signature-bearing functions through ONE emitter (the future
+        # nested-signature case). A locally-defined class is un-inlineable, so
+        # render_annotation returns None and the annotation is namespace-bound.
+        # Both must survive under distinct keys, not clobber each other.
+        class Custom:  # local qualname -> render_annotation returns None
+            pass
+
+        def f(a, b):
+            r = library.my_add(a, b)
+            return r
+
+        recipe = makers.reference_free(f)
+        sig = inspect.Signature(
+            parameters=[
+                inspect.Parameter(
+                    "a", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Custom
+                ),
+                inspect.Parameter("b", inspect.Parameter.POSITIONAL_OR_KEYWORD),
+            ],
+            return_annotation=Custom,
+        )
+
+        emitter = render._Emitter()
+        b1 = render._emit_workflow_function(recipe, "f1", emitter, sig)
+        b2 = render._emit_workflow_function(recipe, "f2", emitter, sig)
+
+        return_keys = [k for k in emitter.namespace if k.startswith("_ann_return")]
+        self.assertEqual(len(return_keys), 2, emitter.namespace)
+        self.assertNotEqual(b1.return_annotation, b2.return_annotation)
+        self.assertIn(b1.return_annotation, emitter.namespace)
+        self.assertIn(b2.return_annotation, emitter.namespace)

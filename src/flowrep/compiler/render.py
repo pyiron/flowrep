@@ -78,6 +78,14 @@ def workflow2python(
             f"{recipe.reference}"
         )
     emitter = _Emitter()
+    # Reserve every bare module-level name a nested def must not shadow: the top
+    # function name, the always-present decorator/typing imports, and the
+    # top-level binding of every import this recipe will emit.
+    emitter.module_names.reserve(function_name)
+    emitter.module_names.reserve("flowrep")
+    emitter.module_names.reserve("typing")
+    for binding in _referenced_top_level_bindings(recipe):
+        emitter.module_names.reserve(binding)
     target = _emit_workflow_function(recipe, function_name, emitter, signature)
     # All generated imports (per-node call, exception, and annotation) are
     # collected in emitter.module_imports and merged here. The preamble also
@@ -169,6 +177,36 @@ class _Emitter:
     namespace: dict[str, Any] = dataclasses.field(default_factory=dict)
     nested_defs: list[str] = dataclasses.field(default_factory=list)
     module_imports: set[str] = dataclasses.field(default_factory=set)
+    # Module-scope names: nested def names, injected namespace symbols, and
+    # reserved import bindings. Distinct from the per-function local allocator.
+    module_names: _NameAllocator = dataclasses.field(default_factory=_NameAllocator)
+
+
+def _referenced_top_level_bindings(
+    node: union_types.RecipeDiscrimination,
+) -> typing.Iterator[str]:
+    """Yield the top-level module binding of every import the recipe will emit.
+
+    Mirrors the structure emission walks: referenced nodes (atomic or referenced
+    workflow) emit a dotted call and are not recursed; reference-free workflows
+    and flow controls are recursed via ``.nodes`` / ``.prospective_nodes``.
+    Builtin exception types are skipped, matching ``_exception_name``.
+    """
+    reference = getattr(node, "reference", None)
+    if reference is not None:
+        yield reference.info.module.split(".")[0]
+        return
+    if isinstance(node, workflow_recipe.WorkflowRecipe):
+        for child in node.nodes.values():
+            yield from _referenced_top_level_bindings(child)
+    elif isinstance(node, _FLOW_CONTROL_TYPES):
+        for child in node.prospective_nodes.values():
+            yield from _referenced_top_level_bindings(child)
+        if isinstance(node, try_recipe.TryRecipe):
+            for case in node.exception_cases:
+                for info in case.exceptions:
+                    if info.module != "builtins":
+                        yield info.module.split(".")[0]
 
 
 @dataclasses.dataclass
@@ -832,8 +870,9 @@ def _emit_workflow_function(
         if inlined_return is not None:
             return_annotation = inlined_return
         else:
-            emitter.namespace["_ann_return"] = signature.return_annotation
-            return_annotation = "_ann_return"
+            ann_name = emitter.module_names.fresh("_ann_return")
+            emitter.namespace[ann_name] = signature.return_annotation
+            return_annotation = ann_name
     # Imports are hoisted to the module preamble via emitter.module_imports, so
     # the body carries only the optional docstring (which must come first so the
     # parser's skip_docstring recognises it and `description` round-trips) and
@@ -887,7 +926,12 @@ def _emit_nested_workflow_node(
     # Use the base of the label (strip _N suffix) so that re-parsing via
     # unique_suffix reconstructs the same original label.
     base = _label_base(label)
-    fn_name = alloc.fresh(base)
+    # Module-scope: nested defs are emitted at module level, so their names must
+    # be unique across the whole module (not just the parent's locals). Reserve
+    # the chosen name in the parent allocator too, so the parent can't later mint
+    # a local symbol that shadows the def (it is called by bare name in the body).
+    fn_name = emitter.module_names.fresh(base)
+    alloc.reserve(fn_name)
     builder = _emit_workflow_function(node, fn_name, emitter, signature=None)
     # The @flowrep.workflow decorator is emitted by FunctionBuilder.render itself.
     emitter.nested_defs.append(builder.render())
@@ -936,7 +980,7 @@ def _render_params(
             if inlined is not None:
                 piece += f": {inlined}"
             else:
-                annotation_name = f"_ann_{port}"
+                annotation_name = emitter.module_names.fresh(f"_ann_{port}")
                 emitter.namespace[annotation_name] = annotation
                 piece += f": {annotation_name}"
         if has_default:
@@ -945,7 +989,7 @@ def _render_params(
             if inlined_default is not None:
                 rhs = inlined_default
             else:
-                default_name = f"_default_{port}"
+                default_name = emitter.module_names.fresh(f"_default_{port}")
                 emitter.namespace[default_name] = default
                 rhs = default_name
             # PEP 8 / black: spaces around '=' only when the parameter is annotated.
