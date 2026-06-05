@@ -306,7 +306,7 @@ class TestParsingFullComposite(unittest.TestCase):
 
     def test_roundtrip_back_to_python(self):
         free = makers.reference_free(full_composite)
-        rendered = render.recipe2python("rebuilt", free)
+        rendered = render.workflow2python("rebuilt", free)
         fn = rendered.build()
         for x, y, bound in [(1, 2, 10), (3, 1, 8)]:
             self.assertEqual(fn(x, y, bound=bound), full_composite(x, y, bound=bound))

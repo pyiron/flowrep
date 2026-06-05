@@ -67,7 +67,7 @@ def _next_generated_filename(name: str) -> str:
     return f"<flowrep_generated_{name}_{_GENERATED_COUNTER}>"
 
 
-def recipe2python(
+def workflow2python(
     function_name: base_models.Label,
     recipe: workflow_recipe.WorkflowRecipe,
     signature: inspect.Signature | None = None,
@@ -108,7 +108,7 @@ def dagdata2python(
     sig = _build_signature(dagdata.input_ports, dagdata.output_ports)
     # Strip the reference so recipe2python accepts the recipe.
     free_recipe = dagdata.recipe.model_copy(update={"reference": None})
-    return recipe2python(function_name, free_recipe, sig)
+    return workflow2python(function_name, free_recipe, sig)
 
 
 @dataclasses.dataclass
