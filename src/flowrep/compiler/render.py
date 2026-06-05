@@ -79,13 +79,13 @@ def workflow2python(
         )
     emitter = _Emitter()
     target = _emit_workflow_function(recipe, function_name, emitter, signature)
-    # Per-node call imports are inlined into each function body by
-    # _emit_workflow_function. The module-level preamble provides the deferred-
-    # annotation flag (so return annotations are not evaluated at exec time) plus
-    # `typing` (available for user annotations) and `flowrep` (for the @workflow
-    # decorator emitted on every function). Any hoisted annotation imports collected
-    # in emitter.module_imports are merged and sorted into the preamble so that
-    # typing.get_type_hints() can resolve them from fn.__globals__.
+    # All generated imports (per-node call, exception, and annotation) are
+    # collected in emitter.module_imports and merged here. The preamble also
+    # provides the deferred-annotation flag (so return annotations are not
+    # evaluated at exec time) plus `typing` (for user annotations) and `flowrep`
+    # (for the @workflow decorator emitted on every function). Hoisting to the
+    # module level deduplicates imports across the top-level function and its
+    # nested defs, and typing.get_type_hints() resolves them from fn.__globals__.
     base_imports = ["import typing", "import flowrep"]
     all_imports = sorted(set(base_imports) | emitter.module_imports)
     preamble = "from __future__ import annotations\n\n" + "\n".join(all_imports) + "\n"
@@ -244,7 +244,6 @@ def _node_call_path(
     label: str,
     emitter: _Emitter,
     alloc: _NameAllocator,
-    imports: set[str],
 ) -> str | None:
     """Resolve the call path for a node that emits as a single call expression.
 
@@ -254,10 +253,10 @@ def _node_call_path(
     call.
     """
     if isinstance(node, atomic_recipe.AtomicRecipe):
-        return _set_call_path_from_info(node.reference.info, imports)
+        return _set_call_path_from_info(node.reference.info, emitter.module_imports)
     elif isinstance(node, workflow_recipe.WorkflowRecipe):
         if reference := getattr(node, "reference", None):
-            return _set_call_path_from_info(reference.info, imports)
+            return _set_call_path_from_info(reference.info, emitter.module_imports)
         return _emit_nested_workflow_node(node, label, emitter, alloc)
     elif isinstance(node, _FLOW_CONTROL_TYPES):
         return None
@@ -265,9 +264,11 @@ def _node_call_path(
         raise ValueError(f"Unexpected node type: {type(node).__name__}")
 
 
-def _set_call_path_from_info(info: versions.VersionInfo, imports: set[str]) -> str:
+def _set_call_path_from_info(
+    info: versions.VersionInfo, module_imports: set[str]
+) -> str:
     module, call_path = _module_and_path(info)
-    imports.add(f"import {module}")
+    module_imports.add(f"import {module}")
     return call_path
 
 
@@ -354,7 +355,6 @@ def _emit_workflow_body(
     required_out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
-    imports: set[str],
 ) -> tuple[list[str], dict[str, str]]:
     produced: dict[tuple[str, str], str] = {}
     lines: list[str] = []
@@ -399,7 +399,7 @@ def _emit_workflow_body(
     for label in _topological_nodes(recipe):
         node = recipe.nodes[label]
 
-        call_path = _node_call_path(node, label, emitter, alloc, imports)
+        call_path = _node_call_path(node, label, emitter, alloc)
         if call_path is not None:
             lhs_syms = _allocate_outputs(
                 node, label, produced, required_by_handle, alloc
@@ -419,7 +419,6 @@ def _emit_workflow_body(
                     required_by_handle,
                     emitter,
                     alloc,
-                    imports,
                 )
             )
 
@@ -439,7 +438,6 @@ def _emit_flow_control(
     required_by_handle: dict[tuple[str, str], str],
     emitter: _Emitter,
     alloc: _NameAllocator,
-    imports: set[str],
 ) -> list[str]:
     """Dispatch a flow-control node to the appropriate emitter."""
     required = {
@@ -455,17 +453,17 @@ def _emit_flow_control(
         out_syms[port] = name
 
     if isinstance(node, for_recipe.ForEachRecipe):
-        return _emit_for_each(node, in_resolver, out_syms, emitter, alloc, imports)
+        return _emit_for_each(node, in_resolver, out_syms, emitter, alloc)
     if isinstance(node, if_recipe.IfRecipe):
-        return _emit_if(node, in_resolver, out_syms, emitter, alloc, imports)
+        return _emit_if(node, in_resolver, out_syms, emitter, alloc)
     if isinstance(node, while_recipe.WhileRecipe):
         # While outputs must use the port name (== loop variable name), not a fresh name.
         while_out_syms = {port: required.get(port, port) for port in node.outputs}
         for port, name in while_out_syms.items():
             produced[(label, port)] = name
-        return _emit_while(node, in_resolver, while_out_syms, emitter, alloc, imports)
+        return _emit_while(node, in_resolver, while_out_syms, emitter, alloc)
     if isinstance(node, try_recipe.TryRecipe):
-        return _emit_try(node, in_resolver, out_syms, emitter, alloc, imports)
+        return _emit_try(node, in_resolver, out_syms, emitter, alloc)
     raise NotImplementedError(  # pragma: no cover - all four flow-control types are
         # handled above; nothing else reaches this dispatch.
         f"Flow control {type(node).__name__} not yet supported."
@@ -478,7 +476,6 @@ def _emit_for_each(
     out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
-    imports: set[str],
 ) -> list[str]:
     """Emit a for-each loop as Python source lines."""
     # 1. Accumulator declarations, named by output port.
@@ -517,7 +514,7 @@ def _emit_for_each(
     # reconstructs the same port names on round-trip.
     body_required = {port: port for port in body.outputs}
     body_lines, body_out = _emit_body(
-        body, body_label, body_in_syms, body_required, emitter, alloc, imports
+        body, body_label, body_in_syms, body_required, emitter, alloc
     )
 
     # 4. Append each body output to its accumulator.
@@ -553,14 +550,13 @@ def _render_condition(
     case_condition: helper_models.LabeledRecipe,
     node: _ConditionalRecipeAlias,
     in_resolver: _InResolverType,
-    imports: set[str],
     emitter: _Emitter,
     alloc: _NameAllocator,
 ) -> str:
     """Render a condition call as an inline expression (no assignment)."""
     cond_node = case_condition.node
     cond_label = case_condition.label
-    call_path = _node_call_path(cond_node, cond_label, emitter, alloc, imports)
+    call_path = _node_call_path(cond_node, cond_label, emitter, alloc)
     if call_path is None:
         raise NotImplementedError(
             f"Condition node '{cond_label}' is a {type(cond_node).__name__}, but "
@@ -583,7 +579,6 @@ def _emit_body(
     required: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
-    imports: set[str],
 ) -> tuple[list[str], dict[str, str]]:
     """Emit a branch/loop body that may be a workflow subgraph or a single node.
 
@@ -591,12 +586,10 @@ def _emit_body(
     other node (atomic, or a referenced workflow) is emitted as one assignment.
     """
     if isinstance(recipe, workflow_recipe.WorkflowRecipe):
-        return _emit_workflow_body(recipe, in_syms, required, emitter, alloc, imports)
+        return _emit_workflow_body(recipe, in_syms, required, emitter, alloc)
     if isinstance(recipe, _FLOW_CONTROL_TYPES):
-        return _emit_flow_control_body(
-            recipe, label, in_syms, required, emitter, alloc, imports
-        )
-    return _emit_single_node_body(recipe, in_syms, required, alloc, imports)
+        return _emit_flow_control_body(recipe, label, in_syms, required, emitter, alloc)
+    return _emit_single_node_body(recipe, in_syms, required, alloc, emitter)
 
 
 def _emit_flow_control_body(
@@ -606,7 +599,6 @@ def _emit_flow_control_body(
     required: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
-    imports: set[str],
 ) -> tuple[list[str], dict[str, str]]:
     """Inline a flow-control recipe that sits directly as a branch/loop body.
 
@@ -621,7 +613,7 @@ def _emit_flow_control_body(
     produced: dict[tuple[str, str], str] = {}
     required_by_handle = {(label, port): sym for port, sym in required.items()}
     lines = _emit_flow_control(
-        node, label, in_resolver, produced, required_by_handle, emitter, alloc, imports
+        node, label, in_resolver, produced, required_by_handle, emitter, alloc
     )
     out_syms = {port: produced[(label, port)] for port in node.outputs}
     return lines, out_syms
@@ -632,7 +624,7 @@ def _emit_single_node_body(
     in_syms: dict[str, str],
     required: dict[str, str],
     alloc: _NameAllocator,
-    imports: set[str],
+    emitter: _Emitter,
 ) -> tuple[list[str], dict[str, str]]:
     """Emit a single atomic node as one assignment line.
 
@@ -651,7 +643,7 @@ def _emit_single_node_body(
         out_syms[port] = name
         lhs_syms.append(name)
 
-    call_path = _set_call_path_from_info(node.reference.info, imports)
+    call_path = _set_call_path_from_info(node.reference.info, emitter.module_imports)
     line = f"{', '.join(lhs_syms)} = {_render_call(call_path, node, in_resolver)}"
     return [line], out_syms
 
@@ -664,7 +656,6 @@ def _emit_branch(
     out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
-    imports: set[str],
 ) -> list[str]:
     """Inline a case/else branch body, pinning its outputs to the shared symbols."""
     body_in_syms: dict[str, str] = {}
@@ -685,7 +676,7 @@ def _emit_branch(
             if source.node == branch_label:
                 required[source.port] = out_syms[flow_target.port]
     body_lines, _ = _emit_body(
-        branch_recipe, branch_label, body_in_syms, required, emitter, alloc, imports
+        branch_recipe, branch_label, body_in_syms, required, emitter, alloc
     )
     return body_lines or ["pass"]
 
@@ -696,14 +687,11 @@ def _emit_if(
     out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
-    imports: set[str],
 ) -> list[str]:
     """Emit an if/elif/else block as Python source lines."""
     lines: list[str] = []
     for idx, case in enumerate(node.cases):
-        cond_expr = _render_condition(
-            case.condition, node, in_resolver, imports, emitter, alloc
-        )
+        cond_expr = _render_condition(case.condition, node, in_resolver, emitter, alloc)
         keyword = "if" if idx == 0 else "elif"
         lines.append(f"{keyword} {cond_expr}:")
         body = _emit_branch(
@@ -714,7 +702,6 @@ def _emit_if(
             out_syms,
             emitter,
             alloc,
-            imports,
         )
         lines.extend("    " + line for line in body)
     if node.else_case is not None:
@@ -727,21 +714,20 @@ def _emit_if(
             out_syms,
             emitter,
             alloc,
-            imports,
         )
         lines.extend("    " + line for line in body)
     return lines
 
 
-def _exception_name(info: versions.VersionInfo, imports: set[str]) -> str:
+def _exception_name(info: versions.VersionInfo, module_imports: set[str]) -> str:
     """Return the Python name to use for an exception type in an except clause.
 
     For builtins (module == 'builtins'), returns the bare qualname and adds no
-    import.  For anything else, adds ``import {module}`` to the per-function
-    imports set and returns ``{module}.{qualname}``.
+    import.  For anything else, adds the module to the module_imports
+    set and returns a fully qualified importable string.
     """
     if info.module != "builtins":
-        imports.add(f"import {info.module}")
+        module_imports.add(f"import {info.module}")
     return info.findable_at
 
 
@@ -751,7 +737,6 @@ def _emit_try(
     out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
-    imports: set[str],
 ) -> list[str]:
     """Emit a try/except block as Python source lines."""
     # try body
@@ -763,13 +748,12 @@ def _emit_try(
         out_syms,
         emitter,
         alloc,
-        imports,
     )
     lines = ["try:"]
     lines.extend("    " + line for line in (try_lines or ["pass"]))
 
     for case in node.exception_cases:
-        names = [_exception_name(v, imports) for v in case.exceptions]
+        names = [_exception_name(v, emitter.module_imports) for v in case.exceptions]
         if len(names) == 1:
             header = f"except {names[0]}:"
         else:
@@ -783,7 +767,6 @@ def _emit_try(
             out_syms,
             emitter,
             alloc,
-            imports,
         )
         lines.extend("    " + line for line in (body or ["pass"]))
     return lines
@@ -795,13 +778,10 @@ def _emit_while(
     out_syms: dict[str, str],
     emitter: _Emitter,
     alloc: _NameAllocator,
-    imports: set[str],
 ) -> list[str]:
     """Emit a while loop as Python source lines."""
     case = node.case
-    cond_expr = _render_condition(
-        case.condition, node, in_resolver, imports, emitter, alloc
-    )
+    cond_expr = _render_condition(case.condition, node, in_resolver, emitter, alloc)
 
     body_label = case.body.label
     body = case.body.node
@@ -820,9 +800,7 @@ def _emit_while(
         source.port: out_syms[target.port]
         for target, source in node.output_edges.items()
     }
-    body_lines, _ = _emit_body(
-        body, body_label, body_in_syms, required, emitter, alloc, imports
-    )
+    body_lines, _ = _emit_body(body, body_label, body_in_syms, required, emitter, alloc)
 
     lines = [f"while {cond_expr}:"]
     lines.extend("    " + line for line in (body_lines or ["pass"]))
@@ -838,12 +816,7 @@ def _emit_workflow_function(
     alloc = _NameAllocator()
     in_syms = {port: alloc.reserve(port) for port in recipe.inputs}
     params = _render_params(recipe, signature, emitter)
-    # Per-function import set: each function body gets its own import lines so that
-    # nested defs are self-contained (the parser re-walks each body independently).
-    fn_imports: set[str] = set()
-    lines, out_syms = _emit_workflow_body(
-        recipe, in_syms, {}, emitter, alloc, fn_imports
-    )
+    lines, out_syms = _emit_workflow_body(recipe, in_syms, {}, emitter, alloc)
     # Output port names are pinned via the decorator (see FunctionBuilder.render),
     # so the return annotation is free to carry the user's verbatim type. Bind the
     # whole annotation as a live object (arbitrary types do not round-trip through
@@ -861,10 +834,11 @@ def _emit_workflow_function(
         else:
             emitter.namespace["_ann_return"] = signature.return_annotation
             return_annotation = "_ann_return"
-    # Prepend sorted imports at the top of the function body. A docstring (the
-    # recipe description) must come first of all so the parser's skip_docstring
-    # recognises it and `description` round-trips.
-    body_lines = sorted(fn_imports) + lines
+    # Imports are hoisted to the module preamble via emitter.module_imports, so
+    # the body carries only the optional docstring (which must come first so the
+    # parser's skip_docstring recognises it and `description` round-trips) and
+    # the emitted statements.
+    body_lines = lines
     if recipe.description is not None:
         body_lines = [repr(recipe.description)] + body_lines
     builder = FunctionBuilder(

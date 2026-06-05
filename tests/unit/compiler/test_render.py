@@ -1189,7 +1189,6 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
                 {"p": "P", "q": "Q"},
                 render._Emitter(),
                 render._NameAllocator(),
-                set(),
             )
 
 
@@ -1441,3 +1440,70 @@ class TestAnnotationReconstruction(unittest.TestCase):
         self.assertIs(rendered.namespace["_ann_return"], Custom)
         fn = rendered.build()
         self.assertIs(inspect.signature(fn).return_annotation, Custom)
+
+
+class TestImportHoisting(unittest.TestCase):
+    """Call/exception imports are collected in the module preamble, deduplicated."""
+
+    @staticmethod
+    def _two_node_outer():
+        # outer(a, b): r = my_add(a, b); s = my_add(r, b); return s
+        # Two chained atomic nodes, both calling library.my_add.
+        def outer(a, b):
+            r = library.my_add(a, b)
+            s = library.my_add(r, b)
+            return s
+
+        return makers.reference_free(outer)
+
+    @staticmethod
+    def _free_inner():
+        # inner(a, b): output_0 = my_add(a, b); return output_0
+        # Output named output_0 to match the my_add port the outer edges expect.
+        def inner(a, b):
+            output_0 = library.my_add(a, b)
+            return output_0
+
+        return makers.reference_free(inner)
+
+    def _outer_with_one_subworkflow(self):
+        # Replace the FIRST node of the 2-node outer with a reference-free
+        # sub-workflow. Result: the nested def calls my_add, and the top-level
+        # function still calls my_add directly for the second node. Both need
+        # `import flowrep_static.library`.
+        free_outer = self._two_node_outer()
+        free_inner = self._free_inner()
+        first_label = next(iter(free_outer.nodes))
+        nodes = dict(free_outer.nodes)
+        nodes[first_label] = free_inner
+        return free_outer.model_copy(update={"nodes": nodes})
+
+    def test_call_import_is_in_preamble_not_function_body(self):
+        recipe = self._outer_with_one_subworkflow()
+        source = render.workflow2python("rebuilt", recipe).source
+        # Module-level (column-0) import is present...
+        self.assertIn("\nimport flowrep_static.library", source)
+        # ...and no indented (in-body) import remains.
+        self.assertNotIn("    import flowrep_static.library", source)
+
+    def test_duplicate_call_import_is_deduplicated(self):
+        recipe = self._outer_with_one_subworkflow()
+        source = render.workflow2python("rebuilt", recipe).source
+        # Top-level function and nested def both need the library import;
+        # it must appear exactly once.
+        self.assertEqual(source.count("import flowrep_static.library"), 1)
+
+    def test_nested_function_import_raises_to_top_level_preamble(self):
+        recipe = self._outer_with_one_subworkflow()
+        rendered = render.workflow2python("rebuilt", recipe)
+        source = rendered.source
+        # The import must appear before the first generated def/decorator,
+        # i.e. in the preamble, even though one consumer is a nested def.
+        first_def = source.index("@flowrep.workflow")
+        import_pos = source.index("import flowrep_static.library")
+        self.assertLess(import_pos, first_def)
+        # And it still builds and round-trips.
+        fn = rendered.build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(recipe)
+        )
