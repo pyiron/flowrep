@@ -578,15 +578,21 @@ class TestRenderedSourceAndGuard(unittest.TestCase):
 class TestFunctionBuilderDecorator(unittest.TestCase):
     def test_render_emits_output_labels_in_decorator(self):
         fb = render.FunctionBuilder(
-            name="f", params=["a"], return_symbols=["a"], output_labels=["m", "n"]
+            name="f",
+            params=["a"],
+            decorator="@foo.bar",
+            return_symbols=["a"],
+            output_labels=["m", "n"],
         )
-        self.assertIn('@flowrep.workflow("m", "n")', fb.render())
+        self.assertIn('@foo.bar("m", "n")', fb.render())
 
     def test_render_bare_decorator_without_labels(self):
-        fb = render.FunctionBuilder(name="f", params=["a"], return_symbols=["a"])
+        fb = render.FunctionBuilder(
+            name="f", decorator="@foo.bar", params=["a"], return_symbols=["a"]
+        )
         src = fb.render()
-        self.assertIn("@flowrep.workflow\n", src)
-        self.assertNotIn("@flowrep.workflow(", src)
+        self.assertIn("@foo.bar\n", src)
+        self.assertNotIn("@foo.bar(", src)
 
 
 class TestNameAllocator(unittest.TestCase):
@@ -1684,3 +1690,11 @@ class TestModuleNames(unittest.TestCase):
         self.assertNotEqual(b1.return_annotation, b2.return_annotation)
         self.assertIn(b1.return_annotation, emitter.namespace)
         self.assertIn(b2.return_annotation, emitter.namespace)
+
+    def test_custom_decorator(self):
+        free = makers.reference_free(_with_default)
+        source = render.workflow2python(
+            "rebuilt", free, workflow_decorator=("foo", "bar")
+        ).source
+        self.assertIn("import foo", source, msg="decorator module should be imported")
+        self.assertIn("@foo.bar", source)

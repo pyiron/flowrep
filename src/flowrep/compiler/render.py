@@ -71,20 +71,22 @@ def workflow2python(
     function_name: base_models.Label,
     recipe: workflow_recipe.WorkflowRecipe,
     signature: inspect.Signature | None = None,
+    workflow_decorator: tuple[str, str] = ("flowrep", "workflow"),
 ) -> RenderedSource:
     if recipe.reference is not None:
         raise ValueError(
             f"This recipe already has an underlying Python reference: "
             f"{recipe.reference}"
         )
-    emitter = _Emitter()
+    emitter = _Emitter(workflow_decorator=workflow_decorator)
+    decorator_module, _ = workflow_decorator
     # Reserve every bare module-level name a nested def must not shadow: the top
     # function name, the always-present decorator/typing imports, and the
     # top-level binding of every import this recipe will emit.
     emitter.module_names.reserve("__future__")
     emitter.module_names.reserve("annotations")
     emitter.module_names.reserve("typing")
-    emitter.module_names.reserve("flowrep")
+    emitter.module_names.reserve(decorator_module)
     emitter.module_names.reserve(function_name)
     for binding in _referenced_top_level_bindings(recipe):
         emitter.module_names.reserve(binding)
@@ -96,7 +98,7 @@ def workflow2python(
     # (for the @workflow decorator emitted on every function). Hoisting to the
     # module level deduplicates imports across the top-level function and its
     # nested defs, and typing.get_type_hints() resolves them from fn.__globals__.
-    modules = sorted({"typing", "flowrep"} | emitter.module_imports)
+    modules = sorted({"typing", decorator_module} | emitter.module_imports)
     import_block = "\n".join(f"import {m}" for m in modules)
     preamble = "from __future__ import annotations\n\n" + import_block + "\n"
     nested = "\n".join(emitter.nested_defs)
@@ -182,6 +184,12 @@ class _Emitter:
     # Module-scope names: nested def names, injected namespace symbols, and
     # reserved import bindings. Distinct from the per-function local allocator.
     module_names: _NameAllocator = dataclasses.field(default_factory=_NameAllocator)
+    workflow_decorator: tuple[str, str] = ("not", "useful")
+
+    @property
+    def decorator_string(self):
+        mod, qualname = self.workflow_decorator
+        return f"@{mod}.{qualname}"
 
 
 def _referenced_top_level_bindings(
@@ -214,6 +222,7 @@ def _referenced_top_level_bindings(
 @dataclasses.dataclass
 class FunctionBuilder:
     name: str
+    decorator: str
     params: list[str] = dataclasses.field(default_factory=list)
     body_lines: list[str] = dataclasses.field(default_factory=list)
     return_annotation: str | None = None
@@ -229,9 +238,9 @@ class FunctionBuilder:
         # this round-trips port names without polluting the return annotation.
         if self.output_labels:
             label_args = ", ".join(f'"{label}"' for label in self.output_labels)
-            header = f"@flowrep.workflow({label_args})\n"
+            header = f"{self.decorator}({label_args})\n"
         else:
-            header = "@flowrep.workflow\n"
+            header = f"{self.decorator}\n"
         header += f"def {self.name}({sig})"
         if self.return_annotation is not None:
             header += f" -> {self.return_annotation}"
@@ -884,6 +893,7 @@ def _emit_workflow_function(
         body_lines = [repr(recipe.description)] + body_lines
     builder = FunctionBuilder(
         name=name,
+        decorator=emitter.decorator_string,
         params=params,
         body_lines=body_lines,
         return_annotation=return_annotation,
