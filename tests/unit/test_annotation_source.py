@@ -2,7 +2,7 @@ import enum
 import typing
 import unittest
 
-from flowrep import _annotation_source
+from flowrep.compiler import _annotation_source
 
 from flowrep_static import library
 

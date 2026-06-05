@@ -5,7 +5,8 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep import edge_models, pysource, retrospective, wfms
+from flowrep import edge_models, retrospective, wfms
+from flowrep.compiler import pysource
 from flowrep.nodes import (
     for_recipe,
     helper_models,

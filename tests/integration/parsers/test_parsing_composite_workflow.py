@@ -3,7 +3,7 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep import pysource
+from flowrep.compiler import pysource
 from flowrep.nodes import workflow_recipe
 from flowrep.parsers import atomic_parser, workflow_parser
 

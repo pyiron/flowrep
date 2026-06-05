@@ -13,12 +13,12 @@ from typing import Any, TypeAlias, cast
 from pyiron_snippets import versions
 
 from flowrep import (
-    _annotation_source,
     base_models,
     edge_models,
     retrospective,
     subgraph_validation,
 )
+from flowrep.compiler import _annotation_source
 from flowrep.nodes import (
     atomic_recipe,
     for_recipe,
