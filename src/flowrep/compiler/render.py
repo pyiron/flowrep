@@ -18,7 +18,7 @@ from flowrep import (
     retrospective,
     subgraph_validation,
 )
-from flowrep.compiler import _annotation_source
+from flowrep.compiler import annotate
 from flowrep.nodes import (
     atomic_recipe,
     for_recipe,
@@ -853,7 +853,7 @@ def _emit_workflow_function(
         signature is not None
         and signature.return_annotation is not inspect.Signature.empty
     ):
-        inlined_return = _annotation_source.render_annotation(
+        inlined_return = annotate.render_annotation(
             signature.return_annotation, emitter.module_imports
         )
         if inlined_return is not None:
@@ -958,9 +958,7 @@ def _render_params(
         has_default = param is not None and param.default is not inspect.Parameter.empty
         if has_annotation:
             annotation = cast(inspect.Parameter, param).annotation
-            inlined = _annotation_source.render_annotation(
-                annotation, emitter.module_imports
-            )
+            inlined = annotate.render_annotation(annotation, emitter.module_imports)
             if inlined is not None:
                 piece += f": {inlined}"
             else:
@@ -969,7 +967,7 @@ def _render_params(
                 piece += f": {annotation_name}"
         if has_default:
             default = cast(inspect.Parameter, param).default
-            inlined_default = _annotation_source.render_default(default)
+            inlined_default = annotate.render_default(default)
             if inlined_default is not None:
                 rhs = inlined_default
             else:
