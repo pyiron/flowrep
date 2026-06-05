@@ -1222,7 +1222,12 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return out
 
         free = makers.reference_free(typed)
-        fn = pysource.recipe2python("rebuilt", free, inspect.signature(typed)).build()
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed))
+        self.assertIn("x: int", rendered.source)
+        self.assertIn("y: list[int]", rendered.source)
+        self.assertIn("z: dict[str, int]", rendered.source)
+        self.assertEqual(rendered.namespace, {})
+        fn = rendered.build()
         sig = inspect.signature(fn)
         self.assertIs(sig.parameters["x"].annotation, int)
         self.assertEqual(sig.parameters["y"].annotation, list[int])
@@ -1234,7 +1239,9 @@ class TestAnnotationReconstruction(unittest.TestCase):
             return r
 
         free = makers.reference_free(f)
-        fn = pysource.recipe2python("rebuilt", free, inspect.signature(f)).build()
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        self.assertIn("typing.Annotated[int, 'meta']", rendered.source)
+        fn = rendered.build()
         hints = typing.get_type_hints(fn, include_extras=True)
         self.assertEqual(hints["x"], typing.Annotated[int, "meta"])
         self.assertIs(hints["y"], float)
@@ -1278,6 +1285,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
         free = makers.reference_free(typed_bad)
         rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed_bad))
         self.assertIn('@flowrep.workflow("q", "r")', rendered.source)
+        self.assertIn("-> int:", rendered.source)
         fn = rendered.build()
         self.assertIs(typing.get_type_hints(fn)["return"], int)
         rebuilt_recipe = workflow_parser.parse_workflow(fn)
@@ -1325,3 +1333,110 @@ class TestAnnotationReconstruction(unittest.TestCase):
         hints = typing.get_type_hints(fn, include_extras=True)
         self.assertEqual(hints["x"], typing.Annotated[int, "in-meta"])
         self.assertEqual(hints["return"], typing.Annotated[float, "out-meta"])
+
+    def test_plain_input_annotation_is_stringy(self):
+        def typed(x: int, y: float):
+            r = library.my_add(x, y)
+            return r
+
+        free = makers.reference_free(typed)
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed))
+        self.assertIn("x: int", rendered.source)
+        self.assertIn("y: float", rendered.source)
+        self.assertNotIn("_ann_x", rendered.namespace)
+        self.assertNotIn("_ann_y", rendered.namespace)
+        fn = rendered.build()
+        sig = inspect.signature(fn)
+        self.assertIs(sig.parameters["x"].annotation, int)
+        self.assertIs(sig.parameters["y"].annotation, float)
+
+    def test_literal_default_is_stringy(self):
+        def f(x: int, y: float = 0.5):
+            r = library.my_add(x, y)
+            return r
+
+        free = makers.reference_free(f)
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        self.assertIn("y: float = 0.5", rendered.source)
+        self.assertNotIn("_default_y", rendered.namespace)
+        fn = rendered.build()
+        self.assertEqual(inspect.signature(fn).parameters["y"].default, 0.5)
+
+    def test_mixed_inline_and_namespace_default(self):
+        sentinel = object()
+
+        def f(x: int, y=sentinel):
+            r = library.my_add(x, y)
+            return r
+
+        free = makers.reference_free(f)
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        # x annotation inlines; y default cannot, so it stays namespace-bound.
+        self.assertIn("x: int", rendered.source)
+        self.assertNotIn("_ann_x", rendered.namespace)
+        self.assertIn(
+            "=_default_y",
+            rendered.source,
+            msg="Unstringable default should stay in reference form in the source text",
+        )
+        self.assertIn("_default_y", rendered.namespace)
+        self.assertIs(rendered.namespace["_default_y"], sentinel)
+        fn = rendered.build()
+        self.assertIs(fn.__defaults__[0], sentinel)
+        self.assertIs(inspect.signature(fn).parameters["x"].annotation, int)
+
+    def test_return_annotation_is_stringy(self):
+        def typed(a, b) -> float:
+            r = library.my_add(a, b)
+            return r
+
+        free = makers.reference_free(typed)
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(typed))
+        self.assertIn("-> float:", rendered.source)
+        self.assertNotIn("_ann_return", rendered.namespace)
+        fn = rendered.build()
+        self.assertIs(inspect.signature(fn).return_annotation, float)
+
+    def test_fully_simple_recipe_has_empty_namespace(self):
+        def simple(x: int, y: float = 1.0) -> float:
+            r = library.my_add(x, y)
+            return r
+
+        free = makers.reference_free(simple)
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(simple))
+        self.assertEqual(rendered.namespace, {})
+        fn = rendered.build()
+        sig = inspect.signature(fn)
+        self.assertIs(sig.parameters["x"].annotation, int)
+        self.assertEqual(sig.parameters["y"].default, 1.0)
+        self.assertIs(sig.return_annotation, float)
+
+    def test_noninlinable_input_annotation_falls_back_to_namespace(self):
+        class Custom:  # local class -> cannot be inlined
+            pass
+
+        def f(x: Custom):
+            r = library.identity(x)
+            return r
+
+        free = makers.reference_free(f)
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        self.assertIn("x: _ann_x", rendered.source)
+        self.assertIs(rendered.namespace["_ann_x"], Custom)
+        fn = rendered.build()
+        self.assertIs(inspect.signature(fn).parameters["x"].annotation, Custom)
+
+    def test_noninlinable_return_annotation_falls_back_to_namespace(self):
+        class Custom:  # local class -> cannot be inlined
+            pass
+
+        def f(a) -> Custom:
+            r = library.identity(a)
+            return r
+
+        free = makers.reference_free(f)
+        rendered = pysource.recipe2python("rebuilt", free, inspect.signature(f))
+        self.assertIn("-> _ann_return:", rendered.source)
+        self.assertIs(rendered.namespace["_ann_return"], Custom)
+        fn = rendered.build()
+        self.assertIs(inspect.signature(fn).return_annotation, Custom)

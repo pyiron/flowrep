@@ -5,7 +5,6 @@ import inspect
 import linecache
 import re
 import sys
-import textwrap
 import types
 import typing
 from collections.abc import Callable
@@ -13,7 +12,13 @@ from typing import Any, TypeAlias, cast
 
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models, retrospective, subgraph_validation
+from flowrep import (
+    _annotation_source,
+    base_models,
+    edge_models,
+    retrospective,
+    subgraph_validation,
+)
 from flowrep.nodes import (
     atomic_recipe,
     for_recipe,
@@ -78,14 +83,12 @@ def recipe2python(
     # _emit_workflow_function. The module-level preamble provides the deferred-
     # annotation flag (so return annotations are not evaluated at exec time) plus
     # `typing` (available for user annotations) and `flowrep` (for the @workflow
-    # decorator emitted on every function).
-    preamble = textwrap.dedent("""\
-        from __future__ import annotations
-
-        import typing
-
-        import flowrep
-        """)
+    # decorator emitted on every function). Any hoisted annotation imports collected
+    # in emitter.module_imports are merged and sorted into the preamble so that
+    # typing.get_type_hints() can resolve them from fn.__globals__.
+    base_imports = ["import typing", "import flowrep"]
+    all_imports = sorted(set(base_imports) | emitter.module_imports)
+    preamble = "from __future__ import annotations\n\n" + "\n".join(all_imports) + "\n"
     nested = "\n".join(emitter.nested_defs)
     func_src = target.render()
     parts = [preamble]
@@ -165,6 +168,7 @@ class _NameAllocator:
 class _Emitter:
     namespace: dict[str, Any] = dataclasses.field(default_factory=dict)
     nested_defs: list[str] = dataclasses.field(default_factory=list)
+    module_imports: set[str] = dataclasses.field(default_factory=set)
 
 
 @dataclasses.dataclass
@@ -849,8 +853,14 @@ def _emit_workflow_function(
         signature is not None
         and signature.return_annotation is not inspect.Signature.empty
     ):
-        emitter.namespace["_ann_return"] = signature.return_annotation
-        return_annotation = "_ann_return"
+        inlined_return = _annotation_source.render_annotation(
+            signature.return_annotation, emitter.module_imports
+        )
+        if inlined_return is not None:
+            return_annotation = inlined_return
+        else:
+            emitter.namespace["_ann_return"] = signature.return_annotation
+            return_annotation = "_ann_return"
     # Prepend sorted imports at the top of the function body. A docstring (the
     # recipe description) must come first of all so the parser's skip_docstring
     # recognises it and `description` round-trips.
@@ -947,16 +957,27 @@ def _render_params(
         )
         has_default = param is not None and param.default is not inspect.Parameter.empty
         if has_annotation:
-            annotation_name = f"_ann_{port}"
-            emitter.namespace[annotation_name] = cast(
-                inspect.Parameter, param
-            ).annotation
-            piece += f": {annotation_name}"
+            annotation = cast(inspect.Parameter, param).annotation
+            inlined = _annotation_source.render_annotation(
+                annotation, emitter.module_imports
+            )
+            if inlined is not None:
+                piece += f": {inlined}"
+            else:
+                annotation_name = f"_ann_{port}"
+                emitter.namespace[annotation_name] = annotation
+                piece += f": {annotation_name}"
         if has_default:
-            default_name = f"_default_{port}"
-            emitter.namespace[default_name] = cast(inspect.Parameter, param).default
+            default = cast(inspect.Parameter, param).default
+            inlined_default = _annotation_source.render_default(default)
+            if inlined_default is not None:
+                rhs = inlined_default
+            else:
+                default_name = f"_default_{port}"
+                emitter.namespace[default_name] = default
+                rhs = default_name
             # PEP 8 / black: spaces around '=' only when the parameter is annotated.
-            piece += f" = {default_name}" if has_annotation else f"={default_name}"
+            piece += f" = {rhs}" if has_annotation else f"={rhs}"
         params.append(piece)
 
     # Edge case: the last param was positional-only and no marker emitted yet.
