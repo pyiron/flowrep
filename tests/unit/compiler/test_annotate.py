@@ -72,13 +72,13 @@ class TestRenderAnnotationPlain(unittest.TestCase):
         imports: set[str] = set()
         text = annotate.render_annotation(decimal.Decimal, imports)
         self.assertEqual(text, "decimal.Decimal")
-        self.assertEqual(imports, {"import decimal"})
+        self.assertEqual(imports, {"decimal"})
 
     def test_class_renders_with_import(self):
         imports: set[str] = set()
         text = annotate.render_annotation(library.MyCustomException, imports)
         self.assertEqual(text, "flowrep_static.library.MyCustomException")
-        self.assertEqual(imports, {"import flowrep_static.library"})
+        self.assertEqual(imports, {"flowrep_static.library"})
 
     def test_local_class_falls_back(self):
         class Local:
@@ -99,7 +99,7 @@ class TestRenderAnnotationCompound(unittest.TestCase):
         self.assertIsNotNone(text, msg=f"{ann!r} should render")
         ns = {"typing": typing}
         for line in imports:
-            mod = line.removeprefix("import ").split(".")[0]
+            mod = line.split(".")[0]
             ns[mod] = __import__(mod)
         self.assertEqual(eval(text, ns), expected_eval)  # noqa: S307
         return text

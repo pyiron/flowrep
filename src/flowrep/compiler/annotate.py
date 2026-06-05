@@ -22,8 +22,8 @@ _ANNOTATED_ORIGIN_SENTINEL = typing.get_origin(typing.Annotated[int, "x"])
 def render_annotation(ann: Any, imports: set[str]) -> str | None:
     """Return verified source text for an annotation, or ``None``.
 
-    Mutates ``imports`` with ``"import {module}"`` lines for every non-builtin
-    module the text references. Returns ``None`` (without leaving partial imports
+    Mutates ``imports`` with the bare module name for every non-builtin module
+    the text references. Returns ``None`` (without leaving partial imports
     behind) when any part of the annotation cannot be rendered or the rendered
     text fails to evaluate back to an equal object.
     """
@@ -105,7 +105,7 @@ def _render_plain_type(ann: type, imports: set[str]) -> str | None:
     if info.is_local or info.is_lambda or info.in_main:
         return None
     if info.module != "builtins":
-        imports.add(f"import {info.module}")
+        imports.add(info.module)
     return info.findable_at
 
 
@@ -113,7 +113,7 @@ def _verifies(text: str, ann: Any, imports: set[str]) -> bool:
     namespace: dict[str, Any] = {"__builtins__": builtins}
     namespace["typing"] = importlib.import_module("typing")
     for line in imports:
-        top = line.removeprefix("import ").split(".")[0]
+        top = line.split(".")[0]
         namespace[top] = importlib.import_module(top)
     try:
         evaluated = eval(text, namespace)  # noqa: S307 - controlled codegen text

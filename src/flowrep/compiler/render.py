@@ -94,9 +94,9 @@ def workflow2python(
     # (for the @workflow decorator emitted on every function). Hoisting to the
     # module level deduplicates imports across the top-level function and its
     # nested defs, and typing.get_type_hints() resolves them from fn.__globals__.
-    base_imports = ["import typing", "import flowrep"]
-    all_imports = sorted(set(base_imports) | emitter.module_imports)
-    preamble = "from __future__ import annotations\n\n" + "\n".join(all_imports) + "\n"
+    modules = sorted({"typing", "flowrep"} | emitter.module_imports)
+    import_block = "\n".join(f"import {m}" for m in modules)
+    preamble = "from __future__ import annotations\n\n" + import_block + "\n"
     nested = "\n".join(emitter.nested_defs)
     func_src = target.render()
     parts = [preamble]
@@ -306,7 +306,7 @@ def _set_call_path_from_info(
     info: versions.VersionInfo, module_imports: set[str]
 ) -> str:
     module, call_path = _module_and_path(info)
-    module_imports.add(f"import {module}")
+    module_imports.add(module)
     return call_path
 
 
@@ -765,7 +765,7 @@ def _exception_name(info: versions.VersionInfo, module_imports: set[str]) -> str
     set and returns a fully qualified importable string.
     """
     if info.module != "builtins":
-        module_imports.add(f"import {info.module}")
+        module_imports.add(info.module)
     return info.findable_at
 
 
