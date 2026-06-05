@@ -81,9 +81,11 @@ def workflow2python(
     # Reserve every bare module-level name a nested def must not shadow: the top
     # function name, the always-present decorator/typing imports, and the
     # top-level binding of every import this recipe will emit.
-    emitter.module_names.reserve(function_name)
-    emitter.module_names.reserve("flowrep")
+    emitter.module_names.reserve("__future__")
+    emitter.module_names.reserve("annotations")
     emitter.module_names.reserve("typing")
+    emitter.module_names.reserve("flowrep")
+    emitter.module_names.reserve(function_name)
     for binding in _referenced_top_level_bindings(recipe):
         emitter.module_names.reserve(binding)
     target = _emit_workflow_function(recipe, function_name, emitter, signature)
