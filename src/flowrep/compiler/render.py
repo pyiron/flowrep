@@ -116,11 +116,12 @@ def workflow2python(
 def dagdata2python(
     function_name: base_models.Label,
     dagdata: retrospective.DagData,
+    workflow_decorator: tuple[str, str] = ("flowrep", "workflow"),
 ) -> RenderedSource:
     sig = _build_signature(dagdata.input_ports, dagdata.output_ports)
     # Strip the reference so recipe2python accepts the recipe.
     free_recipe = dagdata.recipe.model_copy(update={"reference": None})
-    return workflow2python(function_name, free_recipe, sig)
+    return workflow2python(function_name, free_recipe, sig, workflow_decorator)
 
 
 @dataclasses.dataclass
