@@ -167,7 +167,42 @@ class RenderedSource:
         return message
 
 
-def workflow2python(
+def flowrep2python(
+    workflow: workflow_recipe.WorkflowRecipe | retrospective.DagData,
+    function_name: base_models.Label | None = None,
+    signature: inspect.Signature | None = None,
+    _workflow_decorator: tuple[str, str] = ("flowrep", "workflow"),
+) -> RenderedSource:
+    """
+    Compile a workflow recipe into a rendered object that can be built into a function
+    object or dumped to a .py file.
+    """
+    if isinstance(workflow, retrospective.DagData):
+        if signature is not None:
+            raise ValueError(
+                "Cannot pass signature when compiling a "
+                f"{retrospective.DagData.__name__}"
+            )
+        return _dagdata2python(
+            workflow,
+            function_name=function_name,
+            _workflow_decorator=_workflow_decorator,
+        )
+    elif isinstance(workflow, workflow_recipe.WorkflowRecipe):
+        return _workflow2python(
+            workflow,
+            function_name=function_name,
+            signature=signature,
+            _workflow_decorator=_workflow_decorator,
+        )
+    else:
+        raise TypeError(
+            f"Expected a {workflow_recipe.WorkflowRecipe.__name__} or "
+            f"{retrospective.DagData.__name__} or DagData, got {type(workflow)}"
+        )
+
+
+def _workflow2python(
     recipe: workflow_recipe.WorkflowRecipe,
     *,
     function_name: base_models.Label | None = None,
@@ -217,7 +252,7 @@ def workflow2python(
     )
 
 
-def dagdata2python(
+def _dagdata2python(
     dagdata: retrospective.DagData,
     *,
     function_name: base_models.Label | None = None,
@@ -226,7 +261,7 @@ def dagdata2python(
     sig = function.build_signature(dagdata.input_ports, dagdata.output_ports)
     # Strip the reference so recipe2python accepts the recipe.
     free_recipe = dagdata.recipe.model_copy(update={"reference": None})
-    return workflow2python(
+    return _workflow2python(
         free_recipe,
         function_name=function_name,
         signature=sig,
