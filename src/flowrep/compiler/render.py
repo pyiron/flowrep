@@ -8,6 +8,7 @@ import re
 import sys
 import types
 import typing
+import weakref
 from collections.abc import Callable
 from typing import Any, TypeAlias, cast
 
@@ -66,6 +67,41 @@ def _next_generated_filename(name: str) -> str:
     global _GENERATED_COUNTER
     _GENERATED_COUNTER += 1
     return f"<flowrep_generated_{name}_{_GENERATED_COUNTER}>"
+
+
+def _purge_generated(mod_name: str, fname: str) -> None:
+    """Drop a built function's synthetic module + linecache entries (idempotent)."""
+    sys.modules.pop(mod_name, None)
+    linecache.cache.pop(fname, None)
+
+
+class _WeakFnModule(types.ModuleType):
+    """A synthetic module that holds its generated function via a weakref.
+
+    ``module.__dict__`` does not hold a strong reference to the built function,
+    so the only strong reference is the caller's. When the function is
+    garbage-collected the weakref is dead and the finalizer can purge the
+    ``sys.modules`` and ``linecache`` entries.
+
+    ``__getattr__`` re-exposes the function (while alive) so that
+    ``retrieve.import_from_string`` can resolve ``mod_name.fn_name`` normally.
+    """
+
+    def __init__(
+        self, name: str, fn_name: str, fn_ref: weakref.ref[types.FunctionType]
+    ) -> None:
+        super().__init__(name)
+        # Store the weakref under a private key so normal attribute lookup
+        # still falls through to __getattr__ for the public function name.
+        self.__dict__["_fn_name"] = fn_name
+        self.__dict__["_fn_ref"] = fn_ref
+
+    def __getattr__(self, name: str) -> object:
+        if name == self.__dict__.get("_fn_name"):
+            fn = self.__dict__["_fn_ref"]()
+            if fn is not None:
+                return fn
+        raise AttributeError(name)
 
 
 def workflow2python(
@@ -154,18 +190,41 @@ class RenderedSource:
         # nested-def decoration at exec time and the target re-parse by parse_workflow.
         # The module name is derived from the filename (strip angle brackets).
         mod_name = fname.strip("<>")
-        module = types.ModuleType(mod_name)
-        module.__file__ = fname
-        module.__dict__.update({"typing": typing, **self.namespace})
-        sys.modules[mod_name] = module
+        # Use a plain ModuleType for exec so the function lands in the dict normally.
+        # After exec we switch sys.modules to a _WeakFnModule that exposes the
+        # function via a weakref (so the module dict does not pin it).
+        exec_module = types.ModuleType(mod_name)
+        exec_module.__file__ = fname
+        exec_module.__dict__.update({"typing": typing, **self.namespace})
+        sys.modules[mod_name] = exec_module
         code = compile(self.source, fname, "exec")
-        exec(code, module.__dict__)  # noqa: S102 - controlled codegen, not user input
-        fn = module.__dict__[self.function_name]
+        exec(
+            code, exec_module.__dict__
+        )  # noqa: S102 - controlled codegen, not user input
+        fn = exec_module.__dict__[self.function_name]
         # The source uses `from __future__ import annotations`, so __annotations__
         # holds PEP-563 strings (e.g. '_ann_x'). Resolve them against the module
         # globals so inspect.signature reports the real type objects. The decorator
         # has already run and re-parsing reads source text, so this is safe.
         fn.__annotations__ = typing.get_type_hints(fn, include_extras=True)
+        # Bound the synthetic sys.modules / linecache entries to the built function's
+        # lifetime. Replace the exec module in sys.modules with a _WeakFnModule that
+        # holds only a weakref to fn, so sys.modules no longer transitively pins it.
+        # fn keeps its own __globals__ (exec_module.__dict__) alive via fn.__globals__.
+        # The _WeakFnModule re-exposes fn through __getattr__ while it is alive, so
+        # retrieve.import_from_string("mod.fn_name") continues to work. When fn is
+        # garbage-collected the finalizer purges both sys.modules and linecache entries.
+        fn_ref: weakref.ref[types.FunctionType] = weakref.ref(fn)
+        weak_module = _WeakFnModule(mod_name, self.function_name, fn_ref)
+        weak_module.__file__ = fname
+        weak_module.__dict__.update(exec_module.__dict__)
+        del weak_module.__dict__[self.function_name]
+        sys.modules[mod_name] = weak_module
+        # Drop fn from exec_module.__dict__ (which fn.__globals__ aliases) to avoid a
+        # reference cycle (fn -> __globals__ -> fn) that would require the cyclic GC to
+        # collect it. After this, the only strong reference to fn is the caller's.
+        del exec_module.__dict__[self.function_name]
+        weakref.finalize(fn, _purge_generated, mod_name, fname)
         return fn
 
     def dump(
@@ -1009,7 +1068,16 @@ def _emit_nested_workflow_node(
     alloc.reserve(fn_name)
     builder = _emit_workflow_function(node, fn_name, emitter, signature=None)
     # The @flowrep.workflow decorator is emitted by FunctionBuilder.render itself.
-    emitter.nested_defs.append(builder.render())
+    rendered = builder.render()
+    if fn_name != base:
+        # Node labels are re-derived from the resolved function's __name__
+        # (atomic_parser / unique_suffix). When a unique module binding name must
+        # differ from the base -- restore __name__ so re-parsing reconstructs the
+        # original label. Appended to the nested def's text; nested defs are emitted
+        # at module level before the enclosing function, so the assignment executes
+        # before the enclosing @workflow decorator parses the body.
+        rendered += f"{fn_name}.__name__ = {base!r}\n"
+    emitter.nested_defs.append(rendered)
     return fn_name
 
 

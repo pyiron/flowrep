@@ -1,7 +1,10 @@
 import dataclasses
+import gc
 import inspect
+import linecache
 import pathlib
 import re
+import sys
 import tempfile
 import typing
 import unittest
@@ -575,6 +578,25 @@ class TestRenderedSourceAndGuard(unittest.TestCase):
         )
         fn = rs.build()
         self.assertEqual(fn(), 99)
+
+    def test_build_releases_module_and_linecache_after_gc(self):
+        free = makers.make_simple_workflow_recipe().model_copy(
+            update={"reference": None}
+        )
+        fn = render.workflow2python(free).build()
+        mod_name = fn.__module__
+        fname = fn.__code__.co_filename
+
+        # Entries exist and re-parsing the live function still works.
+        self.assertIn(mod_name, sys.modules)
+        self.assertIn(fname, linecache.cache)
+        self.assertIsNotNone(workflow_parser.parse_workflow(fn))
+
+        del fn
+        gc.collect()
+
+        self.assertNotIn(mod_name, sys.modules)
+        self.assertNotIn(fname, linecache.cache)
 
 
 class TestRenderedSourceDump(unittest.TestCase):
@@ -1676,6 +1698,55 @@ class TestModuleNames(unittest.TestCase):
         )
         fn = rendered.build()
         self.assertEqual(fn(2, 3), 5)
+
+    def test_sibling_subworkflow_labels_round_trip(self):
+        # Two sibling reference-free sub-workflows sharing base "my_add" -> labels
+        # my_add_0, my_add_1. The emitter must restore each nested def's __name__ to
+        # the base so re-parsing reconstructs the same labels.
+        def a_node(a, b):
+            output_0 = library.my_add(a, b)
+            return output_0
+
+        def b_node(a, b):
+            output_0 = library.my_add(a, b)
+            return output_0
+
+        free_a = makers.reference_free(a_node)
+        free_b = makers.reference_free(b_node)
+        nodes = {"my_add_0": free_a, "my_add_1": free_b}
+        input_edges = {
+            edge_models.TargetHandle(
+                node="my_add_0", port="a"
+            ): edge_models.InputSource(port="p"),
+            edge_models.TargetHandle(
+                node="my_add_0", port="b"
+            ): edge_models.InputSource(port="q"),
+            edge_models.TargetHandle(
+                node="my_add_1", port="b"
+            ): edge_models.InputSource(port="q"),
+        }
+        edges = {
+            edge_models.TargetHandle(
+                node="my_add_1", port="a"
+            ): edge_models.SourceHandle(node="my_add_0", port="output_0"),
+        }
+        output_edges = {
+            edge_models.OutputTarget(port="output_0"): edge_models.SourceHandle(
+                node="my_add_1", port="output_0"
+            )
+        }
+        recipe = workflow_recipe.WorkflowRecipe(
+            inputs=["p", "q"],
+            outputs=["output_0"],
+            nodes=nodes,
+            input_edges=input_edges,
+            edges=edges,
+            output_edges=output_edges,
+            reference=None,
+        )
+        rebuilt = render.workflow2python(recipe).build()
+        reparsed = workflow_parser.parse_workflow(rebuilt)
+        self.assertEqual(list(recipe.nodes), list(reparsed.nodes))
 
     @staticmethod
     def _relabel_only_node(recipe, new_label):
