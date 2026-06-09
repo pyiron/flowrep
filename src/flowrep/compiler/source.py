@@ -182,7 +182,7 @@ def workflow2python(
             f"This recipe already has an underlying Python reference: "
             f"{recipe.reference}"
         )
-    emitter = function._Emitter(workflow_decorator=_workflow_decorator)
+    emitter = function.Emitter(workflow_decorator=_workflow_decorator)
     decorator_module, _ = _workflow_decorator
     # Reserve every bare module-level name a nested def must not shadow: the top
     # function name, the always-present decorator/typing imports, and the
@@ -192,9 +192,9 @@ def workflow2python(
     emitter.module_names.reserve("typing")
     emitter.module_names.reserve(decorator_module)
     emitter.module_names.reserve(function_name)
-    for binding in function._referenced_top_level_bindings(recipe):
+    for binding in function.referenced_top_level_bindings(recipe):
         emitter.module_names.reserve(binding)
-    target = function._emit_workflow_function(recipe, function_name, emitter, signature)
+    target = function.emit_workflow_function(recipe, function_name, emitter, signature)
     # All generated imports (per-node call, exception, and annotation) are
     # collected in emitter.module_imports and merged here. The preamble also
     # provides the deferred-annotation flag (so return annotations are not
@@ -223,7 +223,7 @@ def dagdata2python(
     function_name: base_models.Label | None = None,
     _workflow_decorator: tuple[str, str] = ("flowrep", "workflow"),
 ) -> RenderedSource:
-    sig = function._build_signature(dagdata.input_ports, dagdata.output_ports)
+    sig = function.build_signature(dagdata.input_ports, dagdata.output_ports)
     # Strip the reference so recipe2python accepts the recipe.
     free_recipe = dagdata.recipe.model_copy(update={"reference": None})
     return workflow2python(

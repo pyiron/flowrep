@@ -19,7 +19,7 @@ from flowrep.nodes import (
 from flowrep.parsers import label_helpers
 
 
-class _NameAllocator:
+class NameAllocator:
     """Mints unique, valid Python identifiers within a single function namespace."""
 
     def __init__(self) -> None:
@@ -39,13 +39,13 @@ class _NameAllocator:
 
 
 @dataclasses.dataclass
-class _Emitter:
+class Emitter:
     namespace: dict[str, Any] = dataclasses.field(default_factory=dict)
     nested_defs: list[str] = dataclasses.field(default_factory=list)
     module_imports: set[str] = dataclasses.field(default_factory=set)
     # Module-scope names: nested def names, injected namespace symbols, and
     # reserved import bindings. Distinct from the per-function local allocator.
-    module_names: _NameAllocator = dataclasses.field(default_factory=_NameAllocator)
+    module_names: NameAllocator = dataclasses.field(default_factory=NameAllocator)
     workflow_decorator: tuple[str, str] = ("not", "useful")
 
     @property
@@ -91,7 +91,7 @@ class FunctionBuilder:
         return header + "\n" + indented + ret
 
 
-def _referenced_top_level_bindings(
+def referenced_top_level_bindings(
     node: union_types.RecipeDiscrimination,
 ) -> typing.Iterator[str]:
     """Yield the top-level module binding of every import the recipe will emit.
@@ -107,10 +107,10 @@ def _referenced_top_level_bindings(
         return
     if isinstance(node, workflow_recipe.WorkflowRecipe):
         for child in node.nodes.values():
-            yield from _referenced_top_level_bindings(child)
-    elif isinstance(node, flow_control._FLOW_CONTROL_TYPES):
+            yield from referenced_top_level_bindings(child)
+    elif isinstance(node, flow_control.FLOW_CONTROL_TYPES):
         for child in node.prospective_nodes.values():
-            yield from _referenced_top_level_bindings(child)
+            yield from referenced_top_level_bindings(child)
         if isinstance(node, try_recipe.TryRecipe):
             for case in node.exception_cases:
                 for info in case.exceptions:
@@ -160,7 +160,7 @@ def _collect_loop_variables_from_body(
     if isinstance(body, workflow_recipe.WorkflowRecipe):
         for node in body.nodes.values():
             _collect_loop_variables(node, names)
-    elif isinstance(body, flow_control._FLOW_CONTROL_TYPES):
+    elif isinstance(body, flow_control.FLOW_CONTROL_TYPES):
         _collect_loop_variables(body, names)
     # single atomic body: no loop variables
 
@@ -182,7 +182,7 @@ def _label_base(label: str) -> str:
     return m.group(1) if m else label
 
 
-def _output_name_suggestion(label: str, port: str, n_outputs: int) -> str:
+def output_name_suggestion(label: str, port: str, n_outputs: int) -> str:
     """Symbol-name hint for a call assignment, derived from the node label.
 
     Single-output nodes use the label base; multi-output nodes disambiguate per
@@ -192,11 +192,11 @@ def _output_name_suggestion(label: str, port: str, n_outputs: int) -> str:
     return base if n_outputs == 1 else f"{base}_{port}"
 
 
-def _emit_nested_workflow_node(
+def emit_nested_workflow_node(
     node: workflow_recipe.WorkflowRecipe,
     label: str,
-    emitter: _Emitter,
-    alloc: _NameAllocator,
+    emitter: Emitter,
+    alloc: NameAllocator,
 ) -> str:
     """Emit a nested @flowrep.workflow-decorated def for a reference-free workflow node.
 
@@ -216,7 +216,7 @@ def _emit_nested_workflow_node(
     # a local symbol that shadows the def (it is called by bare name in the body).
     fn_name = emitter.module_names.fresh(base)
     alloc.reserve(fn_name)
-    builder = _emit_workflow_function(node, fn_name, emitter, signature=None)
+    builder = emit_workflow_function(node, fn_name, emitter, signature=None)
     # The @flowrep.workflow decorator is emitted by FunctionBuilder.render itself.
     rendered = builder.render()
     if fn_name != base:
@@ -234,7 +234,7 @@ def _emit_nested_workflow_node(
 def _render_params(
     recipe: workflow_recipe.WorkflowRecipe,
     signature: inspect.Signature | None,
-    emitter: _Emitter,
+    emitter: Emitter,
 ) -> list[str]:
     if signature is None:
         return list(recipe.inputs)
@@ -295,7 +295,7 @@ def _render_params(
     return params
 
 
-def _build_signature(
+def build_signature(
     inputs: retrospective.InputDataPorts,
     outputs: retrospective.OutputDataPorts,
 ) -> inspect.Signature:
@@ -338,22 +338,20 @@ def _build_return_annotation(outputs: retrospective.OutputDataPorts) -> Any:
     return tuple[tuple(types)]  # type: ignore
 
 
-def _emit_workflow_function(
+def emit_workflow_function(
     recipe: workflow_recipe.WorkflowRecipe,
     name: str,
-    emitter: _Emitter,
+    emitter: Emitter,
     signature: inspect.Signature | None = None,
 ) -> FunctionBuilder:
-    alloc = _NameAllocator()
+    alloc = NameAllocator()
     in_syms = {port: alloc.reserve(port) for port in recipe.inputs}
     # Loop variables are pinned to body-port names and bypass the allocator; reserve
     # them so node-output symbols never collide with (and get shadowed by) them.
     for loop_variable in _inlined_loop_variables(recipe):
         alloc.reserve(loop_variable)
     params = _render_params(recipe, signature, emitter)
-    lines, out_syms = statements._emit_workflow_body(
-        recipe, in_syms, {}, emitter, alloc
-    )
+    lines, out_syms = statements.emit_workflow_body(recipe, in_syms, {}, emitter, alloc)
     # Output port names are pinned via the decorator (see FunctionBuilder.render),
     # so the return annotation is free to carry the user's verbatim type. Bind the
     # whole annotation as a live object (arbitrary types do not round-trip through

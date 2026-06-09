@@ -698,18 +698,18 @@ class TestFunctionBuilderDecorator(unittest.TestCase):
 
 class TestNameAllocator(unittest.TestCase):
     def test_fresh_returns_hint_then_suffixes(self):
-        alloc = function._NameAllocator()
+        alloc = function.NameAllocator()
         self.assertEqual(alloc.fresh("x"), "x")
         self.assertEqual(alloc.fresh("x"), "x_0")
         self.assertEqual(alloc.fresh("x"), "x_1")
 
     def test_fresh_sanitises_invalid_hint(self):
-        alloc = function._NameAllocator()
+        alloc = function.NameAllocator()
         out = alloc.fresh("output_0.bad")  # not a valid identifier
         self.assertTrue(out.isidentifier())
 
     def test_reserve_blocks_later_fresh_collision(self):
-        alloc = function._NameAllocator()
+        alloc = function.NameAllocator()
         self.assertEqual(alloc.reserve("result"), "result")
         self.assertEqual(alloc.fresh("result"), "result_0")
 
@@ -1332,12 +1332,12 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             }
         )
         with self.assertRaisesRegex(ValueError, "cannot be emitted as an assignment"):
-            statements._emit_workflow_body(
+            statements.emit_workflow_body(
                 body,
                 {"a": "a", "b": "b"},
                 {"p": "P", "q": "Q"},
-                function._Emitter(),
-                function._NameAllocator(),
+                function.Emitter(),
+                function.NameAllocator(),
             )
 
 
@@ -1682,15 +1682,15 @@ class TestModuleNames(unittest.TestCase):
         # All calls live in flowrep_static.library -> top binding "flowrep_static".
         # ZeroDivisionError is a builtin and must be skipped (no import emitted).
         self.assertEqual(
-            set(function._referenced_top_level_bindings(free_safe)),
+            set(function.referenced_top_level_bindings(free_safe)),
             {"flowrep_static"},
         )
         self.assertNotIn(
-            "builtins", set(function._referenced_top_level_bindings(free_safe))
+            "builtins", set(function.referenced_top_level_bindings(free_safe))
         )
         # The non-builtin custom exception still resolves to flowrep_static.
         self.assertEqual(
-            set(function._referenced_top_level_bindings(free_custom)),
+            set(function.referenced_top_level_bindings(free_custom)),
             {"flowrep_static"},
         )
 
@@ -1872,9 +1872,9 @@ class TestModuleNames(unittest.TestCase):
             return_annotation=Custom,
         )
 
-        emitter = function._Emitter()
-        b1 = function._emit_workflow_function(recipe, "f1", emitter, sig)
-        b2 = function._emit_workflow_function(recipe, "f2", emitter, sig)
+        emitter = function.Emitter()
+        b1 = function.emit_workflow_function(recipe, "f1", emitter, sig)
+        b2 = function.emit_workflow_function(recipe, "f2", emitter, sig)
 
         return_keys = [k for k in emitter.namespace if k.startswith("_ann_return")]
         self.assertEqual(len(return_keys), 2, emitter.namespace)
@@ -2003,8 +2003,8 @@ class TestSymbolNaming(unittest.TestCase):
         # flow-control node's shared symbols, so `required` is never empty in
         # production; a direct call is the only way to exercise the unforced path.
         node = library.loop_inc.flowrep_recipe
-        alloc = function._NameAllocator()
-        emitter = function._Emitter()
+        alloc = function.NameAllocator()
+        emitter = function.Emitter()
         lines, out_syms = statements._emit_single_node_body(
             node,
             "loop_inc_0",

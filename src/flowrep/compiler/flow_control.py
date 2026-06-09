@@ -14,14 +14,14 @@ from flowrep.nodes import (
 )
 
 # Recipe types that emit as a flow-control statement rather than a single call.
-_FLOW_CONTROL_TYPES = (
+FLOW_CONTROL_TYPES = (
     for_recipe.ForEachRecipe,
     if_recipe.IfRecipe,
     try_recipe.TryRecipe,
     while_recipe.WhileRecipe,
 )
 
-_FlowControlRecipeAlias: TypeAlias = (
+FlowControlRecipeAlias: TypeAlias = (
     for_recipe.ForEachRecipe
     | if_recipe.IfRecipe
     | try_recipe.TryRecipe
@@ -49,14 +49,14 @@ def _guard_loop_variable_shadowing(
         )
 
 
-def _emit_flow_control(
-    node: _FlowControlRecipeAlias,
+def emit_flow_control(
+    node: FlowControlRecipeAlias,
     label: str,
-    in_resolver: statements._InResolverType,
+    in_resolver: statements.InResolverType,
     produced: dict[tuple[str, str], str],
     required_by_handle: dict[tuple[str, str], str],
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> list[str]:
     """Dispatch a flow-control node to the appropriate emitter."""
     if isinstance(node, for_recipe.ForEachRecipe):
@@ -93,10 +93,10 @@ def _emit_flow_control(
 
 def _emit_for_each(
     node: for_recipe.ForEachRecipe,
-    in_resolver: statements._InResolverType,
+    in_resolver: statements.InResolverType,
     out_syms: dict[str, str],
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> list[str]:
     """Emit a for-each loop as Python source lines."""
     # 1. Accumulator declarations, named by output port.
@@ -134,7 +134,7 @@ def _emit_for_each(
     # Pin each body output to a symbol matching its port name, so the re-parser
     # reconstructs the same port names on round-trip.
     body_required = {port: port for port in body.outputs}
-    body_lines, body_out = statements._emit_body(
+    body_lines, body_out = statements.emit_body(
         body, body_label, body_in_syms, body_required, emitter, alloc
     )
 
@@ -170,14 +170,14 @@ def _emit_for_each(
 def _render_condition(
     case_condition,
     node: _ConditionalRecipeAlias,
-    in_resolver: statements._InResolverType,
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    in_resolver: statements.InResolverType,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> str:
     """Render a condition call as an inline expression (no assignment)."""
     cond_node = case_condition.node
     cond_label = case_condition.label
-    call_path = statements._node_call_path(cond_node, cond_label, emitter, alloc)
+    call_path = statements.node_call_path(cond_node, cond_label, emitter, alloc)
     if call_path is None:
         raise NotImplementedError(
             f"Condition node '{cond_label}' is a {type(cond_node).__name__}, but "
@@ -190,17 +190,17 @@ def _render_condition(
         target = edge_models.TargetHandle(node=cond_label, port=port)
         return in_resolver(node.input_edges[target].port)
 
-    return statements._render_call(call_path, cond_node, cond_resolver)
+    return statements.render_call(call_path, cond_node, cond_resolver)
 
 
 def _emit_branch(
     branch_label: str,
     branch_recipe,
     node: _BranchingRecipeAlias,
-    in_resolver: statements._InResolverType,
+    in_resolver: statements.InResolverType,
     out_syms: dict[str, str],
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> list[str]:
     """Inline a case/else branch body, pinning its outputs to the shared symbols."""
     body_in_syms: dict[str, str] = {}
@@ -220,7 +220,7 @@ def _emit_branch(
         for source in sources:
             if source.node == branch_label:
                 required[source.port] = out_syms[flow_target.port]
-    body_lines, _ = statements._emit_body(
+    body_lines, _ = statements.emit_body(
         branch_recipe, branch_label, body_in_syms, required, emitter, alloc
     )
     return body_lines or ["pass"]
@@ -228,10 +228,10 @@ def _emit_branch(
 
 def _emit_if(
     node: if_recipe.IfRecipe,
-    in_resolver: statements._InResolverType,
+    in_resolver: statements.InResolverType,
     out_syms: dict[str, str],
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> list[str]:
     """Emit an if/elif/else block as Python source lines."""
     lines: list[str] = []
@@ -278,10 +278,10 @@ def _exception_name(info: versions.VersionInfo, module_imports: set[str]) -> str
 
 def _emit_try(
     node: try_recipe.TryRecipe,
-    in_resolver: statements._InResolverType,
+    in_resolver: statements.InResolverType,
     out_syms: dict[str, str],
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> list[str]:
     """Emit a try/except block as Python source lines."""
     # try body
@@ -319,10 +319,10 @@ def _emit_try(
 
 def _emit_while(
     node: while_recipe.WhileRecipe,
-    in_resolver: statements._InResolverType,
+    in_resolver: statements.InResolverType,
     out_syms: dict[str, str],
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> list[str]:
     """Emit a while loop as Python source lines."""
     case = node.case
@@ -345,7 +345,7 @@ def _emit_while(
         source.port: out_syms[target.port]
         for target, source in node.output_edges.items()
     }
-    body_lines, _ = statements._emit_body(
+    body_lines, _ = statements.emit_body(
         body, body_label, body_in_syms, required, emitter, alloc
     )
 
@@ -354,13 +354,13 @@ def _emit_while(
     return lines
 
 
-def _emit_flow_control_body(
-    node: _FlowControlRecipeAlias,
+def emit_flow_control_body(
+    node: FlowControlRecipeAlias,
     label: str,
     in_syms: dict[str, str],
     required: dict[str, str],
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> tuple[list[str], dict[str, str]]:
     """Inline a flow-control recipe that sits directly as a branch/loop body.
 
@@ -374,7 +374,7 @@ def _emit_flow_control_body(
 
     produced: dict[tuple[str, str], str] = {}
     required_by_handle = {(label, port): sym for port, sym in required.items()}
-    lines = _emit_flow_control(
+    lines = emit_flow_control(
         node, label, in_resolver, produced, required_by_handle, emitter, alloc
     )
     out_syms = {port: produced[(label, port)] for port in node.outputs}

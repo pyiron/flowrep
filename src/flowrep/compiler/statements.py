@@ -13,7 +13,7 @@ from flowrep.nodes import (
     workflow_recipe,
 )
 
-_InResolverType: TypeAlias = Callable[[str], str]
+InResolverType: TypeAlias = Callable[[str], str]
 _PortTypeAlias: TypeAlias = (
     edge_models.SourceHandle
     | edge_models.TargetHandle
@@ -33,8 +33,8 @@ def _module_and_path(info: versions.VersionInfo) -> tuple[str, str]:
     return info.module, info.fully_qualified_name
 
 
-def _render_call(
-    call_path: str, node: union_types.RecipeDiscrimination, in_resolver: _InResolverType
+def render_call(
+    call_path: str, node: union_types.RecipeDiscrimination, in_resolver: InResolverType
 ) -> str:
     """Render a call expression. `in_resolver(port)` returns a symbol or raises."""
     if reference := getattr(node, "reference", None):
@@ -69,11 +69,11 @@ def _render_call(
     return f"{call_path}({', '.join(positional + keyword)})"
 
 
-def _node_call_path(
+def node_call_path(
     node: union_types.RecipeDiscrimination,
     label: str,
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> str | None:
     """Resolve the call path for a node that emits as a single call expression.
 
@@ -87,8 +87,8 @@ def _node_call_path(
     elif isinstance(node, workflow_recipe.WorkflowRecipe):
         if reference := getattr(node, "reference", None):
             return _set_call_path_from_info(reference.info, emitter.module_imports)
-        return function._emit_nested_workflow_node(node, label, emitter, alloc)
-    elif isinstance(node, flow_control._FLOW_CONTROL_TYPES):
+        return function.emit_nested_workflow_node(node, label, emitter, alloc)
+    elif isinstance(node, flow_control.FLOW_CONTROL_TYPES):
         return None
     else:  # pragma: no cover - all concrete flow control types are handled above
         raise ValueError(f"Unexpected node type: {type(node).__name__}")
@@ -129,7 +129,7 @@ def _flow_control_input_requirements(
 
     requirements: dict[tuple[str, str], str] = {}
     for label, node in recipe.nodes.items():
-        if not isinstance(node, flow_control._FLOW_CONTROL_TYPES):
+        if not isinstance(node, flow_control.FLOW_CONTROL_TYPES):
             continue
         for port in node.inputs:
             target = edge_models.TargetHandle(node=label, port=port)
@@ -144,14 +144,14 @@ def _allocate_outputs(
     label: str,
     produced: dict[tuple[str, str], str],
     required_by_handle: dict[tuple[str, str], str],
-    alloc: function._NameAllocator,
+    alloc: function.NameAllocator,
 ) -> list[str]:
     """Allocate output symbols for a node, respecting any required names."""
     lhs_syms = []
     for port in node.outputs:
         handle = (label, port)
         name = required_by_handle.get(handle) or alloc.fresh(
-            function._output_name_suggestion(label, port, len(node.outputs))
+            function.output_name_suggestion(label, port, len(node.outputs))
         )
         produced[handle] = name
         lhs_syms.append(name)
@@ -162,7 +162,7 @@ def _mk_resolver(
     label: str,
     recipe: workflow_recipe.WorkflowRecipe,
     resolve: _ResolverType,
-) -> _InResolverType:
+) -> InResolverType:
     """
     Build an in_resolver closure for a given node label in the recipe.
 
@@ -181,12 +181,12 @@ def _mk_resolver(
     return in_resolver
 
 
-def _emit_workflow_body(
+def emit_workflow_body(
     recipe: workflow_recipe.WorkflowRecipe,
     in_syms: dict[str, str],
     required_out_syms: dict[str, str],
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> tuple[list[str], dict[str, str]]:
     produced: dict[tuple[str, str], str] = {}
     lines: list[str] = []
@@ -231,20 +231,20 @@ def _emit_workflow_body(
     for label in _topological_nodes(recipe):
         node = recipe.nodes[label]
 
-        call_path = _node_call_path(node, label, emitter, alloc)
+        call_path = node_call_path(node, label, emitter, alloc)
         if call_path is not None:
             lhs_syms = _allocate_outputs(
                 node, label, produced, required_by_handle, alloc
             )
             in_resolver = _mk_resolver(label, recipe, resolve)
             lines.append(
-                f"{', '.join(lhs_syms)} = {_render_call(call_path, node, in_resolver)}"
+                f"{', '.join(lhs_syms)} = {render_call(call_path, node, in_resolver)}"
             )
         else:  # None branch indicates flow controller node
             in_resolver = _mk_resolver(label, recipe, resolve)
             lines.extend(
-                flow_control._emit_flow_control(
-                    cast(flow_control._FlowControlRecipeAlias, node),
+                flow_control.emit_flow_control(
+                    cast(flow_control.FlowControlRecipeAlias, node),
                     label,
                     in_resolver,
                     produced,
@@ -262,13 +262,13 @@ def _emit_workflow_body(
     return lines, out_syms
 
 
-def _emit_body(
+def emit_body(
     recipe: union_types.RecipeDiscrimination,
     label: str,
     in_syms: dict[str, str],
     required: dict[str, str],
-    emitter: function._Emitter,
-    alloc: function._NameAllocator,
+    emitter: function.Emitter,
+    alloc: function.NameAllocator,
 ) -> tuple[list[str], dict[str, str]]:
     """Emit a branch/loop body that may be a workflow subgraph or a single node.
 
@@ -276,9 +276,9 @@ def _emit_body(
     other node (atomic, or a referenced workflow) is emitted as one assignment.
     """
     if isinstance(recipe, workflow_recipe.WorkflowRecipe):
-        return _emit_workflow_body(recipe, in_syms, required, emitter, alloc)
-    if isinstance(recipe, flow_control._FLOW_CONTROL_TYPES):
-        return flow_control._emit_flow_control_body(
+        return emit_workflow_body(recipe, in_syms, required, emitter, alloc)
+    if isinstance(recipe, flow_control.FLOW_CONTROL_TYPES):
+        return flow_control.emit_flow_control_body(
             recipe, label, in_syms, required, emitter, alloc
         )
     return _emit_single_node_body(recipe, label, in_syms, required, alloc, emitter)
@@ -289,8 +289,8 @@ def _emit_single_node_body(
     label: str,
     in_syms: dict[str, str],
     required: dict[str, str],
-    alloc: function._NameAllocator,
-    emitter: function._Emitter,
+    alloc: function.NameAllocator,
+    emitter: function.Emitter,
 ) -> tuple[list[str], dict[str, str]]:
     """Emit a single atomic node as one assignment line.
 
@@ -307,11 +307,11 @@ def _emit_single_node_body(
     lhs_syms: list[str] = []
     for port in node.outputs:
         name = required.get(port) or alloc.fresh(
-            function._output_name_suggestion(label, port, len(node.outputs))
+            function.output_name_suggestion(label, port, len(node.outputs))
         )
         out_syms[port] = name
         lhs_syms.append(name)
 
     call_path = _set_call_path_from_info(node.reference.info, emitter.module_imports)
-    line = f"{', '.join(lhs_syms)} = {_render_call(call_path, node, in_resolver)}"
+    line = f"{', '.join(lhs_syms)} = {render_call(call_path, node, in_resolver)}"
     return [line], out_syms
