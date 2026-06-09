@@ -11,9 +11,10 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep import edge_models, retrospective, wfms
+from flowrep import base_models, edge_models, retrospective, wfms
 from flowrep.compiler import render
 from flowrep.nodes import (
+    atomic_recipe,
     for_recipe,
     helper_models,
     if_recipe,
@@ -1275,6 +1276,42 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
         rendered = render.workflow2python(free)
         self.assertIn("except (", rendered.source)
         self.assertEqual(rendered.build()(6, 0), f(6, 0))
+
+    def test_positional_only_gap_raises(self):
+        po = base_models.RestrictedParamKind.POSITIONAL_ONLY
+        node = atomic_recipe.AtomicRecipe(
+            reference=makers.make_reference(
+                module="flowrep_static.library",
+                qualname="two_positional_only",
+                inputs_with_defaults=["a"],
+                restricted_input_kinds={"a": po, "b": po},
+            ),
+            inputs=["a", "b"],
+            outputs=["output_0"],
+        )
+        recipe = workflow_recipe.WorkflowRecipe(
+            inputs=["x"],
+            outputs=["output_0"],
+            nodes={"f_0": node},
+            input_edges={
+                edge_models.TargetHandle(node="f_0", port="b"): edge_models.InputSource(
+                    port="x"
+                ),
+            },
+            edges={},
+            output_edges={
+                edge_models.OutputTarget(port="output_0"): edge_models.SourceHandle(
+                    node="f_0", port="output_0"
+                )
+            },
+            reference=None,
+        )
+        # 'a' has a default and is left unsourced; only 'b' (a later positional-only
+        # parameter) is sourced -> no valid positional-call form, so render must raise.
+        # This is an edge case that the python interpreter prevents, but can be reached
+        # in manually-constructed workflows such as this one
+        with self.assertRaisesRegex(ValueError, "positional-only"):
+            render.workflow2python(recipe)
 
     def test_alias_conflict_raises(self):
         # Two outputs sourced from one handle but pinned to different names cannot

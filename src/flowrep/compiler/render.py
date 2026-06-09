@@ -391,19 +391,33 @@ def _module_and_path(info: versions.VersionInfo) -> tuple[str, str]:
 def _render_call(
     call_path: str, node: union_types.RecipeDiscrimination, in_resolver: _InResolverType
 ) -> str:
-    """Render a call expression. `in_resolver(port)` returns a symbol or None."""
+    """Render a call expression. `in_resolver(port)` returns a symbol or raises."""
     if reference := getattr(node, "reference", None):
         restricted = reference.restricted_input_kinds
     else:
         restricted = {}
     positional: list[str] = []
     keyword: list[str] = []
+    skipped_positional_only: list[str] = []
     for port in node.inputs:
+        is_positional_only = (
+            restricted.get(port) == base_models.RestrictedParamKind.POSITIONAL_ONLY
+        )
         try:
             sym = in_resolver(port)
         except KeyError:  # unsourced defaulted input -> rely on the default
+            if is_positional_only:
+                skipped_positional_only.append(port)
             continue
-        if restricted.get(port) == base_models.RestrictedParamKind.POSITIONAL_ONLY:
+        if is_positional_only:
+            if skipped_positional_only:
+                raise ValueError(
+                    f"Cannot render a call to {call_path!r}: positional-only "
+                    f"parameter(s) {skipped_positional_only} are unsourced but the "
+                    f"later positional-only parameter {port!r} is sourced. There is "
+                    f"no valid positional-call form, because positional-only "
+                    f"parameters cannot be supplied by keyword."
+                )
             positional.append(sym)
         else:
             keyword.append(f"{port}={sym}")
