@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from typing import TypeAlias, cast
 
@@ -151,7 +152,7 @@ def _allocate_outputs(
     for port in node.outputs:
         handle = (label, port)
         name = required_by_handle.get(handle) or alloc.fresh(
-            function.output_name_suggestion(label, port, len(node.outputs))
+            _output_name_suggestion(label, port, len(node.outputs))
         )
         produced[handle] = name
         lhs_syms.append(name)
@@ -307,7 +308,7 @@ def _emit_single_node_body(
     lhs_syms: list[str] = []
     for port in node.outputs:
         name = required.get(port) or alloc.fresh(
-            function.output_name_suggestion(label, port, len(node.outputs))
+            _output_name_suggestion(label, port, len(node.outputs))
         )
         out_syms[port] = name
         lhs_syms.append(name)
@@ -315,3 +316,30 @@ def _emit_single_node_body(
     call_path = _set_call_path_from_info(node.reference.info, emitter.module_imports)
     line = f"{', '.join(lhs_syms)} = {render_call(call_path, node, in_resolver)}"
     return [line], out_syms
+
+
+def label_base(label: str) -> str:
+    """Strip the trailing '_N' numeric suffix that label_helpers.unique_suffix appended.
+
+    When re-parsing, the workflow_parser calls
+    ``unique_suffix(function.__name__, existing_labels)`` to re-derive the node
+    label.  If the nested def's ``__name__`` is the *base* (pre-suffix) of the
+    original label, unique_suffix regenerates the same label on round-trip.
+
+    Examples:
+        'my_add_0'  → 'my_add'
+        'for_each_2' → 'for_each'
+        'plain'     → 'plain'  (no numeric suffix; returned as-is)
+    """
+    m = re.fullmatch(r"^(.+)_(\d+)$", label)
+    return m.group(1) if m else label
+
+
+def _output_name_suggestion(label: str, port: str, n_outputs: int) -> str:
+    """Symbol-name hint for a call assignment, derived from the node label.
+
+    Single-output nodes use the label base; multi-output nodes disambiguate per
+    port. Pinned (required) names still take precedence at the call site.
+    """
+    base = label_base(label)
+    return base if n_outputs == 1 else f"{base}_{port}"

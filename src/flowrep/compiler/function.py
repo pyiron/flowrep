@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
-import re
 import typing
 from typing import Any
 
@@ -165,33 +164,6 @@ def _collect_loop_variables_from_body(
     # single atomic body: no loop variables
 
 
-def _label_base(label: str) -> str:
-    """Strip the trailing '_N' numeric suffix that label_helpers.unique_suffix appended.
-
-    When re-parsing, the workflow_parser calls
-    ``unique_suffix(function.__name__, existing_labels)`` to re-derive the node
-    label.  If the nested def's ``__name__`` is the *base* (pre-suffix) of the
-    original label, unique_suffix regenerates the same label on round-trip.
-
-    Examples:
-        'my_add_0'  → 'my_add'
-        'for_each_2' → 'for_each'
-        'plain'     → 'plain'  (no numeric suffix; returned as-is)
-    """
-    m = re.fullmatch(r"^(.+)_(\d+)$", label)
-    return m.group(1) if m else label
-
-
-def output_name_suggestion(label: str, port: str, n_outputs: int) -> str:
-    """Symbol-name hint for a call assignment, derived from the node label.
-
-    Single-output nodes use the label base; multi-output nodes disambiguate per
-    port. Pinned (required) names still take precedence at the call site.
-    """
-    base = _label_base(label)
-    return base if n_outputs == 1 else f"{base}_{port}"
-
-
 def emit_nested_workflow_node(
     node: workflow_recipe.WorkflowRecipe,
     label: str,
@@ -209,7 +181,7 @@ def emit_nested_workflow_node(
     """
     # Use the base of the label (strip _N suffix) so that re-parsing via
     # unique_suffix reconstructs the same original label.
-    base = _label_base(label)
+    base = statements.label_base(label)
     # Module-scope: nested defs are emitted at module level, so their names must
     # be unique across the whole module (not just the parent's locals). Reserve
     # the chosen name in the parent allocator too, so the parent can't later mint
