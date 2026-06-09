@@ -126,3 +126,21 @@ def loop_inc(x):
 def combine(a, b):
     r = a + b
     return r
+
+
+@atomic_parser.atomic
+def split_pair(
+    v,
+) -> tuple[
+    typing.Annotated[int, {"label": "lo"}],
+    typing.Annotated[int, {"label": "hi"}],
+]:
+    lo = v
+    hi = v + 1
+    return lo, hi
+
+
+@atomic_parser.atomic
+def make_list(seed) -> typing.Annotated[list, {"label": "data"}]:
+    data = [seed, seed + 1]
+    return data

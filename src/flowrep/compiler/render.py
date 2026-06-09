@@ -552,7 +552,9 @@ def _allocate_outputs(
     lhs_syms = []
     for port in node.outputs:
         handle = (label, port)
-        name = required_by_handle.get(handle) or alloc.fresh(port)
+        name = required_by_handle.get(handle) or alloc.fresh(
+            _output_name_suggestion(label, port, len(node.outputs))
+        )
         produced[handle] = name
         lhs_syms.append(name)
     return lhs_syms
@@ -841,7 +843,7 @@ def _emit_body(
         return _emit_workflow_body(recipe, in_syms, required, emitter, alloc)
     if isinstance(recipe, _FLOW_CONTROL_TYPES):
         return _emit_flow_control_body(recipe, label, in_syms, required, emitter, alloc)
-    return _emit_single_node_body(recipe, in_syms, required, alloc, emitter)
+    return _emit_single_node_body(recipe, label, in_syms, required, alloc, emitter)
 
 
 def _emit_flow_control_body(
@@ -873,6 +875,7 @@ def _emit_flow_control_body(
 
 def _emit_single_node_body(
     node: atomic_recipe.AtomicRecipe,
+    label: str,
     in_syms: dict[str, str],
     required: dict[str, str],
     alloc: _NameAllocator,
@@ -881,8 +884,9 @@ def _emit_single_node_body(
     """Emit a single atomic node as one assignment line.
 
     Output ports are pinned to ``required`` symbols where given, else allocated
-    fresh. Inputs absent from ``in_syms`` (unwired defaults) are omitted from the
-    call, exactly as ``_render_call`` already does for ``None`` resolutions.
+    fresh using a label-based hint. Inputs absent from ``in_syms`` (unwired
+    defaults) are omitted from the call, exactly as ``_render_call`` already
+    does for ``None`` resolutions.
     """
 
     def in_resolver(port: str) -> str:
@@ -891,7 +895,9 @@ def _emit_single_node_body(
     out_syms: dict[str, str] = {}
     lhs_syms: list[str] = []
     for port in node.outputs:
-        name = required.get(port) or alloc.fresh(port)
+        name = required.get(port) or alloc.fresh(
+            _output_name_suggestion(label, port, len(node.outputs))
+        )
         out_syms[port] = name
         lhs_syms.append(name)
 
@@ -1125,6 +1131,16 @@ def _label_base(label: str) -> str:
     """
     m = re.fullmatch(r"^(.+)_(\d+)$", label)
     return m.group(1) if m else label
+
+
+def _output_name_suggestion(label: str, port: str, n_outputs: int) -> str:
+    """Symbol-name hint for a call assignment, derived from the node label.
+
+    Single-output nodes use the label base; multi-output nodes disambiguate per
+    port. Pinned (required) names still take precedence at the call site.
+    """
+    base = _label_base(label)
+    return base if n_outputs == 1 else f"{base}_{port}"
 
 
 def _emit_nested_workflow_node(

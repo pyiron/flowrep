@@ -1955,5 +1955,68 @@ class TestLoopVariableReservation(unittest.TestCase):
             )
 
 
+class TestSymbolNaming(unittest.TestCase):
+    def test_single_output_symbol_uses_label_base(self):
+        free = makers.reference_free(makers.make_simple_workflow_recipe())
+        src = render.workflow2python(free).source
+        # Node label "add_0" -> symbol "add" (not "output_0").
+        self.assertIn("add = ", src)
+        self.assertIn("return add", src)
+        self.assertNotIn("output_0 = ", src)
+
+    def test_multi_output_symbols_use_label_and_port(self):
+        @workflow_parser.workflow
+        def wf(v):
+            lo, hi = library.split_pair(v)
+            s = library.my_add(lo, hi)
+            return s
+
+        free = makers.reference_free(wf)
+        src = render.workflow2python(free).source
+        self.assertIn("split_pair_lo, split_pair_hi = ", src)
+        rebuilt = render.workflow2python(free).build()
+        self.assertEqual(rebuilt(v=5), wf(5))
+
+    def test_pinned_name_wins_over_label_base(self):
+        # A for-loop's collection symbol is pinned to the for-node input port name
+        # ("data"), so the producing node keeps "data", not its label base.
+        @workflow_parser.workflow
+        def wf(seed):
+            data = library.make_list(seed)
+            acc = []
+            for item in data:
+                y = library.loop_inc(item)
+                acc.append(y)
+            return acc
+
+        free = makers.reference_free(wf)
+        src = render.workflow2python(free).source
+        self.assertIn("data = ", src)
+        self.assertNotIn("make_list = ", src)
+        rebuilt = render.workflow2python(free).build()
+        self.assertEqual(rebuilt(seed=3), wf(3))
+
+    def test_single_node_branch_body_uses_label_base(self):
+        # _emit_single_node_body is called for bare atomic branch bodies. When an
+        # output is NOT pinned (required dict empty), the label base is used.
+        # The real pipeline always pins branch/loop body outputs to the enclosing
+        # flow-control node's shared symbols, so `required` is never empty in
+        # production; a direct call is the only way to exercise the unforced path.
+        node = library.loop_inc.flowrep_recipe
+        alloc = render._NameAllocator()
+        emitter = render._Emitter()
+        lines, out_syms = render._emit_single_node_body(
+            node,
+            "loop_inc_0",
+            {"x": "x"},
+            {},
+            alloc,
+            emitter,
+        )
+        # Output port is "output_0"; with label "loop_inc_0" the hint is "loop_inc".
+        self.assertIn("loop_inc", out_syms.values())
+        self.assertIn("loop_inc = ", lines[0])
+
+
 if __name__ == "__main__":
     unittest.main()

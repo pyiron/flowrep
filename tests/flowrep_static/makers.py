@@ -131,5 +131,8 @@ def dump_no_refs(recipe) -> dict:
 
 def reference_free(func) -> "object":
     """Parse a decorated/plain function and drop the top-level reference."""
-    recipe = workflow_parser.parse_workflow(func)
+    if isinstance(func, workflow_recipe.WorkflowRecipe):
+        recipe = func
+    else:
+        recipe = workflow_parser.parse_workflow(func)
     return recipe.model_copy(update={"reference": None})
