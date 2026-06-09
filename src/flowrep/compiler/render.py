@@ -341,6 +341,53 @@ def _referenced_top_level_bindings(
                         yield info.module.split(".")[0]
 
 
+def _inlined_loop_variables(recipe: workflow_recipe.WorkflowRecipe) -> set[str]:
+    """Loop-variable names emitted into this workflow's own scope.
+
+    For-loop variables are pinned to body-port names and bypass the allocator, so
+    reserving them prevents allocator-minted symbols from shadowing them. Descends
+    through inlined flow-control bodies; stops at reference-free WorkflowRecipe peer
+    nodes (emitted as nested defs with their own scope) and referenced nodes.
+    """
+    names: set[str] = set()
+    for node in recipe.nodes.values():
+        _collect_loop_variables(node, names)
+    return names
+
+
+def _collect_loop_variables(
+    node: union_types.RecipeDiscrimination, names: set[str]
+) -> None:
+    if isinstance(node, for_recipe.ForEachRecipe):
+        names.update(node.iterated_ports)
+        _collect_loop_variables_from_body(node.body_node.node, names)
+    elif isinstance(node, if_recipe.IfRecipe):
+        for body_case in node.cases:
+            _collect_loop_variables_from_body(body_case.body.node, names)
+        if node.else_case is not None:
+            _collect_loop_variables_from_body(node.else_case.node, names)
+    elif isinstance(node, try_recipe.TryRecipe):
+        _collect_loop_variables_from_body(node.try_node.node, names)
+        for exception_case in node.exception_cases:
+            _collect_loop_variables_from_body(exception_case.body.node, names)
+    elif isinstance(node, while_recipe.WhileRecipe):
+        _collect_loop_variables_from_body(node.case.body.node, names)
+    # atomic / referenced / reference-free workflow peer node: not inlined here
+
+
+def _collect_loop_variables_from_body(
+    body: union_types.RecipeDiscrimination, names: set[str]
+) -> None:
+    """Recurse into an inlined body: a WorkflowRecipe's own nodes, or a nested
+    flow-control node. Both are emitted into the current scope."""
+    if isinstance(body, workflow_recipe.WorkflowRecipe):
+        for node in body.nodes.values():
+            _collect_loop_variables(node, names)
+    elif isinstance(body, _FLOW_CONTROL_TYPES):
+        _collect_loop_variables(body, names)
+    # single atomic body: no loop variables
+
+
 @dataclasses.dataclass
 class FunctionBuilder:
     name: str
@@ -615,6 +662,24 @@ def _emit_workflow_body(
     return lines, out_syms
 
 
+def _guard_loop_variable_shadowing(
+    node: for_recipe.ForEachRecipe, produced: dict[tuple[str, str], str]
+) -> None:
+    """Raise if a for-loop variable would shadow an enclosing produced symbol.
+
+    Loop variable names are pinned to body-port names and cannot be renamed without
+    breaking round-trip, so a same-named enclosing symbol (which only arises from a
+    pin, since the allocator reserves loop variables) cannot be emitted safely.
+    """
+    shadowed = sorted(set(node.iterated_ports) & set(produced.values()))
+    if shadowed:
+        raise ValueError(
+            f"For-loop variable(s) {shadowed} collide with an enclosing symbol of "
+            f"the same name. The loop variable is pinned to the body port name and "
+            f"cannot be renamed, so this recipe cannot be emitted as Python."
+        )
+
+
 def _emit_flow_control(
     node: _FlowControlRecipeAlias,
     label: str,
@@ -625,6 +690,8 @@ def _emit_flow_control(
     alloc: _NameAllocator,
 ) -> list[str]:
     """Dispatch a flow-control node to the appropriate emitter."""
+    if isinstance(node, for_recipe.ForEachRecipe):
+        _guard_loop_variable_shadowing(node, produced)
     required = {
         port: required_by_handle[(label, port)]
         for port in node.outputs
@@ -1000,6 +1067,10 @@ def _emit_workflow_function(
 ) -> FunctionBuilder:
     alloc = _NameAllocator()
     in_syms = {port: alloc.reserve(port) for port in recipe.inputs}
+    # Loop variables are pinned to body-port names and bypass the allocator; reserve
+    # them so node-output symbols never collide with (and get shadowed by) them.
+    for loop_variable in _inlined_loop_variables(recipe):
+        alloc.reserve(loop_variable)
     params = _render_params(recipe, signature, emitter)
     lines, out_syms = _emit_workflow_body(recipe, in_syms, {}, emitter, alloc)
     # Output port names are pinned via the decorator (see FunctionBuilder.render),

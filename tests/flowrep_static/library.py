@@ -1,5 +1,7 @@
 """Helper functions parsed in multiple test files"""
 
+import typing
+
 from flowrep.parsers import atomic_parser, workflow_parser
 
 
@@ -106,3 +108,21 @@ class MyCustomException(ValueError): ...
 def raises_custom(x, y):
     raise MyCustomException("Custom exception")
     return x + y
+
+
+@atomic_parser.atomic
+def labeled_x(seed) -> typing.Annotated[int, {"label": "x"}]:
+    x = seed + 1
+    return x
+
+
+@atomic_parser.atomic
+def loop_inc(x):
+    y = x + 1
+    return y
+
+
+@atomic_parser.atomic
+def combine(a, b):
+    r = a + b
+    return r

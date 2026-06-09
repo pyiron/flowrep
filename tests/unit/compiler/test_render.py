@@ -1889,5 +1889,71 @@ class TestModuleNames(unittest.TestCase):
         self.assertIn("@foo.bar", source)
 
 
+class TestLoopVariableReservation(unittest.TestCase):
+    def test_loop_variable_does_not_shadow_outer_symbol(self):
+        # 'labeled_x' has output port 'x'; the for-loop body port is also 'x'. The
+        # outer symbol must be allocated away from the loop variable, else the
+        # post-loop 'combine' call reads the last loop value instead of labeled_x's
+        # result.
+        # Reference: wfms.run_recipe gives combine(labeled_x(10), 10) = (21, [2,3,4]).
+        # Without the fix the emitter aliases the outer 'x' to the loop variable and
+        # 'combine' picks up the last iteration value, giving (13, [2, 3, 4]) instead.
+        # wf(...) cannot be the reference here: the original parsed function shares
+        # this recipe and shadows 'x' the same way, so it would mask the bug.
+        # run_recipe executes the recipe graph directly, bypassing code generation.
+        @workflow_parser.workflow
+        def wf(seed, xs):
+            x = library.labeled_x(seed)
+            acc = []
+            for x in xs:
+                y = library.loop_inc(x)
+                acc.append(y)
+            z = library.combine(x, seed)
+            return z, acc
+
+        free = wf.flowrep_recipe.model_copy(update={"reference": None})
+        ref = wfms.run_recipe(free, seed=10, xs=[1, 2, 3])
+        expected = (ref.output_ports["z"].value, ref.output_ports["acc"].value)
+        rebuilt = render.workflow2python(free).build()
+        self.assertEqual(rebuilt(seed=10, xs=[1, 2, 3]), expected)
+
+    def test_nested_for_loop_variables_all_reserved(self):
+        @workflow_parser.workflow
+        def wf(rows):
+            out = []
+            for row in rows:
+                inner = []
+                for cell in row:
+                    c = library.loop_inc(cell)
+                    inner.append(c)
+                out.append(inner)
+            return out
+
+        recipe = wf.flowrep_recipe.model_copy(update={"reference": None})
+        reserved = render._inlined_loop_variables(recipe)
+        self.assertIn("row", reserved)
+        self.assertIn("cell", reserved)
+        rebuilt = render.workflow2python(recipe).build()
+        self.assertEqual(rebuilt(rows=[[1, 2], [3]]), wf([[1, 2], [3]]))
+
+    def test_loop_variable_shadow_guard_raises(self):
+        # A *pinned* symbol (one the allocator cannot move) named after a loop
+        # variable cannot be emitted safely; the guard must raise.
+        @workflow_parser.workflow
+        def wf(xs):
+            acc = []
+            for x in xs:
+                y = library.loop_inc(x)
+                acc.append(y)
+            return acc
+
+        for_node = wf.flowrep_recipe.nodes["for_each_0"]
+        self.assertIn("x", for_node.iterated_ports)
+        with self.assertRaises(ValueError):
+            render._guard_loop_variable_shadowing(
+                for_node, {("other_0", "output_0"): "x"}
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
