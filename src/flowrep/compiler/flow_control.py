@@ -1,17 +1,20 @@
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
 from pyiron_snippets import versions
 
 from flowrep import edge_models
-from flowrep.compiler import function, statements
+from flowrep.compiler import statements
 from flowrep.nodes import (
     for_recipe,
     if_recipe,
     try_recipe,
     while_recipe,
 )
+
+if TYPE_CHECKING:
+    from flowrep.compiler import function
 
 # Recipe types that emit as a flow-control statement rather than a single call.
 FLOW_CONTROL_TYPES = (
