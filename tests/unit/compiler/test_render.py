@@ -1698,6 +1698,6 @@ class TestModuleNames(unittest.TestCase):
 
     def test_custom_decorator(self):
         free = makers.reference_free(_with_default)
-        source = render.workflow2python(free, workflow_decorator=("foo", "bar")).source
+        source = render.workflow2python(free, _workflow_decorator=("foo", "bar")).source
         self.assertIn("import foo", source, msg="decorator module should be imported")
         self.assertIn("@foo.bar", source)

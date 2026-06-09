@@ -72,7 +72,7 @@ def workflow2python(
     *,
     function_name: base_models.Label | None = None,
     signature: inspect.Signature | None = None,
-    workflow_decorator: tuple[str, str] = ("flowrep", "workflow"),
+    _workflow_decorator: tuple[str, str] = ("flowrep", "workflow"),
 ) -> RenderedSource:
     function_name = (
         "compiled_from_workflow_recipe" if function_name is None else function_name
@@ -82,8 +82,8 @@ def workflow2python(
             f"This recipe already has an underlying Python reference: "
             f"{recipe.reference}"
         )
-    emitter = _Emitter(workflow_decorator=workflow_decorator)
-    decorator_module, _ = workflow_decorator
+    emitter = _Emitter(workflow_decorator=_workflow_decorator)
+    decorator_module, _ = _workflow_decorator
     # Reserve every bare module-level name a nested def must not shadow: the top
     # function name, the always-present decorator/typing imports, and the
     # top-level binding of every import this recipe will emit.
@@ -121,7 +121,7 @@ def dagdata2python(
     dagdata: retrospective.DagData,
     *,
     function_name: base_models.Label | None = None,
-    workflow_decorator: tuple[str, str] = ("flowrep", "workflow"),
+    _workflow_decorator: tuple[str, str] = ("flowrep", "workflow"),
 ) -> RenderedSource:
     sig = _build_signature(dagdata.input_ports, dagdata.output_ports)
     # Strip the reference so recipe2python accepts the recipe.
@@ -130,7 +130,7 @@ def dagdata2python(
         free_recipe,
         function_name=function_name,
         signature=sig,
-        workflow_decorator=workflow_decorator,
+        _workflow_decorator=_workflow_decorator,
     )
 
 
