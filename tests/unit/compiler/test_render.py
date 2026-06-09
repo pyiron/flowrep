@@ -1,6 +1,8 @@
 import dataclasses
 import inspect
+import pathlib
 import re
+import tempfile
 import typing
 import unittest
 
@@ -573,6 +575,82 @@ class TestRenderedSourceAndGuard(unittest.TestCase):
         )
         fn = rs.build()
         self.assertEqual(fn(), 99)
+
+
+class TestRenderedSourceDump(unittest.TestCase):
+    def setUp(self) -> None:
+        # .resolve() so the tmpdir matches dump()'s resolved paths (macOS
+        # /var -> /private/var symlink would otherwise break substring checks).
+        self.tmpdir = pathlib.Path(
+            self.enterContext(tempfile.TemporaryDirectory())
+        ).resolve()
+
+        self.rendered = render.RenderedSource(
+            source="def f():\n    return 1\n",
+            namespace={},
+            function_name="f",
+        )
+        self.rendered_with_namespace = render.RenderedSource(
+            source="def g():\n    return helper()\n",
+            namespace={"helper": object()},
+            function_name="g",
+        )
+
+    def test_writes_source_without_namespace(self) -> None:
+        target = self.tmpdir / "out.py"
+        message = self.rendered.dump(target)
+
+        self.assertEqual(target.read_text(encoding="utf-8"), self.rendered.source)
+        self.assertIn(str(target), message)
+        self.assertNotIn("Reminder", message)
+
+    def test_writes_source_with_namespace_and_reminds(self) -> None:
+        target = self.tmpdir / "out.py"
+        message = self.rendered_with_namespace.dump(
+            target, allow_namespace_symbols=True
+        )
+
+        self.assertEqual(
+            target.read_text(encoding="utf-8"),
+            self.rendered_with_namespace.source,
+        )
+        self.assertIn("Reminder", message)
+        for symbol in self.rendered_with_namespace.namespace:
+            self.assertIn(symbol, message)
+
+    def test_namespace_without_opt_in_raises(self) -> None:
+        target = self.tmpdir / "out.py"
+        with self.assertRaises(ValueError):
+            self.rendered_with_namespace.dump(target)
+        self.assertFalse(target.exists())
+
+    def test_missing_extension_becomes_py(self) -> None:
+        target = self.tmpdir / "out"  # no suffix
+        message = self.rendered.dump(target)
+
+        written = target.with_suffix(".py")
+        self.assertTrue(written.exists())
+        self.assertEqual(written.read_text(encoding="utf-8"), self.rendered.source)
+        self.assertIn(str(written), message)
+
+    def test_wrong_extension_raises(self) -> None:
+        target = self.tmpdir / "out.txt"
+        with self.assertRaises(ValueError):
+            self.rendered.dump(target)
+        self.assertFalse(target.exists())
+
+    def test_existing_file_without_exists_ok_raises(self) -> None:
+        target = self.tmpdir / "out.py"
+        target.write_text("stale", encoding="utf-8")
+        with self.assertRaises(FileExistsError):
+            self.rendered.dump(target, exists_ok=False)
+        self.assertEqual(target.read_text(encoding="utf-8"), "stale")
+
+    def test_overwrites_existing_by_default(self) -> None:
+        target = self.tmpdir / "out.py"
+        target.write_text("stale", encoding="utf-8")
+        self.rendered.dump(target)
+        self.assertEqual(target.read_text(encoding="utf-8"), self.rendered.source)
 
 
 class TestFunctionBuilderDecorator(unittest.TestCase):
@@ -1701,3 +1779,7 @@ class TestModuleNames(unittest.TestCase):
         source = render.workflow2python(free, _workflow_decorator=("foo", "bar")).source
         self.assertIn("import foo", source, msg="decorator module should be imported")
         self.assertIn("@foo.bar", source)
+
+
+if __name__ == "__main__":
+    unittest.main()

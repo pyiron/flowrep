@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import inspect
 import linecache
+import pathlib
 import re
 import sys
 import types
@@ -166,6 +167,57 @@ class RenderedSource:
         # has already run and re-parsing reads source text, so this is safe.
         fn.__annotations__ = typing.get_type_hints(fn, include_extras=True)
         return fn
+
+    def dump(
+        self,
+        path: pathlib.Path | str,
+        *,
+        parents: bool = True,
+        exists_ok: bool = True,
+        allow_namespace_symbols: bool = False,
+    ) -> str:
+        """Write ``self.source`` to ``path`` and return a status message.
+
+        A missing extension is filled in as ``.py``; any other extension is
+        rejected. Namespace symbols appear as unbound references in the dumped
+        file, so dumping a non-empty namespace requires opting in.
+
+        Raises:
+            ValueError: Non-``.py`` extension, or namespace symbols present
+                without ``allow_namespace_symbols``.
+            FileExistsError: ``path`` exists and ``exists_ok`` is False.
+        """
+        path = pathlib.Path(path).resolve()
+
+        if not path.suffix:
+            path = path.with_suffix(".py")
+        elif path.suffix != ".py":
+            raise ValueError(f"Expected a .py path, got {path.suffix!r}: {path}")
+
+        if path.exists() and not exists_ok:
+            raise FileExistsError(
+                f"{path} already exists; pass exists_ok=True to overwrite it."
+            )
+
+        if self.namespace and not allow_namespace_symbols:
+            raise ValueError(
+                f"Source references {len(self.namespace)} namespace symbol(s) that "
+                "cannot be resolved from the file alone; pass "
+                "allow_namespace_symbols=True to dump anyway."
+            )
+
+        if parents:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self.source, encoding="utf-8")
+
+        message = f"Dumped source to {path}"
+        if allow_namespace_symbols and self.namespace:
+            symbols = ", ".join(sorted(self.namespace))
+            message += (
+                "\nReminder: replace the dumped namespace symbol(s) with real "
+                f"values before use: {symbols}"
+            )
+        return message
 
 
 class _NameAllocator:
