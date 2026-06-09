@@ -1911,7 +1911,7 @@ class TestLoopVariableReservation(unittest.TestCase):
             z = library.combine(x, seed)
             return z, acc
 
-        free = wf.flowrep_recipe.model_copy(update={"reference": None})
+        free = makers.reference_free(wf)
         ref = wfms.run_recipe(free, seed=10, xs=[1, 2, 3])
         expected = (ref.output_ports["z"].value, ref.output_ports["acc"].value)
         rebuilt = render.workflow2python(free).build()
@@ -1929,7 +1929,7 @@ class TestLoopVariableReservation(unittest.TestCase):
                 out.append(inner)
             return out
 
-        recipe = wf.flowrep_recipe.model_copy(update={"reference": None})
+        recipe = makers.reference_free(wf)
         reserved = render._inlined_loop_variables(recipe)
         self.assertIn("row", reserved)
         self.assertIn("cell", reserved)
