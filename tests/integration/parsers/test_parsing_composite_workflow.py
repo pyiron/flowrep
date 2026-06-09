@@ -3,7 +3,7 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep.compiler import render
+from flowrep.compiler import source
 from flowrep.nodes import workflow_recipe
 from flowrep.parsers import atomic_parser, workflow_parser
 
@@ -306,7 +306,7 @@ class TestParsingFullComposite(unittest.TestCase):
 
     def test_roundtrip_back_to_python(self):
         free = makers.reference_free(full_composite)
-        rendered = render.workflow2python(free)
+        rendered = source.workflow2python(free)
         fn = rendered.build()
         for x, y, bound in [(1, 2, 10), (3, 1, 8)]:
             self.assertEqual(fn(x, y, bound=bound), full_composite(x, y, bound=bound))
