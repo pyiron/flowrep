@@ -12,7 +12,8 @@ from typing import TYPE_CHECKING
 from packaging import version
 from pyiron_snippets import import_alarm
 
-from flowrep import base_models, datastructures, storage_widget
+from flowrep import base_models, storage_widget
+from flowrep.retrospective import datastructures
 
 with import_alarm.ImportAlarm(
     "This tool requires the 'bagofholding' package.", raise_exception=True

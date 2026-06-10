@@ -11,7 +11,7 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep import base_models, datastructures, edge_models, wfms
+from flowrep import base_models, edge_models, wfms
 from flowrep.compiler import flow_control, function, source, statements
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import (
@@ -23,6 +23,7 @@ from flowrep.prospective import (
     while_recipe,
     workflow_recipe,
 )
+from flowrep.retrospective import datastructures
 
 from flowrep_static import library, makers
 

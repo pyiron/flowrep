@@ -5,7 +5,7 @@ import inspect
 import typing
 from typing import Any
 
-from flowrep import base_models, datastructures
+from flowrep import base_models
 from flowrep.compiler import annotate, flow_control, statements
 from flowrep.parsers import label_helpers
 from flowrep.prospective import (
@@ -16,6 +16,7 @@ from flowrep.prospective import (
     while_recipe,
     workflow_recipe,
 )
+from flowrep.retrospective import datastructures
 
 
 class NameAllocator:

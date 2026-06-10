@@ -10,9 +10,10 @@ import typing
 import weakref
 from typing import Any
 
-from flowrep import base_models, datastructures
+from flowrep import base_models
 from flowrep.compiler import function
 from flowrep.prospective import workflow_recipe
+from flowrep.retrospective import datastructures
 
 # Counter used to make each generated source's linecache key unique.
 _GENERATED_COUNTER = 0
