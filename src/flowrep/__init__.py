@@ -6,10 +6,12 @@ attribute onto a function at definition time, and parsers (`parse_atomic`,
 
 import importlib.metadata
 
-from flowrep.api.tools import atomic as atomic
-from flowrep.api.tools import parse_atomic as parse_atomic
-from flowrep.api.tools import parse_workflow as parse_workflow
-from flowrep.api.tools import workflow as workflow
+from flowrep.api import atomic as atomic
+from flowrep.api import parse_atomic as parse_atomic
+from flowrep.api import parse_workflow as parse_workflow
+from flowrep.api import schemas as schemas
+from flowrep.api import tools as tools
+from flowrep.api import workflow as workflow
 
 try:
     # Installed package will find its version
