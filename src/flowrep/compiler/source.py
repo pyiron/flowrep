@@ -10,7 +10,7 @@ import typing
 import weakref
 from typing import Any
 
-from flowrep import base_models, retrospective
+from flowrep import base_models, datastructures
 from flowrep.compiler import function
 from flowrep.prospective import workflow_recipe
 
@@ -168,7 +168,7 @@ class RenderedSource:
 
 
 def flowrep2python(
-    workflow: workflow_recipe.WorkflowRecipe | retrospective.DagData,
+    workflow: workflow_recipe.WorkflowRecipe | datastructures.DagData,
     function_name: base_models.Label | None = None,
     signature: inspect.Signature | None = None,
     _workflow_decorator: tuple[str, str] = ("flowrep", "workflow"),
@@ -177,11 +177,11 @@ def flowrep2python(
     Compile a workflow recipe into a rendered object that can be built into a function
     object or dumped to a .py file.
     """
-    if isinstance(workflow, retrospective.DagData):
+    if isinstance(workflow, datastructures.DagData):
         if signature is not None:
             raise ValueError(
                 "Cannot pass signature when compiling a "
-                f"{retrospective.DagData.__name__}"
+                f"{datastructures.DagData.__name__}"
             )
         return _dagdata2python(
             workflow,
@@ -198,7 +198,7 @@ def flowrep2python(
     else:
         raise TypeError(
             f"Expected a {workflow_recipe.WorkflowRecipe.__name__} or "
-            f"{retrospective.DagData.__name__} or DagData, got {type(workflow)}"
+            f"{datastructures.DagData.__name__} or DagData, got {type(workflow)}"
         )
 
 
@@ -253,7 +253,7 @@ def _workflow2python(
 
 
 def _dagdata2python(
-    dagdata: retrospective.DagData,
+    dagdata: datastructures.DagData,
     *,
     function_name: base_models.Label | None = None,
     _workflow_decorator: tuple[str, str] = ("flowrep", "workflow"),

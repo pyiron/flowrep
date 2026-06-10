@@ -11,7 +11,7 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models, retrospective, wfms
+from flowrep import base_models, datastructures, edge_models, wfms
 from flowrep.compiler import flow_control, function, source, statements
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import (
@@ -1139,7 +1139,7 @@ class TestDagData(unittest.TestCase):
         # The function must be module-level (importable) for DagData to parse defaults
         # from the reference's fully-qualified name.
         recipe_with_ref = workflow_parser.parse_workflow(_with_default)
-        dagdata = retrospective.DagData.from_recipe(recipe_with_ref)
+        dagdata = datastructures.DagData.from_recipe(recipe_with_ref)
         rendered = source._dagdata2python(dagdata)
         fn = rendered.build()
         self.assertEqual(fn(5), _with_default(5))
@@ -1147,7 +1147,7 @@ class TestDagData(unittest.TestCase):
         self.assertEqual(fn.__defaults__, (10,))
 
     def test_dagdata_propagates_types_and_default(self):
-        dagdata = retrospective.DagData.from_recipe(
+        dagdata = datastructures.DagData.from_recipe(
             workflow_parser.parse_workflow(_typed_single)
         )
         fn = source._dagdata2python(dagdata).build()
@@ -1160,7 +1160,7 @@ class TestDagData(unittest.TestCase):
 
     def test_dagdata_multi_output_types_round_trip(self):
         free = makers.reference_free(_typed_multi)
-        dagdata = retrospective.DagData.from_recipe(
+        dagdata = datastructures.DagData.from_recipe(
             workflow_parser.parse_workflow(_typed_multi)
         )
         fn = source._dagdata2python(dagdata).build()
@@ -1444,7 +1444,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             "such a function, but it will fail to convert to a data object because of "
             "the mismatch between ports and the return annotation",
         ):
-            retrospective.DagData.from_recipe(rebuilt_recipe)
+            datastructures.DagData.from_recipe(rebuilt_recipe)
 
     def test_output_port_name_pinned_via_decorator(self):
         # Return symbol is "s" (my_add's output) but the port is renamed; the
@@ -1661,7 +1661,7 @@ class TestImportHoisting(unittest.TestCase):
 class TestPublicAccess(unittest.TestCase):
     def setUp(self):
         self.recipe = makers.reference_free(makers.make_simple_workflow_recipe())
-        self.dag = retrospective.DagData.from_recipe(self.recipe)
+        self.dag = datastructures.DagData.from_recipe(self.recipe)
 
     def test_multiple_dispatch(self):
         for data in (self.recipe, self.dag):
