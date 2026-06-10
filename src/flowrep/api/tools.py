@@ -21,6 +21,7 @@ Use `run_recipe` to convert recipes into retrospective instance objects with out
 data.
 """
 
+from flowrep.compiler.source import flowrep2python as flowrep2python
 from flowrep.converters.python_workflow_definition import flowrep2pwd as flowrep2pwd
 from flowrep.converters.python_workflow_definition import pwd2flowrep as pwd2flowrep
 from flowrep.parsers.atomic_parser import atomic as atomic

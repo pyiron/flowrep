@@ -13,6 +13,7 @@ from flowrep.base_models import NodeRecipe as NodeRecipe
 from flowrep.base_models import PythonReference as PythonReference
 from flowrep.base_models import RecipeElementType as RecipeElementType
 from flowrep.base_models import RestrictedParamKind as RestrictedParamKind
+from flowrep.compiler.source import RenderedSource as RenderedSource
 from flowrep.edge_models import Edges as Edges
 from flowrep.edge_models import InputEdges as InputEdges
 from flowrep.edge_models import InputSource as InputSource

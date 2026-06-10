@@ -4,6 +4,7 @@ from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
 from flowrep.nodes import atomic_recipe, helper_models, workflow_recipe
+from flowrep.parsers import workflow_parser
 
 from flowrep_static import library
 
@@ -97,3 +98,41 @@ def make_simple_workflow_recipe() -> workflow_recipe.WorkflowRecipe:
             ),
         },
     )
+
+
+########################################
+# For casting workflows back to python #
+########################################
+
+
+def dump_no_refs(recipe) -> dict:
+    """Model dump with every (possibly nested) 'reference' and 'description' removed.
+
+    'reference' is dropped because a reference-free workflow used as a peer node
+    necessarily re-parses as a referenced node. 'description' is dropped because a
+    docstring round-trips through inspect.getdoc/cleandoc, which is not idempotent
+    for bodies indented relative to their first line, so the stored description
+    cannot always be reproduced exactly.
+    """
+
+    def strip(obj):
+        if isinstance(obj, dict):
+            return {
+                k: strip(v)
+                for k, v in obj.items()
+                if k not in ("reference", "description")
+            }
+        if isinstance(obj, list):
+            return [strip(v) for v in obj]
+        return obj
+
+    return strip(recipe.model_dump(mode="json"))
+
+
+def reference_free(func) -> "object":
+    """Parse a decorated/plain function and drop the top-level reference."""
+    if isinstance(func, workflow_recipe.WorkflowRecipe):
+        recipe = func
+    else:
+        recipe = workflow_parser.parse_workflow(func)
+    return recipe.model_copy(update={"reference": None})

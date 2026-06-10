@@ -9,14 +9,13 @@ fully-fledged WfMS can refer.
 from __future__ import annotations
 
 import dataclasses
-import heapq
 import itertools
 from collections.abc import Collection
 from typing import Any, cast
 
 from pyiron_snippets import retrieve
 
-from flowrep import base_models, edge_models, retrospective
+from flowrep import base_models, edge_models, retrospective, subgraph_validation
 from flowrep.nodes import (
     atomic_recipe,
     for_recipe,
@@ -146,31 +145,16 @@ def _run_workflow(
 
 def _topo_sort_children(recipe: workflow_recipe.WorkflowRecipe) -> list[str]:
     """Kahn's algorithm over sibling edges; deterministic tie-breaking by label."""
-    in_degree: dict[str, int] = {label: 0 for label in recipe.nodes}
-    successors: dict[str, list[str]] = {label: [] for label in recipe.nodes}
-
-    for target, source in recipe.edges.items():
-        in_degree[target.node] += 1
-        successors[source.node].append(target.node)
-
-    queue = [label for label in recipe.nodes if in_degree[label] == 0]
-    heapq.heapify(queue)
-    order: list[str] = []
-    while queue:
-        label = heapq.heappop(queue)
-        order.append(label)
-        for succ in successors.get(label, []):
-            in_degree[succ] -= 1
-            if in_degree[succ] == 0:
-                heapq.heappush(queue, succ)
-
-    if len(order) != len(recipe.nodes):  # pragma: no cover
-        raise ValueError(
-            "Cycle detected in workflow edges. This should have been caught by the "
-            "underlying recipe validation. Please raise a GitHub issue reporting "
-            "how you got here!"
-        )
-    return order
+    return subgraph_validation.topological_sort(
+        recipe.nodes,
+        [(source.node, target.node) for target, source in recipe.edges.items()],
+        tie_breaker=lambda label: label,
+        cycle_message=(
+            "Cycle detected in workflow edges. This should have been caught by "
+            "the underlying recipe validation. Please raise a GitHub issue "
+            "reporting how you got here!"
+        ),
+    )
 
 
 def _gather_child_inputs(

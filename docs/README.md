@@ -151,6 +151,8 @@ run-time, but their IO signature is always fully known a priori.
 **Clear separation.** Of prospective, "class view" recipes, and retrospective, 
 "instance view" data objects.
 
+**Convertable and compatible.** Recipes can be compiled back to python functions, and converted from [`python-workflow-definition`](https://github.com/pythonworkflow/python-workflow-definition/) recipes (also _to_ PWD, where recipe operations are the subset supported by the PWD framework).
+
 ### Example: flow control and nesting
 
 So far we've seen `"workflow"` nodes, and alluded to `"atomic"` nodes.
