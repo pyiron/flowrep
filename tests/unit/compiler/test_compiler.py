@@ -777,7 +777,7 @@ class TestSignatureParams(unittest.TestCase):
         sentinel = object()
 
         def with_default(a, b=sentinel):
-            r = library.identity(a)
+            r = library.macro_identity(a)
             return r
 
         free = makers.reference_free(with_default)

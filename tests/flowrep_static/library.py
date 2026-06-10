@@ -144,3 +144,8 @@ def split_pair(
 def make_list(seed) -> typing.Annotated[list, {"label": "data"}]:
     data = [seed, seed + 1]
     return data
+
+
+@workflow_parser.workflow
+def macro_identity(x):
+    return x
