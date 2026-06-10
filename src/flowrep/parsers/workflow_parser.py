@@ -10,7 +10,6 @@ from typing import cast
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import helper_models, union_types, workflow_recipe
 from flowrep.parsers import (
     atomic_parser,
     for_parser,
@@ -23,6 +22,7 @@ from flowrep.parsers import (
     try_parser,
     while_parser,
 )
+from flowrep.prospective import helper_models, union_types, workflow_recipe
 
 
 def workflow(

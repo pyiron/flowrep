@@ -16,7 +16,8 @@ from typing import Any, cast
 from pyiron_snippets import retrieve
 
 from flowrep import base_models, edge_models, retrospective, subgraph_validation
-from flowrep.nodes import (
+from flowrep.parsers import label_helpers
+from flowrep.prospective import (
     atomic_recipe,
     for_recipe,
     helper_models,
@@ -26,7 +27,6 @@ from flowrep.nodes import (
     while_recipe,
     workflow_recipe,
 )
-from flowrep.parsers import label_helpers
 
 
 def run_recipe(

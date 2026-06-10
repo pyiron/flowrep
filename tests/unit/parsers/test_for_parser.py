@@ -11,7 +11,8 @@ import textwrap
 import unittest
 
 from flowrep import edge_models
-from flowrep.nodes import (
+from flowrep.parsers import atomic_parser, for_parser, workflow_parser
+from flowrep.prospective import (
     atomic_recipe,
     for_recipe,
     if_recipe,
@@ -19,7 +20,6 @@ from flowrep.nodes import (
     while_recipe,
     workflow_recipe,
 )
-from flowrep.parsers import atomic_parser, for_parser, workflow_parser
 
 from flowrep_static import library
 

@@ -4,8 +4,8 @@ import ast
 from ast import While
 
 from flowrep import edge_models
-from flowrep.nodes import helper_models, while_recipe
 from flowrep.parsers import case_helpers, parser_protocol
+from flowrep.prospective import helper_models, while_recipe
 
 WHILE_CONDITION_LABEL: str = "condition"
 WHILE_BODY_LABEL: str = "body"

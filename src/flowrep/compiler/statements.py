@@ -8,7 +8,7 @@ from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.compiler import flow_control, function
-from flowrep.nodes import (
+from flowrep.prospective import (
     atomic_recipe,
     union_types,
     workflow_recipe,

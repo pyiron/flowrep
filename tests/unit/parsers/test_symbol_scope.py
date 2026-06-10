@@ -3,8 +3,8 @@ import unittest
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import atomic_recipe, helper_models
 from flowrep.parsers.symbol_scope import SymbolScope
+from flowrep.prospective import atomic_recipe, helper_models
 
 
 def _make_input(port: str) -> edge_models.InputSource:

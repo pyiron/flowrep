@@ -1,8 +1,8 @@
 import inspect
 import unittest
 
-from flowrep.nodes import for_recipe, workflow_recipe
 from flowrep.parsers import atomic_parser, workflow_parser
+from flowrep.prospective import for_recipe, workflow_recipe
 
 from flowrep_static import library
 

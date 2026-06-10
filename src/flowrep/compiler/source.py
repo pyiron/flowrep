@@ -12,7 +12,7 @@ from typing import Any
 
 from flowrep import base_models, retrospective
 from flowrep.compiler import function
-from flowrep.nodes import workflow_recipe
+from flowrep.prospective import workflow_recipe
 
 # Counter used to make each generated source's linecache key unique.
 _GENERATED_COUNTER = 0

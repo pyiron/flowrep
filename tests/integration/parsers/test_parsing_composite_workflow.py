@@ -4,8 +4,8 @@ import unittest
 from pyiron_snippets import versions
 
 from flowrep.compiler import source
-from flowrep.nodes import workflow_recipe
 from flowrep.parsers import atomic_parser, workflow_parser
+from flowrep.prospective import workflow_recipe
 
 from flowrep_static import library, makers
 

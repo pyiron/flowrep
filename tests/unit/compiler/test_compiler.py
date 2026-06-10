@@ -13,7 +13,8 @@ from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models, retrospective, wfms
 from flowrep.compiler import flow_control, function, source, statements
-from flowrep.nodes import (
+from flowrep.parsers import atomic_parser, workflow_parser
+from flowrep.prospective import (
     atomic_recipe,
     for_recipe,
     helper_models,
@@ -22,7 +23,6 @@ from flowrep.nodes import (
     while_recipe,
     workflow_recipe,
 )
-from flowrep.parsers import atomic_parser, workflow_parser
 
 from flowrep_static import library, makers
 
@@ -267,7 +267,7 @@ workflow_for_each_recipe = workflow_recipe.WorkflowRecipe(
 # A for-each over `increment` (body port `x`). Used as a flow-control node where a
 # single-callable is required, to prove reverse-render refuses it cleanly.
 def _for_each_increment(label_body: str):
-    from flowrep.nodes import for_recipe  # local import keeps this near its use
+    from flowrep.prospective import for_recipe  # local import keeps this near its use
 
     return for_recipe.ForEachRecipe(
         inputs=["xs"],
@@ -394,7 +394,7 @@ while_flow_control_condition_recipe = workflow_recipe.WorkflowRecipe(
 # An if-node whose if-branch AND else-branch are each a for-each (flow control sitting
 # directly as a branch body). Condition is the atomic is_positive(n).
 def _for_each(label_body: str, node):
-    from flowrep.nodes import for_recipe
+    from flowrep.prospective import for_recipe
 
     return for_recipe.ForEachRecipe(
         inputs=["xs"],

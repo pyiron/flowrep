@@ -5,7 +5,7 @@ import unittest
 import pydantic
 
 from flowrep import base_models
-from flowrep.nodes import atomic_recipe
+from flowrep.prospective import atomic_recipe
 
 from flowrep_static import makers
 

@@ -8,7 +8,8 @@ from typing import get_origin
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models, retrospective, wfms
-from flowrep.nodes import (
+from flowrep.parsers import atomic_parser, workflow_parser
+from flowrep.prospective import (
     atomic_recipe,
     for_recipe,
     helper_models,
@@ -17,7 +18,6 @@ from flowrep.nodes import (
     while_recipe,
     workflow_recipe,
 )
-from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.retrospective import NOT_DATA
 
 from flowrep_static import library

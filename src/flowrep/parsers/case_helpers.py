@@ -6,7 +6,6 @@ import dataclasses
 from pyiron_snippets import versions
 
 from flowrep import edge_models, subgraph_validation
-from flowrep.nodes import helper_models
 from flowrep.parsers import (
     atomic_parser,
     object_scope,
@@ -14,6 +13,7 @@ from flowrep.parsers import (
     parser_protocol,
     symbol_scope,
 )
+from flowrep.prospective import helper_models
 
 
 def parse_case(

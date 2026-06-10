@@ -7,14 +7,14 @@ import textwrap
 import unittest
 
 from flowrep import edge_models
-from flowrep.nodes import (
+from flowrep.parsers import if_parser, workflow_parser
+from flowrep.prospective import (
     for_recipe,
     if_recipe,
     try_recipe,
     while_recipe,
     workflow_recipe,
 )
-from flowrep.parsers import if_parser, workflow_parser
 
 from flowrep_static import library
 
