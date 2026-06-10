@@ -5,7 +5,15 @@ import tempfile
 import unittest
 from unittest import mock
 
-from flowrep import retrospective, storage, storage_widget, wfms
+from flowrep import wfms
+from flowrep.retrospective import (
+    datastructures,
+    storage,
+    storage_widget,
+)
+from flowrep.retrospective import (
+    storage_widget as sw,
+)
 
 from flowrep_static import library
 
@@ -22,7 +30,7 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _save_workflow(path: str, **kwargs: object) -> retrospective.DagData:
+def _save_workflow(path: str, **kwargs: object) -> datastructures.DagData:
     recipe = library.simple_workflow.flowrep_recipe
     wf_data = wfms.run_recipe(recipe, **kwargs)
     boh.H5Bag.save(wf_data, path)
@@ -68,7 +76,6 @@ class TestImportAlarm(unittest.TestCase):
 
     def test_module_importable(self):
         """storage_widget can be imported regardless of ipytree availability."""
-        from flowrep import storage_widget as sw  # noqa: F811
 
         self.assertTrue(hasattr(sw, "LexicalBagTree"))
 
@@ -166,7 +173,7 @@ class TestLoadSelected(_WidgetTestCase):
         """Manually set the selected path, then load."""
         self.tree.selected_lexical_path = "add_0"
         obj = self.tree.load_selected()
-        self.assertIsInstance(obj, retrospective.AtomicData)
+        self.assertIsInstance(obj, datastructures.AtomicData)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

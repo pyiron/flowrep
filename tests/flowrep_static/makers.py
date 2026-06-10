@@ -3,8 +3,8 @@
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import atomic_recipe, helper_models, workflow_recipe
 from flowrep.parsers import workflow_parser
+from flowrep.prospective import atomic_recipe, helper_models, workflow_recipe
 
 from flowrep_static import library
 

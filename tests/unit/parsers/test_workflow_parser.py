@@ -7,7 +7,6 @@ import pydantic
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import atomic_recipe, workflow_recipe
 from flowrep.parsers import (
     atomic_parser,
     label_helpers,
@@ -16,6 +15,7 @@ from flowrep.parsers import (
     symbol_scope,
     workflow_parser,
 )
+from flowrep.prospective import atomic_recipe, workflow_recipe
 
 from flowrep_static import library
 

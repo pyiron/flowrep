@@ -6,7 +6,7 @@ from pyiron_snippets import versions
 
 from flowrep import edge_models
 from flowrep.compiler import statements
-from flowrep.nodes import (
+from flowrep.prospective import (
     for_recipe,
     if_recipe,
     try_recipe,

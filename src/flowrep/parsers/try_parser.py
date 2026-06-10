@@ -4,8 +4,8 @@ import ast
 
 from pyiron_snippets import versions
 
-from flowrep.nodes import helper_models, try_recipe
 from flowrep.parsers import case_helpers, object_scope, parser_protocol
+from flowrep.prospective import helper_models, try_recipe
 
 TRY_BODY_LABEL: str = "try_body"
 EXCEPT_BODY_LABEL_PREFIX: str = "except_body"

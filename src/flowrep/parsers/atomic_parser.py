@@ -8,9 +8,9 @@ from typing import Annotated, cast, get_args, get_origin, get_type_hints
 from pyiron_snippets import versions
 
 from flowrep import base_models
-from flowrep.nodes import atomic_recipe, helper_models
 from flowrep.parsers import label_helpers, object_scope, parser_helpers
 from flowrep.parsers.label_helpers import default_output_label
+from flowrep.prospective import atomic_recipe, helper_models
 
 
 def atomic(

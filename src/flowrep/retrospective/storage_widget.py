@@ -38,7 +38,7 @@ with import_alarm.ImportAlarm(
 if TYPE_CHECKING:
     import traitlets  # Expected as a dependency of ipytree
 
-    from flowrep import storage
+    from flowrep.retrospective import storage
 
 
 @dataclasses.dataclass

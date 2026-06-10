@@ -4,8 +4,8 @@ import ast
 import dataclasses
 
 from flowrep import edge_models
-from flowrep.nodes import helper_models, if_recipe
 from flowrep.parsers import case_helpers, parser_protocol
+from flowrep.prospective import helper_models, if_recipe
 
 IF_CONDITION_LABEL_PREFIX: str = "condition"
 IF_BODY_LABEL_PREFIX: str = "body"

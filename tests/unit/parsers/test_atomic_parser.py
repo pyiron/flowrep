@@ -7,8 +7,8 @@ from types import FunctionType
 from typing import Annotated
 
 from flowrep import base_models
-from flowrep.nodes import atomic_recipe
 from flowrep.parsers import atomic_parser, label_helpers, parser_helpers
+from flowrep.prospective import atomic_recipe
 
 
 def _make_func_in_module(module: str, qualname: str) -> FunctionType:

@@ -5,9 +5,10 @@ import inspect
 import typing
 from typing import Any
 
-from flowrep import base_models, retrospective
+from flowrep import base_models
 from flowrep.compiler import annotate, flow_control, statements
-from flowrep.nodes import (
+from flowrep.parsers import label_helpers
+from flowrep.prospective import (
     for_recipe,
     if_recipe,
     try_recipe,
@@ -15,7 +16,7 @@ from flowrep.nodes import (
     while_recipe,
     workflow_recipe,
 )
-from flowrep.parsers import label_helpers
+from flowrep.retrospective import datastructures
 
 
 class NameAllocator:
@@ -268,14 +269,14 @@ def _render_params(
 
 
 def build_signature(
-    inputs: retrospective.InputDataPorts,
-    outputs: retrospective.OutputDataPorts,
+    inputs: datastructures.InputDataPorts,
+    outputs: datastructures.OutputDataPorts,
 ) -> inspect.Signature:
     params = []
     for name, port in inputs.items():
         default = (
             port.default
-            if port.default is not retrospective.NOT_DATA
+            if port.default is not datastructures.NOT_DATA
             else inspect.Parameter.empty
         )
         annotation = (
@@ -295,7 +296,7 @@ def build_signature(
     )
 
 
-def _build_return_annotation(outputs: retrospective.OutputDataPorts) -> Any:
+def _build_return_annotation(outputs: datastructures.OutputDataPorts) -> Any:
     """Encode per-output-port types as a single function-level return annotation.
 
     A single port yields its own annotation; multiple ports yield a

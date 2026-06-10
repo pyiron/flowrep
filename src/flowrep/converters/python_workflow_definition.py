@@ -13,8 +13,8 @@ from typing import Any
 from pyiron_snippets import import_alarm, versions
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import atomic_recipe, workflow_recipe
 from flowrep.parsers import label_helpers
+from flowrep.prospective import atomic_recipe, workflow_recipe
 
 with import_alarm.ImportAlarm(
     "This converter requires the 'python-workflow-definition' package. "

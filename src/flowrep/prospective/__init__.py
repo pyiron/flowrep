@@ -2,7 +2,7 @@ from typing import cast
 
 import pydantic
 
-from flowrep.nodes import (
+from flowrep.prospective import (
     atomic_recipe,
     for_recipe,
     helper_models,
@@ -11,7 +11,7 @@ from flowrep.nodes import (
     while_recipe,
     workflow_recipe,
 )
-from flowrep.nodes.union_types import RecipeDiscrimination, Recipes
+from flowrep.prospective.union_types import RecipeDiscrimination, Recipes
 
 # Subtlety: Anywhere we use `typing.TYPE_CHECKING` to avoid a real import _and_ use
 # the guarded object as a pydantic field annotator, we are going to need to make sure

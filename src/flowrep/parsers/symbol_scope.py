@@ -2,7 +2,7 @@ import dataclasses
 from collections.abc import Mapping
 
 from flowrep import edge_models
-from flowrep.nodes import helper_models
+from flowrep.prospective import helper_models
 
 
 @dataclasses.dataclass(frozen=True)

@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Literal
 import pydantic
 
 from flowrep import base_models, edge_models, subgraph_validation
-from flowrep.nodes import helper_models
+from flowrep.prospective import helper_models
 
 if TYPE_CHECKING:
-    from flowrep.nodes.union_types import Recipes
+    from flowrep.prospective.union_types import Recipes
 
 
 class TryRecipe(base_models.NodeRecipe):

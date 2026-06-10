@@ -23,7 +23,7 @@ from typing import Any, Generic, Self, TypeVar, get_args, get_origin, get_type_h
 from pyiron_snippets import retrieve, singleton
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import (
+from flowrep.prospective import (
     atomic_recipe,
     for_recipe,
     if_recipe,

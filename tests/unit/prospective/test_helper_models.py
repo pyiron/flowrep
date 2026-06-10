@@ -4,7 +4,7 @@ import pydantic
 from pyiron_snippets import versions
 
 from flowrep import base_models
-from flowrep.nodes import (
+from flowrep.prospective import (
     atomic_recipe,
     helper_models,
     workflow_recipe,

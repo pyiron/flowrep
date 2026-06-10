@@ -1,7 +1,7 @@
 import unittest
 
-from flowrep.nodes import while_recipe, workflow_recipe
 from flowrep.parsers import workflow_parser
+from flowrep.prospective import while_recipe, workflow_recipe
 
 from flowrep_static import library
 

@@ -9,8 +9,8 @@ from types import FunctionType
 from typing import Any, cast
 
 from flowrep import base_models
-from flowrep.nodes import helper_models
 from flowrep.parsers import symbol_scope
+from flowrep.prospective import helper_models
 
 
 class SourceCodeUnavailableError(ValueError): ...
