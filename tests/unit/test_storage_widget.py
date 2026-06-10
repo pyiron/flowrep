@@ -5,8 +5,15 @@ import tempfile
 import unittest
 from unittest import mock
 
-from flowrep import storage, storage_widget, wfms
-from flowrep.retrospective import datastructures
+from flowrep import wfms
+from flowrep.retrospective import (
+    datastructures,
+    storage,
+    storage_widget,
+)
+from flowrep.retrospective import (
+    storage_widget as sw,
+)
 
 from flowrep_static import library
 
@@ -69,7 +76,6 @@ class TestImportAlarm(unittest.TestCase):
 
     def test_module_importable(self):
         """storage_widget can be imported regardless of ipytree availability."""
-        from flowrep import storage_widget as sw  # noqa: F811
 
         self.assertTrue(hasattr(sw, "LexicalBagTree"))
 

@@ -9,8 +9,8 @@ import tempfile
 import unittest
 from unittest import mock
 
-from flowrep import storage, storage_widget, wfms
-from flowrep.retrospective import datastructures
+from flowrep import wfms
+from flowrep.retrospective import datastructures, storage, storage_widget
 
 from flowrep_static import library
 
