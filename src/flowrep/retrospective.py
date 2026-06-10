@@ -96,6 +96,11 @@ class NodeData(Generic[RecipeType], abc.ABC):
 def recipe2data(
     recipe: union_types.RecipeDiscrimination, allow_variadic_inputs: bool = True
 ) -> NodeData:
+    """
+    Convert a prospective flowrep recipe object to a retrospective flowrep data object.
+    The data object is "empty" in that none of the actual data values will be filled;
+    This is is an empty-vessel creator to be filled, e.g. by a WfMS run of the recipe.
+    """
     match recipe:
         case atomic_recipe.AtomicRecipe():
             return AtomicData.from_recipe(
