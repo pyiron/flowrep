@@ -151,6 +151,8 @@ run-time, but their IO signature is always fully known a priori.
 **Clear separation.** Of prospective, "class view" recipes, and retrospective, 
 "instance view" data objects.
 
+**Convertable and compatible.** Recipes can be compiled back to python functions, and converted from [`python-workflow-definition`](https://github.com/pythonworkflow/python-workflow-definition/) recipes (also _to_ PWD, where recipe operations are the subset supported by the PWD framework).
+
 ### Example: flow control and nesting
 
 So far we've seen `"workflow"` nodes, and alluded to `"atomic"` nodes.
@@ -253,20 +255,16 @@ these underlying functions when we run the recipe with a WfMS.
 
 Recipes are *prospective* — they describe a computation template without holding
 data. For retrospective analysis (inspecting what actually happened during a
-run), flowrep provides two additional layers accessible through the API:
+run), flowrep provides two additional layers accessible through the `tools` and 
+`schemas` submodules of the API.
 
-```python
->>> from flowrep.api import tools as frt
-
-```
-
-**`flowrep.api.tools.recipe2data`** converts a recipe from the prospective "class view"
+**`flowrep.tools.recipe2data`** converts a recipe from the prospective "class view"
 to the retrospective "instance view" — a mutable data structure whose input and output 
 ports can hold actual Python values. Retrospective data objects mirror the recipe graph
 but trade JSON-serializability for the ability to carry arbitrary data:
 
 ```python
->>> wf_data = frt.recipe2data(double_and_add.flowrep_recipe)
+>>> wf_data = fr.tools.recipe2data(double_and_add.flowrep_recipe)
 
 ```
 
@@ -276,7 +274,7 @@ by a minimal, built-in WfMS intended as a reference implementation and for use
 in tests and documentation (like this!):
 
 ```python
->>> retrospective = frt.run_recipe(
+>>> retrospective = fr.tools.run_recipe(
 ...     double_and_add.flowrep_recipe, a=3, b=100, target=40
 ... )
 >>> retrospective.output_ports["result"].value

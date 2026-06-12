@@ -9,7 +9,7 @@ on:
 
 jobs:
   pyiron:
-    uses: pyiron/actions/.github/workflows/push-pull.yml@actions-4.0.13
+    uses: pyiron/actions/.github/workflows/push-pull.yml@actions-4.2.1
     secrets: inherit
     with:
       do-coveralls: false
@@ -35,7 +35,7 @@ jobs:
       omit-patterns: '*/flowrep/api/*'
 
   tests-without-optionals:
-    uses: pyiron/actions/.github/workflows/tests-and-coverage.yml@actions-4.0.13
+    uses: pyiron/actions/.github/workflows/tests-and-coverage.yml@actions-4.2.1
     secrets: inherit
     with:
       tests-env-files: .ci_support/environment.yml

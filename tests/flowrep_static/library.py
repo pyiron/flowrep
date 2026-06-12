@@ -1,5 +1,7 @@
 """Helper functions parsed in multiple test files"""
 
+import typing
+
 from flowrep.parsers import atomic_parser, workflow_parser
 
 
@@ -97,3 +99,53 @@ def no_input_atomic():
 def no_input_workflow():
     a = no_input_atomic()
     return a
+
+
+class MyCustomException(ValueError): ...
+
+
+@atomic_parser.atomic
+def raises_custom(x, y):
+    raise MyCustomException("Custom exception")
+    return x + y
+
+
+@atomic_parser.atomic
+def labeled_x(seed) -> typing.Annotated[int, {"label": "x"}]:
+    x = seed + 1
+    return x
+
+
+@atomic_parser.atomic
+def loop_inc(x):
+    y = x + 1
+    return y
+
+
+@atomic_parser.atomic
+def combine(a, b):
+    r = a + b
+    return r
+
+
+@atomic_parser.atomic
+def split_pair(
+    v,
+) -> tuple[
+    typing.Annotated[int, {"label": "lo"}],
+    typing.Annotated[int, {"label": "hi"}],
+]:
+    lo = v
+    hi = v + 1
+    return lo, hi
+
+
+@atomic_parser.atomic
+def make_list(seed) -> typing.Annotated[list, {"label": "data"}]:
+    data = [seed, seed + 1]
+    return data
+
+
+@workflow_parser.workflow
+def macro_identity(x):
+    return x

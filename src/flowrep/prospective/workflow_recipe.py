@@ -8,7 +8,7 @@ from pyiron_snippets import retrieve
 from flowrep import base_models, edge_models, subgraph_validation
 
 if TYPE_CHECKING:
-    from flowrep.nodes.union_types import Recipes
+    from flowrep.prospective.union_types import Recipes
 
 
 class WorkflowRecipe(base_models.NodeRecipe):

@@ -14,11 +14,11 @@ import pydantic
 
 from flowrep import edge_models
 from flowrep.converters import python_workflow_definition as pwd_conv
-from flowrep.nodes import (
+from flowrep.parsers import workflow_parser
+from flowrep.prospective import (
     atomic_recipe,
     workflow_recipe,
 )
-from flowrep.parsers import workflow_parser
 
 from flowrep_static import library, makers  # noqa: E402
 

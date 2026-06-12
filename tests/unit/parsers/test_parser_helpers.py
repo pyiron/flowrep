@@ -2,8 +2,8 @@ import ast
 import unittest
 
 from flowrep import base_models, edge_models
-from flowrep.nodes import atomic_recipe, helper_models
 from flowrep.parsers import parser_helpers, symbol_scope
+from flowrep.prospective import atomic_recipe, helper_models
 
 from flowrep_static import makers
 

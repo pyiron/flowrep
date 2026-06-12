@@ -1,6 +1,7 @@
 import collections
-from collections.abc import Collection
-from typing import Protocol, runtime_checkable
+import heapq
+from collections.abc import Callable, Collection, Iterable
+from typing import Any, Protocol, runtime_checkable
 
 from flowrep import base_models, edge_models
 
@@ -157,33 +158,69 @@ def validate_sibling_edges(
 def validate_acyclic_edges(
     edges: edge_models.Edges, message="Edges contain cycle(s)"
 ) -> None:
-    # Build adjacency list and in-degree count
-    in_degree: dict[str, int] = {}
-    successors: dict[str, list[str]] = {}
+    # InputSource/OutputTarget handles carry node=None; they cannot form cycles.
+    pairs = [
+        (source.node, target.node)
+        for target, source in edges.items()
+        if target.node is not None and source.node is not None
+    ]
+    nodes = {node for pair in pairs for node in pair}
+    topological_sort(nodes, pairs, cycle_message=message)
 
-    for target, source in edges.items():
-        if target.node is None or source.node is None:
-            continue
-        s, t = source.node, target.node
-        in_degree.setdefault(s, 0)
-        in_degree.setdefault(t, 0)
-        successors.setdefault(s, [])
-        in_degree[t] += 1
-        successors[s].append(t)
 
-    # Kahn's algorithm
-    queue = [n for n, d in in_degree.items() if d == 0]
-    visited = 0
-    while queue:
-        node = queue.pop()
-        visited += 1
-        for neighbor in successors.get(node, ()):
-            in_degree[neighbor] -= 1
-            if in_degree[neighbor] == 0:
-                queue.append(neighbor)
+def topological_sort(
+    nodes: Iterable[base_models.Label],
+    dependencies: Iterable[tuple[base_models.Label, base_models.Label]],
+    *,
+    tie_breaker: Callable[[base_models.Label], Any] | None = None,
+    cycle_message: str = "Graph contains cycle(s)",
+) -> list[base_models.Label]:
+    """Return ``nodes`` in dependency order via Kahn's algorithm.
 
-    if visited != len(in_degree):
-        raise ValueError(f"{message}")
+    Args:
+        nodes: All node labels to order.
+        dependencies: ``(before, after)`` pairs; ``before`` must precede
+            ``after``. Every label referenced must be present in ``nodes``.
+        tie_breaker: Key applied to ready nodes to break ties deterministically.
+            Defaults to insertion order within ``nodes``.
+        cycle_message: Message for the ``ValueError`` raised on a cycle.
+
+    Returns:
+        The node labels in a valid topological order.
+
+    Raises:
+        ValueError: If the graph contains a cycle.
+    """
+    node_list = list(nodes)
+    key: Callable[[base_models.Label], Any]
+    if tie_breaker is None:
+        position = {label: index for index, label in enumerate(node_list)}
+        key = position.__getitem__
+    else:
+        key = tie_breaker
+
+    in_degree: dict[base_models.Label, int] = {label: 0 for label in node_list}
+    successors: dict[base_models.Label, list[base_models.Label]] = {
+        label: [] for label in node_list
+    }
+    for before, after in dependencies:
+        in_degree[after] += 1
+        successors[before].append(after)
+
+    ready = [(key(label), label) for label in node_list if in_degree[label] == 0]
+    heapq.heapify(ready)
+    order: list[base_models.Label] = []
+    while ready:
+        _, label = heapq.heappop(ready)
+        order.append(label)
+        for successor in successors[label]:
+            in_degree[successor] -= 1
+            if in_degree[successor] == 0:
+                heapq.heappush(ready, (key(successor), successor))
+
+    if len(order) != len(node_list):
+        raise ValueError(cycle_message)
+    return order
 
 
 def validate_nodes_are_fully_sourced(

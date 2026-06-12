@@ -3,7 +3,7 @@ from typing import Annotated
 import pydantic
 
 from flowrep import base_models
-from flowrep.nodes import (
+from flowrep.prospective import (
     atomic_recipe,
     for_recipe,
     if_recipe,

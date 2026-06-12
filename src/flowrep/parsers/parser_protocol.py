@@ -6,8 +6,8 @@ from typing import Protocol, runtime_checkable
 from pyiron_snippets import versions
 
 from flowrep import edge_models
-from flowrep.nodes import union_types, workflow_recipe
 from flowrep.parsers import object_scope, symbol_scope
+from flowrep.prospective import union_types, workflow_recipe
 
 
 @runtime_checkable

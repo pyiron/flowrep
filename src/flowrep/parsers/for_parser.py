@@ -4,8 +4,8 @@ import ast
 from typing import NamedTuple
 
 from flowrep import edge_models
-from flowrep.nodes import for_recipe, helper_models
 from flowrep.parsers import parser_protocol, symbol_scope
+from flowrep.prospective import for_recipe, helper_models
 
 FOR_BODY_LABEL: str = "body"
 
