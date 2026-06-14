@@ -217,7 +217,7 @@ def _run_for(
     Transferred outputs collect the per-iteration value of a scattered input,
     preserving the link between input element and body output element.
     """
-    node = datastructures.FlowControlData.from_recipe(recipe)
+    node = datastructures.ForEachData.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     body_label = recipe.body_node.label
