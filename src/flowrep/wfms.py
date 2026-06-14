@@ -207,7 +207,7 @@ def _populate_workflow_outputs(
 
 def _run_for(
     recipe: for_recipe.ForEachRecipe, **kwargs: Any
-) -> datastructures.FlowControlData:
+) -> datastructures.ForEachData:
     """
     Execute a for-node by scattering iterated inputs across body instances and
     collecting outputs into lists.
