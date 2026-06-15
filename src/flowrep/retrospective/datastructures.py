@@ -358,6 +358,9 @@ def _parse_return_dataclass(
             f"GitHub issue reporting how you got here!"
         )
 
+    # de-stringify dataclass annotations, if they were forward-references
+    hints = get_type_hints(return_annotation, include_extras=True)
+
     fields = dataclasses.fields(return_annotation)
     if len(outputs) != len(fields):  # pragma: no cover
         raise ValueError(
@@ -368,8 +371,6 @@ def _parse_return_dataclass(
         )
 
     return {
-        label: OutputDataPort(
-            annotation=(field.type if field.type is not dataclasses.MISSING else None),
-        )
+        label: OutputDataPort(annotation=hints.get(field.name, None))
         for label, field in zip(outputs, fields, strict=True)
     }
