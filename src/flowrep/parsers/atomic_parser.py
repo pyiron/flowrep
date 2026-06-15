@@ -241,7 +241,13 @@ def _parse_dataclass_return_labels(func: FunctionType) -> list[str]:
             f"{source_code_return}"
         )
 
-    sig = inspect.signature(func)
+    sig = inspect.signature(func, eval_str=True)
+    # We can safely force-eval string hints resulting from
+    # `from __future__ import annotations` because a dataclass-returning function
+    # probably has actual access to that dataclass object to return it
+    # The edge case is a `if TYPE_CHECKING` import for the hint, and then _inside_ the
+    # function properly importing it, and using it as a return. That's ridiculous and
+    # I'm not supporting it.
     ann = sig.return_annotation
 
     # unwrap Annotated
