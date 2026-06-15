@@ -355,9 +355,7 @@ def _run_while(
 # ---------------------------------------------------------------------------
 
 
-def _run_if(
-    recipe: if_recipe.IfRecipe, **kwargs: Any
-) -> datastructures.IfData:
+def _run_if(recipe: if_recipe.IfRecipe, **kwargs: Any) -> datastructures.IfData:
     """
     Execute an if-node by walking cases until a condition evaluates positively,
     then executing the matching body (or the else case).
@@ -403,9 +401,7 @@ def _execute_if_branch(
 # ---------------------------------------------------------------------------
 
 
-def _run_try(
-    recipe: try_recipe.TryRecipe, **kwargs: Any
-) -> datastructures.TryData:
+def _run_try(recipe: try_recipe.TryRecipe, **kwargs: Any) -> datastructures.TryData:
     """
     Execute a try-node: run the try body and, on exception, walk exception cases
     for a matching handler.  If no handler matches, the exception propagates.
