@@ -239,7 +239,16 @@ def _parse_function(
     dict[base_models.Label, OutputDataPort],
 ]:
     function = retrieve.import_from_string(fully_qualified_name)
-    hints = get_type_hints(function, include_extras=True)
+    try:
+        hints = get_type_hints(function, include_extras=True)
+    except NameError as e:
+        raise NameError(
+            f"While parsing {fully_qualified_name!r} for recipe inputs {inputs} and "
+            f"outputs {outputs}, could not find the symbol for at least one "
+            f"annotation. This is likely due to forward referenced annotations. Please "
+            f"cross reference the underlying name error ({str(e)!r}) and the function "
+            f"being parsed, and locally make the necessary imports before re-parsing."
+        ) from e
     sig = inspect.signature(function)
 
     variadics_in_sig = {
