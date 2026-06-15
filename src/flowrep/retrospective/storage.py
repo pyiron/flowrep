@@ -62,9 +62,12 @@ class LexicalBagBrowser:
     ) -> (
         datastructures.AtomicData
         | datastructures.DagData
-        | datastructures.FlowControlData
+        | datastructures.ForEachData
+        | datastructures.IfData
         | datastructures.InputDataPort
         | datastructures.OutputDataPort
+        | datastructures.TryData
+        | datastructures.WhileData
     ):
         """Load a node or IO port using its lexical path."""
         return load_from_bag(self.bag, path)
@@ -164,9 +167,12 @@ def load_from_bag(
 ) -> (
     datastructures.AtomicData
     | datastructures.DagData
-    | datastructures.FlowControlData
+    | datastructures.ForEachData
+    | datastructures.IfData
     | datastructures.InputDataPort
     | datastructures.OutputDataPort
+    | datastructures.TryData
+    | datastructures.WhileData
 ):
     """
     Load data from a :cls:`LiveNode` stored in a *bagofholding* by using its lexical
@@ -205,9 +211,12 @@ def load_from_bag(
     expected_types = (
         datastructures.AtomicData,
         datastructures.DagData,
-        datastructures.FlowControlData,
+        datastructures.ForEachData,
+        datastructures.IfData,
         datastructures.InputDataPort,
         datastructures.OutputDataPort,
+        datastructures.TryData,
+        datastructures.WhileData,
     )
     if not isinstance(obj, expected_types):
         raise TypeError(
