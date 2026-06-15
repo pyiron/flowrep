@@ -385,7 +385,7 @@ def _run_if(recipe: if_recipe.IfRecipe, **kwargs: Any) -> datastructures.IfData:
 
 
 def _execute_if_branch(
-    node: datastructures.FlowControlData,
+    node: datastructures.IfData,
     recipe: if_recipe.IfRecipe,
     branch: helper_models.LabeledRecipe,
 ) -> None:
@@ -489,7 +489,7 @@ def _evaluate_condition(
 
 
 def _populate_prospective_outputs(
-    node: datastructures.FlowControlData,
+    node: datastructures.IfData | datastructures.TryData,
     prospective_output_edges: dict[
         edge_models.OutputTarget, list[edge_models.SourceHandle]
     ],
