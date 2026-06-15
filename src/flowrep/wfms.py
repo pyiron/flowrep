@@ -207,7 +207,7 @@ def _populate_workflow_outputs(
 
 def _run_for(
     recipe: for_recipe.ForEachRecipe, **kwargs: Any
-) -> datastructures.FlowControlData:
+) -> datastructures.ForEachData:
     """
     Execute a for-node by scattering iterated inputs across body instances and
     collecting outputs into lists.
@@ -217,7 +217,7 @@ def _run_for(
     Transferred outputs collect the per-iteration value of a scattered input,
     preserving the link between input element and body output element.
     """
-    node = datastructures.FlowControlData.from_recipe(recipe)
+    node = datastructures.ForEachData.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     body_label = recipe.body_node.label
@@ -298,7 +298,7 @@ def _run_for(
 
 def _run_while(
     recipe: while_recipe.WhileRecipe, **kwargs: Any
-) -> datastructures.FlowControlData:
+) -> datastructures.WhileData:
     """
     Execute a while-node by repeatedly evaluating a condition and running a body.
 
@@ -306,7 +306,7 @@ def _run_while(
     feed back into the next condition/body evaluation.  If the condition is false on
     the first check, outputs are sourced from the initial input values.
     """
-    node = datastructures.FlowControlData.from_recipe(recipe)
+    node = datastructures.WhileData.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     cond_label = recipe.case.condition.label
@@ -355,16 +355,14 @@ def _run_while(
 # ---------------------------------------------------------------------------
 
 
-def _run_if(
-    recipe: if_recipe.IfRecipe, **kwargs: Any
-) -> datastructures.FlowControlData:
+def _run_if(recipe: if_recipe.IfRecipe, **kwargs: Any) -> datastructures.IfData:
     """
     Execute an if-node by walking cases until a condition evaluates positively,
     then executing the matching body (or the else case).
 
     Output ports that have no source from the executed branch remain NOT_DATA.
     """
-    node = datastructures.FlowControlData.from_recipe(recipe)
+    node = datastructures.IfData.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     for case in recipe.cases:
@@ -403,14 +401,12 @@ def _execute_if_branch(
 # ---------------------------------------------------------------------------
 
 
-def _run_try(
-    recipe: try_recipe.TryRecipe, **kwargs: Any
-) -> datastructures.FlowControlData:
+def _run_try(recipe: try_recipe.TryRecipe, **kwargs: Any) -> datastructures.TryData:
     """
     Execute a try-node: run the try body and, on exception, walk exception cases
     for a matching handler.  If no handler matches, the exception propagates.
     """
-    node = datastructures.FlowControlData.from_recipe(recipe)
+    node = datastructures.TryData.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     try_kwargs = _gather_dynamic_child_inputs(
