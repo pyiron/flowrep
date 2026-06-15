@@ -675,10 +675,10 @@ class TestRecipe2Live(unittest.TestCase):
         for recipe, type_ in (
             (library.identity.flowrep_recipe, datastructures.AtomicData),
             (_linear_workflow(), datastructures.DagData),
-            (_for_negate(), datastructures.FlowControlData),
-            (_if_abs(), datastructures.FlowControlData),
-            (_try_safe_divide(), datastructures.FlowControlData),
-            (_while_countdown(), datastructures.FlowControlData),
+            (_for_negate(), datastructures.ForEachData),
+            (_if_abs(), datastructures.IfData),
+            (_try_safe_divide(), datastructures.TryData),
+            (_while_countdown(), datastructures.WhileData),
         ):
             with self.subTest(recipe=recipe, type=type_):
                 self.assertIsInstance(datastructures.recipe2data(recipe), type_)
