@@ -30,13 +30,22 @@ if TYPE_CHECKING:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Unavailable annotation node
+# Unavailable annotations
 # ═══════════════════════════════════════════════════════════════════════════
 
 
 @atomic_parser.atomic
 def get_blue(colors: SeabornColors) -> str:
     return colors.blue
+
+
+@dataclasses.dataclass
+class InaccessibleFieldAnnotation:
+    x: SeabornColors
+
+
+def return_problematic_dataclass(x) -> InaccessibleFieldAnnotation:
+    return InaccessibleFieldAnnotation(x)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -578,6 +587,14 @@ class TestAtomicFromRecipe(unittest.TestCase):
         node = datastructures.AtomicData.from_recipe(recipe)
         self.assertIs(node.output_ports["x"].annotation, int)
         self.assertIs(node.output_ports["y"].annotation, int)
+
+    def test_unpacking_dataclass_with_inaccessible_field_raises(self):
+        recipe = atomic_parser.parse_atomic(
+            return_problematic_dataclass,
+            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
+        )
+        with self.assertRaisesRegex(NameError, "name 'SeabornColors' is not defined"):
+            datastructures.AtomicData.from_recipe(recipe)
 
     def test_unpacking_dataclass_as_none(self):
         recipe = atomic_parser.parse_atomic(
