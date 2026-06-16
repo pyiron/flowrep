@@ -242,25 +242,24 @@ def _parse_dataclass_return_labels(func: FunctionType) -> list[str]:
         )
 
     try:
-        sig = inspect.signature(func, eval_str=True)
+        hints = get_type_hints(func, include_extras=True)
     except NameError as e:
         raise NameError(
             "Dataclass unpack mode requires the return annotation to be importable at "
             "runtime. Evaluating the return annotation for "
             f"{func.__module__}.{func.__qualname__} failed with: {e}"
         ) from e
-    ann = sig.return_annotation
+    ann = hints.get("return")
 
-    # unwrap Annotated
     origin = get_origin(ann)
-    return_annotation = get_args(ann)[0] if origin is Annotated else ann
+    return_hint = get_args(ann)[0] if origin is Annotated else ann
 
-    if dataclasses.is_dataclass(return_annotation):
-        return [f.name for f in dataclasses.fields(return_annotation)]
+    if dataclasses.is_dataclass(return_hint):
+        return [f.name for f in dataclasses.fields(return_hint)]
 
     raise ValueError(
         f"Dataclass unpack mode requires a return type annotation that is a "
-        f"(perhaps Annotated) dataclass, but got {ann}"
+        f"(perhaps Annotated) dataclass, but got {return_hint}"
     )
 
 

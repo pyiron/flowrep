@@ -19,6 +19,11 @@ class _Result:
     y: int
 
 
+@dataclasses.dataclass
+class _TypingProblem:
+    x: YouCantFindThis  # noqa: F821
+
+
 def _make_func_in_module(module: str, qualname: str) -> FunctionType:
     """Create a trivial function with controlled __module__ and __qualname__."""
 
@@ -670,6 +675,22 @@ class TestParseDataclassReturnLabels(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             atomic_parser._parse_dataclass_return_labels(func)
         self.assertIn("same number of elements", str(ctx.exception).lower())
+
+    def test_unimportable_annotation_raises(self):
+        """
+        This should probably never be hittable in practice, because it requires the
+        user to ask for dataclass unpacking, and hinting something unimported, but
+        usually the hint and the returned object will be the same in this case (and
+        thus safely imported!)
+        """
+
+        def func() -> NotImportable:  # noqa: F821
+            return _TypingProblem(42)
+
+        with self.assertRaisesRegex(
+            NameError, "requires the return annotation to be importable"
+        ):
+            atomic_parser._parse_dataclass_return_labels(func)
 
 
 class TestParseTupleReturnLabelsWithAnnotations(unittest.TestCase):
