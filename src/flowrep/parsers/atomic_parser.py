@@ -244,7 +244,7 @@ def _parse_dataclass_return_labels(func: FunctionType) -> list[str]:
     try:
         sig = inspect.signature(func, eval_str=True)
     except NameError as e:
-        raise ValueError(
+        raise NameError(
             "Dataclass unpack mode requires the return annotation to be importable at "
             "runtime. Evaluating the return annotation for "
             f"{func.__module__}.{func.__qualname__} failed with: {e}"
