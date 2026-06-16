@@ -351,7 +351,10 @@ def _parse_return_tuple(
 def _parse_return_dataclass(
     return_annotation, outputs: list[str]
 ) -> dict[str, OutputDataPort]:
-    if not dataclasses.is_dataclass(return_annotation):  # pragma: no cover
+    if not (
+        isinstance(return_annotation, type)
+        and dataclasses.is_dataclass(return_annotation)
+    ):  # pragma: no cover
         raise TypeError(
             f"Return annotation {return_annotation!r} is not a dataclass. This should "
             f"have been caught by the underlying recipe validation. Please raise a "
