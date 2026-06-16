@@ -239,7 +239,16 @@ def _parse_function(
     dict[base_models.Label, OutputDataPort],
 ]:
     function = retrieve.import_from_string(fully_qualified_name)
-    hints = get_type_hints(function, include_extras=True)
+    try:
+        hints = get_type_hints(function, include_extras=True)
+    except NameError as e:
+        raise NameError(
+            f"While parsing {fully_qualified_name!r} for recipe inputs {inputs} and "
+            f"outputs {outputs}, could not find the symbol for at least one "
+            f"annotation. This is likely due to forward referenced annotations. Please "
+            f"cross reference the underlying name error ({str(e)!r}) and the function "
+            f"being parsed, and locally make the necessary imports before re-parsing."
+        ) from e
     sig = inspect.signature(function)
 
     variadics_in_sig = {
@@ -342,12 +351,26 @@ def _parse_return_tuple(
 def _parse_return_dataclass(
     return_annotation, outputs: list[str]
 ) -> dict[str, OutputDataPort]:
-    if not dataclasses.is_dataclass(return_annotation):  # pragma: no cover
+    if not (
+        isinstance(return_annotation, type)
+        and dataclasses.is_dataclass(return_annotation)
+    ):  # pragma: no cover
         raise TypeError(
             f"Return annotation {return_annotation!r} is not a dataclass. This should "
             f"have been caught by the underlying recipe validation. Please raise a "
             f"GitHub issue reporting how you got here!"
         )
+
+    # de-stringify dataclass annotations, if they were forward-references
+    try:
+        hints = get_type_hints(return_annotation, include_extras=True)
+    except NameError as e:
+        fqdn = f"{return_annotation.__module__}.{return_annotation.__qualname__}"
+        raise NameError(
+            f"While parsing return dataclass annotation {fqdn!r}, could not resolve "
+            f"at least one field annotation ({e}). Ensure the missing symbols are "
+            f"importable at runtime in the dataclass' defining module."
+        ) from e
 
     fields = dataclasses.fields(return_annotation)
     if len(outputs) != len(fields):  # pragma: no cover
@@ -359,8 +382,6 @@ def _parse_return_dataclass(
         )
 
     return {
-        label: OutputDataPort(
-            annotation=(field.type if field.type is not dataclasses.MISSING else None),
-        )
+        label: OutputDataPort(annotation=hints.get(field.name, None))
         for label, field in zip(outputs, fields, strict=True)
     }

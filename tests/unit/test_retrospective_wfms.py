@@ -1,9 +1,11 @@
 """Tests for the retrospective data model and the minimal WfMS."""
 
+from __future__ import annotations
+
 import dataclasses
 import pickle
 import unittest
-from typing import get_origin
+from typing import TYPE_CHECKING, get_origin
 
 from pyiron_snippets import versions
 
@@ -22,6 +24,29 @@ from flowrep.retrospective import datastructures
 from flowrep.retrospective.datastructures import NOT_DATA
 
 from flowrep_static import library
+
+if TYPE_CHECKING:
+    from pyiron_snippets.colors import SeabornColors
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Unavailable annotations
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@atomic_parser.atomic
+def get_blue(colors: SeabornColors) -> str:
+    return colors.blue
+
+
+@dataclasses.dataclass
+class InaccessibleFieldAnnotation:
+    x: SeabornColors
+
+
+def return_problematic_dataclass(x) -> InaccessibleFieldAnnotation:
+    return InaccessibleFieldAnnotation(x)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Helper factories for manual recipe construction
@@ -563,6 +588,14 @@ class TestAtomicFromRecipe(unittest.TestCase):
         self.assertIs(node.output_ports["x"].annotation, int)
         self.assertIs(node.output_ports["y"].annotation, int)
 
+    def test_unpacking_dataclass_with_inaccessible_field_raises(self):
+        recipe = atomic_parser.parse_atomic(
+            return_problematic_dataclass,
+            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
+        )
+        with self.assertRaisesRegex(NameError, "name 'SeabornColors' is not defined"):
+            datastructures.AtomicData.from_recipe(recipe)
+
     def test_unpacking_dataclass_as_none(self):
         recipe = atomic_parser.parse_atomic(
             takes_positional_only,
@@ -617,6 +650,20 @@ class TestAtomicFromRecipe(unittest.TestCase):
         self.assertIn(
             "(n=3) do not match length of return annotation", str(ctx.exception)
         )
+
+    def test_unavailable_annotation(self):
+        with self.assertRaisesRegex(NameError, "name 'SeabornColors' is not defined"):
+            datastructures.AtomicData.from_recipe(get_blue.flowrep_recipe)
+
+        from pyiron_snippets.colors import SeabornColors
+
+        # get_type_hints resolves in the defining module's globals, not here
+        get_blue.__globals__["SeabornColors"] = SeabornColors
+        try:
+            data = datastructures.AtomicData.from_recipe(get_blue.flowrep_recipe)
+            self.assertIs(data.input_ports["colors"].annotation, SeabornColors)
+        finally:
+            del get_blue.__globals__["SeabornColors"]
 
 
 class TestWorkflowFromRecipe(unittest.TestCase):
