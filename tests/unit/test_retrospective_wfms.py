@@ -638,13 +638,15 @@ class TestAtomicFromRecipe(unittest.TestCase):
         with self.assertRaisesRegex(NameError, "name 'SeabornColors' is not defined"):
             datastructures.AtomicData.from_recipe(get_blue.flowrep_recipe)
 
-            # get_type_hints resolves in the defining module's globals, not here
-            get_blue.__globals__["SeabornColors"] = SeabornColors
-            try:
-                data = datastructures.AtomicData.from_recipe(get_blue.flowrep_recipe)
-                self.assertIs(data.input_ports["colors"].annotation, SeabornColors)
-            finally:
-                del get_blue.__globals__["SeabornColors"]
+        from pyiron_snippets.colors import SeabornColors
+
+        # get_type_hints resolves in the defining module's globals, not here
+        get_blue.__globals__["SeabornColors"] = SeabornColors
+        try:
+            data = datastructures.AtomicData.from_recipe(get_blue.flowrep_recipe)
+            self.assertIs(data.input_ports["colors"].annotation, SeabornColors)
+        finally:
+            del get_blue.__globals__["SeabornColors"]
 
 
 class TestWorkflowFromRecipe(unittest.TestCase):
