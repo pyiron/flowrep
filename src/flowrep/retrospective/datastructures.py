@@ -359,7 +359,15 @@ def _parse_return_dataclass(
         )
 
     # de-stringify dataclass annotations, if they were forward-references
-    hints = get_type_hints(return_annotation, include_extras=True)
+    try:
+        hints = get_type_hints(return_annotation, include_extras=True)
+    except NameError as e:
+        fqdn = f"{return_annotation.__module__}.{return_annotation.__qualname__}"
+        raise NameError(
+            f"While parsing return dataclass annotation {fqdn!r}, could not resolve "
+            f"at least one field annotation ({e}). Ensure the missing symbols are "
+            f"importable at runtime in the dataclass' defining module."
+        ) from e
 
     fields = dataclasses.fields(return_annotation)
     if len(outputs) != len(fields):  # pragma: no cover
