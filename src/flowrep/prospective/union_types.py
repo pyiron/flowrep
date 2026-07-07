@@ -5,6 +5,7 @@ import pydantic
 from flowrep import base_models
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     for_recipe,
     if_recipe,
     try_recipe,
@@ -15,6 +16,7 @@ from flowrep.prospective import (
 # Discriminated Union
 RecipeDiscrimination = Annotated[
     atomic_recipe.AtomicRecipe
+    | constant_recipe.ConstantRecipe
     | for_recipe.ForEachRecipe
     | if_recipe.IfRecipe
     | try_recipe.TryRecipe
