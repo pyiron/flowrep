@@ -1,5 +1,4 @@
 channels:
   - conda-forge
 dependencies:
-  - packaging =27.0
   - pyiron_snippets =2.0.0
