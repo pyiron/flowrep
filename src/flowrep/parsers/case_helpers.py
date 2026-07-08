@@ -43,7 +43,9 @@ def parse_case(
         )
 
     scope_copy = symbol_map.fork()
-    parser_helpers.consume_call_arguments(scope_copy, test, condition, nodes)
+    parser_helpers.consume_call_arguments(
+        scope_copy, test, condition, nodes, allow_constants=False
+    )
     return _relabel_node_data(condition, scope_copy.input_edges, label)
 
 

@@ -24,9 +24,7 @@ class TestConstantEndToEnd(unittest.TestCase):
         # 1. Serializes and round-trips through the discriminated union.
         adapter = pydantic.TypeAdapter(union_types.RecipeDiscrimination)
         restored = adapter.validate_python(adapter.dump_python(recipe, mode="json"))
-        self.assertEqual(
-            makers.dump_no_refs(restored), makers.dump_no_refs(recipe)
-        )
+        self.assertEqual(makers.dump_no_refs(restored), makers.dump_no_refs(recipe))
 
         # 2. Runs to the correct number.
         result = wfms.run_recipe(recipe, mass=2.0, velocity=3.0)

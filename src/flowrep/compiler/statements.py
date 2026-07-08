@@ -218,7 +218,11 @@ def emit_workflow_body(
 
     # Flow-control nodes derive their input port names from the enclosing symbols
     # feeding them, so each such source must be named after the port for the port
-    # names (and while-loop reassignments) to round-trip.
+    # names (and while-loop reassignments) to round-trip. A constant node's handle
+    # never reaches this dict in practice (constants never feed flow-control inputs,
+    # and even a hand-built recipe violating that would have its handle skipped
+    # below, since constants are never emitted -- see the `continue` in the emit
+    # loop), so any such entry here would be inert.
     for handle, name in _flow_control_input_requirements(recipe).items():
         if (  # pragma: no cover - twin of the output-edge guard above; only a
             # hand-built recipe (one a parser never emits) can name a source for

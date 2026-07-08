@@ -507,6 +507,19 @@ class TestConsumeCallArguments(unittest.TestCase):
             edge_models.SourceHandle(node="constant_0", port="constant"),
         )
 
+    def test_partial_consumption_before_error(self):
+        """An earlier valid symbol arg is still consumed before a later
+        genuinely-unparseable arg raises."""
+        scope = self._make_scope(["x"])
+        call = self._parse_call("func(x, other_func(y))")
+        node = self._make_labeled_node("func_0", inputs=["a", "b"])
+
+        with self.assertRaises(TypeError) as ctx:
+            parser_helpers.consume_call_arguments(scope, call, node, {})
+
+        self.assertIn("symbolic input", str(ctx.exception))
+        self.assertEqual(self._consumed_pairs(scope), [("x", "a")])
+
     def test_preserves_underscore_names(self):
         scope = self._make_scope(["_private", "__dunder__"])
         call = self._parse_call("func(_private, __dunder__)")

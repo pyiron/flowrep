@@ -36,6 +36,11 @@ class TestConstantRecipe(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(pydantic.ValidationError):
                 constant_recipe.ConstantRecipe(constant=bad)
 
+    def test_rejects_non_finite_float(self):
+        for bad in [float("nan"), float("inf"), float("-inf")]:
+            with self.subTest(bad=bad), self.assertRaises(pydantic.ValidationError):
+                constant_recipe.ConstantRecipe(constant=bad)
+
     def test_bad_ports_rejected(self):
         with self.assertRaises(pydantic.ValidationError):
             constant_recipe.ConstantRecipe(constant=1, inputs=["x"])

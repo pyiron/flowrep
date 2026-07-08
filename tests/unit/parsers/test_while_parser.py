@@ -52,6 +52,20 @@ class TestParseWhileConditionErrors(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("exactly one", str(ctx.exception))
 
+    def test_literal_in_condition_raises(self):
+        """A literal argument in a while-condition must raise cleanly, not inject a
+        constant node."""
+
+        def wf(x):
+            while library.my_condition(x, 5):
+                x = library.identity(x)
+            return x
+
+        with self.assertRaises(TypeError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("flow-control", str(ctx.exception))
+        self.assertIn("condition", str(ctx.exception))
+
 
 class TestWhileParserErrors(unittest.TestCase):
     """

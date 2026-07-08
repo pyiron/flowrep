@@ -140,12 +140,19 @@ def consume_call_arguments(
     ast_call: ast.Call,
     child: helper_models.LabeledRecipe,
     nodes: union_types.Recipes,
+    *,
+    allow_constants: bool = True,
 ) -> None:
     """Record all argument->port consumptions for a node-creating call.
 
     ``ast.Name`` arguments consume an existing symbol; any other argument must be a
     Python literal, which is injected as a ``ConstantRecipe`` source node into
-    *nodes* and wired to the consuming port.
+    *nodes* and wired to the consuming port -- unless *allow_constants* is
+    ``False``, in which case a literal argument raises ``TypeError`` instead of
+    being injected. Flow-control conditions pass ``allow_constants=False``: a
+    constant node is only ever safe as a consumer node's input, never as a
+    flow-control condition's input, so this keeps that invariant true by
+    construction rather than relying on downstream validation to catch it.
     """
 
     def _consume(arg_node: ast.expr, consumer_port: str) -> None:
@@ -159,6 +166,13 @@ def consume_call_arguments(
                 f"symbolic input or literal constants; for input '{consumer_port}' of "
                 f"node '{child.label}' found un-parseable "
                 f"{type(arg_node).__name__}."
+            )
+        if not allow_constants:
+            raise TypeError(
+                f"Literal constants are not supported in flow-control conditions; "
+                f"for input '{consumer_port}' of condition node '{child.label}' "
+                f"found a literal {value!r}. Bind the value to a symbol first, e.g. "
+                f"assign it to a variable before using it in the condition."
             )
         constant_parser.inject_constant(nodes, scope, value, child.label, consumer_port)
 

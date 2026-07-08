@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any, Literal
 
 import pydantic
@@ -20,6 +21,11 @@ def _strict_json(value: Any) -> Any:
     non-``str`` dict keys that pydantic's lax coercion would otherwise silently
     turn into lists / coerced keys.
     """
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError(
+            f"Constant values must be JSON-serializable, but got a non-finite "
+            f"float: {value!r}"
+        )
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, list):

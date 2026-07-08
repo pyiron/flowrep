@@ -151,6 +151,38 @@ class TestParseIfConditionErrors(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("function call", str(ctx.exception))
 
+    def test_literal_in_condition_raises(self):
+        """A literal argument in an if-condition must raise cleanly, not inject a
+        constant node."""
+
+        def wf(x):
+            if library.my_condition(x, 5):
+                y = library.identity(x)
+            else:
+                y = library.identity(x)
+            return y
+
+        with self.assertRaises(TypeError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("flow-control", str(ctx.exception))
+        self.assertIn("condition", str(ctx.exception))
+
+    def test_literal_in_elif_condition_raises_type_error(self):
+        """A literal argument in an elif-condition raises the flow-control error."""
+
+        def wf(x, y):
+            if library.my_condition(x, y):
+                z = library.identity(x)
+            elif library.my_condition(x, 5):
+                z = library.identity(y)
+            else:
+                z = library.identity(x)
+            return z
+
+        with self.assertRaises(TypeError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("flow-control", str(ctx.exception))
+
 
 # ===================================================================
 # Body-level errors (tested via parse_workflow)
