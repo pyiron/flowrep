@@ -283,7 +283,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                     f"got {new_symbols}"
                 )
             self.symbol_map.register_accumulator(new_symbols[0])
-        elif (parsed := constant_parser.try_parse_constant(rhs))[0]:
+        elif rhs is not None and (parsed := constant_parser.try_parse_constant(rhs))[0]:
             if len(new_symbols) != 1:
                 raise ValueError(
                     f"Literal constant assignment must target exactly one symbol, "
