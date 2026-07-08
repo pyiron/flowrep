@@ -38,6 +38,7 @@ from flowrep.prospective.workflow_recipe import WorkflowRecipe as WorkflowRecipe
 from flowrep.retrospective.datastructures import NOT_DATA as NOT_DATA
 from flowrep.retrospective.datastructures import AtomicData as AtomicData
 from flowrep.retrospective.datastructures import CompositeData as CompositeData
+from flowrep.retrospective.datastructures import ConstantData as ConstantData
 from flowrep.retrospective.datastructures import DagData as DagData
 from flowrep.retrospective.datastructures import FlowControlData as FlowControlData
 from flowrep.retrospective.datastructures import ForEachData as ForEachData

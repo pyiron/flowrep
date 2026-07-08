@@ -25,6 +25,7 @@ from pyiron_snippets import retrieve, singleton
 from flowrep import base_models, edge_models
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     for_recipe,
     if_recipe,
     try_recipe,
@@ -106,6 +107,8 @@ def recipe2data(
             return AtomicData.from_recipe(
                 recipe, allow_variadic_inputs=allow_variadic_inputs
             )
+        case constant_recipe.ConstantRecipe():
+            return ConstantData.from_recipe(recipe)
         case for_recipe.ForEachRecipe():
             return ForEachData.from_recipe(recipe)
         case if_recipe.IfRecipe():
@@ -142,6 +145,22 @@ class AtomicData(NodeData[atomic_recipe.AtomicRecipe]):
             input_ports=dict(input_ports),
             output_ports=dict(output_ports),
             function=function,
+        )
+
+
+@dataclasses.dataclass(frozen=False)
+class ConstantData(NodeData[constant_recipe.ConstantRecipe]):
+    @classmethod
+    def from_recipe(cls, recipe: constant_recipe.ConstantRecipe) -> ConstantData:
+        return cls(
+            recipe=recipe,
+            input_ports={},
+            output_ports={
+                "constant": OutputDataPort(
+                    value=recipe.constant,
+                    annotation=type(recipe.constant),
+                )
+            },
         )
 
 
