@@ -192,6 +192,24 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             )
         )
 
+    def consume_source(
+        self,
+        source: edge_models.SourceHandle,
+        consumer_node: str,
+        consumer_port: str,
+    ) -> None:
+        """Record a consumption whose source is a fixed ``SourceHandle`` (e.g. an
+        injected constant node), bypassing symbol lookup so no synthetic symbol
+        enters ``_sources`` and risks colliding with a user symbol."""
+        self._consumptions.append(
+            SymbolConsumption(
+                symbol=source.node,  # unused for SourceHandle sources; kept for debugging
+                consumer_node=consumer_node,
+                consumer_port=consumer_port,
+                source=source,
+            )
+        )
+
     def produce(self, output_port: str, symbol: str | None = None) -> None:
         """Record that `output_port` is sourced from `symbol`."""
         produced_symbol = output_port if symbol is None else symbol

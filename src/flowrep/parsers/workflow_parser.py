@@ -266,7 +266,9 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                 self.info_factory,
             )
             self.nodes[child.label] = child.node
-            parser_helpers.consume_call_arguments(self.symbol_map, rhs, child)
+            parser_helpers.consume_call_arguments(
+                self.symbol_map, rhs, child, self.nodes
+            )
             self.symbol_map.register(new_symbols, child)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
             if len(new_symbols) != 1:

@@ -30,6 +30,7 @@ def parse_while_node(
         walker.symbol_map,
         walker.info_factory,
         WHILE_CONDITION_LABEL,
+        walker.nodes,
     )
 
     body_walker = walker.fork(

@@ -9,8 +9,8 @@ from types import FunctionType
 from typing import Any, cast
 
 from flowrep import base_models
-from flowrep.parsers import symbol_scope
-from flowrep.prospective import helper_models
+from flowrep.parsers import constant_parser, symbol_scope
+from flowrep.prospective import helper_models, union_types
 
 
 class SourceCodeUnavailableError(ValueError): ...
@@ -139,28 +139,36 @@ def consume_call_arguments(
     scope: symbol_scope.SymbolScope,
     ast_call: ast.Call,
     child: helper_models.LabeledRecipe,
+    nodes: union_types.Recipes,
 ) -> None:
-    """Record all argument->port consumptions for a node-creating call."""
+    """Record all argument->port consumptions for a node-creating call.
 
-    def _validate_is_ast_name(node: ast.expr) -> ast.Name:
-        if not isinstance(node, ast.Name):
+    ``ast.Name`` arguments consume an existing symbol; any other argument must be a
+    Python literal, which is injected as a ``ConstantRecipe`` source node into
+    *nodes* and wired to the consuming port.
+    """
+
+    def _consume(arg_node: ast.expr, consumer_port: str) -> None:
+        if isinstance(arg_node, ast.Name):
+            scope.consume(arg_node.id, child.label, consumer_port)
+            return
+        is_literal, value = constant_parser.try_parse_constant(arg_node)
+        if not is_literal:
             raise TypeError(
-                f"Workflow python definitions can only interpret function "
-                f"calls with symbolic input, and thus expected to find an "
-                f"ast.Name, but when parsing input for {child.label}, found a "
-                f"type {type(node)}"
+                f"Workflow python definitions can only interpret function calls with "
+                f"symbolic input or literal constants; for input '{consumer_port}' of "
+                f"node '{child.label}' found un-parseable "
+                f"{type(arg_node).__name__}."
             )
-        return node
+        constant_parser.inject_constant(nodes, scope, value, child.label, consumer_port)
 
     for i, arg in enumerate(ast_call.args):
-        name_arg = _validate_is_ast_name(arg)
-        scope.consume(name_arg.id, child.label, child.node.inputs[i])
+        _consume(arg, child.node.inputs[i])
     for kw in ast_call.keywords:
-        name_arg = _validate_is_ast_name(kw.value)
         if not isinstance(kw.arg, str):  # pragma: no cover
             raise TypeError(
                 "How did you get here? A `None` value should be possible for "
                 "**kwargs, but variadics should have been excluded before "
                 "this. Please raise a GitHub issue."
             )
-        scope.consume(name_arg.id, child.label, kw.arg)
+        _consume(kw.value, kw.arg)

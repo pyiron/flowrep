@@ -48,6 +48,7 @@ def parse_if_node(
             walker.symbol_map,
             walker.info_factory,
             cond_label,
+            walker.nodes,
         )
         body = case_helpers.walk_branch(walker, body_label, body_stmts)
         cases.append(
