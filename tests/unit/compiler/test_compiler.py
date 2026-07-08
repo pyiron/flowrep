@@ -2042,5 +2042,49 @@ class TestSymbolNaming(unittest.TestCase):
         self.assertIn("loop_inc = ", lines[0])
 
 
+class TestConstantInlining(unittest.TestCase):
+    def _ke_recipe(self):
+        def kinetic_energy(mass, velocity):
+            v_2 = library.my_mul(velocity, velocity)
+            mv_2 = library.my_mul(mass, v_2)
+            ke = library.my_mul(0.5, mv_2)
+            return ke
+
+        return kinetic_energy, makers.reference_free(kinetic_energy)
+
+    def test_inlines_literal_and_omits_assignment(self):
+        _, free = self._ke_recipe()
+        rendered = source._workflow2python(free)
+        self.assertIn("0.5", rendered.source)
+        self.assertNotIn("constant_0 =", rendered.source)
+
+    def test_executes_with_inlined_constant(self):
+        original, free = self._ke_recipe()
+        fn = source._workflow2python(free).build()
+        self.assertEqual(fn(2.0, 3.0), original(2.0, 3.0))
+
+    def test_round_trips(self):
+        _, free = self._ke_recipe()
+        fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_compound_and_type_fidelity_round_trip(self):
+        def uses_compound(x):
+            y = library.my_mul(x, [1.0, 1, "1", {"key": [42]}])
+            return y
+
+        free = makers.reference_free(uses_compound)
+        fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+        # int/float distinction survives the source round-trip
+        reparsed_const = fn.flowrep_recipe.nodes["constant_0"].constant
+        self.assertIs(type(reparsed_const[0]), float)
+        self.assertIs(type(reparsed_const[1]), int)
+
+
 if __name__ == "__main__":
     unittest.main()

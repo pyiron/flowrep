@@ -10,6 +10,7 @@ from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.compiler import flow_control, function
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     union_types,
     workflow_recipe,
 )
@@ -195,6 +196,9 @@ def emit_workflow_body(
     def resolve(source) -> str:
         if isinstance(source, edge_models.InputSource):
             return in_syms[source.port]
+        source_node = recipe.nodes[source.node]
+        if isinstance(source_node, constant_recipe.ConstantRecipe):
+            return repr(source_node.constant)
         return produced[(source.node, source.port)]
 
     # Map (node, port) -> required symbol name for outputs the parent pins.
@@ -231,6 +235,8 @@ def emit_workflow_body(
 
     for label in _topological_nodes(recipe):
         node = recipe.nodes[label]
+        if isinstance(node, constant_recipe.ConstantRecipe):
+            continue  # constants are inlined at the consumer call site by `resolve`
 
         call_path = node_call_path(node, label, emitter, alloc)
         if call_path is not None:
