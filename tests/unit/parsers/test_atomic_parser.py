@@ -24,6 +24,11 @@ class _TypingProblem:
     x: YouCantFindThis  # noqa: F821
 
 
+@atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.DATACLASS)
+def my_result(result: _Result) -> _Result:
+    return result
+
+
 def _make_func_in_module(module: str, qualname: str) -> FunctionType:
     """Create a trivial function with controlled __module__ and __qualname__."""
 
@@ -691,6 +696,28 @@ class TestParseDataclassReturnLabels(unittest.TestCase):
             NameError, "requires the return annotation to be importable"
         ):
             atomic_parser._parse_dataclass_return_labels(func)
+
+
+class TestParseDataclassCallDifferences(unittest.TestCase):
+    def test_call_differences(self):
+        input = _Result(1, 2)
+        with self.subTest("Direct call"):
+            self.assertIs(
+                input,
+                my_result(input),
+                msg="Unpacking mode should not impack the decorated function -- the "
+                "function should just do what it looks like it does",
+            )
+
+        with self.subTest("Recipe call"):
+            x, y = my_result.flowrep_recipe(input)
+            self.assertEqual(
+                input.x,
+                x,
+                msg="The recipe claims it unpacks things, and it should when used as a "
+                "callable",
+            )
+            self.assertEqual(input.y, y)
 
 
 class TestParseTupleReturnLabelsWithAnnotations(unittest.TestCase):

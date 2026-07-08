@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
+    "packaging==26.2",
     "pydantic==2.12.5",
     "pyiron_snippets==1.4.0",
 ]
