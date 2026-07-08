@@ -8,9 +8,9 @@ from collections.abc import Callable
 from types import FunctionType
 from typing import Any, cast
 
-from flowrep import base_models
-from flowrep.parsers import constant_parser, symbol_scope
-from flowrep.prospective import helper_models, union_types
+from flowrep import base_models, edge_models
+from flowrep.parsers import constant_parser, label_helpers, symbol_scope
+from flowrep.prospective import constant_recipe, helper_models, union_types
 
 
 class SourceCodeUnavailableError(ValueError): ...
@@ -141,19 +141,23 @@ def consume_call_arguments(
     child: helper_models.LabeledRecipe,
     nodes: union_types.Recipes,
     *,
-    allow_constants: bool = True,
+    condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
+    reserved_ports: set[str] | None = None,
 ) -> None:
     """Record all argument->port consumptions for a node-creating call.
 
     ``ast.Name`` arguments consume an existing symbol; any other argument must be a
-    Python literal, which is injected as a ``ConstantRecipe`` source node into
-    *nodes* and wired to the consuming port -- unless *allow_constants* is
-    ``False``, in which case a literal argument raises ``TypeError`` instead of
-    being injected. Flow-control conditions pass ``allow_constants=False``: a
-    constant node is only ever safe as a consumer node's input, never as a
-    flow-control condition's input, so this keeps that invariant true by
-    construction rather than relying on downstream validation to catch it.
+    Python literal. In the default (non-condition) mode a literal is injected as a
+    ``ConstantRecipe`` source node into *nodes* and wired to the consuming port. In
+    condition mode -- selected by passing a *condition_bindings* dict -- a literal is
+    instead routed to a synthetic flow-control input port and recorded in
+    *condition_bindings* (``{synthetic_port: ConstantRecipe}``) for the enclosing
+    walker to satisfy with a constant peer. A flow-control node has no room to host a
+    constant peer inside it, so the peer lives one level up. *reserved_ports* carries
+    synthetic port names already allocated for this flow-control chain so that
+    multiple literals -- across an if/elif chain -- get distinct, deterministic ports.
     """
+    reserved = set() if reserved_ports is None else reserved_ports
 
     def _consume(arg_node: ast.expr, consumer_port: str) -> None:
         if isinstance(arg_node, ast.Name):
@@ -167,13 +171,11 @@ def consume_call_arguments(
                 f"node '{child.label}' found un-parseable "
                 f"{type(arg_node).__name__}."
             )
-        if not allow_constants:
-            raise TypeError(
-                f"Literal constants are not supported in flow-control conditions; "
-                f"for input '{consumer_port}' of condition node '{child.label}' "
-                f"found a literal {value!r}. Bind the value to a symbol first, e.g. "
-                f"assign it to a variable before using it in the condition."
+        if condition_bindings is not None:
+            _bind_condition_constant(
+                scope, child, consumer_port, value, condition_bindings, reserved
             )
+            return
         constant_parser.inject_constant(nodes, scope, value, child.label, consumer_port)
 
     for i, arg in enumerate(ast_call.args):
@@ -186,3 +188,34 @@ def consume_call_arguments(
                 "this. Please raise a GitHub issue."
             )
         _consume(kw.value, kw.arg)
+
+
+def _bind_condition_constant(
+    scope: symbol_scope.SymbolScope,
+    child: helper_models.LabeledRecipe,
+    consumer_port: str,
+    value: Any,
+    condition_bindings: dict[str, constant_recipe.ConstantRecipe],
+    reserved_ports: set[str],
+) -> None:
+    """Expose a literal condition argument as a synthetic flow-input port.
+
+    The synthetic port name is unique across the condition's real argument symbols
+    (``scope.inputs``) and every synthetic port already allocated for this
+    flow-control chain (*reserved_ports*), so it is a deterministic function of the
+    source and round-trips exactly. The ``ConstantRecipe`` is built eagerly (so a
+    non-JSON literal such as a tuple raises ``ConstantParseError`` with call-site
+    context here, matching non-condition timing) and handed up for the enclosing
+    walker to attach as a peer.
+    """
+    synthetic_port = label_helpers.unique_suffix(
+        "constant", set(scope.inputs) | reserved_ports
+    )
+    reserved_ports.add(synthetic_port)
+    condition_bindings[synthetic_port] = constant_parser.make_constant(
+        value,
+        f"Condition argument for input '{consumer_port}' of node '{child.label}'",
+    )
+    scope.consume_input_source(
+        edge_models.InputSource(port=synthetic_port), child.label, consumer_port
+    )

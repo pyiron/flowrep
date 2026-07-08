@@ -306,17 +306,33 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             )
 
     def _digest_flow_control(
-        self, label_prefix: str, node: union_types.RecipeDiscrimination
+        self,
+        label_prefix: str,
+        node: union_types.RecipeDiscrimination,
+        condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
     ) -> None:
         label = label_helpers.unique_suffix(label_prefix, self.nodes)
         self.nodes[label] = node
-        self._connect_node_to_enclosing_scope(label, node)
+        self._connect_node_to_enclosing_scope(label, node, condition_bindings)
 
     def _connect_node_to_enclosing_scope(
-        self, label: str, node: union_types.RecipeDiscrimination
+        self,
+        label: str,
+        node: union_types.RecipeDiscrimination,
+        condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
     ):
+        bindings = condition_bindings or {}
         for port in node.inputs:
-            self.symbol_map.consume(port, label, port)
+            if port in bindings:
+                peer_label = label_helpers.unique_suffix("constant", self.nodes)
+                self.nodes[peer_label] = bindings[port]
+                self.symbol_map.consume_source(
+                    edge_models.SourceHandle(node=peer_label, port="constant"),
+                    label,
+                    port,
+                )
+            else:
+                self.symbol_map.consume(port, label, port)
 
         labeled_node = helper_models.LabeledRecipe(label=label, node=node)
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
@@ -328,12 +344,12 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self._digest_flow_control("for_each", for_recipe)
 
     def visit_While(self, tree: ast.While) -> None:
-        while_recipe = while_parser.parse_while_node(self, tree)
-        self._digest_flow_control("while", while_recipe)
+        while_recipe, condition_bindings = while_parser.parse_while_node(self, tree)
+        self._digest_flow_control("while", while_recipe, condition_bindings)
 
     def visit_If(self, tree: ast.If) -> None:
-        if_recipe = if_parser.parse_if_node(self, tree)
-        self._digest_flow_control("if", if_recipe)
+        if_recipe, condition_bindings = if_parser.parse_if_node(self, tree)
+        self._digest_flow_control("if", if_recipe, condition_bindings)
 
     def visit_Try(self, tree: ast.Try) -> None:
         try_recipe = try_parser.parse_try_node(self, tree)

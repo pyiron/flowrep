@@ -9,6 +9,7 @@ import unittest
 from flowrep import edge_models
 from flowrep.parsers import if_parser, workflow_parser
 from flowrep.prospective import (
+    constant_recipe,
     for_recipe,
     if_recipe,
     try_recipe,
@@ -151,9 +152,9 @@ class TestParseIfConditionErrors(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("function call", str(ctx.exception))
 
-    def test_literal_in_condition_raises(self):
-        """A literal argument in an if-condition must raise cleanly, not inject a
-        constant node."""
+    def test_literal_in_condition_parses_to_constant_peer(self):
+        """A literal argument in an if-condition injects a constant peer routed
+        through a synthetic flow-control input port (no longer raises)."""
 
         def wf(x):
             if library.my_condition(x, 5):
@@ -162,13 +163,35 @@ class TestParseIfConditionErrors(unittest.TestCase):
                 y = library.identity(x)
             return y
 
-        with self.assertRaises(TypeError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("flow-control", str(ctx.exception))
-        self.assertIn("condition", str(ctx.exception))
+        recipe = workflow_parser.parse_workflow(wf)
 
-    def test_literal_in_elif_condition_raises_type_error(self):
-        """A literal argument in an elif-condition raises the flow-control error."""
+        # A constant peer node holding 5 sits beside the if node.
+        constant_nodes = {
+            label: node
+            for label, node in recipe.nodes.items()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        }
+        self.assertEqual(len(constant_nodes), 1)
+        self.assertEqual(next(iter(constant_nodes.values())).constant, 5)
+
+        # The if node has a synthetic "constant_0" input port fed by that peer.
+        ((if_label, if_node),) = [
+            (label, node)
+            for label, node in recipe.nodes.items()
+            if isinstance(node, if_recipe.IfRecipe)
+        ]
+        self.assertIn("constant_0", if_node.inputs)
+        peer_label = next(iter(constant_nodes))
+        self.assertEqual(
+            recipe.edges[edge_models.TargetHandle(node=if_label, port="constant_0")],
+            edge_models.SourceHandle(node=peer_label, port="constant"),
+        )
+        # The synthetic port is NOT an input of the enclosing workflow.
+        self.assertNotIn("constant_0", recipe.inputs)
+
+    def test_literal_in_elif_condition_parses(self):
+        """A literal argument in an elif-condition parses; its synthetic port is
+        distinct from the if-condition's (shared reserved_ports across the chain)."""
 
         def wf(x, y):
             if library.my_condition(x, y):
@@ -179,9 +202,13 @@ class TestParseIfConditionErrors(unittest.TestCase):
                 z = library.identity(x)
             return z
 
-        with self.assertRaises(TypeError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("flow-control", str(ctx.exception))
+        recipe = workflow_parser.parse_workflow(wf)
+        constant_values = sorted(
+            node.constant
+            for node in recipe.nodes.values()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        )
+        self.assertEqual(constant_values, [5])
 
 
 # ===================================================================

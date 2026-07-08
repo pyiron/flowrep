@@ -3,6 +3,7 @@ import unittest
 from flowrep import edge_models
 from flowrep.parsers import while_parser, workflow_parser
 from flowrep.prospective import (
+    constant_recipe,
     for_recipe,
     if_recipe,
     try_recipe,
@@ -52,19 +53,29 @@ class TestParseWhileConditionErrors(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("exactly one", str(ctx.exception))
 
-    def test_literal_in_condition_raises(self):
-        """A literal argument in a while-condition must raise cleanly, not inject a
-        constant node."""
+    def test_literal_in_condition_parses_to_constant_peer(self):
+        """A literal argument in a while-condition injects a constant peer routed
+        through a synthetic flow-control input port (no longer raises)."""
 
         def wf(x):
             while library.my_condition(x, 5):
                 x = library.identity(x)
             return x
 
-        with self.assertRaises(TypeError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("flow-control", str(ctx.exception))
-        self.assertIn("condition", str(ctx.exception))
+        recipe = workflow_parser.parse_workflow(wf)
+        constant_nodes = [
+            node
+            for node in recipe.nodes.values()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        ]
+        self.assertEqual(len(constant_nodes), 1)
+        self.assertEqual(constant_nodes[0].constant, 5)
+        (while_node,) = [
+            node
+            for node in recipe.nodes.values()
+            if isinstance(node, while_recipe.WhileRecipe)
+        ]
+        self.assertIn("constant_0", while_node.inputs)
 
 
 class TestWhileParserErrors(unittest.TestCase):
