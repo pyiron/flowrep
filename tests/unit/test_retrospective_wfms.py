@@ -1199,5 +1199,33 @@ class TestConstantData(unittest.TestCase):
         self.assertEqual(node.output_ports["constant"].value, [1, 2])
 
 
+def _kinetic_energy(mass, velocity):
+    # Module-level (not nested in a test method): DagData.from_recipe resolves a
+    # workflow's own reference by importing it, which requires the function be
+    # reachable by its fully-qualified name -- a `<locals>` qualname (as produced
+    # by a function nested inside a test method) cannot be imported.
+    v_2 = library.my_mul(velocity, velocity)
+    mv_2 = library.my_mul(mass, v_2)
+    ke = library.my_mul(0.5, mv_2)
+    return ke
+
+
+class TestWfMSConstants(unittest.TestCase):
+    def test_run_recipe_on_constant(self):
+        from flowrep import wfms
+        from flowrep.prospective import constant_recipe
+
+        node = wfms.run_recipe(constant_recipe.ConstantRecipe(constant=7))
+        self.assertEqual(node.output_ports["constant"].value, 7)
+
+    def test_end_to_end_kinetic_energy(self):
+        from flowrep import wfms
+        from flowrep.parsers import workflow_parser
+
+        recipe = workflow_parser.parse_workflow(_kinetic_energy)
+        result = wfms.run_recipe(recipe, mass=2.0, velocity=3.0)
+        self.assertEqual(result.output_ports["ke"].value, 0.5 * 2.0 * 3.0 * 3.0)
+
+
 if __name__ == "__main__":
     unittest.main()
