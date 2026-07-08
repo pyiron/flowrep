@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from enum import StrEnum
 from typing import Literal
 
@@ -76,4 +77,8 @@ class AtomicRecipe(base_models.NodeRecipe):
 
     def __call__(self, *args, **kwargs):
         func = retrieve.import_from_string(self.reference.info.fully_qualified_name)
-        return func(*args, **kwargs)
+        if self.unpack_mode == UnpackMode.DATACLASS:
+            dc = func(*args, **kwargs)
+            return tuple(getattr(dc, f.name) for f in dataclasses.fields(dc))
+        else:
+            return func(*args, **kwargs)
