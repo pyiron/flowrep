@@ -24,6 +24,21 @@ def try_parse_constant(arg: ast.expr) -> tuple[bool, Any]:
         return False, None
 
 
+def make_constant(value: Any, context: str) -> constant_recipe.ConstantRecipe:
+    """Build a ``ConstantRecipe`` for *value*, re-raising the model's
+    ``ValidationError`` as a ``ConstantParseError`` prefixed with *context*.
+
+    The ``ConstantRecipe`` model is the single source of truth for the JSON/finite
+    invariant; this only adds call-site context to the error.
+    """
+    try:
+        return constant_recipe.ConstantRecipe(constant=value)
+    except pydantic.ValidationError as error:
+        raise ConstantParseError(
+            f"{context} is not a JSON-serializable constant: {value!r}"
+        ) from error
+
+
 def inject_constant(
     nodes: union_types.Recipes,
     scope: symbol_scope.SymbolScope,
@@ -39,13 +54,10 @@ def inject_constant(
     consuming node/port for context.
     """
     label = label_helpers.unique_suffix("constant", nodes)
-    try:
-        recipe = constant_recipe.ConstantRecipe(constant=value)
-    except pydantic.ValidationError as error:
-        raise ConstantParseError(
-            f"Argument for input '{consumer_port}' of node '{consumer_label}' is not "
-            f"a JSON-serializable constant: {value!r}"
-        ) from error
+    recipe = make_constant(
+        value,
+        f"Argument for input '{consumer_port}' of node '{consumer_label}'",
+    )
     nodes[label] = recipe
     scope.consume_source(
         edge_models.SourceHandle(node=label, port="constant"),

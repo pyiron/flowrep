@@ -12,6 +12,7 @@ from pyiron_snippets import versions
 from flowrep import base_models, edge_models
 from flowrep.parsers import (
     atomic_parser,
+    constant_parser,
     for_parser,
     if_parser,
     label_helpers,
@@ -22,7 +23,12 @@ from flowrep.parsers import (
     try_parser,
     while_parser,
 )
-from flowrep.prospective import helper_models, union_types, workflow_recipe
+from flowrep.prospective import (
+    constant_recipe,
+    helper_models,
+    union_types,
+    workflow_recipe,
+)
 
 
 def workflow(
@@ -277,6 +283,21 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                     f"got {new_symbols}"
                 )
             self.symbol_map.register_accumulator(new_symbols[0])
+        elif (parsed := constant_parser.try_parse_constant(rhs))[0]:
+            if len(new_symbols) != 1:
+                raise ValueError(
+                    f"Literal constant assignment must target exactly one symbol, "
+                    f"got {new_symbols}"
+                )
+            value = parsed[1]
+            label = label_helpers.unique_suffix("constant", self.nodes)
+            node: constant_recipe.ConstantRecipe = constant_parser.make_constant(
+                value, f"Assignment to '{new_symbols[0]}'"
+            )
+            self.nodes[label] = node
+            self.symbol_map.register(
+                new_symbols, helper_models.LabeledRecipe(label=label, node=node)
+            )
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "

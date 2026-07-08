@@ -69,6 +69,21 @@ class TestConstantParsing(unittest.TestCase):
             workflow_parser.parse_workflow(lambda_arg)
 
 
+class TestMakeConstant(unittest.TestCase):
+    def test_builds_recipe(self):
+        from flowrep.parsers import constant_parser
+
+        c = constant_parser.make_constant(0.5, "ctx")
+        self.assertEqual(c.constant, 0.5)
+
+    def test_wraps_validation_error_with_context(self):
+        from flowrep.parsers import constant_parser
+
+        with self.assertRaises(constant_parser.ConstantParseError) as ctx:
+            constant_parser.make_constant((1, 2), "while assigning to 'x'")
+        self.assertIn("while assigning to 'x'", str(ctx.exception))
+
+
 class TestConsumeSource(unittest.TestCase):
     def test_consume_source_creates_peer_edge(self):
         scope = symbol_scope.SymbolScope({})

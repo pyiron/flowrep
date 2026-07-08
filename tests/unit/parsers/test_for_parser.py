@@ -264,6 +264,10 @@ class TestForParserErrors(unittest.TestCase):
         self.assertIn("results", str(ctx.exception))
 
     def test_assigning_non_empty_list_raises(self):
+        """A non-empty list literal is a valid ``ConstantRecipe`` assignment (not an
+        accumulator), so ``results`` is never registered as an accumulator and the
+        later ``.append()`` is what raises."""
+
         def wf(xs):
             results = [0]
             for x in xs:
@@ -273,7 +277,10 @@ class TestForParserErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("or empty list", str(ctx.exception))
+        self.assertIn(
+            "not found among available accumulator symbols", str(ctx.exception)
+        )
+        self.assertIn("results", str(ctx.exception))
 
     def test_accumulator_reassigned_in_nested_while_raises(self):
         """Reassigning an accumulator symbol inside a nested while is rejected."""

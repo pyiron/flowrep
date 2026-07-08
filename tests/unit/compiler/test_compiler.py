@@ -16,6 +16,7 @@ from flowrep.compiler import flow_control, function, source, statements
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     for_recipe,
     helper_models,
     if_recipe,
@@ -2084,6 +2085,33 @@ class TestConstantInlining(unittest.TestCase):
         reparsed_const = fn.flowrep_recipe.nodes["constant_0"].constant
         self.assertIs(type(reparsed_const[0]), float)
         self.assertIs(type(reparsed_const[1]), int)
+
+
+def _rt_inline_const(a):
+    half = 0.5
+    r = library.my_mul(a, half)
+    return r
+
+
+class TestLiteralAssignRoundTrip(unittest.TestCase):
+    def test_inline_path_round_trips(self):
+        free = makers.reference_free(_rt_inline_const)
+        self.assertTrue(
+            any(
+                isinstance(n, constant_recipe.ConstantRecipe)
+                for n in free.nodes.values()
+            ),
+            msg="Literal assignment should have injected a ConstantRecipe node",
+        )
+        fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_inline_path_executes(self):
+        free = makers.reference_free(_rt_inline_const)
+        fn = source._workflow2python(free).build()
+        self.assertEqual(fn(4), 4 * 0.5)
 
 
 if __name__ == "__main__":
