@@ -7,7 +7,7 @@ import textwrap
 import unittest
 
 from flowrep import edge_models
-from flowrep.parsers import if_parser, workflow_parser
+from flowrep.parsers import constant_parser, if_parser, workflow_parser
 from flowrep.prospective import (
     constant_recipe,
     for_recipe,
@@ -209,6 +209,46 @@ class TestParseIfConditionErrors(unittest.TestCase):
             if isinstance(node, constant_recipe.ConstantRecipe)
         )
         self.assertEqual(constant_values, [5])
+
+    def test_multiple_literals_get_distinct_synthetic_ports(self):
+        """Two literals in one condition get distinct, deterministic ports/peers."""
+
+        def wf(m):
+            if library.my_condition(0.3, 0.5):
+                y = library.identity(m)
+            else:
+                y = library.identity(m)
+            return y
+
+        recipe = workflow_parser.parse_workflow(wf)
+        (if_node,) = [
+            node
+            for node in recipe.nodes.values()
+            if isinstance(node, if_recipe.IfRecipe)
+        ]
+        self.assertIn("constant_0", if_node.inputs)
+        self.assertIn("constant_1", if_node.inputs)
+        peer_values = sorted(
+            node.constant
+            for node in recipe.nodes.values()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        )
+        self.assertEqual(peer_values, [0.3, 0.5])
+
+    def test_non_json_literal_in_condition_raises_with_context(self):
+        """A non-JSON literal (tuple) in a condition raises ConstantParseError with
+        the consuming node/port context, at parse time."""
+
+        def wf(m):
+            if library.my_condition(m, (1, 2)):
+                y = library.identity(m)
+            else:
+                y = library.identity(m)
+            return y
+
+        with self.assertRaises(constant_parser.ConstantParseError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("Condition argument", str(ctx.exception))
 
 
 # ===================================================================

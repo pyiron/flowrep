@@ -2198,5 +2198,82 @@ class TestConstantMaterialize(unittest.TestCase):
         self.assertEqual(fn(-3), -1)
 
 
+class TestConstantsInConditions(unittest.TestCase):
+    """Literal constants in if/elif/while conditions: execution + exact round-trip."""
+
+    def _round_trip(self, fn, *call_args):
+        free = makers.reference_free(fn)
+        rendered = source._workflow2python(free)
+        built = rendered.build()
+        self.assertEqual(built(*call_args), fn(*call_args))
+        self.assertEqual(
+            makers.dump_no_refs(built.flowrep_recipe), makers.dump_no_refs(free)
+        )
+        return free
+
+    def test_if_condition_literal_round_trips_and_executes(self):
+        def wf(m):
+            if library.my_condition(m, 0.5):
+                y = library.identity(m)
+            else:
+                y = library.identity(m)
+            return y
+
+        free = self._round_trip(wf, 0.2)
+        # the inlined literal appears in the rendered condition, not a bare symbol
+        rendered_src = source._workflow2python(free).source
+        self.assertIn("0.5", rendered_src)
+
+    def test_elif_condition_literal_round_trips_and_executes(self):
+        def wf(x, y):
+            if library.my_condition(x, y):
+                z = library.identity(x)
+            elif library.my_condition(x, 5):
+                z = library.identity(y)
+            else:
+                z = library.identity(x)
+            return z
+
+        self._round_trip(wf, 10, 3)
+        self._round_trip(wf, 3, 10)
+
+    def test_while_condition_literal_round_trips_and_executes(self):
+        def wf(x):
+            while library.my_condition(x, 5):
+                x = library.my_add(x, 1)
+            return x
+
+        self._round_trip(wf, 0)
+
+    def test_multiple_literals_in_one_condition_round_trip(self):
+        def wf(m):
+            if library.my_condition(0.3, 0.5):
+                y = library.identity(m)
+            else:
+                y = library.identity(m)
+            return y
+
+        free = self._round_trip(wf, 7)
+        constant_values = sorted(
+            node.constant
+            for node in free.nodes.values()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        )
+        self.assertEqual(constant_values, [0.3, 0.5])
+
+    def test_nested_condition_literal_round_trips(self):
+        def wf(m):
+            if library.my_condition(m, 0.5):
+                if library.my_condition(m, 0.7):
+                    y = library.identity(m)
+                else:
+                    y = library.identity(m)
+            else:
+                y = library.identity(m)
+            return y
+
+        self._round_trip(wf, 0.2)
+
+
 if __name__ == "__main__":
     unittest.main()

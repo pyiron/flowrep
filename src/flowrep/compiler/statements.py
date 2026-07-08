@@ -231,12 +231,13 @@ def emit_workflow_body(
 
     # Flow-control nodes derive their input port names from the enclosing symbols
     # feeding them, so each such source must be named after the port for the port
-    # names (and while-loop reassignments) to round-trip. A constant node's handle
-    # never reaches this dict in practice (a parser never wires a constant directly
-    # into a flow-control input); a hand-built recipe violating that would only see
-    # the requirement honoured if the same constant also happens to be materialized
-    # (i.e. it also feeds a workflow output) -- otherwise it stays inlined and the
-    # entry here is inert.
+    # names (and while-loop reassignments) to round-trip. A constant peer feeding a
+    # flow-control input is normal now (Part 2: a literal condition argument injects
+    # a constant peer routed through a synthetic flow-control input port). Such a
+    # peer is never also a workflow-output source, so its required_by_handle entry
+    # stays inert and it is inlined in the topo loop below -- which is why the
+    # conflict branch immediately below remains unreachable in parser-produced
+    # recipes.
     for handle, name in _flow_control_input_requirements(recipe).items():
         if (  # pragma: no cover - twin of the output-edge guard above; only a
             # hand-built recipe (one a parser never emits) can name a source for
