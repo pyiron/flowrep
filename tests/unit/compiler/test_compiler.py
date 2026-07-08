@@ -2114,5 +2114,89 @@ class TestLiteralAssignRoundTrip(unittest.TestCase):
         self.assertEqual(fn(4), 4 * 0.5)
 
 
+def _return_constant(a):
+    y = 5
+    return y
+
+
+def _if_body_constant(a):
+    if library.is_positive(a):  # noqa: SIM108
+        y = 5
+    else:
+        y = library.identity(a)
+    return y
+
+
+class TestConstantMaterialize(unittest.TestCase):
+    def test_return_constant_materializes_and_round_trips(self):
+        free = makers.reference_free(_return_constant)
+        rendered = source._workflow2python(free)
+        self.assertIn("= 5", rendered.source)
+        self.assertNotIn("return 5", rendered.source)  # materialized, not inlined
+        fn = rendered.build()
+        self.assertEqual(fn(99), 5)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_constant_in_if_branch_body_materializes_and_round_trips(self):
+        free = makers.reference_free(_if_body_constant)
+        fn = source._workflow2python(free).build()
+        self.assertEqual(fn(5), 5)  # is_positive -> y = 5
+        self.assertEqual(fn(-3), -3)  # else -> identity(a)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_bare_constant_flow_control_body_compiles_and_executes(self):
+        # Hand-built `if is_positive(n): m = 42 else: m = -1` with BARE ConstantRecipe
+        # bodies (a shape only hand-construction produces). Round-trip canonicalizes
+        # (parser wraps bodies in workflows), so we assert source + execution, not
+        # dump_no_refs equality.
+        TH, IS, SH, OT = (
+            edge_models.TargetHandle,
+            edge_models.InputSource,
+            edge_models.SourceHandle,
+            edge_models.OutputTarget,
+        )
+        if_node = if_recipe.IfRecipe(
+            inputs=["n"],
+            outputs=["m"],
+            cases=[
+                helper_models.ConditionalCase(
+                    condition=helper_models.LabeledRecipe(
+                        label="cond", node=library.is_positive.flowrep_recipe
+                    ),
+                    body=helper_models.LabeledRecipe(
+                        label="body", node=constant_recipe.ConstantRecipe(constant=42)
+                    ),
+                )
+            ],
+            input_edges={TH(node="cond", port="n"): IS(port="n")},
+            prospective_output_edges={
+                OT(port="m"): [
+                    SH(node="body", port="constant"),
+                    SH(node="else_body", port="constant"),
+                ]
+            },
+            else_case=helper_models.LabeledRecipe(
+                label="else_body", node=constant_recipe.ConstantRecipe(constant=-1)
+            ),
+        )
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=["n"],
+            outputs=["m"],
+            nodes={"if_0": if_node},
+            input_edges={TH(node="if_0", port="n"): IS(port="n")},
+            edges={},
+            output_edges={OT(port="m"): SH(node="if_0", port="m")},
+        )
+        rendered = source._workflow2python(wf, function_name="branchy")
+        self.assertIn("= 42", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(5), 42)
+        self.assertEqual(fn(-3), -1)
+
+
 if __name__ == "__main__":
     unittest.main()
