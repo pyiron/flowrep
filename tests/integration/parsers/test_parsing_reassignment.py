@@ -87,6 +87,14 @@ class TestAliasHappyPath(unittest.TestCase):
 
 
 class TestAliasNonRegression(unittest.TestCase):
+    def test_unpacking_rhs_raises(self):
+        def macro(x):
+            a, b = x
+            return a, b
+
+        with self.assertRaisesRegex(ValueError, "no unpacking raw symbols"):
+            _parse(macro)
+
     def test_binop_rhs_still_raises(self):
         def macro(x):
             y = x + 1

@@ -303,9 +303,8 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         elif isinstance(rhs, ast.Name):
             if len(new_symbols) != 1:
                 raise ValueError(
-                    f"Alias assignment must target exactly one symbol, "
-                    f"got {new_symbols}. Try breaking apart declaration -- "
-                    f"`a, b = c, d` --> `a = c; b = d`."
+                    f"Alias assignment must target exactly one symbol -- no unpacking "
+                    f"raw symbols -- got {new_symbols}."
                 )
             self.symbol_map.alias(new_symbols[0], rhs.id)
         else:
