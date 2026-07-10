@@ -55,7 +55,7 @@ def _normalize_target(f: Any, decorator_name: str) -> Any:
             f"@classmethod outside {decorator_name}, or use @staticmethod."
         )
     if isinstance(f, staticmethod):
-        return f.__func__  # a plain FunctionType — attribute-settable, full signature
+        raise TypeError(f"{decorator_name} should be placed beneath `@staticmethod`.")
     return f
 
 

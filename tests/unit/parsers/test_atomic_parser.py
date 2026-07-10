@@ -223,6 +223,22 @@ class TestAtomicTypeValidation(unittest.TestCase):
 
         self.assertIn("cannot decorate a classmethod", str(ctx.exception))
 
+    def test_rejects_staticmethod_bare(self):
+        with self.assertRaisesRegex(TypeError, "should be placed beneath"):
+
+            @atomic_parser.atomic
+            @staticmethod
+            def method(cls):
+                pass
+
+    def test_rejects_staticmethod_with_args(self):
+        with self.assertRaisesRegex(TypeError, "should be placed beneath"):
+
+            @atomic_parser.atomic("output")
+            @staticmethod
+            def method(cls):
+                pass
+
     def test_rejects_new_based_class_bare(self):
         with self.assertRaises(TypeError) as ctx:
 
