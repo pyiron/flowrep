@@ -170,22 +170,22 @@ class TestWorkflowDecorator(unittest.TestCase):
 
 class TestWorkflowDecoratorTypeValidation(unittest.TestCase):
     def test_rejects_class_bare_decorator(self):
-        with self.assertRaises(TypeError) as ctx:
+        with self.assertRaisesRegex(
+            TypeError, "'@workflow' can only decorate 'function'"
+        ):
 
             @workflow_parser.workflow
             class MyClass:
                 pass
 
-        self.assertIn("@workflow can only decorate functions", str(ctx.exception))
-
     def test_rejects_class_with_args(self):
-        with self.assertRaises(TypeError) as ctx:
+        with self.assertRaisesRegex(
+            TypeError, "'@workflow' can only decorate 'function'"
+        ):
 
             @workflow_parser.workflow("output")
             class MyClass:
                 pass
-
-        self.assertIn("@workflow can only decorate functions", str(ctx.exception))
 
 
 class TestParseWorkflowBasic(unittest.TestCase):

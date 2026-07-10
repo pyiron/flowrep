@@ -173,45 +173,6 @@ class TestParseAtomic(unittest.TestCase):
         self.assertEqual(node.description, "Here's a docstring")
 
 
-class TestAtomicTypeValidation(unittest.TestCase):
-    def test_rejects_class_bare_decorator(self):
-        with self.assertRaises(TypeError) as ctx:
-
-            @atomic_parser.atomic
-            class MyClass:
-                pass
-
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
-
-    def test_rejects_class_with_args(self):
-        with self.assertRaises(TypeError) as ctx:
-
-            @atomic_parser.atomic("output")
-            class MyClass:
-                pass
-
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
-
-    def test_rejects_callable_instance_bare(self):
-        class MyCallable:
-            def __call__(self):
-                pass
-
-        with self.assertRaises(TypeError) as ctx:
-            atomic_parser.atomic(MyCallable())
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
-
-    def test_rejects_callable_instance_with_args(self):
-        class Callable:
-            def __call__(self):
-                pass
-
-        decorator = atomic_parser.atomic("output")
-        with self.assertRaises(TypeError) as ctx:
-            decorator(Callable())
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
-
-
 class TestAtomicWithOutputLabels(unittest.TestCase):
     def test_atomic_with_explicit_output_labels(self):
         @atomic_parser.atomic("a", "b")

@@ -1,9 +1,17 @@
 import ast
 import dataclasses
 import inspect
+import types
 from collections.abc import Callable, Iterable
-from types import FunctionType
-from typing import Annotated, cast, get_args, get_origin, get_type_hints
+from typing import (
+    Annotated,
+    TypeVar,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+    overload,
+)
 
 from pyiron_snippets import versions
 
@@ -12,9 +20,14 @@ from flowrep.parsers import label_helpers, object_scope, parser_helpers
 from flowrep.parsers.label_helpers import default_output_label
 from flowrep.prospective import atomic_recipe, helper_models
 
+_AtomicTarget = TypeVar("_AtomicTarget", bound=types.FunctionType | type)
 
+
+@overload
+def atomic(func: _AtomicTarget, /) -> _AtomicTarget: ...
+@overload
 def atomic(
-    func: FunctionType | str | None = None,
+    func: str | None = None,
     /,
     *output_labels: str,
     unpack_mode: atomic_recipe.UnpackMode = atomic_recipe.UnpackMode.TUPLE,
@@ -22,7 +35,8 @@ def atomic(
     forbid_main: bool = False,
     forbid_locals: bool = False,
     require_version: bool = False,
-) -> FunctionType | Callable[[FunctionType], FunctionType]:
+) -> Callable[[_AtomicTarget], _AtomicTarget]: ...
+def atomic(func=None, /, *output_labels, **kwargs):
     """
     Decorator that attaches a :class:`~flowrep.models.nodes.atomic_recipe.AtomicRecipe`
     to the ``flowrep_recipe`` attribute of a function.
@@ -56,23 +70,21 @@ def atomic(
         :class:`~flowrep.models.nodes.atomic_recipe.AtomicRecipe`.
     """
 
-    def wrap(f: FunctionType, labels: tuple[str, ...]) -> FunctionType:
-        f.flowrep_recipe = parse_atomic(  # type: ignore[attr-defined]
-            f,
-            *labels,
-            unpack_mode=unpack_mode,
-            version_scraping=version_scraping,
-            forbid_main=forbid_main,
-            forbid_locals=forbid_locals,
-            require_version=require_version,
-        )
+    def wrap(f, labels):
+        f.flowrep_recipe = parse_atomic(f, *labels, **kwargs)
         return f
 
-    return parser_helpers.apply_label_decorator(func, output_labels, wrap, "@atomic")
+    return parser_helpers.apply_label_decorator(
+        func,
+        output_labels,
+        wrap=wrap,
+        decorator_name="@atomic",
+        allowed_types=(types.FunctionType, type),
+    )
 
 
 def parse_atomic(
-    func: FunctionType,
+    func: types.FunctionType | type,
     *output_labels: str,
     unpack_mode: atomic_recipe.UnpackMode = atomic_recipe.UnpackMode.TUPLE,
     version_scraping: versions.VersionScrapingMap | None = None,
@@ -118,7 +130,11 @@ def parse_atomic(
     sig_info = parser_helpers.SignatureInfo.of(func)
     docstring = inspect.getdoc(func)
 
-    scraped_output_labels = _get_output_labels(func, unpack_mode)
+    scraped_output_labels = (
+        ["instance"]
+        if isinstance(func, type)
+        else _get_output_labels(func, unpack_mode)
+    )
     if len(output_labels) > 0 and len(output_labels) != len(scraped_output_labels):
         raise ValueError(
             "Explicitly provided output labels must match the function analysis and "
@@ -143,7 +159,7 @@ def parse_atomic(
 
 
 def _get_output_labels(
-    func: FunctionType, unpack_mode: atomic_recipe.UnpackMode
+    func: types.FunctionType, unpack_mode: atomic_recipe.UnpackMode
 ) -> list[str]:
     if unpack_mode == atomic_recipe.UnpackMode.NONE:
         return _parse_return_label_without_unpacking(func)
@@ -157,7 +173,7 @@ def _get_output_labels(
     )
 
 
-def _parse_return_label_without_unpacking(func: FunctionType) -> list[str]:
+def _parse_return_label_without_unpacking(func: types.FunctionType) -> list[str]:
     """
     Get output label for UnpackMode.NONE.
 
@@ -178,7 +194,7 @@ def _parse_return_label_without_unpacking(func: FunctionType) -> list[str]:
     return [label] if label is not None else [label_helpers.default_output_label(0)]
 
 
-def _parse_tuple_return_labels(func: FunctionType) -> list[str]:
+def _parse_tuple_return_labels(func: types.FunctionType) -> list[str]:
     func_node = parser_helpers.get_ast_function_node(func)
     return_labels = _extract_combined_return_labels(func_node)
     if not all(len(ret) == len(return_labels[0]) for ret in return_labels):
@@ -233,7 +249,7 @@ def _extract_return_labels(ret: ast.Return) -> tuple[str, ...]:
         )
 
 
-def _parse_dataclass_return_labels(func: FunctionType) -> list[str]:
+def _parse_dataclass_return_labels(func: types.FunctionType) -> list[str]:
     source_code_return = _parse_tuple_return_labels(func)
     if len(source_code_return) != 1:
         raise ValueError(
@@ -277,8 +293,8 @@ def get_labeled_recipe(
     else:
         # Otherwise we're going to find it has already been parsed as a recipe,
         # or we're going to parse it as a recipe -- either way, it had better be a
-        # FunctionType!
-        function_call = cast(FunctionType, child_call)
+        # types.FunctionType!
+        function_call = cast(types.FunctionType, child_call)
         label_prefix = function_call.__name__
         if hasattr(function_call, "flowrep_recipe"):
             child_recipe = function_call.flowrep_recipe

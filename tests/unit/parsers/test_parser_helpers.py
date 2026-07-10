@@ -1,4 +1,5 @@
 import ast
+import types
 import unittest
 
 from flowrep import base_models, edge_models
@@ -8,15 +9,23 @@ from flowrep.prospective import atomic_recipe, helper_models
 from flowrep_static import makers
 
 
-class TestEnsureFunction(unittest.TestCase):
-    def test_rejects_class(self):
+class TestEnsureAllowed(unittest.TestCase):
+    def test_with_class(self):
         class MyClass:
             pass
 
-        with self.assertRaises(TypeError) as ctx:
-            parser_helpers.ensure_function(MyClass, "@atomic")
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
-        self.assertIn("type", str(ctx.exception))
+        with self.subTest("Rejects when type not included"):
+            with self.assertRaises(TypeError) as ctx:
+                parser_helpers._ensure_allowed(
+                    MyClass, (types.FunctionType,), "@atomic"
+                )
+            self.assertIn("'@atomic' can only decorate 'function'", str(ctx.exception))
+            self.assertIn("type", str(ctx.exception))
+
+        with self.subTest("Accepts when type included"):
+            parser_helpers._ensure_allowed(
+                MyClass, (types.FunctionType, type), "@atomic"
+            )
 
     def test_rejects_callable_instance(self):
         class Callable:
@@ -24,20 +33,20 @@ class TestEnsureFunction(unittest.TestCase):
                 pass
 
         with self.assertRaises(TypeError) as ctx:
-            parser_helpers.ensure_function(Callable(), "@atomic")
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+            parser_helpers._ensure_allowed(Callable(), (types.FunctionType,), "@atomic")
+        self.assertIn("'@atomic' can only decorate 'function'", str(ctx.exception))
         self.assertIn("Callable", str(ctx.exception))
 
     def test_accepts_lambda(self):
         # Lambdas are FunctionType, so this should pass _ensure_function
         # (they fail later in parse_atomic due to source unavailability)
         f = lambda: None  # noqa: E731
-        parser_helpers.ensure_function(f, "@atomic")
+        parser_helpers._ensure_allowed(f, (types.FunctionType,), "@atomic")
 
     def test_rejects_builtin(self):
         with self.assertRaises(TypeError) as ctx:
-            parser_helpers.ensure_function(len, "@atomic")
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+            parser_helpers._ensure_allowed(len, (types.FunctionType,), "@atomic")
+        self.assertIn("'@atomic' can only decorate 'function'", str(ctx.exception))
         self.assertIn("builtin_function_or_method", str(ctx.exception))
 
     def test_custom_decorator_name(self):
@@ -45,8 +54,8 @@ class TestEnsureFunction(unittest.TestCase):
             pass
 
         with self.assertRaises(TypeError) as ctx:
-            parser_helpers.ensure_function(Foo(), "@custom")
-        self.assertIn("@custom can only decorate functions", str(ctx.exception))
+            parser_helpers._ensure_allowed(Foo(), (types.FunctionType,), "@custom")
+        self.assertIn("'@custom' can only decorate 'function'", str(ctx.exception))
 
 
 class TestGetFunctionDefinition(unittest.TestCase):

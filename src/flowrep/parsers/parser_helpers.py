@@ -6,7 +6,7 @@ import inspect
 import textwrap
 from collections.abc import Callable, Iterable
 from types import FunctionType
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 from flowrep import base_models, edge_models
 from flowrep.parsers import constant_parser, label_helpers, symbol_scope
@@ -16,35 +16,56 @@ from flowrep.prospective import constant_recipe, helper_models, union_types
 class SourceCodeUnavailableError(ValueError): ...
 
 
+_D = TypeVar("_D")
+
+
 def apply_label_decorator(
-    func: FunctionType | str | None,
+    func: _D | str | None,
     output_labels: tuple[str, ...],
-    wrap: Callable[[FunctionType, tuple[str, ...]], FunctionType],
+    *,
+    wrap: Callable[[_D, tuple[str, ...]], _D],
     decorator_name: str,
-) -> FunctionType | Callable[[FunctionType], FunctionType]:
-    """Dispatch bare ``@deco`` vs. parametrized ``@deco("label", ...)``.
+    allowed_types: tuple[type, ...],
+) -> _D | Callable[[_D], _D]:
+    if not isinstance(func, str | None):
+        func = _normalize_target(func, decorator_name)
 
-    ``wrap(f, labels)`` attaches the recipe to ``f`` and returns it.
-    """
-    if isinstance(func, FunctionType):
-        return wrap(func, ())
-    if func is not None and not isinstance(func, str):
-        raise TypeError(
-            f"{decorator_name} can only decorate functions, got {type(func).__name__}"
-        )
-    labels = output_labels if func is None else (func, *output_labels)
+    if isinstance(func, allowed_types):
+        return wrap(cast("_D", func), ())
+    elif func is None:
+        labels = output_labels
+    elif isinstance(func, str):
+        labels = (func, *output_labels)
+    else:
+        _ensure_allowed(func, allowed_types, decorator_name)
 
-    def deferred(f: FunctionType) -> FunctionType:
-        ensure_function(f, decorator_name)
+    def deferred(f: _D) -> _D:
+        f = _normalize_target(f, decorator_name)
+        _ensure_allowed(f, allowed_types, decorator_name)
         return wrap(f, labels)
 
     return deferred
 
 
-def ensure_function(f: Any, decorator_name: str) -> None:
-    if not isinstance(f, FunctionType):
+def _normalize_target(f: Any, decorator_name: str) -> Any:
+    if isinstance(f, classmethod):
         raise TypeError(
-            f"{decorator_name} can only decorate functions, got {type(f).__name__}"
+            f"{decorator_name} cannot decorate a classmethod: its `cls` is bound "
+            f"away at access time and won't match the parsed inputs. Apply "
+            f"@classmethod outside {decorator_name}, or use @staticmethod."
+        )
+    if isinstance(f, staticmethod):
+        return f.__func__  # a plain FunctionType — attribute-settable, full signature
+    return f
+
+
+def _ensure_allowed(
+    f: Any, allowed_types: tuple[type, ...], decorator_name: str
+) -> None:
+    if not isinstance(f, allowed_types):
+        allowed = " or ".join(t.__name__ for t in allowed_types)
+        raise TypeError(
+            f"{decorator_name!r} can only decorate {allowed!r}, got {type(f).__name__!r}"
         )
 
 
@@ -89,7 +110,7 @@ class SignatureInfo:
     have_restricted_kinds: dict[str, base_models.RestrictedParamKind]
 
     @classmethod
-    def of(cls, func: FunctionType) -> SignatureInfo:
+    def of(cls, func: FunctionType | type) -> SignatureInfo:
         sig = inspect.signature(func)
         return SignatureInfo(
             names=list(sig.parameters.keys()),
