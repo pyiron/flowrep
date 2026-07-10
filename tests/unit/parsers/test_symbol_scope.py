@@ -290,5 +290,79 @@ class TestSymbolScopeErrors(unittest.TestCase):
         )
 
 
+class TestSymbolScopeAlias(unittest.TestCase):
+    def test_alias_copies_input_source(self):
+        scope = SymbolScope({"x": _make_input("x")})
+        scope.alias("y", "x")
+        self.assertEqual(scope["y"], _make_input("x"))
+        self.assertTrue(scope.is_input_alias("y"))
+
+    def test_alias_copies_source_handle(self):
+        scope = SymbolScope({"a": _make_source("node_0", "out")})
+        scope.alias("b", "a")
+        self.assertEqual(scope["b"], _make_source("node_0", "out"))
+        self.assertFalse(scope.is_input_alias("b"))
+
+    def test_alias_chain_follows_original_source(self):
+        scope = SymbolScope({"x": _make_input("x")})
+        scope.alias("y", "x")
+        scope.alias("z", "y")
+        self.assertEqual(scope["z"], _make_input("x"))
+        self.assertTrue(scope.is_input_alias("z"))
+
+    def test_alias_unknown_symbol_raises(self):
+        scope = SymbolScope({})
+        with self.assertRaises(ValueError) as ctx:
+            scope.alias("y", "missing")
+        self.assertIn("missing", str(ctx.exception))
+
+    def test_alias_reassignment_is_tracked(self):
+        scope = SymbolScope({"a": _make_input("a"), "b": _make_source("n0", "o")})
+        scope.alias("a", "b")
+        self.assertIn("a", scope.reassigned_symbols)
+        self.assertEqual(scope["a"], _make_source("n0", "o"))
+
+    def test_alias_over_declared_accumulator_deregisters_it(self):
+        scope = SymbolScope({"shift": _make_input("shift")})
+        scope.register_accumulator("ys")
+        scope.alias("ys", "shift")
+        self.assertNotIn("ys", scope.declared_accumulators)
+        self.assertEqual(scope["ys"], _make_input("shift"))
+
+    def test_alias_from_declared_accumulator_raises(self):
+        scope = SymbolScope({})
+        scope.register_accumulator("ys")
+        with self.assertRaises(ValueError) as ctx:
+            scope.alias("zs", "ys")
+        self.assertIn("accumulator", str(ctx.exception).lower())
+
+    def test_alias_from_available_accumulator_raises(self):
+        scope = SymbolScope({}, available_accumulators={"ys"})
+        with self.assertRaises(ValueError) as ctx:
+            scope.alias("zs", "ys")
+        self.assertIn("accumulator", str(ctx.exception).lower())
+
+    def test_realias_to_source_handle_clears_input_alias_flag(self):
+        scope = SymbolScope({"x": _make_input("x"), "n": _make_source("n0", "o")})
+        scope.alias("y", "x")
+        self.assertTrue(scope.is_input_alias("y"))
+        scope.alias("y", "n")
+        self.assertFalse(scope.is_input_alias("y"))
+
+    def test_fork_does_not_propagate_input_aliases(self):
+        scope = SymbolScope({"x": _make_input("x")})
+        scope.alias("y", "x")
+        child = scope.fork()
+        self.assertFalse(child.is_input_alias("y"))
+        self.assertEqual(child.input_aliases, set())
+
+    def test_inputs_reports_source_port_not_alias_name(self):
+        scope = SymbolScope({"x": _make_input("x")})
+        scope.alias("y", "x")
+        scope.consume("y", "node_0", "arg")
+        # The consumed input is workflow input `x`, not the local alias `y`.
+        self.assertEqual(scope.inputs, ["x"])
+
+
 if __name__ == "__main__":
     unittest.main()

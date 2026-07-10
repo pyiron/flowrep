@@ -4,7 +4,7 @@ import ast
 from ast import While
 
 from flowrep import edge_models
-from flowrep.parsers import case_helpers, parser_protocol
+from flowrep.parsers import case_helpers, parser_helpers, parser_protocol
 from flowrep.prospective import constant_recipe, helper_models, while_recipe
 
 WHILE_CONDITION_LABEL: str = "condition"
@@ -41,6 +41,9 @@ def parse_while_node(
     reassigned_symbols = body_walker.symbol_map.reassigned_symbols
 
     _validate_some_output_exists(reassigned_symbols)
+    parser_helpers.reject_input_alias_outputs(
+        body_walker.symbol_map, reassigned_symbols, "while-loop"
+    )
     body_walker.symbol_map.produce_symbols(reassigned_symbols)
 
     inputs, input_edges = _wire_inputs(
