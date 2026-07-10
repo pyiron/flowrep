@@ -243,6 +243,47 @@ class TestAtomicTypeValidation(unittest.TestCase):
 
         self.assertIn("__init__", str(ctx.exception))
 
+    def test_rejects_class_with_recipe_classvar(self):
+        with self.assertRaises(TypeError) as ctx:
+
+            @atomic_parser.atomic
+            class Collides:
+                flowrep_recipe = 5
+
+                def __init__(self, x: int = 1):
+                    self.x = x
+
+        self.assertIn("flowrep_recipe", str(ctx.exception))
+
+    def test_rejects_class_with_recipe_method(self):
+        with self.assertRaises(TypeError) as ctx:
+
+            @atomic_parser.atomic("instance")
+            class Collides:
+                def __init__(self, x: int = 1):
+                    self.x = x
+
+                def flowrep_recipe(self):
+                    pass
+
+        self.assertIn("flowrep_recipe", str(ctx.exception))
+
+    def test_subclass_of_decorated_class_allowed(self):
+        # The inherited recipe lives on the base's __dict__, not the subclass's,
+        # so decorating the subclass is fine and shadows it with its own recipe.
+        @atomic_parser.atomic
+        class Base:
+            def __init__(self, x: int = 1):
+                self.x = x
+
+        @atomic_parser.atomic
+        class Sub(Base):
+            def __init__(self, y: int = 2):
+                self.y = y
+
+        self.assertEqual(Base.flowrep_recipe.inputs, ["x"])
+        self.assertEqual(Sub.flowrep_recipe.inputs, ["y"])
+
 
 class TestAtomicWithOutputLabels(unittest.TestCase):
     def test_atomic_with_explicit_output_labels(self):

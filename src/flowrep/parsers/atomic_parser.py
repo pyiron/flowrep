@@ -71,6 +71,8 @@ def atomic(func=None, /, *output_labels, **kwargs):
     """
 
     def wrap(f, labels):
+        if isinstance(f, type):
+            _ensure_recipe_attribute_free(f, "@atomic")
         f.flowrep_recipe = parse_atomic(f, *labels, **kwargs)
         return f
 
@@ -81,6 +83,30 @@ def atomic(func=None, /, *output_labels, **kwargs):
         decorator_name="@atomic",
         allowed_types=(types.FunctionType, type),
     )
+
+
+def _ensure_recipe_attribute_free(cls: type, context: str) -> None:
+    """Reject classes that already bind ``flowrep_recipe`` at class level.
+
+    Decorating a class attaches the parsed recipe to its ``flowrep_recipe``
+    attribute. If the class body already defines that name (a class variable,
+    method, etc.), attaching would silently clobber it. Fail loudly instead.
+
+    Only attributes defined directly on ``cls`` are considered, so decorating a
+    subclass of an already-decorated class remains allowed (it simply shadows
+    the inherited recipe with its own).
+
+    Args:
+        cls: The class about to receive the recipe.
+        context: A short label for the caller (e.g. ``"@atomic"``) used in the
+            error message.
+    """
+    if "flowrep_recipe" in cls.__dict__:
+        raise TypeError(
+            f"{context} cannot decorate {cls.__name__!r}: it already defines a "
+            f"class-level 'flowrep_recipe' attribute, which is needed to hold the "
+            f"parsed recipe. Rename that member."
+        )
 
 
 def parse_atomic(
