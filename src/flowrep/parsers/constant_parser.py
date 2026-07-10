@@ -53,14 +53,15 @@ def inject_constant(
     (e.g. a tuple) surfaces here as a ``ValidationError`` and is re-raised with the
     consuming node/port for context.
     """
-    label = label_helpers.unique_suffix("constant", nodes)
+    constant_label = constant_recipe.ConstantRecipe.std_label
+    label = label_helpers.unique_suffix(constant_label, nodes)
     recipe = make_constant(
         value,
         f"Argument for input '{consumer_port}' of node '{consumer_label}'",
     )
     nodes[label] = recipe
     scope.consume_source(
-        edge_models.SourceHandle(node=label, port="constant"),
+        edge_models.SourceHandle(node=label, port=constant_label),
         consumer_label,
         consumer_port,
     )

@@ -257,10 +257,11 @@ def emit_workflow_body(
         if isinstance(node, constant_recipe.ConstantRecipe):
             if label not in materialized_constants:
                 continue  # inline at the consumer call site via `resolve`
-            name = required_by_handle.get((label, "constant")) or alloc.fresh(
-                _output_name_suggestion(label, "constant", 1)
+            constant_label = constant_recipe.ConstantRecipe.std_label
+            name = required_by_handle.get((label, constant_label)) or alloc.fresh(
+                _output_name_suggestion(label, constant_label, 1)
             )
-            produced[(label, "constant")] = name
+            produced[(label, constant_label)] = name
             lines.append(f"{name} = {repr(node.constant)}")
             continue
 
@@ -315,10 +316,11 @@ def emit_body(
             recipe, label, in_syms, required, emitter, alloc
         )
     if isinstance(recipe, constant_recipe.ConstantRecipe):
-        name = required.get("constant") or alloc.fresh(
-            _output_name_suggestion(label, "constant", 1)
+        constant_label = constant_recipe.ConstantRecipe.std_label
+        name = required.get(constant_label) or alloc.fresh(
+            _output_name_suggestion(label, constant_label, 1)
         )
-        return [f"{name} = {repr(recipe.constant)}"], {"constant": name}
+        return [f"{name} = {repr(recipe.constant)}"], {constant_label: name}
     return _emit_single_node_body(recipe, label, in_syms, required, alloc, emitter)
 
 

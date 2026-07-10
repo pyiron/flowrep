@@ -290,7 +290,9 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                     f"got {new_symbols}"
                 )
             value = parsed[1]
-            label = label_helpers.unique_suffix("constant", self.nodes)
+            label = label_helpers.unique_suffix(
+                constant_recipe.ConstantRecipe.std_label, self.nodes
+            )
             node: constant_recipe.ConstantRecipe = constant_parser.make_constant(
                 value, f"Assignment to '{new_symbols[0]}'"
             )
@@ -324,10 +326,11 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         bindings = condition_bindings or {}
         for port in node.inputs:
             if port in bindings:
-                peer_label = label_helpers.unique_suffix("constant", self.nodes)
+                constant_label = constant_recipe.ConstantRecipe.std_label
+                peer_label = label_helpers.unique_suffix(constant_label, self.nodes)
                 self.nodes[peer_label] = bindings[port]
                 self.symbol_map.consume_source(
-                    edge_models.SourceHandle(node=peer_label, port="constant"),
+                    edge_models.SourceHandle(node=peer_label, port=constant_label),
                     label,
                     port,
                 )

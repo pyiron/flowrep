@@ -156,7 +156,7 @@ class ConstantData(NodeData[constant_recipe.ConstantRecipe]):
             recipe=recipe,
             input_ports={},
             output_ports={
-                "constant": OutputDataPort(
+                constant_recipe.ConstantRecipe.std_label: OutputDataPort(
                     value=recipe.constant,
                     annotation=type(recipe.constant),
                 )

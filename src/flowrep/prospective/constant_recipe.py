@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 import pydantic
 from typing_extensions import TypeAliasType
@@ -54,11 +54,16 @@ class ConstantRecipe(base_models.NodeRecipe):
     directly in the recipe, so it survives serialization with no Python import.
     """
 
+    std_label: ClassVar[str] = "constant"
+    # Standardized node label root, and exclusive output port label
+
     type: Literal[base_models.RecipeElementType.CONSTANT] = pydantic.Field(
         default=base_models.RecipeElementType.CONSTANT, frozen=True
     )
     inputs: base_models.Labels = pydantic.Field(default_factory=list)
-    outputs: base_models.Labels = pydantic.Field(default_factory=lambda: ["constant"])
+    outputs: base_models.Labels = pydantic.Field(
+        default_factory=lambda: [ConstantRecipe.std_label]
+    )
     constant: JSON
 
     @pydantic.field_validator("constant", mode="before")
@@ -70,9 +75,9 @@ class ConstantRecipe(base_models.NodeRecipe):
     def _check_ports(self) -> ConstantRecipe:
         if self.inputs != []:
             raise ValueError(f"ConstantRecipe takes no inputs, got {self.inputs}")
-        if self.outputs != ["constant"]:
+        if self.outputs != [self.std_label]:
             raise ValueError(
-                f"ConstantRecipe must have a single output named 'constant', "
+                f"ConstantRecipe must have a single output named {self.std_label}, "
                 f"got {self.outputs}"
             )
         return self

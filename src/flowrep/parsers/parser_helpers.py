@@ -209,7 +209,7 @@ def _bind_condition_constant(
     walker to attach as a peer.
     """
     synthetic_port = label_helpers.unique_suffix(
-        "constant", set(scope.inputs) | reserved_ports
+        constant_recipe.ConstantRecipe.std_label, set(scope.inputs) | reserved_ports
     )
     reserved_ports.add(synthetic_port)
     condition_bindings[synthetic_port] = constant_parser.make_constant(
