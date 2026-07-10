@@ -120,6 +120,9 @@ def parse_atomic(
         ValueError: If ``output_labels`` length mismatches the inferred output count,
             or if any ``forbid_*`` / ``require_*`` constraint is violated.
     """
+    if isinstance(func, type):
+        base_models.ensure_class_signature_from_init(func, "@atomic")
+
     function_info = versions.VersionInfo.of(
         func,
         version_scraping=version_scraping,

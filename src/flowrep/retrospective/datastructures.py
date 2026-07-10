@@ -260,6 +260,7 @@ def _parse_function(
     function = retrieve.import_from_string(fully_qualified_name)
     try:
         if isinstance(function, type):
+            base_models.ensure_class_signature_from_init(function, fully_qualified_name)
             hints = get_type_hints(
                 getattr(function, "__init__"), include_extras=True  # noqa: B009
             )

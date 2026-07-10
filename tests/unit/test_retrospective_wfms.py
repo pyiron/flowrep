@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 import pickle
 import unittest
-from typing import TYPE_CHECKING, get_origin
+from typing import TYPE_CHECKING, NamedTuple, get_origin
 
 from pyiron_snippets import versions
 
@@ -47,6 +47,11 @@ class InaccessibleFieldAnnotation:
 
 def return_problematic_dataclass(x) -> InaccessibleFieldAnnotation:
     return InaccessibleFieldAnnotation(x)
+
+
+class _RetroPoint(NamedTuple):
+    x: int
+    y: int
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -651,6 +656,21 @@ class TestAtomicFromRecipe(unittest.TestCase):
         self.assertIn(
             "(n=3) do not match length of return annotation", str(ctx.exception)
         )
+
+    def test_new_based_class_raises(self):
+        # @atomic blocks this at decoration time, so build the recipe by hand to
+        # confirm the retrospective path also fails cleanly (e.g. a deserialized
+        # recipe) rather than silently dropping annotations.
+        recipe = atomic_recipe.AtomicRecipe(
+            inputs=["x", "y"],
+            outputs=["instance"],
+            reference=base_models.PythonReference(
+                info=versions.VersionInfo.of(_RetroPoint),
+            ),
+        )
+        with self.assertRaises(TypeError) as ctx:
+            datastructures.AtomicData.from_recipe(recipe)
+        self.assertIn("__init__", str(ctx.exception))
 
     def test_unavailable_annotation(self):
         with self.assertRaisesRegex(NameError, "name 'SeabornColors' is not defined"):
