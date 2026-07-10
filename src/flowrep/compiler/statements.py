@@ -232,7 +232,7 @@ def emit_workflow_body(
     # Flow-control nodes derive their input port names from the enclosing symbols
     # feeding them, so each such source must be named after the port for the port
     # names (and while-loop reassignments) to round-trip. A constant peer feeding a
-    # flow-control input is normal now (Part 2: a literal condition argument injects
+    # flow-control input is normal now (a literal condition argument injects
     # a constant peer routed through a synthetic flow-control input port). Such a
     # peer is never also a workflow-output source, so its required_by_handle entry
     # stays inert and it is inlined in the topo loop below -- which is why the
