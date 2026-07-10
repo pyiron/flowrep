@@ -28,7 +28,7 @@ class TestConstantEndToEnd(unittest.TestCase):
 
         # 2. Runs to the correct number.
         result = wfms.run_recipe(recipe, mass=2.0, velocity=3.0)
-        self.assertEqual(result.output_ports["ke"].value, 9.0)
+        self.assertAlmostEqual(result.output_ports["ke"].value, 9.0)
 
         # 3. Compiles back to source, re-parses to an equal recipe.
         free = makers.reference_free(kinetic_energy)

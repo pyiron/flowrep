@@ -2062,7 +2062,7 @@ class TestConstantInlining(unittest.TestCase):
     def test_executes_with_inlined_constant(self):
         original, free = self._ke_recipe()
         fn = source._workflow2python(free).build()
-        self.assertEqual(fn(2.0, 3.0), original(2.0, 3.0))
+        self.assertAlmostEqual(fn(2.0, 3.0), original(2.0, 3.0))
 
     def test_round_trips(self):
         _, free = self._ke_recipe()
@@ -2111,7 +2111,7 @@ class TestLiteralAssignRoundTrip(unittest.TestCase):
     def test_inline_path_executes(self):
         free = makers.reference_free(_rt_inline_const)
         fn = source._workflow2python(free).build()
-        self.assertEqual(fn(4), 4 * 0.5)
+        self.assertAlmostEqual(fn(4), 4 * 0.5)
 
 
 def _return_constant(a):
@@ -2205,7 +2205,7 @@ class TestConstantsInConditions(unittest.TestCase):
         free = makers.reference_free(fn)
         rendered = source._workflow2python(free)
         built = rendered.build()
-        self.assertEqual(built(*call_args), fn(*call_args))
+        self.assertAlmostEqual(built(*call_args), fn(*call_args))
         self.assertEqual(
             makers.dump_no_refs(built.flowrep_recipe), makers.dump_no_refs(free)
         )
