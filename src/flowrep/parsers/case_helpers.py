@@ -149,6 +149,11 @@ def wire_outputs(
                 seen.add(sym)
                 outputs.append(sym)
 
+    for branch in branches:
+        parser_helpers.reject_input_alias_outputs(
+            branch.walker.symbol_map, outputs, "branch"
+        )
+
     # Build prospective output edges: each output maps to the list of branch
     # body nodes that can source it.
     prospective_output_edges: subgraph_validation.ProspectiveOutputEdges = {}

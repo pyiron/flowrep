@@ -4,7 +4,7 @@ import ast
 import dataclasses
 import inspect
 import textwrap
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from types import FunctionType
 from typing import Any, cast
 
@@ -219,3 +219,26 @@ def _bind_condition_constant(
     scope.consume_input_source(
         edge_models.InputSource(port=synthetic_port), child.label, consumer_port
     )
+
+
+def reject_input_alias_outputs(
+    body_symbol_map: symbol_scope.SymbolScope,
+    candidate_outputs: Iterable[str],
+    control_kind: str,
+) -> None:
+    """Raise if a flow-control body tries to surface an input-alias as an output.
+
+    A symbol aliased directly to a workflow input keeps an ``InputSource`` rather
+    than a node ``SourceHandle``. Such a symbol cannot be represented as a
+    ``{control_kind}`` output, so we reject it with a clear error instead of
+    emitting an invalid recipe.
+    """
+    offending = sorted(
+        s for s in candidate_outputs if body_symbol_map.is_input_alias(s)
+    )
+    if offending:
+        raise ValueError(
+            f"A {control_kind} body assigns workflow input(s) directly to symbol(s) "
+            f"{offending} that must become {control_kind} outputs. Route the value "
+            f"through a node instead of aliasing an input."
+        )

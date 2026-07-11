@@ -48,6 +48,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         self._consumptions: list[SymbolConsumption] = []
         self._productions: list[SymbolProduction] = []
         self.reassigned_symbols: list[str] = []
+        self.input_aliases: set[str] = set()
         self.declared_accumulators: set[str] = set()
         self.available_accumulators: set[str] = (
             set() if available_accumulators is None else available_accumulators
@@ -59,14 +60,15 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
 
     @property
     def inputs(self) -> list[str]:
-        """Ordered unique symbols consumed from InputSources."""
+        """Ordered unique input ports consumed from InputSources."""
         seen: set[str] = set()
         result: list[str] = []
         for c in self._consumptions:
-            if isinstance(c.source, edge_models.InputSource) and c.symbol not in seen:
-                seen.add(c.symbol)
-                result.append(c.symbol)
-            # TODO: Just set.add it?
+            if isinstance(c.source, edge_models.InputSource):
+                port = c.source.port
+                if port not in seen:
+                    seen.add(port)
+                    result.append(port)
         return result
 
     @property
@@ -169,6 +171,37 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
                 for sym, port in zip(new_symbols, child.node.outputs, strict=True)
             }
         )
+
+    def alias(self, new_symbol: str, existing_symbol: str) -> None:
+        """Bind *new_symbol* to the same source as *existing_symbol* (``y = x``).
+
+        No node is created; the source is copied. Re-assigning a symbol that was
+        declared as an accumulator de-registers it. Aliasing *from* an
+        accumulator is rejected, since accumulators are name-tracked rather than
+        sourced.
+        """
+        if existing_symbol in self.all_accumulators:
+            raise ValueError(
+                f"Cannot alias accumulator '{existing_symbol}'. Accumulators are "
+                f"declared directly with `name = []`; hanging a second name on one "
+                f"is not supported."
+            )
+        try:
+            source = self[existing_symbol]
+        except KeyError as error:
+            raise ValueError(str(error)) from None
+        self.declared_accumulators.discard(new_symbol)
+        if new_symbol in self._sources and new_symbol not in self.reassigned_symbols:
+            self.reassigned_symbols.append(new_symbol)
+        self._sources[new_symbol] = source
+        if isinstance(source, edge_models.InputSource):
+            self.input_aliases.add(new_symbol)
+        else:
+            self.input_aliases.discard(new_symbol)
+
+    def is_input_alias(self, symbol: str) -> bool:
+        """True if *symbol* was aliased directly to a workflow input."""
+        return symbol in self.input_aliases
 
     def register_accumulator(self, new: str) -> None:
         if new in self._sources:

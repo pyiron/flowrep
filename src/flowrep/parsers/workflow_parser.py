@@ -300,6 +300,13 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             self.symbol_map.register(
                 new_symbols, helper_models.LabeledRecipe(label=label, node=node)
             )
+        elif isinstance(rhs, ast.Name):
+            if len(new_symbols) != 1:
+                raise ValueError(
+                    f"Alias assignment must target exactly one symbol -- no unpacking "
+                    f"raw symbols -- got {new_symbols}."
+                )
+            self.symbol_map.alias(new_symbols[0], rhs.id)
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
