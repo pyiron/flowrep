@@ -3,9 +3,9 @@ from __future__ import annotations
 import ast
 import importlib
 import inspect
+import types
 from collections.abc import Callable, Collection
-from types import FunctionType
-from typing import cast
+from typing import TypeVar, cast, overload
 
 from pyiron_snippets import versions
 
@@ -30,16 +30,22 @@ from flowrep.prospective import (
     workflow_recipe,
 )
 
+_WorkflowTarget = TypeVar("_WorkflowTarget", bound=types.FunctionType)
 
+
+@overload
+def workflow(func: _WorkflowTarget, /) -> _WorkflowTarget: ...
+@overload
 def workflow(
-    func: FunctionType | str | None = None,
+    func: str | None = None,
     /,
     *output_labels: str,
     version_scraping: versions.VersionScrapingMap | None = None,
     forbid_main: bool = False,
     forbid_locals: bool = False,
     require_version: bool = False,
-) -> FunctionType | Callable[[FunctionType], FunctionType]:
+) -> Callable[[_WorkflowTarget], _WorkflowTarget]: ...
+def workflow(func=None, /, *output_labels: str, **kwargs):
     """
     Decorator that attaches a :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe`
     to the ``flowrep_recipe`` attribute of a function, under constraints that the
@@ -70,22 +76,21 @@ def workflow(
         :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe`.
     """
 
-    def wrap(f: FunctionType, labels: tuple[str, ...]) -> FunctionType:
-        f.flowrep_recipe = parse_workflow(  # type: ignore[attr-defined]
-            f,
-            *labels,
-            version_scraping=version_scraping,
-            forbid_main=forbid_main,
-            forbid_locals=forbid_locals,
-            require_version=require_version,
-        )
+    def wrap(f, labels):
+        f.flowrep_recipe = parse_workflow(f, *labels, **kwargs)
         return f
 
-    return parser_helpers.apply_label_decorator(func, output_labels, wrap, "@workflow")
+    return parser_helpers.apply_label_decorator(
+        func,
+        output_labels,
+        wrap=wrap,
+        decorator_name="@workflow",
+        allowed_types=(types.FunctionType,),
+    )
 
 
 def parse_workflow(
-    func: FunctionType,
+    func: types.FunctionType,
     *output_labels: str,
     version_scraping: versions.VersionScrapingMap | None = None,
     forbid_main: bool = False,
@@ -435,7 +440,7 @@ class _WorkflowFunctionParser(WorkflowParser):
         info_factory: versions.VersionInfoFactory,
         *,
         source: base_models.PythonReference | None = None,
-        func: FunctionType,
+        func: types.FunctionType,
         output_labels: Collection[str],
     ):
         super().__init__(
@@ -463,7 +468,7 @@ class _WorkflowFunctionParser(WorkflowParser):
     def handle_return(
         self,
         body: ast.Return,
-        func: FunctionType,
+        func: types.FunctionType,
         output_labels: Collection[str],
     ) -> None:
         returned_symbols = parser_helpers.resolve_symbols_to_strings(body.value)

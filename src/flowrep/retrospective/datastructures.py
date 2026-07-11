@@ -259,7 +259,15 @@ def _parse_function(
 ]:
     function = retrieve.import_from_string(fully_qualified_name)
     try:
-        hints = get_type_hints(function, include_extras=True)
+        if isinstance(function, type):
+            base_models.ensure_class_signature_from_init(function, fully_qualified_name)
+            hints = get_type_hints(
+                getattr(function, "__init__"), include_extras=True  # noqa: B009
+            )
+            subst = _typevar_map(function)
+            hints = {k: subst.get(v, v) for k, v in hints.items()}
+        else:
+            hints = get_type_hints(function, include_extras=True)
     except NameError as e:
         raise NameError(
             f"While parsing {fully_qualified_name!r} for recipe inputs {inputs} and "
@@ -289,7 +297,8 @@ def _parse_function(
     missing = set(inputs) - available
     if missing and not accept_extra_inputs:
         raise ValueError(
-            f"Requested inputs {missing} not found in signature of {fully_qualified_name!r}"
+            f"Requested inputs {missing} not found in signature of "
+            f"{fully_qualified_name!r}. Available: {available!r}."
         )
 
     input_ports: dict[str, InputDataPort] = {}
@@ -314,7 +323,26 @@ def _parse_function(
     elif unpack_mode == atomic_recipe.UnpackMode.DATACLASS:
         output_ports = _parse_return_dataclass(return_annotation, outputs)
 
+    if isinstance(function, type):
+        output_ports[next(iter(output_ports))].annotation = function
+
     return function, input_ports, output_ports
+
+
+def _typevar_map(cls: type) -> dict[TypeVar, object]:
+    """Map TypeVars to concrete args from a class's specialized bases.
+
+    Walks ``__orig_bases__`` (e.g. ``MyGeneric[int]``) and pairs each origin's
+    declared ``__parameters__`` with the supplied ``__args__``.
+    """
+    mapping: dict[TypeVar, object] = {}
+    for base in getattr(cls, "__orig_bases__", ()):
+        origin = get_origin(base)
+        params = getattr(origin, "__parameters__", ())
+        args = get_args(base)
+        if params and len(params) == len(args):
+            mapping.update(zip(params, args, strict=True))
+    return mapping
 
 
 def _parse_return_without_unpacking(

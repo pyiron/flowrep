@@ -6,7 +6,7 @@ import inspect
 import textwrap
 import unittest
 from types import FunctionType
-from typing import Annotated
+from typing import Annotated, NamedTuple
 
 from flowrep import base_models
 from flowrep.parsers import atomic_parser, label_helpers, parser_helpers
@@ -174,23 +174,15 @@ class TestParseAtomic(unittest.TestCase):
 
 
 class TestAtomicTypeValidation(unittest.TestCase):
-    def test_rejects_class_bare_decorator(self):
-        with self.assertRaises(TypeError) as ctx:
+    def test_accepts_class(self):
+        @atomic_parser.atomic
+        class MyClass:
+            def __init__(self, x: int = 1):
+                self.x = x
 
-            @atomic_parser.atomic
-            class MyClass:
-                pass
-
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
-
-    def test_rejects_class_with_args(self):
-        with self.assertRaises(TypeError) as ctx:
-
-            @atomic_parser.atomic("output")
-            class MyClass:
-                pass
-
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+        self.assertTrue(hasattr(MyClass, "flowrep_recipe"))
+        self.assertEqual(MyClass.flowrep_recipe.inputs, ["x"])
+        self.assertEqual(MyClass.flowrep_recipe.outputs, ["instance"])
 
     def test_rejects_callable_instance_bare(self):
         class MyCallable:
@@ -199,17 +191,114 @@ class TestAtomicTypeValidation(unittest.TestCase):
 
         with self.assertRaises(TypeError) as ctx:
             atomic_parser.atomic(MyCallable())
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+        self.assertIn("can only decorate", str(ctx.exception))
 
     def test_rejects_callable_instance_with_args(self):
-        class Callable:
+        class MyCallable:
             def __call__(self):
                 pass
 
         decorator = atomic_parser.atomic("output")
         with self.assertRaises(TypeError) as ctx:
-            decorator(Callable())
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+            decorator(MyCallable())
+        self.assertIn("can only decorate", str(ctx.exception))
+
+    def test_rejects_classmethod_bare(self):
+        with self.assertRaises(TypeError) as ctx:
+
+            @atomic_parser.atomic
+            @classmethod
+            def method(cls):
+                pass
+
+        self.assertIn("cannot decorate a classmethod", str(ctx.exception))
+
+    def test_rejects_classmethod_with_args(self):
+        with self.assertRaises(TypeError) as ctx:
+
+            @atomic_parser.atomic("output")
+            @classmethod
+            def method(cls):
+                pass
+
+        self.assertIn("cannot decorate a classmethod", str(ctx.exception))
+
+    def test_rejects_staticmethod_bare(self):
+        with self.assertRaisesRegex(TypeError, "should be placed beneath"):
+
+            @atomic_parser.atomic
+            @staticmethod
+            def method(cls):
+                pass
+
+    def test_rejects_staticmethod_with_args(self):
+        with self.assertRaisesRegex(TypeError, "should be placed beneath"):
+
+            @atomic_parser.atomic("output")
+            @staticmethod
+            def method(cls):
+                pass
+
+    def test_rejects_new_based_class_bare(self):
+        with self.assertRaises(TypeError) as ctx:
+
+            @atomic_parser.atomic
+            class Point(NamedTuple):
+                x: int
+                y: int
+
+        self.assertIn("__init__", str(ctx.exception))
+
+    def test_rejects_new_based_class_with_args(self):
+        with self.assertRaises(TypeError) as ctx:
+
+            @atomic_parser.atomic("instance")
+            class MyNew:
+                def __new__(cls, a: int):
+                    return super().__new__(cls)
+
+        self.assertIn("__init__", str(ctx.exception))
+
+    def test_rejects_class_with_recipe_classvar(self):
+        with self.assertRaises(TypeError) as ctx:
+
+            @atomic_parser.atomic
+            class Collides:
+                flowrep_recipe = 5
+
+                def __init__(self, x: int = 1):
+                    self.x = x
+
+        self.assertIn("flowrep_recipe", str(ctx.exception))
+
+    def test_rejects_class_with_recipe_method(self):
+        with self.assertRaises(TypeError) as ctx:
+
+            @atomic_parser.atomic("instance")
+            class Collides:
+                def __init__(self, x: int = 1):
+                    self.x = x
+
+                def flowrep_recipe(self):
+                    pass
+
+        self.assertIn("flowrep_recipe", str(ctx.exception))
+
+    def test_subclass_of_decorated_class_allowed(self):
+        # The inherited recipe lives on the base's __dict__, not the subclass's,
+        # so decorating the subclass is fine and shadows it with its own recipe.
+        @atomic_parser.atomic
+        class Base:
+            def __init__(self, x: int = 1):
+                self.x = x
+
+        @atomic_parser.atomic
+        class Sub(Base):
+            def __init__(self, y: int = 2):
+                self.y = y
+
+        self.assertEqual(Base.flowrep_recipe.inputs, ["x"])
+        self.assertEqual(Sub.flowrep_recipe.inputs, ["y"])
 
 
 class TestAtomicWithOutputLabels(unittest.TestCase):
