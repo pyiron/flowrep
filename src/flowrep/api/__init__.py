@@ -14,3 +14,4 @@ from flowrep.api.tools import dataclass as dataclass
 from flowrep.api.tools import parse_atomic as parse_atomic
 from flowrep.api.tools import parse_workflow as parse_workflow
 from flowrep.api.tools import workflow as workflow
+from flowrep.prospective import std as std
