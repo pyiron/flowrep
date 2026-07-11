@@ -27,6 +27,17 @@ class _Mat:
         return ("imm", self.v, other.v)
 
 
+class _HasAttrs:
+    class_attr = "shared"
+
+    def __init__(self):
+        self.instance_attr = 42
+        self.tuple_attr = (1, 2)
+
+    def method(self):
+        return "called"
+
+
 class TestStdExecution(unittest.TestCase):
 
     def test_abs(self):
@@ -256,6 +267,38 @@ class TestStdExecution(unittest.TestCase):
             self.assertEqual(
                 (42, (1, 2), {"a": 3, "b": 4}), out.output_ports["result"].value
             )
+
+    def test_getattr_(self):
+        with self.subTest("instance attribute"):
+            out = wfms.run_recipe(
+                std.getattr_.node, obj=_HasAttrs(), name="instance_attr"
+            )
+            self.assertEqual(42, out.output_ports["attr"].value)
+
+        with self.subTest("class attribute"):
+            out = wfms.run_recipe(std.getattr_.node, obj=_HasAttrs(), name="class_attr")
+            self.assertEqual("shared", out.output_ports["attr"].value)
+
+        with self.subTest("bound method"):
+            out = wfms.run_recipe(std.getattr_.node, obj=_HasAttrs(), name="method")
+            self.assertEqual("called", out.output_ports["attr"].value())
+
+        with self.subTest("tuple attributes are delivered whole"):
+            out = wfms.run_recipe(std.getattr_.node, obj=_HasAttrs(), name="tuple_attr")
+            self.assertEqual(
+                (1, 2),
+                out.output_ports["attr"].value,
+                msg="The single output port should hold the entire attribute, even "
+                "when that attribute is itself a tuple",
+            )
+
+        with (
+            self.subTest("missing attribute"),
+            self.assertRaises(
+                AttributeError, msg="Failed lookups should surface to the caller"
+            ),
+        ):
+            wfms.run_recipe(std.getattr_.node, obj=_HasAttrs(), name="not_here")
 
 
 if __name__ == "__main__":

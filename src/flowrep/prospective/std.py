@@ -846,3 +846,31 @@ call = fr.schemas.LabeledRecipe(
         unpack_mode=fr.schemas.UnpackMode.NONE,
     ),
 )
+
+
+def _getattr_wrapper(
+    obj: object,
+    name: str,
+):
+    """
+    getattr doesn't have an inspectable signature until python 3.13, so provide a
+    well-formed wrapper.
+    """
+    return getattr(obj, name)
+
+
+getattr_ = fr.schemas.LabeledRecipe(
+    label="getattr_",
+    node=fr.schemas.AtomicRecipe(
+        reference=fr.schemas.PythonReference(
+            info=versions.VersionInfo.of(_getattr_wrapper),
+            restricted_input_kinds={
+                "obj": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "name": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+            },
+        ),
+        inputs=["obj", "name"],
+        outputs=["attr"],
+        unpack_mode=fr.schemas.UnpackMode.NONE,
+    ),
+)
