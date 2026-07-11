@@ -9,813 +9,814 @@ from typing import Any
 
 from pyiron_snippets import versions
 
-import flowrep as fr
+from flowrep import base_models
+from flowrep.prospective import atomic_recipe, helper_models
 
-abs = fr.schemas.LabeledRecipe(
+abs = helper_models.LabeledRecipe(
     label="abs",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.abs),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a"],
         outputs=["absolute"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-add = fr.schemas.LabeledRecipe(
+add = helper_models.LabeledRecipe(
     label="add",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.add),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["added"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-index = fr.schemas.LabeledRecipe(
+index = helper_models.LabeledRecipe(
     label="index",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.index),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a"],
         outputs=["index"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-inv = fr.schemas.LabeledRecipe(
+inv = helper_models.LabeledRecipe(
     label="inv",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.inv),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a"],
         outputs=["inverted"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-invert = fr.schemas.LabeledRecipe(
+invert = helper_models.LabeledRecipe(
     label="invert",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.invert),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a"],
         outputs=["inverted"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-neg = fr.schemas.LabeledRecipe(
+neg = helper_models.LabeledRecipe(
     label="neg",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.neg),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a"],
         outputs=["negative"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-pos = fr.schemas.LabeledRecipe(
+pos = helper_models.LabeledRecipe(
     label="pos",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.pos),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a"],
         outputs=["positive"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-not_ = fr.schemas.LabeledRecipe(
+not_ = helper_models.LabeledRecipe(
     label="not_",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.not_),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a"],
         outputs=["negated"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-truth = fr.schemas.LabeledRecipe(
+truth = helper_models.LabeledRecipe(
     label="truth",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.truth),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a"],
         outputs=["truth"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-length_hint = fr.schemas.LabeledRecipe(
+length_hint = helper_models.LabeledRecipe(
     label="length_hint",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.length_hint),
             restricted_input_kinds={
-                "obj": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "obj": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["obj"],
         outputs=["length"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-sub = fr.schemas.LabeledRecipe(
+sub = helper_models.LabeledRecipe(
     label="sub",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.sub),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["difference"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-isub = fr.schemas.LabeledRecipe(
+isub = helper_models.LabeledRecipe(
     label="isub",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.isub),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["difference"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-iadd = fr.schemas.LabeledRecipe(
+iadd = helper_models.LabeledRecipe(
     label="iadd",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.iadd),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["added"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-mul = fr.schemas.LabeledRecipe(
+mul = helper_models.LabeledRecipe(
     label="mul",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.mul),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["product"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-imul = fr.schemas.LabeledRecipe(
+imul = helper_models.LabeledRecipe(
     label="imul",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.imul),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["product"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-floordiv = fr.schemas.LabeledRecipe(
+floordiv = helper_models.LabeledRecipe(
     label="floordiv",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.floordiv),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["quotient"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-ifloordiv = fr.schemas.LabeledRecipe(
+ifloordiv = helper_models.LabeledRecipe(
     label="ifloordiv",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ifloordiv),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["quotient"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-truediv = fr.schemas.LabeledRecipe(
+truediv = helper_models.LabeledRecipe(
     label="truediv",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.truediv),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["quotient"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-itruediv = fr.schemas.LabeledRecipe(
+itruediv = helper_models.LabeledRecipe(
     label="itruediv",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.itruediv),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["quotient"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-mod = fr.schemas.LabeledRecipe(
+mod = helper_models.LabeledRecipe(
     label="mod",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.mod),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["remainder"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-imod = fr.schemas.LabeledRecipe(
+imod = helper_models.LabeledRecipe(
     label="imod",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.imod),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["remainder"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-pow = fr.schemas.LabeledRecipe(
+pow = helper_models.LabeledRecipe(
     label="pow",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.pow),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["power"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-ipow = fr.schemas.LabeledRecipe(
+ipow = helper_models.LabeledRecipe(
     label="ipow",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ipow),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["power"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-and_ = fr.schemas.LabeledRecipe(
+and_ = helper_models.LabeledRecipe(
     label="and_",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.and_),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["conjunction"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-iand = fr.schemas.LabeledRecipe(
+iand = helper_models.LabeledRecipe(
     label="iand",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.iand),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["conjunction"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-or_ = fr.schemas.LabeledRecipe(
+or_ = helper_models.LabeledRecipe(
     label="or_",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.or_),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["disjunction"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-ior = fr.schemas.LabeledRecipe(
+ior = helper_models.LabeledRecipe(
     label="ior",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ior),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["disjunction"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-xor = fr.schemas.LabeledRecipe(
+xor = helper_models.LabeledRecipe(
     label="xor",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.xor),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["exclusive_or"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-ixor = fr.schemas.LabeledRecipe(
+ixor = helper_models.LabeledRecipe(
     label="ixor",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ixor),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["exclusive_or"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-lshift = fr.schemas.LabeledRecipe(
+lshift = helper_models.LabeledRecipe(
     label="lshift",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.lshift),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["left_shifted"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-ilshift = fr.schemas.LabeledRecipe(
+ilshift = helper_models.LabeledRecipe(
     label="ilshift",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ilshift),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["left_shifted"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-rshift = fr.schemas.LabeledRecipe(
+rshift = helper_models.LabeledRecipe(
     label="rshift",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.rshift),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["right_shifted"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-irshift = fr.schemas.LabeledRecipe(
+irshift = helper_models.LabeledRecipe(
     label="irshift",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.irshift),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["right_shifted"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-matmul = fr.schemas.LabeledRecipe(
+matmul = helper_models.LabeledRecipe(
     label="matmul",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.matmul),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["matrix_product"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-imatmul = fr.schemas.LabeledRecipe(
+imatmul = helper_models.LabeledRecipe(
     label="imatmul",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.imatmul),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["matrix_product"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-eq = fr.schemas.LabeledRecipe(
+eq = helper_models.LabeledRecipe(
     label="eq",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.eq),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["equal"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-ne = fr.schemas.LabeledRecipe(
+ne = helper_models.LabeledRecipe(
     label="ne",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ne),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["not_equal"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-lt = fr.schemas.LabeledRecipe(
+lt = helper_models.LabeledRecipe(
     label="lt",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.lt),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["less"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-le = fr.schemas.LabeledRecipe(
+le = helper_models.LabeledRecipe(
     label="le",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.le),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["less_equal"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-gt = fr.schemas.LabeledRecipe(
+gt = helper_models.LabeledRecipe(
     label="gt",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.gt),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["greater"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-ge = fr.schemas.LabeledRecipe(
+ge = helper_models.LabeledRecipe(
     label="ge",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ge),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["greater_equal"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-is_ = fr.schemas.LabeledRecipe(
+is_ = helper_models.LabeledRecipe(
     label="is_",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.is_),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["identical"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-is_not = fr.schemas.LabeledRecipe(
+is_not = helper_models.LabeledRecipe(
     label="is_not",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.is_not),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["not_identical"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-contains = fr.schemas.LabeledRecipe(
+contains = helper_models.LabeledRecipe(
     label="contains",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.contains),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["contains"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-countOf = fr.schemas.LabeledRecipe(
+countOf = helper_models.LabeledRecipe(
     label="countOf",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.countOf),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["count"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-indexOf = fr.schemas.LabeledRecipe(
+indexOf = helper_models.LabeledRecipe(
     label="indexOf",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.indexOf),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["index"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-concat = fr.schemas.LabeledRecipe(
+concat = helper_models.LabeledRecipe(
     label="concat",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.concat),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["concatenated"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-iconcat = fr.schemas.LabeledRecipe(
+iconcat = helper_models.LabeledRecipe(
     label="iconcat",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.iconcat),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["concatenated"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-getitem = fr.schemas.LabeledRecipe(
+getitem = helper_models.LabeledRecipe(
     label="getitem",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.getitem),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["item"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-setitem = fr.schemas.LabeledRecipe(
+setitem = helper_models.LabeledRecipe(
     label="setitem",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.setitem),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "c": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "c": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b", "c"],
         outputs=["set"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
-delitem = fr.schemas.LabeledRecipe(
+delitem = helper_models.LabeledRecipe(
     label="delitem",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.delitem),
             restricted_input_kinds={
-                "a": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["a", "b"],
         outputs=["deleted"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
@@ -830,20 +831,20 @@ def _call_wrapper(
     return obj(*args_, **kwargs_)
 
 
-call = fr.schemas.LabeledRecipe(
+call = helper_models.LabeledRecipe(
     label="call",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(_call_wrapper),
             restricted_input_kinds={
-                "obj": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "args_": fr.schemas.RestrictedParamKind.KEYWORD_ONLY,
-                "kwargs_": fr.schemas.RestrictedParamKind.KEYWORD_ONLY,
+                "obj": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "args_": base_models.RestrictedParamKind.KEYWORD_ONLY,
+                "kwargs_": base_models.RestrictedParamKind.KEYWORD_ONLY,
             },
         ),
         inputs=["obj", "args_", "kwargs_"],
         outputs=["result"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
@@ -859,19 +860,19 @@ def _getattr_wrapper(
     return getattr(obj, name)
 
 
-getattr_ = fr.schemas.LabeledRecipe(
+getattr_ = helper_models.LabeledRecipe(
     label="getattr_",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(_getattr_wrapper),
             restricted_input_kinds={
-                "obj": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
-                "name": fr.schemas.RestrictedParamKind.POSITIONAL_ONLY,
+                "obj": base_models.RestrictedParamKind.POSITIONAL_ONLY,
+                "name": base_models.RestrictedParamKind.POSITIONAL_ONLY,
             },
         ),
         inputs=["obj", "name"],
         outputs=["attr"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
 
@@ -880,14 +881,14 @@ def _identity_function(x):
     return x
 
 
-identity = fr.schemas.LabeledRecipe(
+identity = helper_models.LabeledRecipe(
     label="identity",
-    node=fr.schemas.AtomicRecipe(
-        reference=fr.schemas.PythonReference(
+    node=atomic_recipe.AtomicRecipe(
+        reference=base_models.PythonReference(
             info=versions.VersionInfo.of(_identity_function),
         ),
         inputs=["x"],
         outputs=["x"],
-        unpack_mode=fr.schemas.UnpackMode.NONE,
+        unpack_mode=atomic_recipe.UnpackMode.NONE,
     ),
 )
