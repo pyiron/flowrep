@@ -55,7 +55,7 @@ def make_labeled_atomic(
 ) -> helper_models.LabeledRecipe:
     return helper_models.LabeledRecipe(
         label=label,
-        node=make_atomic(
+        recipe=make_atomic(
             inputs=inputs or [],
             outputs=outputs or [],
             module=module,

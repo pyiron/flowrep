@@ -41,10 +41,10 @@ def parse_case(
         )
 
     condition = atomic_parser.get_labeled_recipe(test, set(), scope, info_factory)
-    if len(condition.node.outputs) != 1:
+    if len(condition.recipe.outputs) != 1:
         raise ValueError(
             f"If/elif condition must return exactly one value (and it had better be "
-            f"truthy), but got {condition.node.outputs}"
+            f"truthy), but got {condition.recipe.outputs}"
         )
 
     scope_copy = symbol_map.fork()
@@ -69,7 +69,7 @@ def _relabel_node_data(
     new_label: str,
 ) -> tuple[helper_models.LabeledRecipe, edge_models.InputEdges]:
     relabeled_node = helper_models.LabeledRecipe(
-        label=new_label, node=labeled_node.node
+        label=new_label, recipe=labeled_node.recipe
     )
     relabeled_inputs: edge_models.InputEdges = {
         edge_models.TargetHandle(node=new_label, port=target.port): source
@@ -87,7 +87,7 @@ class WalkedBranch:
     def to_labeled_node(self) -> helper_models.LabeledRecipe:
         return helper_models.LabeledRecipe(
             label=self.label,
-            node=self.walker.build_model(),
+            recipe=self.walker.build_model(),
         )
 
 

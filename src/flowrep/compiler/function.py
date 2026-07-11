@@ -137,18 +137,18 @@ def _collect_loop_variables(
 ) -> None:
     if isinstance(node, for_recipe.ForEachRecipe):
         names.update(node.iterated_ports)
-        _collect_loop_variables_from_body(node.body_node.node, names)
+        _collect_loop_variables_from_body(node.body_node.recipe, names)
     elif isinstance(node, if_recipe.IfRecipe):
         for body_case in node.cases:
-            _collect_loop_variables_from_body(body_case.body.node, names)
+            _collect_loop_variables_from_body(body_case.body.recipe, names)
         if node.else_case is not None:
-            _collect_loop_variables_from_body(node.else_case.node, names)
+            _collect_loop_variables_from_body(node.else_case.recipe, names)
     elif isinstance(node, try_recipe.TryRecipe):
-        _collect_loop_variables_from_body(node.try_node.node, names)
+        _collect_loop_variables_from_body(node.try_node.recipe, names)
         for exception_case in node.exception_cases:
-            _collect_loop_variables_from_body(exception_case.body.node, names)
+            _collect_loop_variables_from_body(exception_case.body.recipe, names)
     elif isinstance(node, while_recipe.WhileRecipe):
-        _collect_loop_variables_from_body(node.case.body.node, names)
+        _collect_loop_variables_from_body(node.case.body.recipe, names)
     # atomic / referenced / reference-free workflow peer node: not inlined here
 
 

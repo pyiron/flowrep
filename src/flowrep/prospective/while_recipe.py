@@ -73,8 +73,8 @@ class WhileRecipe(base_models.NodeRecipe):
     @property
     def prospective_nodes(self) -> Recipes:
         return {
-            self.case.condition.label: self.case.condition.node,
-            self.case.body.label: self.case.body.node,
+            self.case.condition.label: self.case.condition.recipe,
+            self.case.body.label: self.case.body.recipe,
         }
 
     @property

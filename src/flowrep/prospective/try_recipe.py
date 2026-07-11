@@ -58,9 +58,9 @@ class TryRecipe(base_models.NodeRecipe):
 
     @property
     def prospective_nodes(self) -> Recipes:
-        nodes = {self.try_node.label: self.try_node.node}
+        nodes = {self.try_node.label: self.try_node.recipe}
         for case in self.exception_cases:
-            nodes[case.body.label] = case.body.node
+            nodes[case.body.label] = case.body.recipe
         return nodes
 
     @pydantic.model_validator(mode="after")

@@ -304,7 +304,7 @@ class TestWhileParserStructure(unittest.TestCase):
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        self.assertIsInstance(wn.case.body.node, workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(wn.case.body.recipe, workflow_recipe.WorkflowRecipe)
 
     def test_outputs_subset_of_inputs(self):
         def wf(x, step, bound):
@@ -384,7 +384,7 @@ class TestWhileParserStructure(unittest.TestCase):
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        body = wn.case.body.node
+        body = wn.case.body.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         for_nodes = [
             n for n in body.nodes.values() if isinstance(n, for_recipe.ForEachRecipe)
@@ -405,7 +405,7 @@ class TestWhileParserStructure(unittest.TestCase):
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        body = wn.case.body.node
+        body = wn.case.body.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         if_nodes = [n for n in body.nodes.values() if isinstance(n, if_recipe.IfRecipe)]
         self.assertEqual(len(if_nodes), 1)
@@ -424,7 +424,7 @@ class TestWhileParserStructure(unittest.TestCase):
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        body = wn.case.body.node
+        body = wn.case.body.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         try_nodes = [
             n for n in body.nodes.values() if isinstance(n, try_recipe.TryRecipe)
@@ -483,7 +483,7 @@ class TestWhileParserVersionPropagation(unittest.TestCase):
             wf, version_scraping={self._pkg(): lambda _: custom}
         )
         while_node = node.nodes["while_0"]
-        body = while_node.case.body.node
+        body = while_node.case.body.recipe
         child = body.nodes["undecorated_identity_0"]
         self.assertEqual(child.reference.info.version, custom)
 
@@ -503,10 +503,10 @@ class TestWhileParserVersionPropagation(unittest.TestCase):
         )
         while_node = node.nodes["while_0"]
         # condition is pre-decorated → keeps its own version
-        condition_node = while_node.case.condition.node
+        condition_node = while_node.case.condition.recipe
         self.assertNotEqual(condition_node.reference.info.version, custom)
         # body child is undecorated → picks up custom version
-        body_child = while_node.case.body.node.nodes["undecorated_identity_0"]
+        body_child = while_node.case.body.recipe.nodes["undecorated_identity_0"]
         self.assertEqual(body_child.reference.info.version, custom)
 
     def test_version_constraints_propagate_to_condition(self):

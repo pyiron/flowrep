@@ -46,7 +46,7 @@ def _make_output_edges(cases, else_case=None):
     if else_case is not None:
         sources.append(
             edge_models.SourceHandle(
-                node=else_case.label, port=else_case.node.outputs[0]
+                node=else_case.label, port=else_case.recipe.outputs[0]
             )
         )
     return {edge_models.OutputTarget(port="out"): sources}
@@ -170,7 +170,7 @@ class TestIfRecipeCasesValidation(unittest.TestCase):
         cases = [
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
-                    label="workflow_condition", node=workflow_condition
+                    label="workflow_condition", recipe=workflow_condition
                 ),
                 body=makers.make_labeled_with_defaults("body"),
             )
@@ -184,7 +184,7 @@ class TestIfRecipeCasesValidation(unittest.TestCase):
             prospective_output_edges=_make_output_edges(cases),
         )
         self.assertIsInstance(
-            node.cases[0].condition.node, workflow_recipe.WorkflowRecipe
+            node.cases[0].condition.recipe, workflow_recipe.WorkflowRecipe
         )
 
 
@@ -390,14 +390,14 @@ class TestIfRecipeFullySourcing(unittest.TestCase):
                 ]
             },
         )
-        self.assertIn("extra", node.cases[0].body.node.inputs)
+        self.assertIn("extra", node.cases[0].body.recipe.inputs)
 
     def test_mixed_across_cases_unsourced_else_raises(self):
         """Condition edged, body defaulted, else unsourced → fails on else."""
         cases = _make_conditional_cases(1)
         else_case = helper_models.LabeledRecipe(
             label="else_body",
-            node=atomic_recipe.AtomicRecipe(
+            recipe=atomic_recipe.AtomicRecipe(
                 reference=makers.make_reference(qualname="handle"),  # no defaults
                 inputs=["x", "z"],
                 outputs=["y"],
@@ -693,9 +693,9 @@ class TestIfRecipeSerialization(unittest.TestCase):
         cases = [
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
-                    label="condition", node=condition
+                    label="condition", recipe=condition
                 ),
-                body=helper_models.LabeledRecipe(label="body", node=body),
+                body=helper_models.LabeledRecipe(label="body", recipe=body),
                 condition_output="a",
             )
         ]

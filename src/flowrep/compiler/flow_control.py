@@ -106,7 +106,7 @@ def _emit_for_each(
     lines = [f"{out_syms[port]} = []" for port in node.outputs]
 
     body_label = node.body_node.label
-    body = node.body_node.node
+    body = node.body_node.recipe
 
     def collection_symbol(body_port: str) -> str:
         """Return the enclosing-scope symbol that feeds a body port."""
@@ -178,7 +178,7 @@ def _render_condition(
     alloc: function.NameAllocator,
 ) -> str:
     """Render a condition call as an inline expression (no assignment)."""
-    cond_node = case_condition.node
+    cond_node = case_condition.recipe
     cond_label = case_condition.label
     call_path = statements.node_call_path(cond_node, cond_label, emitter, alloc)
     if call_path is None:
@@ -244,7 +244,7 @@ def _emit_if(
         lines.append(f"{keyword} {cond_expr}:")
         body = _emit_branch(
             case.body.label,
-            case.body.node,
+            case.body.recipe,
             node,
             in_resolver,
             out_syms,
@@ -256,7 +256,7 @@ def _emit_if(
         lines.append("else:")
         body = _emit_branch(
             node.else_case.label,
-            node.else_case.node,
+            node.else_case.recipe,
             node,
             in_resolver,
             out_syms,
@@ -290,7 +290,7 @@ def _emit_try(
     # try body
     try_lines = _emit_branch(
         node.try_node.label,
-        node.try_node.node,
+        node.try_node.recipe,
         node,
         in_resolver,
         out_syms,
@@ -309,7 +309,7 @@ def _emit_try(
         lines.append(header)
         body = _emit_branch(
             case.body.label,
-            case.body.node,
+            case.body.recipe,
             node,
             in_resolver,
             out_syms,
@@ -332,7 +332,7 @@ def _emit_while(
     cond_expr = _render_condition(case.condition, node, in_resolver, emitter, alloc)
 
     body_label = case.body.label
-    body = case.body.node
+    body = case.body.recipe
 
     # Map body inputs to enclosing-scope symbols (unwired defaults are omitted).
     body_in_syms: dict[str, str] = {}

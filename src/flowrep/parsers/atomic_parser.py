@@ -344,7 +344,7 @@ def get_labeled_recipe(
                 require_version=info_factory.require_version,
             )
     label = label_helpers.unique_suffix(label_prefix, existing_names)
-    return helper_models.LabeledRecipe(label=label, node=child_recipe)
+    return helper_models.LabeledRecipe(label=label, recipe=child_recipe)
 
 
 def _infer_node_name(node: base_models.NodeRecipe, ast_call: ast.expr) -> str:

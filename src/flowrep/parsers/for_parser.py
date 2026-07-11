@@ -62,7 +62,7 @@ def parse_for_node(
     outputs, output_edges = _wire_outputs(body_walker, input_edges)
 
     body_node = helper_models.LabeledRecipe(
-        label=FOR_BODY_LABEL, node=body_walker.build_model()
+        label=FOR_BODY_LABEL, recipe=body_walker.build_model()
     )
 
     return for_recipe.ForEachRecipe(

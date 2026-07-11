@@ -387,7 +387,7 @@ class TestForEachRecipeFullySourcing(unittest.TestCase):
             },
             nested_ports=["x"],
         )
-        self.assertIn("extra", node.body_node.node.inputs)
+        self.assertIn("extra", node.body_node.recipe.inputs)
 
     def test_body_mixed_sourcing_one_unsourced_raises(self):
         """Multiple body inputs: edged, defaulted, and unsourced → fails."""
@@ -656,7 +656,7 @@ class TestForEachRecipeComposition(unittest.TestCase):
             outputs=["results"],
             body_node=helper_models.LabeledRecipe(
                 label="body",
-                node=inner_workflow,
+                recipe=inner_workflow,
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -670,7 +670,7 @@ class TestForEachRecipeComposition(unittest.TestCase):
             },
             nested_ports=["x"],
         )
-        self.assertIsInstance(for_node.body_node.node, workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(for_node.body_node.recipe, workflow_recipe.WorkflowRecipe)
 
     def test_for_node_as_workflow_child(self):
         for_node = for_recipe.ForEachRecipe(

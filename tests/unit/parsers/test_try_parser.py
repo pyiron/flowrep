@@ -369,9 +369,9 @@ class TestTryParserStructure(unittest.TestCase):
             return z
 
         tn = self._parse(wf).nodes["try_0"]
-        self.assertIsInstance(tn.try_node.node, workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(tn.try_node.recipe, workflow_recipe.WorkflowRecipe)
         self.assertIsInstance(
-            tn.exception_cases[0].body.node, workflow_recipe.WorkflowRecipe
+            tn.exception_cases[0].body.recipe, workflow_recipe.WorkflowRecipe
         )
 
     def test_exception_types_resolved(self):
@@ -508,7 +508,7 @@ class TestTryParserStructure(unittest.TestCase):
             return z
 
         tn = self._parse(wf).nodes["try_0"]
-        body = tn.try_node.node
+        body = tn.try_node.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         for_nodes = [
             n for n in body.nodes.values() if isinstance(n, for_recipe.ForEachRecipe)
@@ -528,7 +528,7 @@ class TestTryParserStructure(unittest.TestCase):
             return z
 
         tn = self._parse(wf).nodes["try_0"]
-        body = tn.try_node.node
+        body = tn.try_node.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         while_nodes = [
             n for n in body.nodes.values() if isinstance(n, while_recipe.WhileRecipe)
@@ -549,7 +549,7 @@ class TestTryParserStructure(unittest.TestCase):
             return z
 
         tn = self._parse(wf).nodes["try_0"]
-        body = tn.try_node.node
+        body = tn.try_node.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         if_nodes = [n for n in body.nodes.values() if isinstance(n, if_recipe.IfRecipe)]
         self.assertEqual(len(if_nodes), 1)
@@ -568,7 +568,7 @@ class TestTryParserStructure(unittest.TestCase):
             return z
 
         tn = self._parse(wf).nodes["try_0"]
-        body = tn.try_node.node
+        body = tn.try_node.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         inner_try_nodes = [
             n for n in body.nodes.values() if isinstance(n, try_recipe.TryRecipe)
@@ -591,7 +591,7 @@ class TestTryParserStructure(unittest.TestCase):
             return z
 
         tn = self._parse(wf).nodes["try_0"]
-        except_body = tn.exception_cases[0].body.node
+        except_body = tn.exception_cases[0].body.recipe
         self.assertIsInstance(except_body, workflow_recipe.WorkflowRecipe)
         for_nodes = [
             n
@@ -614,7 +614,7 @@ class TestTryParserStructure(unittest.TestCase):
             return z
 
         tn = self._parse(wf).nodes["try_0"]
-        except_body = tn.exception_cases[0].body.node
+        except_body = tn.exception_cases[0].body.recipe
         self.assertIsInstance(except_body, workflow_recipe.WorkflowRecipe)
         while_nodes = [
             n
@@ -638,7 +638,7 @@ class TestTryParserStructure(unittest.TestCase):
             return z
 
         tn = self._parse(wf).nodes["try_0"]
-        except_body = tn.exception_cases[0].body.node
+        except_body = tn.exception_cases[0].body.recipe
         self.assertIsInstance(except_body, workflow_recipe.WorkflowRecipe)
         if_nodes = [
             n for n in except_body.nodes.values() if isinstance(n, if_recipe.IfRecipe)
@@ -761,7 +761,7 @@ class TestTryParserVersionPropagation(unittest.TestCase):
             wf, version_scraping={self._pkg(): lambda _: custom}
         )
         try_node = node.nodes["try_0"]
-        body = try_node.try_node.node
+        body = try_node.try_node.recipe
         child = body.nodes["undecorated_identity_0"]
         self.assertEqual(child.reference.info.version, custom)
 
@@ -780,7 +780,7 @@ class TestTryParserVersionPropagation(unittest.TestCase):
             wf, version_scraping={self._pkg(): lambda _: custom}
         )
         try_node = node.nodes["try_0"]
-        except_body = try_node.exception_cases[0].body.node
+        except_body = try_node.exception_cases[0].body.recipe
         child = except_body.nodes["undecorated_identity_0"]
         self.assertEqual(child.reference.info.version, custom)
 
@@ -800,10 +800,10 @@ class TestTryParserVersionPropagation(unittest.TestCase):
         )
         try_node = node.nodes["try_0"]
         # Pre-decorated child in try body keeps its own version
-        try_child = try_node.try_node.node.nodes["identity_0"]
+        try_child = try_node.try_node.recipe.nodes["identity_0"]
         self.assertNotEqual(try_child.reference.info.version, custom)
         # Undecorated child in except body picks up custom version
-        except_child = try_node.exception_cases[0].body.node.nodes[
+        except_child = try_node.exception_cases[0].body.recipe.nodes[
             "undecorated_identity_0"
         ]
         self.assertEqual(except_child.reference.info.version, custom)

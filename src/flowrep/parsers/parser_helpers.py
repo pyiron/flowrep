@@ -194,7 +194,7 @@ def consume_call_arguments(
         constant_parser.inject_constant(nodes, scope, value, child.label, consumer_port)
 
     for i, arg in enumerate(ast_call.args):
-        _consume(arg, child.node.inputs[i])
+        _consume(arg, child.recipe.inputs[i])
     for kw in ast_call.keywords:
         if not isinstance(kw.arg, str):  # pragma: no cover
             raise TypeError(

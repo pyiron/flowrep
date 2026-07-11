@@ -52,7 +52,7 @@ workflow_condition_recipe = workflow_recipe.WorkflowRecipe(
                 helper_models.ConditionalCase(
                     condition=helper_models.LabeledRecipe(
                         label="condition",
-                        node=workflow_recipe.WorkflowRecipe(
+                        recipe=workflow_recipe.WorkflowRecipe(
                             inputs=["inp"],
                             outputs=["out"],
                             nodes={},
@@ -67,13 +67,13 @@ workflow_condition_recipe = workflow_recipe.WorkflowRecipe(
                     ),
                     body=helper_models.LabeledRecipe(
                         label="if_case",
-                        node=library.increment.flowrep_recipe,
+                        recipe=library.increment.flowrep_recipe,
                     ),
                 ),
             ],
             else_case=helper_models.LabeledRecipe(
                 label="else_case",
-                node=library.decrement.flowrep_recipe,
+                recipe=library.decrement.flowrep_recipe,
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -121,7 +121,7 @@ workflow_while_recipe = workflow_recipe.WorkflowRecipe(
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="condition",
-                    node=workflow_recipe.WorkflowRecipe(
+                    recipe=workflow_recipe.WorkflowRecipe(
                         inputs=["inp"],
                         outputs=["out"],
                         nodes={},
@@ -136,7 +136,7 @@ workflow_while_recipe = workflow_recipe.WorkflowRecipe(
                 ),
                 body=helper_models.LabeledRecipe(
                     label="while_body",
-                    node=library.decrement.flowrep_recipe,
+                    recipe=library.decrement.flowrep_recipe,
                 ),
             ),
             input_edges={
@@ -179,14 +179,14 @@ workflow_try_recipe = workflow_recipe.WorkflowRecipe(
             outputs=["z"],
             try_node=helper_models.LabeledRecipe(
                 label="try_body",
-                node=library.divide.flowrep_recipe,
+                recipe=library.divide.flowrep_recipe,
             ),
             exception_cases=[
                 helper_models.ExceptionCase(
                     exceptions=[versions.VersionInfo.of(ZeroDivisionError)],
                     body=helper_models.LabeledRecipe(
                         label="except_body",
-                        node=library.identity.flowrep_recipe,
+                        recipe=library.identity.flowrep_recipe,
                     ),
                 )
             ],
@@ -237,7 +237,7 @@ workflow_for_each_recipe = workflow_recipe.WorkflowRecipe(
             outputs=["ys"],
             body_node=helper_models.LabeledRecipe(
                 label="for_body",
-                node=library.increment.flowrep_recipe,
+                recipe=library.increment.flowrep_recipe,
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -275,7 +275,7 @@ def _for_each_increment(label_body: str):
         inputs=["xs"],
         outputs=["ys"],
         body_node=helper_models.LabeledRecipe(
-            label=label_body, node=library.increment.flowrep_recipe
+            label=label_body, recipe=library.increment.flowrep_recipe
         ),
         input_edges={
             edge_models.TargetHandle(
@@ -303,16 +303,16 @@ if_flow_control_condition_recipe = workflow_recipe.WorkflowRecipe(
             cases=[
                 helper_models.ConditionalCase(
                     condition=helper_models.LabeledRecipe(
-                        label="flowcond", node=_for_each_increment("c_body")
+                        label="flowcond", recipe=_for_each_increment("c_body")
                     ),
                     condition_output="ys",
                     body=helper_models.LabeledRecipe(
-                        label="cbranch", node=_for_each_increment("inc_body")
+                        label="cbranch", recipe=_for_each_increment("inc_body")
                     ),
                 )
             ],
             else_case=helper_models.LabeledRecipe(
-                label="cebranch", node=_for_each_increment("dec_body")
+                label="cebranch", recipe=_for_each_increment("dec_body")
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -357,11 +357,11 @@ while_flow_control_condition_recipe = workflow_recipe.WorkflowRecipe(
             outputs=["xs"],
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
-                    label="wcond", node=_for_each_increment("wc_body")
+                    label="wcond", recipe=_for_each_increment("wc_body")
                 ),
                 condition_output="ys",
                 body=helper_models.LabeledRecipe(
-                    label="wbody", node=_for_each_increment("wb_body")
+                    label="wbody", recipe=_for_each_increment("wb_body")
                 ),
             ),
             input_edges={
@@ -401,7 +401,7 @@ def _for_each(label_body: str, node):
     return for_recipe.ForEachRecipe(
         inputs=["xs"],
         outputs=["ys"],
-        body_node=helper_models.LabeledRecipe(label=label_body, node=node),
+        body_node=helper_models.LabeledRecipe(label=label_body, recipe=node),
         input_edges={
             edge_models.TargetHandle(
                 node=label_body, port="x"
@@ -426,17 +426,17 @@ if_branch_is_for_each_recipe = workflow_recipe.WorkflowRecipe(
             cases=[
                 helper_models.ConditionalCase(
                     condition=helper_models.LabeledRecipe(
-                        label="cond", node=library.is_positive.flowrep_recipe
+                        label="cond", recipe=library.is_positive.flowrep_recipe
                     ),
                     body=helper_models.LabeledRecipe(
                         label="if_branch",
-                        node=_for_each("inc_body", library.increment.flowrep_recipe),
+                        recipe=_for_each("inc_body", library.increment.flowrep_recipe),
                     ),
                 )
             ],
             else_case=helper_models.LabeledRecipe(
                 label="else_branch",
-                node=_for_each("dec_body", library.decrement.flowrep_recipe),
+                recipe=_for_each("dec_body", library.decrement.flowrep_recipe),
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -482,15 +482,15 @@ _inner_if_recipe = if_recipe.IfRecipe(
     cases=[
         helper_models.ConditionalCase(
             condition=helper_models.LabeledRecipe(
-                label="icond", node=library.is_positive.flowrep_recipe
+                label="icond", recipe=library.is_positive.flowrep_recipe
             ),
             body=helper_models.LabeledRecipe(
-                label="ibranch", node=library.increment.flowrep_recipe
+                label="ibranch", recipe=library.increment.flowrep_recipe
             ),
         )
     ],
     else_case=helper_models.LabeledRecipe(
-        label="ebranch", node=library.decrement.flowrep_recipe
+        label="ebranch", recipe=library.decrement.flowrep_recipe
     ),
     input_edges={
         edge_models.TargetHandle(node="icond", port="n"): edge_models.InputSource(
@@ -520,7 +520,7 @@ for_body_is_if_recipe = workflow_recipe.WorkflowRecipe(
             inputs=["xs"],
             outputs=["ys"],
             body_node=helper_models.LabeledRecipe(
-                label="inner_if", node=_inner_if_recipe
+                label="inner_if", recipe=_inner_if_recipe
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -2165,10 +2165,10 @@ class TestConstantMaterialize(unittest.TestCase):
             cases=[
                 helper_models.ConditionalCase(
                     condition=helper_models.LabeledRecipe(
-                        label="cond", node=library.is_positive.flowrep_recipe
+                        label="cond", recipe=library.is_positive.flowrep_recipe
                     ),
                     body=helper_models.LabeledRecipe(
-                        label="body", node=constant_recipe.ConstantRecipe(constant=42)
+                        label="body", recipe=constant_recipe.ConstantRecipe(constant=42)
                     ),
                 )
             ],
@@ -2180,7 +2180,7 @@ class TestConstantMaterialize(unittest.TestCase):
                 ]
             },
             else_case=helper_models.LabeledRecipe(
-                label="else_body", node=constant_recipe.ConstantRecipe(constant=-1)
+                label="else_body", recipe=constant_recipe.ConstantRecipe(constant=-1)
             ),
         )
         wf = workflow_recipe.WorkflowRecipe(

@@ -32,7 +32,7 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["z"],
                 "try_node": {
                     "label": "try_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
@@ -49,7 +49,7 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
@@ -115,7 +115,7 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["z"],
                 "try_node": {
                     "label": "try_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
@@ -132,7 +132,7 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
@@ -152,7 +152,7 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "exceptions": [_TYPE_ERROR_INFO],
                         "body": {
                             "label": "except_body_1",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x"],
                                 "outputs": ["z"],
@@ -221,7 +221,7 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["y"],
                 "try_node": {
                     "label": "try_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "b"],
                         "outputs": ["y"],
@@ -238,7 +238,7 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "b"],
                                 "outputs": ["y"],
@@ -308,7 +308,7 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["a", "b"],
                 "try_node": {
                     "label": "try_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "y"],
                         "outputs": ["a", "b"],
@@ -334,7 +334,7 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["a", "b"],
@@ -405,7 +405,7 @@ tuple_exc_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["z"],
                 "try_node": {
                     "label": "try_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
@@ -425,7 +425,7 @@ tuple_exc_node = workflow_recipe.WorkflowRecipe.model_validate(
                         ],
                         "body": {
                             "label": "except_body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
