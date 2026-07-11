@@ -874,3 +874,20 @@ getattr_ = fr.schemas.LabeledRecipe(
         unpack_mode=fr.schemas.UnpackMode.NONE,
     ),
 )
+
+
+def _identity_function(x):
+    return x
+
+
+identity = fr.schemas.LabeledRecipe(
+    label="identity",
+    node=fr.schemas.AtomicRecipe(
+        reference=fr.schemas.PythonReference(
+            info=versions.VersionInfo.of(_identity_function),
+        ),
+        inputs=["x"],
+        outputs=["x"],
+        unpack_mode=fr.schemas.UnpackMode.NONE,
+    ),
+)

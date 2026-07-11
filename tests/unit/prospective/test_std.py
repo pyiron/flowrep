@@ -300,6 +300,33 @@ class TestStdExecution(unittest.TestCase):
         ):
             wfms.run_recipe(std.getattr_.node, obj=_HasAttrs(), name="not_here")
 
+    def test_identity(self):
+        with self.subTest("value"):
+            out = wfms.run_recipe(std.identity.node, x=42)
+            self.assertEqual(42, out.output_ports["x"].value)
+
+        with self.subTest("none"):
+            out = wfms.run_recipe(std.identity.node, x=None)
+            self.assertIsNone(out.output_ports["x"].value)
+
+        with self.subTest("tuples are delivered whole"):
+            out = wfms.run_recipe(std.identity.node, x=(1, 2))
+            self.assertEqual(
+                (1, 2),
+                out.output_ports["x"].value,
+                msg="A tuple input should land in the single output port intact, "
+                "rather than being unpacked across ports",
+            )
+
+        with self.subTest("passthrough is not a copy"):
+            obj = _HasAttrs()
+            out = wfms.run_recipe(std.identity.node, x=obj)
+            self.assertIs(
+                obj,
+                out.output_ports["x"].value,
+                msg="Identity should pass the very same object through",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
