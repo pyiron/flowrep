@@ -55,19 +55,20 @@ def atomic(
         The original function with a ``flowrep_recipe`` attribute holding an
         :class:`~flowrep.models.nodes.atomic_recipe.AtomicRecipe`.
     """
-    return parser_helpers.parser2decorator(
-        func,
-        output_labels,
-        parser=parse_atomic,
-        decorator_name="@atomic",
-        parser_kwargs={
-            "unpack_mode": unpack_mode,
-            "version_scraping": version_scraping,
-            "forbid_main": forbid_main,
-            "forbid_locals": forbid_locals,
-            "require_version": require_version,
-        },
-    )
+
+    def wrap(f: FunctionType, labels: tuple[str, ...]) -> FunctionType:
+        f.flowrep_recipe = parse_atomic(  # type: ignore[attr-defined]
+            f,
+            *labels,
+            unpack_mode=unpack_mode,
+            version_scraping=version_scraping,
+            forbid_main=forbid_main,
+            forbid_locals=forbid_locals,
+            require_version=require_version,
+        )
+        return f
+
+    return parser_helpers.apply_label_decorator(func, output_labels, wrap, "@atomic")
 
 
 def parse_atomic(

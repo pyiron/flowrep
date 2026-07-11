@@ -69,18 +69,19 @@ def workflow(
         The original function with a ``flowrep_recipe`` attribute holding a
         :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe`.
     """
-    return parser_helpers.parser2decorator(
-        func,
-        output_labels,
-        parser=parse_workflow,
-        decorator_name="@workflow",
-        parser_kwargs={
-            "version_scraping": version_scraping,
-            "forbid_main": forbid_main,
-            "forbid_locals": forbid_locals,
-            "require_version": require_version,
-        },
-    )
+
+    def wrap(f: FunctionType, labels: tuple[str, ...]) -> FunctionType:
+        f.flowrep_recipe = parse_workflow(  # type: ignore[attr-defined]
+            f,
+            *labels,
+            version_scraping=version_scraping,
+            forbid_main=forbid_main,
+            forbid_locals=forbid_locals,
+            require_version=require_version,
+        )
+        return f
+
+    return parser_helpers.apply_label_decorator(func, output_labels, wrap, "@workflow")
 
 
 def parse_workflow(
