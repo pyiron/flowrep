@@ -13,7 +13,7 @@ from flowrep.parsers import (
     parser_protocol,
     symbol_scope,
 )
-from flowrep.prospective import helper_models
+from flowrep.prospective import constant_recipe, helper_models, union_types
 
 
 def parse_case(
@@ -22,7 +22,13 @@ def parse_case(
     symbol_map: symbol_scope.SymbolScope,
     info_factory: versions.VersionInfoFactory,
     label: str,
-) -> tuple[helper_models.LabeledRecipe, edge_models.InputEdges]:
+    nodes: union_types.Recipes,
+    reserved_ports: set[str] | None = None,
+) -> tuple[
+    helper_models.LabeledRecipe,
+    edge_models.InputEdges,
+    dict[str, constant_recipe.ConstantRecipe],
+]:
     """
     Parse a conditional expression.
 
@@ -42,8 +48,19 @@ def parse_case(
         )
 
     scope_copy = symbol_map.fork()
-    parser_helpers.consume_call_arguments(scope_copy, test, condition)
-    return _relabel_node_data(condition, scope_copy.input_edges, label)
+    condition_bindings: dict[str, constant_recipe.ConstantRecipe] = {}
+    parser_helpers.consume_call_arguments(
+        scope_copy,
+        test,
+        condition,
+        nodes,
+        condition_bindings=condition_bindings,
+        reserved_ports=reserved_ports,
+    )
+    relabeled_node, relabeled_inputs = _relabel_node_data(
+        condition, scope_copy.input_edges, label
+    )
+    return relabeled_node, relabeled_inputs, condition_bindings
 
 
 def _relabel_node_data(

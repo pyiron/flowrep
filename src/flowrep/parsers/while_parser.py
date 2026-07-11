@@ -5,7 +5,7 @@ from ast import While
 
 from flowrep import edge_models
 from flowrep.parsers import case_helpers, parser_protocol
-from flowrep.prospective import helper_models, while_recipe
+from flowrep.prospective import constant_recipe, helper_models, while_recipe
 
 WHILE_CONDITION_LABEL: str = "condition"
 WHILE_BODY_LABEL: str = "body"
@@ -13,7 +13,7 @@ WHILE_BODY_LABEL: str = "body"
 
 def parse_while_node(
     walker: parser_protocol.BodyWalker, tree: ast.While
-) -> while_recipe.WhileRecipe:
+) -> tuple[while_recipe.WhileRecipe, dict[str, constant_recipe.ConstantRecipe]]:
     """
     Walk a while-loop.
 
@@ -24,12 +24,13 @@ def parse_while_node(
     _validate_syntax_is_supported(tree)
 
     # Parse the loop condition — pure AST, no parser state needed
-    labeled_condition, condition_inputs = case_helpers.parse_case(
+    labeled_condition, condition_inputs, condition_bindings = case_helpers.parse_case(
         tree.test,
         walker.scope,
         walker.symbol_map,
         walker.info_factory,
         WHILE_CONDITION_LABEL,
+        walker.nodes,
     )
 
     body_walker = walker.fork(
@@ -54,12 +55,15 @@ def parse_while_node(
         ),
     )
 
-    return while_recipe.WhileRecipe(
-        inputs=inputs,
-        outputs=outputs,
-        case=case,
-        input_edges=input_edges,
-        output_edges=output_edges,
+    return (
+        while_recipe.WhileRecipe(
+            inputs=inputs,
+            outputs=outputs,
+            case=case,
+            input_edges=input_edges,
+            output_edges=output_edges,
+        ),
+        condition_bindings,
     )
 
 

@@ -12,6 +12,7 @@ from pyiron_snippets import versions
 from flowrep import base_models, edge_models
 from flowrep.parsers import (
     atomic_parser,
+    constant_parser,
     for_parser,
     if_parser,
     label_helpers,
@@ -22,7 +23,12 @@ from flowrep.parsers import (
     try_parser,
     while_parser,
 )
-from flowrep.prospective import helper_models, union_types, workflow_recipe
+from flowrep.prospective import (
+    constant_recipe,
+    helper_models,
+    union_types,
+    workflow_recipe,
+)
 
 
 def workflow(
@@ -266,7 +272,9 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                 self.info_factory,
             )
             self.nodes[child.label] = child.node
-            parser_helpers.consume_call_arguments(self.symbol_map, rhs, child)
+            parser_helpers.consume_call_arguments(
+                self.symbol_map, rhs, child, self.nodes
+            )
             self.symbol_map.register(new_symbols, child)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
             if len(new_symbols) != 1:
@@ -275,6 +283,23 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                     f"got {new_symbols}"
                 )
             self.symbol_map.register_accumulator(new_symbols[0])
+        elif rhs is not None and (parsed := constant_parser.try_parse_constant(rhs))[0]:
+            if len(new_symbols) != 1:
+                raise ValueError(
+                    f"Literal constant assignment must target exactly one symbol, "
+                    f"got {new_symbols}"
+                )
+            value = parsed[1]
+            label = label_helpers.unique_suffix(
+                constant_recipe.ConstantRecipe.std_label, self.nodes
+            )
+            node: constant_recipe.ConstantRecipe = constant_parser.make_constant(
+                value, f"Assignment to '{new_symbols[0]}'"
+            )
+            self.nodes[label] = node
+            self.symbol_map.register(
+                new_symbols, helper_models.LabeledRecipe(label=label, node=node)
+            )
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
@@ -283,17 +308,34 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             )
 
     def _digest_flow_control(
-        self, label_prefix: str, node: union_types.RecipeDiscrimination
+        self,
+        label_prefix: str,
+        node: union_types.RecipeDiscrimination,
+        condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
     ) -> None:
         label = label_helpers.unique_suffix(label_prefix, self.nodes)
         self.nodes[label] = node
-        self._connect_node_to_enclosing_scope(label, node)
+        self._connect_node_to_enclosing_scope(label, node, condition_bindings)
 
     def _connect_node_to_enclosing_scope(
-        self, label: str, node: union_types.RecipeDiscrimination
+        self,
+        label: str,
+        node: union_types.RecipeDiscrimination,
+        condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
     ):
+        bindings = condition_bindings or {}
         for port in node.inputs:
-            self.symbol_map.consume(port, label, port)
+            if port in bindings:
+                constant_label = constant_recipe.ConstantRecipe.std_label
+                peer_label = label_helpers.unique_suffix(constant_label, self.nodes)
+                self.nodes[peer_label] = bindings[port]
+                self.symbol_map.consume_source(
+                    edge_models.SourceHandle(node=peer_label, port=constant_label),
+                    label,
+                    port,
+                )
+            else:
+                self.symbol_map.consume(port, label, port)
 
         labeled_node = helper_models.LabeledRecipe(label=label, node=node)
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
@@ -305,12 +347,12 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self._digest_flow_control("for_each", for_recipe)
 
     def visit_While(self, tree: ast.While) -> None:
-        while_recipe = while_parser.parse_while_node(self, tree)
-        self._digest_flow_control("while", while_recipe)
+        while_recipe, condition_bindings = while_parser.parse_while_node(self, tree)
+        self._digest_flow_control("while", while_recipe, condition_bindings)
 
     def visit_If(self, tree: ast.If) -> None:
-        if_recipe = if_parser.parse_if_node(self, tree)
-        self._digest_flow_control("if", if_recipe)
+        if_recipe, condition_bindings = if_parser.parse_if_node(self, tree)
+        self._digest_flow_control("if", if_recipe, condition_bindings)
 
     def visit_Try(self, tree: ast.Try) -> None:
         try_recipe = try_parser.parse_try_node(self, tree)

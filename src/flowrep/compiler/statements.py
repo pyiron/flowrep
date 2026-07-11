@@ -10,6 +10,7 @@ from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.compiler import flow_control, function
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     union_types,
     workflow_recipe,
 )
@@ -192,9 +193,25 @@ def emit_workflow_body(
     produced: dict[tuple[str, str], str] = {}
     lines: list[str] = []
 
+    # Constants feeding a workflow output cannot be inlined (a bare `return <literal>`
+    # is not re-parseable), so they are materialized as `sym = repr(value)` below and
+    # resolved to that symbol everywhere.
+    materialized_constants = {
+        src.node
+        for src in recipe.output_edges.values()
+        if isinstance(src, edge_models.SourceHandle)
+        and isinstance(recipe.nodes.get(src.node), constant_recipe.ConstantRecipe)
+    }
+
     def resolve(source) -> str:
         if isinstance(source, edge_models.InputSource):
             return in_syms[source.port]
+        source_node = recipe.nodes[source.node]
+        if (
+            isinstance(source_node, constant_recipe.ConstantRecipe)
+            and source.node not in materialized_constants
+        ):
+            return repr(source_node.constant)
         return produced[(source.node, source.port)]
 
     # Map (node, port) -> required symbol name for outputs the parent pins.
@@ -214,7 +231,13 @@ def emit_workflow_body(
 
     # Flow-control nodes derive their input port names from the enclosing symbols
     # feeding them, so each such source must be named after the port for the port
-    # names (and while-loop reassignments) to round-trip.
+    # names (and while-loop reassignments) to round-trip. A constant peer feeding a
+    # flow-control input is normal now (a literal condition argument injects
+    # a constant peer routed through a synthetic flow-control input port). Such a
+    # peer is never also a workflow-output source, so its required_by_handle entry
+    # stays inert and it is inlined in the topo loop below -- which is why the
+    # conflict branch immediately below remains unreachable in parser-produced
+    # recipes.
     for handle, name in _flow_control_input_requirements(recipe).items():
         if (  # pragma: no cover - twin of the output-edge guard above; only a
             # hand-built recipe (one a parser never emits) can name a source for
@@ -231,6 +254,16 @@ def emit_workflow_body(
 
     for label in _topological_nodes(recipe):
         node = recipe.nodes[label]
+        if isinstance(node, constant_recipe.ConstantRecipe):
+            if label not in materialized_constants:
+                continue  # inline at the consumer call site via `resolve`
+            constant_label = constant_recipe.ConstantRecipe.std_label
+            name = required_by_handle.get((label, constant_label)) or alloc.fresh(
+                _output_name_suggestion(label, constant_label, 1)
+            )
+            produced[(label, constant_label)] = name
+            lines.append(f"{name} = {repr(node.constant)}")
+            continue
 
         call_path = node_call_path(node, label, emitter, alloc)
         if call_path is not None:
@@ -282,6 +315,12 @@ def emit_body(
         return flow_control.emit_flow_control_body(
             recipe, label, in_syms, required, emitter, alloc
         )
+    if isinstance(recipe, constant_recipe.ConstantRecipe):
+        constant_label = constant_recipe.ConstantRecipe.std_label
+        name = required.get(constant_label) or alloc.fresh(
+            _output_name_suggestion(label, constant_label, 1)
+        )
+        return [f"{name} = {repr(recipe.constant)}"], {constant_label: name}
     return _emit_single_node_body(recipe, label, in_syms, required, alloc, emitter)
 
 

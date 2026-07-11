@@ -5,7 +5,7 @@ import dataclasses
 
 from flowrep import edge_models
 from flowrep.parsers import case_helpers, parser_protocol
-from flowrep.prospective import helper_models, if_recipe
+from flowrep.prospective import constant_recipe, helper_models, if_recipe
 
 IF_CONDITION_LABEL_PREFIX: str = "condition"
 IF_BODY_LABEL_PREFIX: str = "body"
@@ -19,11 +19,12 @@ class _CaseComponents:
     condition: helper_models.LabeledRecipe
     condition_input_edges: edge_models.InputEdges
     body: case_helpers.WalkedBranch
+    condition_bindings: dict[str, constant_recipe.ConstantRecipe]
 
 
 def parse_if_node(
     walker: parser_protocol.BodyWalker, tree: ast.If
-) -> if_recipe.IfRecipe:
+) -> tuple[if_recipe.IfRecipe, dict[str, constant_recipe.ConstantRecipe]]:
     """
     Walk an if/elif/else chain.
 
@@ -36,18 +37,21 @@ def parse_if_node(
     else_branch: case_helpers.WalkedBranch | None = None
 
     ast_cases, else_stmts = _parse_if_elif_chain(tree)
+    reserved_ports: set[str] = set()
 
     # --- process each if / elif case ---
     for idx, (test_expr, body_stmts) in enumerate(ast_cases):
         cond_label = f"{IF_CONDITION_LABEL_PREFIX}_{idx}"
         body_label = f"{IF_BODY_LABEL_PREFIX}_{idx}"
 
-        labeled_cond, cond_inputs = case_helpers.parse_case(
+        labeled_cond, cond_inputs, cond_bindings = case_helpers.parse_case(
             test_expr,
             walker.scope,
             walker.symbol_map,
             walker.info_factory,
             cond_label,
+            walker.nodes,
+            reserved_ports=reserved_ports,
         )
         body = case_helpers.walk_branch(walker, body_label, body_stmts)
         cases.append(
@@ -55,6 +59,7 @@ def parse_if_node(
                 condition=labeled_cond,
                 condition_input_edges=cond_inputs,
                 body=body,
+                condition_bindings=cond_bindings,
             )
         )
 
@@ -78,13 +83,20 @@ def parse_if_node(
         for cc in cases
     ]
 
-    return if_recipe.IfRecipe(
-        inputs=inputs,
-        outputs=outputs,
-        cases=model_cases,
-        input_edges=input_edges,
-        prospective_output_edges=prospective_output_edges,
-        else_case=else_branch.to_labeled_node() if else_branch else None,
+    condition_bindings: dict[str, constant_recipe.ConstantRecipe] = {}
+    for cc in cases:
+        condition_bindings.update(cc.condition_bindings)
+
+    return (
+        if_recipe.IfRecipe(
+            inputs=inputs,
+            outputs=outputs,
+            cases=model_cases,
+            input_edges=input_edges,
+            prospective_output_edges=prospective_output_edges,
+            else_case=else_branch.to_labeled_node() if else_branch else None,
+        ),
+        condition_bindings,
     )
 
 

@@ -170,6 +170,27 @@ class TestSymbolScopeFork(unittest.TestCase):
         self.assertEqual(result.port, "a")
 
 
+class TestSymbolScopeConsumeInputSource(unittest.TestCase):
+    def test_consume_input_source_records_fixed_input_source(self):
+        scope = SymbolScope({})
+        scope.consume_input_source(
+            edge_models.InputSource(port="constant_0"), "condition_0", "n"
+        )
+        # Surfaces as an input edge keyed by the consumer handle...
+        self.assertEqual(
+            scope.input_edges,
+            {
+                edge_models.TargetHandle(
+                    node="condition_0", port="n"
+                ): edge_models.InputSource(port="constant_0")
+            },
+        )
+        # ...contributes the synthetic port to inputs...
+        self.assertEqual(scope.inputs, ["constant_0"])
+        # ...and does NOT register a symbol in _sources.
+        self.assertNotIn("constant_0", scope)
+
+
 class TestSymbolScopeErrors(unittest.TestCase):
     """Cover all ValueError/KeyError raise paths in SymbolScope."""
 

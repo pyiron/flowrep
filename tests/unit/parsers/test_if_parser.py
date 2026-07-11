@@ -7,8 +7,9 @@ import textwrap
 import unittest
 
 from flowrep import edge_models
-from flowrep.parsers import if_parser, workflow_parser
+from flowrep.parsers import constant_parser, if_parser, workflow_parser
 from flowrep.prospective import (
+    constant_recipe,
     for_recipe,
     if_recipe,
     try_recipe,
@@ -150,6 +151,104 @@ class TestParseIfConditionErrors(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
         self.assertIn("function call", str(ctx.exception))
+
+    def test_literal_in_condition_parses_to_constant_peer(self):
+        """A literal argument in an if-condition injects a constant peer routed
+        through a synthetic flow-control input port (no longer raises)."""
+
+        def wf(x):
+            if library.my_condition(x, 5):
+                y = library.identity(x)
+            else:
+                y = library.identity(x)
+            return y
+
+        recipe = workflow_parser.parse_workflow(wf)
+
+        # A constant peer node holding 5 sits beside the if node.
+        constant_nodes = {
+            label: node
+            for label, node in recipe.nodes.items()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        }
+        self.assertEqual(len(constant_nodes), 1)
+        self.assertEqual(next(iter(constant_nodes.values())).constant, 5)
+
+        # The if node has a synthetic "constant_0" input port fed by that peer.
+        ((if_label, if_node),) = [
+            (label, node)
+            for label, node in recipe.nodes.items()
+            if isinstance(node, if_recipe.IfRecipe)
+        ]
+        self.assertIn("constant_0", if_node.inputs)
+        peer_label = next(iter(constant_nodes))
+        self.assertEqual(
+            recipe.edges[edge_models.TargetHandle(node=if_label, port="constant_0")],
+            edge_models.SourceHandle(node=peer_label, port="constant"),
+        )
+        # The synthetic port is NOT an input of the enclosing workflow.
+        self.assertNotIn("constant_0", recipe.inputs)
+
+    def test_literal_in_elif_condition_parses(self):
+        """A literal argument in an elif-condition parses; its synthetic port is
+        distinct from the if-condition's (shared reserved_ports across the chain)."""
+
+        def wf(x, y):
+            if library.my_condition(x, y):
+                z = library.identity(x)
+            elif library.my_condition(x, 5):
+                z = library.identity(y)
+            else:
+                z = library.identity(x)
+            return z
+
+        recipe = workflow_parser.parse_workflow(wf)
+        constant_values = sorted(
+            node.constant
+            for node in recipe.nodes.values()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        )
+        self.assertEqual(constant_values, [5])
+
+    def test_multiple_literals_get_distinct_synthetic_ports(self):
+        """Two literals in one condition get distinct, deterministic ports/peers."""
+
+        def wf(m):
+            if library.my_condition(0.3, 0.5):
+                y = library.identity(m)
+            else:
+                y = library.identity(m)
+            return y
+
+        recipe = workflow_parser.parse_workflow(wf)
+        (if_node,) = [
+            node
+            for node in recipe.nodes.values()
+            if isinstance(node, if_recipe.IfRecipe)
+        ]
+        self.assertIn("constant_0", if_node.inputs)
+        self.assertIn("constant_1", if_node.inputs)
+        peer_values = sorted(
+            node.constant
+            for node in recipe.nodes.values()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        )
+        self.assertEqual(peer_values, [0.3, 0.5])
+
+    def test_non_json_literal_in_condition_raises_with_context(self):
+        """A non-JSON literal (tuple) in a condition raises ConstantParseError with
+        the consuming node/port context, at parse time."""
+
+        def wf(m):
+            if library.my_condition(m, (1, 2)):
+                y = library.identity(m)
+            else:
+                y = library.identity(m)
+            return y
+
+        with self.assertRaises(constant_parser.ConstantParseError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("Condition argument", str(ctx.exception))
 
 
 # ===================================================================

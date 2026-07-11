@@ -19,6 +19,7 @@ from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.parsers import label_helpers
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     for_recipe,
     helper_models,
     if_recipe,
@@ -41,6 +42,8 @@ def run_recipe(
     match recipe:
         case atomic_recipe.AtomicRecipe():
             return _run_atomic(recipe, **kwargs)
+        case constant_recipe.ConstantRecipe():
+            return _run_constant(recipe, **kwargs)
         case workflow_recipe.WorkflowRecipe():
             return _run_workflow(recipe, **kwargs)
         case for_recipe.ForEachRecipe():
@@ -68,6 +71,13 @@ def _run_atomic(
     result = _call_atomic(node)
     _store_atomic_outputs(node, result)
     return node
+
+
+def _run_constant(
+    recipe: constant_recipe.ConstantRecipe, **kwargs: Any
+) -> datastructures.ConstantData:
+    # A constant has no inputs; its output value is fixed and pre-filled by from_recipe.
+    return datastructures.ConstantData.from_recipe(recipe)
 
 
 def _call_atomic(node: datastructures.AtomicData) -> Any:

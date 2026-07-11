@@ -15,7 +15,7 @@ from flowrep.parsers import (
     symbol_scope,
     workflow_parser,
 )
-from flowrep.prospective import atomic_recipe, workflow_recipe
+from flowrep.prospective import atomic_recipe, constant_recipe, workflow_recipe
 
 from flowrep_static import library
 
@@ -1161,6 +1161,78 @@ class TestNestedDescriptions(unittest.TestCase):
         self.assertEqual(
             recipe.nodes["inner_macro_0"].nodes["add_0"].description, add.__doc__
         )
+
+
+def _assign_scalar_constant(a):
+    half = 0.5
+    r = library.my_mul(a, half)
+    return r
+
+
+def _assign_list_constant(seed):
+    data = [1, 2, 3]
+    r = library.identity(data)
+    return r
+
+
+def _assign_tuple_constant(a):
+    bad = (1, 2)
+    r = library.identity(bad)
+    return r
+
+
+def _assign_non_literal(a):
+    bad = a + 1
+    r = library.identity(bad)
+    return r
+
+
+def _accumulator_wf(items):
+    acc = []
+    for x in items:
+        y = library.identity(x)
+        acc.append(y)
+    return acc
+
+
+def _assign_literal_to_multiple_targets(a):
+    x, y = 1, 2  # noqa: F841
+    return a
+
+
+class TestLiteralAssignment(unittest.TestCase):
+    def _constants(self, recipe):
+        return [
+            n
+            for n in recipe.nodes.values()
+            if isinstance(n, constant_recipe.ConstantRecipe)
+        ]
+
+    def test_scalar_literal_injects_constant(self):
+        recipe = workflow_parser.parse_workflow(_assign_scalar_constant)
+        self.assertTrue(any(c.constant == 0.5 for c in self._constants(recipe)))
+
+    def test_list_literal_injects_constant(self):
+        recipe = workflow_parser.parse_workflow(_assign_list_constant)
+        self.assertTrue(any(c.constant == [1, 2, 3] for c in self._constants(recipe)))
+
+    def test_tuple_literal_assignment_raises(self):
+        with self.assertRaises(ValueError):
+            workflow_parser.parse_workflow(_assign_tuple_constant)
+
+    def test_non_literal_expr_assignment_still_raises(self):
+        with self.assertRaises(ValueError):
+            workflow_parser.parse_workflow(_assign_non_literal)
+
+    def test_empty_list_remains_accumulator(self):
+        recipe = workflow_parser.parse_workflow(_accumulator_wf)
+        # `acc = []` must NOT have become a constant [] node
+        self.assertFalse(any(c.constant == [] for c in self._constants(recipe)))
+
+    def test_literal_assigned_to_multiple_targets_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(_assign_literal_to_multiple_targets)
+        self.assertIn("exactly one symbol", str(ctx.exception))
 
 
 if __name__ == "__main__":

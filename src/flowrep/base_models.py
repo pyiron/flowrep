@@ -18,6 +18,7 @@ class RecipeElementType(StrEnum):
     WHILE = "while"
     IF = "if"
     TRY = "try"
+    CONSTANT = "constant"
 
 
 class IOTypes(StrEnum):

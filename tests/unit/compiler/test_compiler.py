@@ -16,6 +16,7 @@ from flowrep.compiler import flow_control, function, source, statements
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     for_recipe,
     helper_models,
     if_recipe,
@@ -2040,6 +2041,238 @@ class TestSymbolNaming(unittest.TestCase):
         # Output port is "output_0"; with label "loop_inc_0" the hint is "loop_inc".
         self.assertIn("loop_inc", out_syms.values())
         self.assertIn("loop_inc = ", lines[0])
+
+
+class TestConstantInlining(unittest.TestCase):
+    def _ke_recipe(self):
+        def kinetic_energy(mass, velocity):
+            v_2 = library.my_mul(velocity, velocity)
+            mv_2 = library.my_mul(mass, v_2)
+            ke = library.my_mul(0.5, mv_2)
+            return ke
+
+        return kinetic_energy, makers.reference_free(kinetic_energy)
+
+    def test_inlines_literal_and_omits_assignment(self):
+        _, free = self._ke_recipe()
+        rendered = source._workflow2python(free)
+        self.assertIn("0.5", rendered.source)
+        self.assertNotIn("constant_0 =", rendered.source)
+
+    def test_executes_with_inlined_constant(self):
+        original, free = self._ke_recipe()
+        fn = source._workflow2python(free).build()
+        self.assertAlmostEqual(fn(2.0, 3.0), original(2.0, 3.0))
+
+    def test_round_trips(self):
+        _, free = self._ke_recipe()
+        fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_compound_and_type_fidelity_round_trip(self):
+        def uses_compound(x):
+            y = library.my_mul(x, [1.0, 1, "1", {"key": [42]}])
+            return y
+
+        free = makers.reference_free(uses_compound)
+        fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+        # int/float distinction survives the source round-trip
+        reparsed_const = fn.flowrep_recipe.nodes["constant_0"].constant
+        self.assertIs(type(reparsed_const[0]), float)
+        self.assertIs(type(reparsed_const[1]), int)
+
+
+def _rt_inline_const(a):
+    half = 0.5
+    r = library.my_mul(a, half)
+    return r
+
+
+class TestLiteralAssignRoundTrip(unittest.TestCase):
+    def test_inline_path_round_trips(self):
+        free = makers.reference_free(_rt_inline_const)
+        self.assertTrue(
+            any(
+                isinstance(n, constant_recipe.ConstantRecipe)
+                for n in free.nodes.values()
+            ),
+            msg="Literal assignment should have injected a ConstantRecipe node",
+        )
+        fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_inline_path_executes(self):
+        free = makers.reference_free(_rt_inline_const)
+        fn = source._workflow2python(free).build()
+        self.assertAlmostEqual(fn(4), 4 * 0.5)
+
+
+def _return_constant(a):
+    y = 5
+    return y
+
+
+def _if_body_constant(a):
+    if library.is_positive(a):  # noqa: SIM108
+        y = 5
+    else:
+        y = library.identity(a)
+    return y
+
+
+class TestConstantMaterialize(unittest.TestCase):
+    def test_return_constant_materializes_and_round_trips(self):
+        free = makers.reference_free(_return_constant)
+        rendered = source._workflow2python(free)
+        self.assertIn("= 5", rendered.source)
+        self.assertNotIn("return 5", rendered.source)  # materialized, not inlined
+        fn = rendered.build()
+        self.assertEqual(fn(99), 5)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_constant_in_if_branch_body_materializes_and_round_trips(self):
+        free = makers.reference_free(_if_body_constant)
+        fn = source._workflow2python(free).build()
+        self.assertEqual(fn(5), 5)  # is_positive -> y = 5
+        self.assertEqual(fn(-3), -3)  # else -> identity(a)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_bare_constant_flow_control_body_compiles_and_executes(self):
+        # Hand-built `if is_positive(n): m = 42 else: m = -1` with BARE ConstantRecipe
+        # bodies (a shape only hand-construction produces). Round-trip canonicalizes
+        # (parser wraps bodies in workflows), so we assert source + execution, not
+        # dump_no_refs equality.
+        TH, IS, SH, OT = (
+            edge_models.TargetHandle,
+            edge_models.InputSource,
+            edge_models.SourceHandle,
+            edge_models.OutputTarget,
+        )
+        if_node = if_recipe.IfRecipe(
+            inputs=["n"],
+            outputs=["m"],
+            cases=[
+                helper_models.ConditionalCase(
+                    condition=helper_models.LabeledRecipe(
+                        label="cond", node=library.is_positive.flowrep_recipe
+                    ),
+                    body=helper_models.LabeledRecipe(
+                        label="body", node=constant_recipe.ConstantRecipe(constant=42)
+                    ),
+                )
+            ],
+            input_edges={TH(node="cond", port="n"): IS(port="n")},
+            prospective_output_edges={
+                OT(port="m"): [
+                    SH(node="body", port="constant"),
+                    SH(node="else_body", port="constant"),
+                ]
+            },
+            else_case=helper_models.LabeledRecipe(
+                label="else_body", node=constant_recipe.ConstantRecipe(constant=-1)
+            ),
+        )
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=["n"],
+            outputs=["m"],
+            nodes={"if_0": if_node},
+            input_edges={TH(node="if_0", port="n"): IS(port="n")},
+            edges={},
+            output_edges={OT(port="m"): SH(node="if_0", port="m")},
+        )
+        rendered = source._workflow2python(wf, function_name="branchy")
+        self.assertIn("= 42", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(5), 42)
+        self.assertEqual(fn(-3), -1)
+
+
+class TestConstantsInConditions(unittest.TestCase):
+    """Literal constants in if/elif/while conditions: execution + exact round-trip."""
+
+    def _round_trip(self, fn, *call_args):
+        free = makers.reference_free(fn)
+        rendered = source._workflow2python(free)
+        built = rendered.build()
+        self.assertAlmostEqual(built(*call_args), fn(*call_args))
+        self.assertEqual(
+            makers.dump_no_refs(built.flowrep_recipe), makers.dump_no_refs(free)
+        )
+        return free
+
+    def test_if_condition_literal_round_trips_and_executes(self):
+        def wf(m):
+            if library.my_condition(m, 0.5):
+                y = library.identity(m)
+            else:
+                y = library.identity(m)
+            return y
+
+        free = self._round_trip(wf, 0.2)
+        # the inlined literal appears in the rendered condition, not a bare symbol
+        rendered_src = source._workflow2python(free).source
+        self.assertIn("0.5", rendered_src)
+
+    def test_elif_condition_literal_round_trips_and_executes(self):
+        def wf(x, y):
+            if library.my_condition(x, y):
+                z = library.identity(x)
+            elif library.my_condition(x, 5):
+                z = library.identity(y)
+            else:
+                z = library.identity(x)
+            return z
+
+        self._round_trip(wf, 10, 3)
+        self._round_trip(wf, 3, 10)
+
+    def test_while_condition_literal_round_trips_and_executes(self):
+        def wf(x):
+            while library.my_condition(x, 5):
+                x = library.my_add(x, 1)
+            return x
+
+        self._round_trip(wf, 0)
+
+    def test_multiple_literals_in_one_condition_round_trip(self):
+        def wf(m):
+            if library.my_condition(0.3, 0.5):
+                y = library.identity(m)
+            else:
+                y = library.identity(m)
+            return y
+
+        free = self._round_trip(wf, 7)
+        constant_values = sorted(
+            node.constant
+            for node in free.nodes.values()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        )
+        self.assertEqual(constant_values, [0.3, 0.5])
+
+    def test_nested_condition_literal_round_trips(self):
+        def wf(m):
+            if library.my_condition(m, 0.5):
+                if library.my_condition(m, 0.7):
+                    y = library.identity(m)
+                else:
+                    y = library.identity(m)
+            else:
+                y = library.identity(m)
+            return y
+
+        self._round_trip(wf, 0.2)
 
 
 if __name__ == "__main__":
