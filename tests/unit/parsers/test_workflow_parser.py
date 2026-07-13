@@ -1460,6 +1460,18 @@ class TestAttributeAccess(unittest.TestCase):
         with self.assertRaises(ValueError):
             workflow_parser.parse_workflow(wf)
 
+    def test_return_of_tuple_mixing_symbol_and_access_raises(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            v = dc.a
+            return v, dc.x
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        message = str(ctx.exception)
+        self.assertIn("has no symbol to take it from", message)
+        self.assertIn("dc.x", message)
+
     def test_bound_access_returns_under_its_symbol(self):
         def wf(x0: int, comp: library.ComplexData):
             dc = library.MyDataclass(comp, x0)
