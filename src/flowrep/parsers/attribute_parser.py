@@ -37,6 +37,7 @@ a normally-named input port.
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterable
 
 from flowrep import edge_models
 from flowrep.parsers import constant_parser, label_helpers, symbol_scope
@@ -132,6 +133,23 @@ def hoist_call_arguments(
         if is_data_attribute(argument, symbol_map):
             hoisted[argument] = inject_attribute_chain(argument, symbol_map, nodes)
     return hoisted
+
+
+def generate_port_name(node: ast.expr, taken: Iterable[str]) -> str:
+    """A deterministic port name for an attribute chain that has no symbol.
+
+    Takes the outermost attribute name -- what the author would have called the
+    binding, and what the compiler will literally emit as the binding symbol -- and
+    unique-suffixes it against *taken*. ``x.a.val`` gives ``val_0``.
+
+    *taken* must include every symbol in the enclosing scope, not merely the ports
+    allocated so far: a flow-control node's inputs are its condition's inputs *plus
+    its body's*, and a body input port is always an enclosing symbol.
+    """
+    if not isinstance(node, ast.Attribute):  # pragma: no cover - callers gate on
+        # is_data_attribute, which implies ast.Attribute
+        raise TypeError(f"Not an attribute chain: {ast.dump(node)}")
+    return label_helpers.unique_suffix(node.attr, taken)
 
 
 def reject_unbound_attribute(

@@ -1365,33 +1365,17 @@ class TestAttributeAccess(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("method", str(ctx.exception).lower())
 
-    def test_attribute_chain_in_if_condition_argument_raises(self):
+    def test_attribute_chain_in_if_condition_argument_generates_a_port(self):
         def wf(x0: int, comp: library.ComplexData):
             dc = library.MyDataclass(comp, x0)
             if library.is_positive(dc.x):  # noqa: SIM108
-                y = x0
+                y = library.identity(x0)
             else:
-                y = x0
+                y = library.identity(x0)
             return y
 
-        with self.assertRaises(ValueError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        message = str(ctx.exception)
-        self.assertIn("has no symbol to take it from", message)
-        self.assertIn("dc.x", message)
-
-    def test_attribute_chain_in_while_condition_argument_raises(self):
-        def wf(x0: int, comp: library.ComplexData):
-            dc = library.MyDataclass(comp, x0)
-            while library.is_positive(dc.x):
-                x0 = x0
-            return x0
-
-        with self.assertRaises(ValueError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        message = str(ctx.exception)
-        self.assertIn("has no symbol to take it from", message)
-        self.assertIn("dc.x", message)
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.nodes["if_0"].inputs[0], "x_0")
 
     def test_bound_access_as_if_condition_input(self):
         def wf(x0: int, comp: library.ComplexData):

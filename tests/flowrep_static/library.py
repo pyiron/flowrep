@@ -161,6 +161,16 @@ class ComplexData:
         self.val = val
 
 
+class Payload:
+    """A plain (non-recipe) payload class with a list and two scalars, reached via
+    attribute access."""
+
+    def __init__(self, xs: list | None = None, num: int = 1, den: int = 1):
+        self.xs = [] if xs is None else xs
+        self.num = num
+        self.den = den
+
+
 @dataclass_parser.dataclass
 class MyDataclass:
     a: ComplexData

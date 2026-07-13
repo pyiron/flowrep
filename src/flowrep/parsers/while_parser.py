@@ -4,7 +4,13 @@ import ast
 from ast import While
 
 from flowrep import edge_models
-from flowrep.parsers import case_helpers, parser_helpers, parser_protocol
+from flowrep.parsers import (
+    attribute_parser,
+    case_helpers,
+    parser_helpers,
+    parser_protocol,
+    symbol_scope,
+)
 from flowrep.prospective import helper_models, while_recipe
 
 WHILE_CONDITION_LABEL: str = "condition"
@@ -41,6 +47,7 @@ def parse_while_node(
     reassigned_symbols = body_walker.symbol_map.reassigned_symbols
 
     _validate_some_output_exists(reassigned_symbols)
+    _reject_looped_attribute_roots(tree.test, walker.symbol_map, reassigned_symbols)
     parser_helpers.reject_input_alias_outputs(
         body_walker.symbol_map, reassigned_symbols, "while-loop"
     )
@@ -83,6 +90,48 @@ def _validate_some_output_exists(reassigned_symbols: list[str]):
             "While-loop body must reassign at least one symbol from the "
             "enclosing scope."
         )
+
+
+def _reject_looped_attribute_roots(
+    test: ast.expr,
+    symbol_map: symbol_scope.SymbolScope,
+    reassigned_symbols: list[str],
+) -> None:
+    """Raise if a condition attribute chain is rooted at a symbol the body reassigns.
+
+    Python re-evaluates a while condition every iteration, so ``x.val`` is re-read
+    against the *updated* ``x``. A flowrep condition is a single call fed by hoisted
+    inputs: its getattr peer sits outside the loop, is never re-read, and is not a
+    while output, so it never feeds back. Rather than silently diverge from Python we
+    refuse. An attribute on a symbol the loop does not touch hoists faithfully and is
+    allowed -- which is why the guard is on the *root*, not on attribute access.
+
+    Runs after the body walk, because ``reassigned_symbols`` is the parser's ground
+    truth (it includes symbols reassigned by nested flow control, not just bare
+    assignments). By then the getattr peers have already been injected into the
+    enclosing scope; that is harmless, since the exception aborts the whole parse.
+    """
+    if not isinstance(
+        test, ast.Call
+    ):  # pragma: no cover - parse_case rejects non-calls
+        return
+    looped = set(reassigned_symbols)
+    arguments = list(test.args) + [kw.value for kw in test.keywords]
+    for argument in arguments:
+        if not attribute_parser.is_data_attribute(argument, symbol_map):
+            continue
+        root = attribute_parser.chain_root(argument)
+        if root is not None and root.id in looped:
+            chain = ast.unparse(argument)
+            raise ValueError(
+                f"While-condition attribute access {chain!r} is rooted at "
+                f"{root.id!r}, which the loop body reassigns. Python would re-read "
+                f"{chain!r} every iteration, but a flowrep while-condition is a "
+                f"single call fed by hoisted inputs -- there is no place inside the "
+                f"loop for the attribute access. Either bind it outside the loop "
+                f"(e.g. `v = {chain}`) if you meant to read it once, or move the "
+                f"attribute access into the condition function itself."
+            )
 
 
 def _wire_inputs(

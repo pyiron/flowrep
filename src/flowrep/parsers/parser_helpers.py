@@ -193,27 +193,34 @@ def consume_call_arguments(
     multiple literals -- across an if/elif chain -- get distinct, deterministic ports.
 
     Data-attribute arguments are injected ahead of the call by
-    ``attribute_parser.hoist_call_arguments`` and arrive here in *hoisted*, mapping
-    the argument's AST node to the ``SourceHandle`` of its outermost getattr node. The
-    call to ``attribute_parser.reject_unbound_attribute`` below is a no-op outside
-    condition mode: in normal mode every data-attribute argument was already hoisted
-    and returns from the first branch above, so it can only fire on a condition
-    argument, where there is no room for a peer getattr node inside the flow-control
-    node itself.
+    ``attribute_parser.hoist_call_arguments`` and arrive here in *hoisted*, mapping the
+    argument's AST node to the ``SourceHandle`` of its outermost getattr node. Outside
+    condition mode the consuming node is a peer of that getattr and simply reads from
+    it. In condition mode the consumer lives *inside* a flow-control recipe, which has
+    no room for a peer, so the handle is routed through a generated input port and
+    recorded in *condition_bindings* -- exactly as a literal is.
     """
     reserved = set() if reserved_ports is None else reserved_ports
     already_hoisted = {} if hoisted is None else hoisted
 
     def _consume(arg_node: ast.expr, consumer_port: str) -> None:
         if (handle := already_hoisted.get(arg_node)) is not None:
-            scope.consume_source(handle, child.label, consumer_port)
+            if condition_bindings is None:
+                scope.consume_source(handle, child.label, consumer_port)
+            else:
+                _bind_condition_source(
+                    scope,
+                    arg_node,
+                    child,
+                    consumer_port,
+                    handle,
+                    condition_bindings,
+                    reserved,
+                )
             return
         if isinstance(arg_node, ast.Name):
             scope.consume(arg_node.id, child.label, consumer_port)
             return
-        attribute_parser.reject_unbound_attribute(
-            arg_node, scope, "passed to a flow-control condition"
-        )
         is_literal, value = constant_parser.try_parse_constant(arg_node)
         if not is_literal:
             raise TypeError(
@@ -272,6 +279,32 @@ def _bind_condition_constant(
     )
     scope.consume_input_source(
         edge_models.InputSource(port=synthetic_port), child.label, consumer_port
+    )
+
+
+def _bind_condition_source(
+    scope: symbol_scope.SymbolScope,
+    arg_node: ast.expr,
+    child: helper_models.LabeledRecipe,
+    consumer_port: str,
+    handle: edge_models.SourceHandle,
+    condition_bindings: FlowControlBindings,
+    reserved_ports: set[str],
+) -> None:
+    """Expose a hoisted attribute chain as a generated flow-input port.
+
+    The getattr peer already sits in the enclosing walker's ``nodes`` -- the
+    flow-control node just needs a port to receive it through. The ``SourceHandle``
+    twin of :func:`_bind_condition_constant`; see :func:`attribute_parser.generated_port`
+    for why the name is deduped against every enclosing symbol.
+    """
+    generated = attribute_parser.generate_port_name(
+        arg_node, set(scope) | reserved_ports
+    )
+    reserved_ports.add(generated)
+    condition_bindings[generated] = handle
+    scope.consume_input_source(
+        edge_models.InputSource(port=generated), child.label, consumer_port
     )
 
 

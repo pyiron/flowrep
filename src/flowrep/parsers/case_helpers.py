@@ -49,6 +49,11 @@ def parse_case(
             f"truthy), but got {condition.recipe.outputs}"
         )
 
+    # A flow-control recipe has no room to host a peer, so an attribute argument
+    # becomes a getattr peer of the flow-control node in the *enclosing* scope, and
+    # reaches the condition through a generated input port.
+    hoisted = attribute_parser.hoist_call_arguments(test, symbol_map, nodes)
+
     scope_copy = symbol_map.fork()
     condition_bindings: parser_helpers.FlowControlBindings = {}
     parser_helpers.consume_call_arguments(
@@ -58,6 +63,7 @@ def parse_case(
         nodes,
         condition_bindings=condition_bindings,
         reserved_ports=reserved_ports,
+        hoisted=hoisted,
     )
     relabeled_node, relabeled_inputs = _relabel_node_data(
         condition, scope_copy.input_edges, label
