@@ -1376,7 +1376,9 @@ class TestAttributeAccess(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("bind", str(ctx.exception).lower())
+        message = str(ctx.exception)
+        self.assertIn("has no symbol to take it from", message)
+        self.assertIn("dc.x", message)
 
     def test_attribute_chain_in_while_condition_argument_raises(self):
         def wf(x0: int, comp: library.ComplexData):
@@ -1387,7 +1389,30 @@ class TestAttributeAccess(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("bind", str(ctx.exception).lower())
+        message = str(ctx.exception)
+        self.assertIn("has no symbol to take it from", message)
+        self.assertIn("dc.x", message)
+
+    def test_bound_access_as_if_condition_input(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            flag = dc.x
+            if library.is_positive(flag):
+                y = library.identity(x0)
+            else:
+                y = library.negate(x0)
+            return y
+
+        node = workflow_parser.parse_workflow(wf)
+        # The getattr node is a peer of the `if`, not inside it.
+        self.assertIn("getattr_x_0", node.nodes)
+        self.assertIn("if_0", node.nodes)
+        # ...and it feeds the flow control through a port named after the symbol.
+        self.assertIn("flag", node.nodes["if_0"].inputs)
+        self.assertEqual(
+            node.edges[edge_models.TargetHandle(node="if_0", port="flag")],
+            edge_models.SourceHandle(node="getattr_x_0", port="attr"),
+        )
 
     def test_multi_target_attribute_assignment_raises(self):
         def wf(x0: int, comp: library.ComplexData):

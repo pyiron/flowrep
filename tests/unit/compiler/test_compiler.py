@@ -2510,6 +2510,26 @@ class TestAttributeSugar(unittest.TestCase):
         fn = rendered.build()
         self.assertEqual(fn(library.ComplexData(val=42), "val"), 42)
 
+    def test_bound_access_as_condition_input_round_trips(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            flag = dc.x
+            if library.is_positive(flag):
+                y = library.identity(x0)
+            else:
+                y = library.negate(x0)
+            return y
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertRegex(rendered.source, r"\bflag = \w+\.x\b")
+        fn = rendered.build()
+        self.assertEqual(fn(3, library.ComplexData(val=7)), 3)
+        self.assertEqual(fn(-3, library.ComplexData(val=7)), 3)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

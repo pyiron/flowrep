@@ -180,9 +180,12 @@ def consume_call_arguments(
 
     Data-attribute arguments are injected ahead of the call by
     ``attribute_parser.hoist_call_arguments`` and arrive here in *hoisted*, mapping
-    the argument's AST node to the ``SourceHandle`` of its outermost getattr node. In
-    condition mode there is no room for a peer getattr node inside a flow-control
-    condition, so a data-attribute argument is rejected instead.
+    the argument's AST node to the ``SourceHandle`` of its outermost getattr node. The
+    call to ``attribute_parser.reject_unbound_attribute`` below is a no-op outside
+    condition mode: in normal mode every data-attribute argument was already hoisted
+    and returns from the first branch above, so it can only fire on a condition
+    argument, where there is no room for a peer getattr node inside the flow-control
+    node itself.
     """
     reserved = set() if reserved_ports is None else reserved_ports
     already_hoisted = {} if hoisted is None else hoisted
@@ -194,13 +197,9 @@ def consume_call_arguments(
         if isinstance(arg_node, ast.Name):
             scope.consume(arg_node.id, child.label, consumer_port)
             return
-        if attribute_parser.is_data_attribute(arg_node, scope):
-            raise ValueError(
-                f"Attribute access on workflow data is not supported in flow-control "
-                f"condition arguments; for input '{consumer_port}' of condition node "
-                f"'{child.label}' found '{ast.unparse(arg_node)}'. Bind it to a "
-                f"symbol before the flow control and pass that symbol instead."
-            )
+        attribute_parser.reject_unbound_attribute(
+            arg_node, scope, "passed to a flow-control condition"
+        )
         is_literal, value = constant_parser.try_parse_constant(arg_node)
         if not is_literal:
             raise TypeError(

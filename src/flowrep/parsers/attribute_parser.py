@@ -1,3 +1,39 @@
+"""Parse attribute access on workflow data into injected ``std.getattr_`` nodes.
+
+An attribute chain rooted at a known *symbol* (``dc.a``, ``dc.a.val``) becomes one
+``std.getattr_`` node per link, each with a ``ConstantRecipe`` peer carrying the
+attribute name. The symbol map deliberately shadows the object scope, so a workflow
+input named ``os`` makes ``os.path`` an attribute access on that input, exactly as it
+would be at runtime.
+
+Attribute access is allowed in exactly two places: the right-hand side of an
+assignment, and the arguments of an ordinary node call. Everywhere else it must be
+bound to a symbol first (see :func:`reject_unbound_attribute`).
+
+The reason is that flowrep takes port names from two different places:
+
+===============================  ==========================================
+Port                             Name comes from
+===============================  ==========================================
+Workflow output port             the returned symbol
+Flow-control input port          the enclosing symbol feeding it
+For-body output port             the appended symbol
+Atomic/workflow node input port  the *callee's* own parameter
+===============================  ==========================================
+
+An attribute chain has no symbol. Passing ``mul(dc.x, y)`` is fine -- the injected
+getattr node feeds ``mul``'s own ``a`` port, whose name comes from ``mul``. But
+returning a chain, appending one to an accumulator, or passing one to a flow-control
+condition would each require *inventing* a port name, and a port name the user cannot
+predict from reading their own source is an unpleasant interface. So we refuse, and
+ask for the binding.
+
+The binding costs one line and changes the recipe not at all -- the getattr node
+exists either way. For a condition it produces exactly the graph one would want
+anyway: a getattr node sitting as a peer of the flow-control node, feeding it through
+a normally-named input port.
+"""
+
 from __future__ import annotations
 
 import ast
