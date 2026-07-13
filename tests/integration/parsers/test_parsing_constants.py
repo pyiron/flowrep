@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep import wfms
+from flowrep import edge_models, wfms
 from flowrep.compiler import source
 from flowrep.parsers import workflow_parser
 from flowrep.prospective import union_types
@@ -33,6 +33,53 @@ class TestConstantEndToEnd(unittest.TestCase):
         # 3. Compiles back to source, re-parses to an equal recipe.
         free = makers.reference_free(kinetic_energy)
         fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+
+@workflow_parser.workflow
+def shadowed_constant_symbol(x):
+    """A user symbol named like a generated port must not be clobbered by one."""
+    constant_0 = library.negate(x)
+    if library.my_condition(x, 3):
+        y = library.my_add(constant_0, x)
+    else:
+        y = library.identity(x)
+    return y
+
+
+class TestGeneratedPortDodgesUserSymbols(unittest.TestCase):
+    """A flow-control node's inputs include its *body's* inputs, so a generated port
+    must dodge every enclosing symbol -- not just the condition's arguments."""
+
+    def test_generated_port_dodges_the_user_symbol(self):
+        recipe = shadowed_constant_symbol.flowrep_recipe
+        # The literal 3's port steps aside for the user's `constant_0`.
+        self.assertEqual(recipe.nodes["if_0"].inputs, ["x", "constant_1", "constant_0"])
+
+    def test_body_reads_the_user_symbol_not_the_literal(self):
+        recipe = shadowed_constant_symbol.flowrep_recipe
+        self.assertEqual(
+            recipe.edges[edge_models.TargetHandle(node="if_0", port="constant_0")],
+            edge_models.SourceHandle(node="negate_0", port="output_0"),
+        )
+
+    def test_generated_port_reads_the_constant_peer(self):
+        recipe = shadowed_constant_symbol.flowrep_recipe
+        self.assertEqual(
+            recipe.edges[edge_models.TargetHandle(node="if_0", port="constant_1")],
+            edge_models.SourceHandle(node="constant_0", port="constant"),
+        )
+
+    def test_executes_via_run_recipe(self):
+        result = wfms.run_recipe(shadowed_constant_symbol.flowrep_recipe, x=1)
+        self.assertEqual(result.output_ports["y"].value, shadowed_constant_symbol(1))
+
+    def test_round_trips_through_source(self):
+        free = makers.reference_free(shadowed_constant_symbol)
+        rendered = source._workflow2python(free)
+        fn = rendered.build()
         self.assertEqual(
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )

@@ -237,16 +237,19 @@ def _bind_condition_constant(
 ) -> None:
     """Expose a literal condition argument as a synthetic flow-input port.
 
-    The synthetic port name is unique across the condition's real argument symbols
-    (``scope.inputs``) and every synthetic port already allocated for this
-    flow-control chain (*reserved_ports*), so it is a deterministic function of the
-    source and round-trips exactly. The ``ConstantRecipe`` is built eagerly (so a
-    non-JSON literal such as a tuple raises ``ConstantParseError`` with call-site
-    context here, matching non-condition timing) and handed up for the enclosing
-    walker to attach as a peer.
+    The port name is unique against every symbol in the enclosing scope
+    (``set(scope)``) and every port already generated for this flow-control chain
+    (*reserved_ports*), so it is a deterministic function of the source and
+    round-trips exactly. Deduping against the scope rather than the condition's own
+    arguments is what makes it airtight: a flow-control node's inputs are its
+    condition's inputs *plus its body's*, and a body input port is always an
+    enclosing symbol, so a port that dodges every symbol cannot collide with a real
+    one. The ``ConstantRecipe`` is built eagerly (so a non-JSON literal such as a
+    tuple raises ``ConstantParseError`` with call-site context here, matching
+    non-condition timing) and handed up for the enclosing walker to attach as a peer.
     """
     synthetic_port = label_helpers.unique_suffix(
-        constant_recipe.ConstantRecipe.std_label, set(scope.inputs) | reserved_ports
+        constant_recipe.ConstantRecipe.std_label, set(scope) | reserved_ports
     )
     reserved_ports.add(synthetic_port)
     condition_bindings[synthetic_port] = constant_parser.make_constant(
