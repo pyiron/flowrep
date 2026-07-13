@@ -1,5 +1,5 @@
 import dataclasses
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 
 from flowrep import edge_models
 from flowrep.prospective import helper_models
@@ -292,6 +292,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     def fork(
         self,
         symbol_remap: dict[str, str] | None = None,
+        added_symbols: Iterable[str] | None = None,
         available_accumulators: set[str] | None = None,
     ) -> "SymbolScope":
         """
@@ -301,6 +302,11 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         :class:`InputSource` in the child.  *symbol_remap* allows renaming
         symbols in transit (e.g. a for-loop replacing the iterable symbol
         with the iteration variable).
+
+        *added_symbols* introduces symbols the child has but the parent does not: a
+        for-loop variable whose collection was an attribute chain, and so had no
+        parent symbol to remap. They shadow a parent symbol of the same name, exactly
+        as the loop variable does in plain Python.
 
         Accumulator propagation is controlled explicitly via
         *available_accumulators*.  For-loop bodies pass the parent's
@@ -314,11 +320,14 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         access is caught with a clear error rather than silently ignored.
         """
         remap = {} if symbol_remap is None else symbol_remap
+        sources: dict[str, edge_models.InputSource | edge_models.SourceHandle] = {
+            (k := remap.get(key, key)): edge_models.InputSource(port=k)
+            for key in self._sources
+        }
+        for symbol in added_symbols or ():
+            sources[symbol] = edge_models.InputSource(port=symbol)
         return SymbolScope(
-            {
-                (k := remap.get(key, key)): edge_models.InputSource(port=k)
-                for key in self._sources
-            },
+            sources,
             available_accumulators=available_accumulators,
             reserved_accumulators=self.reserved_accumulators
             | self.available_accumulators,

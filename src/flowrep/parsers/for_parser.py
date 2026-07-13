@@ -4,17 +4,29 @@ import ast
 from typing import NamedTuple
 
 from flowrep import edge_models
-from flowrep.parsers import parser_helpers, parser_protocol, symbol_scope
-from flowrep.prospective import for_recipe, helper_models
+from flowrep.parsers import (
+    attribute_parser,
+    parser_helpers,
+    parser_protocol,
+    symbol_scope,
+)
+from flowrep.prospective import for_recipe, helper_models, union_types
 
 FOR_BODY_LABEL: str = "body"
 
 
 class _IterationAxis(NamedTuple):
-    """Holding the variable, x, and the collection xs, in statements like for x in xs"""
+    """One axis of `for x in xs`.
+
+    *variable* is the loop variable (a *body* input port). *port* is the for-node
+    input port feeding it: a bare symbol lends its own name, an attribute chain gets a
+    generated one. *binding* is the getattr peer the enclosing walker must wire into
+    *port*, or ``None`` when the collection was a plain symbol.
+    """
 
     variable: str
-    collection: str
+    port: str
+    binding: edge_models.SourceHandle | None = None
 
 
 AccumulatorMap = dict[str, str]
@@ -34,14 +46,19 @@ def parse_for_node(
         tree: The top-level ``ast.For`` node (may contain immediately
             nested for-headers that declare additional iteration axes).
     """
-    # Parse the iteration header — pure AST, no parser state needed
-    nested_iters, zipped_iters, body_tree = _parse_for_iterations(tree)
+    # Parse the iteration header — pure AST plus attribute-chain injection into the
+    # enclosing walker's own nodes/scope
+    nested_iters, zipped_iters, body_tree = _parse_for_iterations(
+        tree, walker.symbol_map, walker.nodes
+    )
     all_iters = nested_iters + zipped_iters
 
     # When we fork the scope here, we replace iterated-over symbols with iteration
-    # variables, all as InputSources from the body's perspective
+    # variables, all as InputSources from the body's perspective. An attribute-chain
+    # axis has no parent symbol to remap, so its variable is added fresh instead.
     body_symbol_map = walker.symbol_map.fork(
-        {src: var for var, src in all_iters},
+        {axis.port: axis.variable for axis in all_iters if axis.binding is None},
+        added_symbols=[axis.variable for axis in all_iters if axis.binding is not None],
         available_accumulators=walker.symbol_map.declared_accumulators.copy(),
     )
 
@@ -55,8 +72,8 @@ def parse_for_node(
         all_iters, body_walker, consumed, walker.symbol_map
     )
 
-    nested_ports = [var for var, _ in nested_iters]
-    zipped_ports = [var for var, _ in zipped_iters]
+    nested_ports = [axis.variable for axis in nested_iters]
+    zipped_ports = [axis.variable for axis in zipped_iters]
 
     inputs, input_edges = _wire_inputs(body_walker, all_iters)
     outputs, output_edges = _wire_outputs(body_walker, input_edges)
@@ -64,6 +81,10 @@ def parse_for_node(
     body_node = helper_models.LabeledRecipe(
         label=FOR_BODY_LABEL, recipe=body_walker.build_model()
     )
+
+    bindings: parser_helpers.FlowControlBindings = {
+        axis.port: axis.binding for axis in all_iters if axis.binding is not None
+    }
 
     return (
         for_recipe.ForEachRecipe(
@@ -75,7 +96,7 @@ def parse_for_node(
             nested_ports=nested_ports,
             zipped_ports=zipped_ports,
         ),
-        {},
+        bindings,
     )
 
 
@@ -94,7 +115,7 @@ def _validate_no_unused_iterators(
     An unused iterator likely indicates a bug; if the user only needs the structural
     effect (e.g. repetition count), they should make the dependency explicit.
     """
-    iterating_symbols = {var for var, _ in all_iters}
+    iterating_symbols = {axis.variable for axis in all_iters}
     consumed_symbols = set(body_walker.inputs) | set(consumed.values())
     if unused := iterating_symbols - consumed_symbols:
         raise ValueError(
@@ -117,7 +138,7 @@ def _validate_no_leaked_reassignments(
     body_reassigned = set(body_walker.symbol_map.reassigned_symbols)
     accumulator_outputs = set(consumed)
     unreturned_reassignments = (
-        body_reassigned - accumulator_outputs - {var for var, _ in all_iters}
+        body_reassigned - accumulator_outputs - {axis.variable for axis in all_iters}
     )
     leaked_reassignments = unreturned_reassignments.intersection(symbol_map.keys())
     if leaked_reassignments:
@@ -137,9 +158,9 @@ def _wire_inputs(
         s
         for s in body_walker.inputs
         if s not in set(consumed.values())
-        and s not in {iterating_symbol for iterating_symbol, _ in all_iters}
+        and s not in {axis.variable for axis in all_iters}
     ]  # Need to keep it consistently ordered, so don't use a simple set op
-    scattered_symbols = [scattered_symbol for _, scattered_symbol in all_iters]
+    scattered_symbols = [axis.port for axis in all_iters]
     inputs = broadcast_symbols + scattered_symbols
     broadcast_inputs = {
         edge_models.TargetHandle(
@@ -149,9 +170,9 @@ def _wire_inputs(
     }
     scattered_inputs = {
         edge_models.TargetHandle(
-            node=FOR_BODY_LABEL, port=body_port
-        ): edge_models.InputSource(port=for_port)
-        for body_port, for_port in all_iters
+            node=FOR_BODY_LABEL, port=axis.variable
+        ): edge_models.InputSource(port=axis.port)
+        for axis in all_iters
     }
     input_edges = broadcast_inputs | scattered_inputs
     return inputs, input_edges
@@ -176,26 +197,57 @@ def _wire_outputs(
     return outputs, output_edges
 
 
+def _resolve_collection(
+    iter_expr: ast.expr,
+    symbol_map: symbol_scope.SymbolScope,
+    nodes: union_types.Recipes,
+    reserved_ports: set[str],
+) -> tuple[str, edge_models.SourceHandle | None]:
+    """The for-node input port that feeds one iteration axis, plus any peer to wire.
+
+    A for recipe has no room to host a peer, so an attribute chain becomes a getattr
+    peer of the for node in the enclosing scope and reaches it through a generated
+    port. See :func:`attribute_parser.generate_port_name` for the naming rule.
+    """
+    if isinstance(iter_expr, ast.Name):
+        return iter_expr.id, None
+    if attribute_parser.is_data_attribute(iter_expr, symbol_map):
+        handle = attribute_parser.inject_attribute_chain(iter_expr, symbol_map, nodes)
+        port = attribute_parser.generate_port_name(
+            iter_expr, set(symbol_map) | reserved_ports
+        )
+        reserved_ports.add(port)
+        return port, handle
+    raise ValueError(
+        f"For iteration must iterate over a symbol, or an attribute of one, but got "
+        f"'{ast.unparse(iter_expr)}'."
+    )
+
+
 def _parse_for_iterations(
     for_stmt: ast.For,
+    symbol_map: symbol_scope.SymbolScope,
+    nodes: union_types.Recipes,
 ) -> tuple[list[_IterationAxis], list[_IterationAxis], ast.For]:
     """
     Parse for-node iteration structure, handling zip and immediately nested iterations.
 
-    Returns (nested_iterations, zipped_iterations) where each is a list of
-    (variable_name, source_symbol) tuples.
+    Returns (nested_iterations, zipped_iterations, innermost_for_tree).
     """
     nested: list[_IterationAxis] = []
     zipped: list[_IterationAxis] = []
+    reserved_ports: set[str] = set()
 
     current = for_stmt
     while isinstance(current, ast.For):
-        is_zip, pairs = _parse_single_for_header(current)
+        is_zip, axes = _parse_single_for_header(
+            current, symbol_map, nodes, reserved_ports
+        )
 
         if is_zip:
-            zipped.extend(pairs)
+            zipped.extend(axes)
         else:
-            nested.extend(pairs)
+            nested.extend(axes)
 
         # Check for nested for-declaration (single statement that's another For)
         if len(current.body) >= 1 and isinstance(current.body[0], ast.For):
@@ -208,11 +260,14 @@ def _parse_for_iterations(
 
 def _parse_single_for_header(
     for_stmt: ast.For,
+    symbol_map: symbol_scope.SymbolScope,
+    nodes: union_types.Recipes,
+    reserved_ports: set[str],
 ) -> tuple[bool, list[_IterationAxis]]:
     """
     Parse a single for-header.
 
-    Returns (is_zipped, [(var, source), ...]).
+    Returns (is_zipped, axes).
     """
     iter_expr = for_stmt.iter
     target = for_stmt.target
@@ -226,30 +281,22 @@ def _parse_single_for_header(
         if len(vars_list) != len(target.elts):
             raise ValueError("zip() iteration targets must be simple names")
 
-        sources = []
-        for arg in iter_expr.args:
-            if not isinstance(arg, ast.Name):
-                raise ValueError("zip() arguments must be simple symbols")
-            sources.append(arg.id)
-
-        if len(vars_list) != len(sources):
+        if len(vars_list) != len(iter_expr.args):
             raise ValueError(
                 f"zip() variable count ({len(vars_list)}) must match "
-                f"argument count ({len(sources)})"
+                f"argument count ({len(iter_expr.args)})"
             )
 
-        return True, [
-            _IterationAxis(v, s) for v, s in zip(vars_list, sources, strict=True)
-        ]
+        axes = []
+        for variable, arg in zip(vars_list, iter_expr.args, strict=True):
+            port, binding = _resolve_collection(arg, symbol_map, nodes, reserved_ports)
+            axes.append(_IterationAxis(variable, port, binding))
+        return True, axes
 
-    # Simple iteration: for x in xs
-    if not isinstance(iter_expr, ast.Name):
-        raise ValueError(
-            "For iteration must iterate over a symbol (not an inline expression)"
-        )
+    port, binding = _resolve_collection(iter_expr, symbol_map, nodes, reserved_ports)
 
     if isinstance(target, ast.Name):
-        return False, [_IterationAxis(target.id, iter_expr.id)]
+        return False, [_IterationAxis(target.id, port, binding)]
     elif isinstance(target, ast.Tuple):
         # for a, b in items (tuple unpacking without zip)
         raise ValueError(

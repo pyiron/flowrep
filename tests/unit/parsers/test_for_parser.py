@@ -11,7 +11,7 @@ import textwrap
 import unittest
 
 from flowrep import edge_models
-from flowrep.parsers import atomic_parser, for_parser, workflow_parser
+from flowrep.parsers import atomic_parser, for_parser, symbol_scope, workflow_parser
 from flowrep.prospective import (
     atomic_recipe,
     for_recipe,
@@ -80,32 +80,40 @@ class TestIsZipCall(unittest.TestCase):
 class TestParseSingleForHeader(unittest.TestCase):
     """Direct tests for every branch in _parse_single_for_header."""
 
+    @staticmethod
+    def _call(stmt: ast.For):
+        scope = symbol_scope.SymbolScope({})
+        nodes: dict = {}
+        return for_parser._parse_single_for_header(stmt, scope, nodes, set())
+
     # --- happy paths ---
 
     def test_simple_iteration(self):
         stmt = _parse_for_stmt("for x in xs: pass")
-        is_zip, pairs = for_parser._parse_single_for_header(stmt)
+        is_zip, pairs = self._call(stmt)
         self.assertFalse(is_zip)
-        self.assertEqual(pairs, [("x", "xs")])
+        self.assertEqual(pairs, [("x", "xs", None)])
 
     def test_zip_two_elements(self):
         stmt = _parse_for_stmt("for a, b in zip(xs, ys): pass")
-        is_zip, pairs = for_parser._parse_single_for_header(stmt)
+        is_zip, pairs = self._call(stmt)
         self.assertTrue(is_zip)
-        self.assertEqual(pairs, [("a", "xs"), ("b", "ys")])
+        self.assertEqual(pairs, [("a", "xs", None), ("b", "ys", None)])
 
     def test_zip_three_elements(self):
         stmt = _parse_for_stmt("for a, b, c in zip(xs, ys, zs): pass")
-        is_zip, pairs = for_parser._parse_single_for_header(stmt)
+        is_zip, pairs = self._call(stmt)
         self.assertTrue(is_zip)
-        self.assertEqual(pairs, [("a", "xs"), ("b", "ys"), ("c", "zs")])
+        self.assertEqual(
+            pairs, [("a", "xs", None), ("b", "ys", None), ("c", "zs", None)]
+        )
 
     # --- error paths ---
 
     def test_zip_without_tuple_unpacking_raises(self):
         stmt = _parse_for_stmt("for x in zip(xs, ys): pass")
         with self.assertRaises(ValueError) as ctx:
-            for_parser._parse_single_for_header(stmt)
+            self._call(stmt)
         self.assertIn("tuple unpacking", str(ctx.exception))
 
     def test_zip_non_name_target_raises(self):
@@ -113,31 +121,31 @@ class TestParseSingleForHeader(unittest.TestCase):
         # Patch one target element to an Attribute so it isn't an ast.Name
         stmt.target.elts[1] = ast.Attribute(value=ast.Name(id="obj"), attr="field")
         with self.assertRaises(ValueError) as ctx:
-            for_parser._parse_single_for_header(stmt)
+            self._call(stmt)
         self.assertIn("simple names", str(ctx.exception))
 
     def test_zip_non_symbol_arg_raises(self):
         stmt = _parse_for_stmt("for a, b in zip(xs, foo()): pass")
         with self.assertRaises(ValueError) as ctx:
-            for_parser._parse_single_for_header(stmt)
-        self.assertIn("simple symbols", str(ctx.exception))
+            self._call(stmt)
+        self.assertIn("symbol", str(ctx.exception).lower())
 
     def test_zip_var_arg_count_mismatch_raises(self):
         stmt = _parse_for_stmt("for a, b, c in zip(xs, ys): pass")
         with self.assertRaises(ValueError) as ctx:
-            for_parser._parse_single_for_header(stmt)
+            self._call(stmt)
         self.assertIn("variable count", str(ctx.exception))
 
     def test_iteration_over_expression_raises(self):
         stmt = _parse_for_stmt("for x in range(10): pass")
         with self.assertRaises(ValueError) as ctx:
-            for_parser._parse_single_for_header(stmt)
+            self._call(stmt)
         self.assertIn("symbol", str(ctx.exception).lower())
 
     def test_tuple_unpacking_without_zip_raises(self):
         stmt = _parse_for_stmt("for a, b in items: pass")
         with self.assertRaises(ValueError) as ctx:
-            for_parser._parse_single_for_header(stmt)
+            self._call(stmt)
         self.assertIn("requires zip()", str(ctx.exception))
 
     def test_unsupported_target_type_raises(self):
@@ -147,8 +155,23 @@ class TestParseSingleForHeader(unittest.TestCase):
             slice=ast.Constant(value=0),
         )
         with self.assertRaises(ValueError) as ctx:
-            for_parser._parse_single_for_header(stmt)
+            self._call(stmt)
         self.assertIn("Unsupported", str(ctx.exception))
+
+    def test_attribute_iterable_generates_a_port(self):
+        stmt = _parse_for_stmt("for x in holder.xs: pass")
+        scope = symbol_scope.SymbolScope(
+            {"holder": edge_models.SourceHandle(node="Payload_0", port="instance")}
+        )
+        nodes: dict = {}
+        is_zip, axes = for_parser._parse_single_for_header(stmt, scope, nodes, set())
+        self.assertFalse(is_zip)
+        self.assertEqual(axes[0].variable, "x")
+        self.assertEqual(axes[0].port, "xs_0")
+        self.assertEqual(
+            axes[0].binding, edge_models.SourceHandle(node="getattr_xs_0", port="attr")
+        )
+        self.assertIn("getattr_xs_0", nodes)
 
 
 # ===================================================================
@@ -159,42 +182,48 @@ class TestParseSingleForHeader(unittest.TestCase):
 class TestParseForIterations(unittest.TestCase):
     """Tests for the iteration-header unwrapping logic."""
 
+    @staticmethod
+    def _call(stmt: ast.For):
+        scope = symbol_scope.SymbolScope({})
+        nodes: dict = {}
+        return for_parser._parse_for_iterations(stmt, scope, nodes)
+
     def test_single_simple_iteration(self):
         stmt = _parse_for_stmt("for x in xs:\n  pass")
-        nested, zipped, body = for_parser._parse_for_iterations(stmt)
-        self.assertEqual(nested, [("x", "xs")])
+        nested, zipped, body = self._call(stmt)
+        self.assertEqual(nested, [("x", "xs", None)])
         self.assertEqual(zipped, [])
 
     def test_single_zip_iteration(self):
         stmt = _parse_for_stmt("for a, b in zip(xs, ys):\n  pass")
-        nested, zipped, body = for_parser._parse_for_iterations(stmt)
+        nested, zipped, body = self._call(stmt)
         self.assertEqual(nested, [])
-        self.assertEqual(zipped, [("a", "xs"), ("b", "ys")])
+        self.assertEqual(zipped, [("a", "xs", None), ("b", "ys", None)])
 
     def test_two_nested_simple_iterations(self):
         stmt = _parse_for_stmt("for x in xs:\n  for y in ys:\n    pass")
-        nested, zipped, body = for_parser._parse_for_iterations(stmt)
-        self.assertEqual(nested, [("x", "xs"), ("y", "ys")])
+        nested, zipped, body = self._call(stmt)
+        self.assertEqual(nested, [("x", "xs", None), ("y", "ys", None)])
         self.assertEqual(zipped, [])
 
     def test_nested_then_zip(self):
         code = "for x in xs:\n  for a, b in zip(as_, bs):\n    pass"
         stmt = _parse_for_stmt(code)
-        nested, zipped, body = for_parser._parse_for_iterations(stmt)
-        self.assertEqual(nested, [("x", "xs")])
-        self.assertEqual(zipped, [("a", "as_"), ("b", "bs")])
+        nested, zipped, body = self._call(stmt)
+        self.assertEqual(nested, [("x", "xs", None)])
+        self.assertEqual(zipped, [("a", "as_", None), ("b", "bs", None)])
 
     def test_zipped_then_nested(self):
         code = "for a, b in zip(as_, bs):\n    for x in xs:\n      pass"
         stmt = _parse_for_stmt(code)
-        nested, zipped, body = for_parser._parse_for_iterations(stmt)
-        self.assertEqual(nested, [("x", "xs")])
-        self.assertEqual(zipped, [("a", "as_"), ("b", "bs")])
+        nested, zipped, body = self._call(stmt)
+        self.assertEqual(nested, [("x", "xs", None)])
+        self.assertEqual(zipped, [("a", "as_", None), ("b", "bs", None)])
 
     def test_body_tree_is_innermost_for(self):
         code = "for x in xs:\n  for y in ys:\n    z = 1"
         stmt = _parse_for_stmt(code)
-        _, _, body = for_parser._parse_for_iterations(stmt)
+        _, _, body = self._call(stmt)
         self.assertIsInstance(body, ast.For)
         # The innermost for's body should contain the assignment
         self.assertIsInstance(body.body[0], ast.Assign)
@@ -203,8 +232,8 @@ class TestParseForIterations(unittest.TestCase):
         """If body[0] is not a For, don't descend even if a For follows."""
         code = "for x in xs:\n  y = 1\n  for z in zs:\n    pass"
         stmt = _parse_for_stmt(code)
-        nested, zipped, body = for_parser._parse_for_iterations(stmt)
-        self.assertEqual(nested, [("x", "xs")])
+        nested, zipped, body = self._call(stmt)
+        self.assertEqual(nested, [("x", "xs", None)])
         self.assertEqual(zipped, [])
         # body is the outer for – its body contains the Assign then another For
         self.assertIsInstance(body.body[0], ast.Assign)
@@ -354,7 +383,7 @@ class TestForParserErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("simple symbols", str(ctx.exception))
+        self.assertIn("symbol", str(ctx.exception).lower())
 
 
 # ===================================================================

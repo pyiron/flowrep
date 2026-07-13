@@ -221,5 +221,123 @@ class TestAttributeInElifChain(unittest.TestCase):
         )
 
 
+@workflow_parser.workflow
+def for_attribute_iterable(holder: library.Payload):
+    ys = []
+    for n in holder.xs:
+        y = library.increment(n)
+        ys.append(y)
+    return ys
+
+
+@workflow_parser.workflow
+def for_bound_iterable(holder: library.Payload):
+    xs_0 = holder.xs
+    ys = []
+    for n in xs_0:
+        y = library.increment(n)
+        ys.append(y)
+    return ys
+
+
+@workflow_parser.workflow
+def for_zipped_attribute_iterables(a: library.Payload, b: library.Payload):
+    zs = []
+    for m, n in zip(a.xs, b.xs, strict=True):
+        z = library.my_add(m, n)
+        zs.append(z)
+    return zs
+
+
+@workflow_parser.workflow
+def for_nested_attribute_iterables(a: library.Payload, b: library.Payload):
+    zs = []
+    for m in a.xs:
+        for n in b.xs:
+            z = library.my_add(m, n)
+            zs.append(z)
+    return zs
+
+
+class TestAttributeAsForIterable(unittest.TestCase):
+    def test_generated_port_is_named_for_the_attribute(self):
+        recipe = for_attribute_iterable.flowrep_recipe
+        self.assertEqual(recipe.nodes["for_each_0"].inputs, ["xs_0"])
+
+    def test_getattr_peer_feeds_the_generated_port(self):
+        recipe = for_attribute_iterable.flowrep_recipe
+        self.assertEqual(
+            recipe.edges[edge_models.TargetHandle(node="for_each_0", port="xs_0")],
+            edge_models.SourceHandle(node="getattr_xs_0", port="attr"),
+        )
+
+    def test_identical_to_the_bound_form(self):
+        self.assertEqual(
+            makers.dump_no_refs(makers.reference_free(for_attribute_iterable)),
+            makers.dump_no_refs(makers.reference_free(for_bound_iterable)),
+        )
+
+    def test_executes_via_run_recipe(self):
+        holder = library.Payload(xs=[1, 2, 3])
+        result = wfms.run_recipe(for_attribute_iterable.flowrep_recipe, holder=holder)
+        self.assertEqual(
+            result.output_ports["ys"].value, for_attribute_iterable(holder)
+        )
+
+    def test_round_trips_through_source(self):
+        free = makers.reference_free(for_attribute_iterable)
+        rendered = source._workflow2python(free)
+        fn = rendered.build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+
+class TestAttributesInZippedForIterables(unittest.TestCase):
+    def test_generated_ports_are_distinct(self):
+        recipe = for_zipped_attribute_iterables.flowrep_recipe
+        self.assertEqual(recipe.nodes["for_each_0"].inputs, ["xs_0", "xs_1"])
+
+    def test_executes_via_run_recipe(self):
+        a, b = library.Payload(xs=[1, 2]), library.Payload(xs=[10, 20])
+        result = wfms.run_recipe(
+            for_zipped_attribute_iterables.flowrep_recipe, a=a, b=b
+        )
+        self.assertEqual(
+            result.output_ports["zs"].value, for_zipped_attribute_iterables(a, b)
+        )
+
+    def test_round_trips_through_source(self):
+        free = makers.reference_free(for_zipped_attribute_iterables)
+        rendered = source._workflow2python(free)
+        fn = rendered.build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+
+class TestAttributesInNestedForIterables(unittest.TestCase):
+    def test_generated_ports_are_distinct(self):
+        recipe = for_nested_attribute_iterables.flowrep_recipe
+        self.assertEqual(recipe.nodes["for_each_0"].inputs, ["xs_0", "xs_1"])
+
+    def test_executes_via_run_recipe(self):
+        a, b = library.Payload(xs=[1, 2]), library.Payload(xs=[10, 20])
+        result = wfms.run_recipe(
+            for_nested_attribute_iterables.flowrep_recipe, a=a, b=b
+        )
+        self.assertEqual(
+            result.output_ports["zs"].value, for_nested_attribute_iterables(a, b)
+        )
+
+    def test_round_trips_through_source(self):
+        free = makers.reference_free(for_nested_attribute_iterables)
+        rendered = source._workflow2python(free)
+        fn = rendered.build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -295,8 +295,9 @@ def _bind_condition_source(
 
     The getattr peer already sits in the enclosing walker's ``nodes`` -- the
     flow-control node just needs a port to receive it through. The ``SourceHandle``
-    twin of :func:`_bind_condition_constant`; see :func:`attribute_parser.generated_port`
-    for why the name is deduped against every enclosing symbol.
+    twin of :func:`_bind_condition_constant`; see
+    :func:`attribute_parser.generate_port_name` for why the name is deduped against
+    every enclosing symbol.
     """
     generated = attribute_parser.generate_port_name(
         arg_node, set(scope) | reserved_ports
