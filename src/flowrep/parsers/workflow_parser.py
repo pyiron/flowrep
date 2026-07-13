@@ -12,6 +12,7 @@ from pyiron_snippets import versions
 from flowrep import base_models, edge_models
 from flowrep.parsers import (
     atomic_parser,
+    attribute_parser,
     constant_parser,
     for_parser,
     if_parser,
@@ -271,6 +272,10 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
+            attribute_parser.reject_method_call(rhs, self.symbol_map)
+            hoisted = attribute_parser.hoist_call_arguments(
+                rhs, self.symbol_map, self.nodes
+            )
             child = atomic_parser.get_labeled_recipe(
                 rhs,
                 self.nodes.keys(),
@@ -279,7 +284,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             )
             self.nodes[child.label] = child.recipe
             parser_helpers.consume_call_arguments(
-                self.symbol_map, rhs, child, self.nodes
+                self.symbol_map, rhs, child, self.nodes, hoisted=hoisted
             )
             self.symbol_map.register(new_symbols, child)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
@@ -289,6 +294,23 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                     f"got {new_symbols}"
                 )
             self.symbol_map.register_accumulator(new_symbols[0])
+        elif rhs is not None and attribute_parser.is_data_attribute(
+            rhs, self.symbol_map
+        ):
+            if len(new_symbols) != 1:
+                raise ValueError(
+                    f"Attribute-access assignment must target exactly one symbol, "
+                    f"got {new_symbols}"
+                )
+            handle = attribute_parser.inject_attribute_chain(
+                rhs, self.symbol_map, self.nodes
+            )
+            self.symbol_map.register(
+                new_symbols,
+                helper_models.LabeledRecipe(
+                    label=handle.node, recipe=self.nodes[handle.node]
+                ),
+            )
         elif rhs is not None and (parsed := constant_parser.try_parse_constant(rhs))[0]:
             if len(new_symbols) != 1:
                 raise ValueError(
@@ -316,8 +338,9 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
-                f"a call or empty list on the right-hand-side, but ast found "
-                f"{type(rhs)}"
+                f"a call, empty list, literal constant, symbol alias, or attribute "
+                f"access rooted at a known workflow symbol on the right-hand-side, "
+                f"but ast found {type(rhs)}"
             )
 
     def _digest_flow_control(
@@ -417,7 +440,16 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         used_accumulator = cast(
             ast.Name, cast(ast.Attribute, append_call.func).value
         ).id
-        appended_symbol = cast(ast.Name, append_call.args[0]).id
+        appended = append_call.args[0]
+        if attribute_parser.is_data_attribute(appended, self.symbol_map):
+            handle = attribute_parser.inject_attribute_chain(
+                appended, self.symbol_map, self.nodes
+            )
+            port = attribute_parser.attribute_name(cast(ast.Attribute, appended))
+            self.symbol_map.use_accumulator(used_accumulator, port)
+            self.symbol_map.produce_source(port, handle)
+            return
+        appended_symbol = cast(ast.Name, appended).id
         self.symbol_map.use_accumulator(used_accumulator, appended_symbol)
         appended_source = self.symbol_map[appended_symbol]
         if isinstance(appended_source, edge_models.SourceHandle):
@@ -471,37 +503,75 @@ class _WorkflowFunctionParser(WorkflowParser):
         func: types.FunctionType,
         output_labels: Collection[str],
     ) -> None:
-        returned_symbols = parser_helpers.resolve_symbols_to_strings(body.value)
+        elements = _return_elements(body.value)
+        port_name_candidates = [
+            _return_port_candidate(elt, self.symbol_map) for elt in elements
+        ]
         base_models.validate_unique(
-            returned_symbols,
+            port_name_candidates,
             message=f"Workflow python definitions must have unique returns, but "
-            f"got duplicates in: {returned_symbols}",
+            f"got duplicates in: {port_name_candidates}",
         )
 
         annotated_returns = label_helpers.get_annotated_output_labels(func)
         scraped_labels = label_helpers.merge_labels(
             first_choice=annotated_returns,
-            fallback=returned_symbols,
+            fallback=port_name_candidates,
             message_prefix="Annotation labels and returned symbols mis-match. ",
         )
 
-        if output_labels and len(output_labels) != len(returned_symbols):
+        if output_labels and len(output_labels) != len(elements):
             raise ValueError(
                 f"When output_labels are specified ({output_labels}), workflow "
                 f"python definitions have a matching number of returned symbols "
-                f"({returned_symbols})."
+                f"({port_name_candidates})."
             )
 
         final_ports = list(output_labels) if output_labels else scraped_labels
 
-        for symbol, port in zip(returned_symbols, final_ports, strict=True):
-            if symbol not in self.symbol_map:
-                raise ValueError(
-                    f"Return symbol '{symbol}' is not defined. "
-                    f"Available: {list(self.symbol_map)}"
+        for elt, port in zip(elements, final_ports, strict=True):
+            if isinstance(elt, ast.Name):
+                if elt.id not in self.symbol_map:
+                    raise ValueError(
+                        f"Return symbol '{elt.id}' is not defined. "
+                        f"Available: {list(self.symbol_map)}"
+                    )
+                self.symbol_map.produce(port, elt.id)
+            else:
+                handle = attribute_parser.inject_attribute_chain(
+                    elt, self.symbol_map, self.nodes
                 )
+                self.symbol_map.produce_source(port, handle)
 
-            self.symbol_map.produce(port, symbol)
+
+def _return_elements(node: ast.expr | None) -> list[ast.expr]:
+    """The returned expressions: a single expression, or a tuple's elements."""
+    if node is None:
+        raise TypeError("Workflow python definitions must return a value.")
+    return list(node.elts) if isinstance(node, ast.Tuple) else [node]
+
+
+def _return_port_candidate(elt: ast.expr, symbol_map: symbol_scope.SymbolScope) -> str:
+    """The output-port name candidate for one returned element.
+
+    A returned symbol contributes its own name; a data attribute chain contributes
+    its final attribute name. Anything else raises ``TypeError``.
+
+    Deliberately does *not* delegate to
+    :func:`parser_helpers.resolve_symbols_to_strings` here: that helper also
+    accepts a bare ``ast.Tuple`` of names (it is built for the top-level
+    ``body.value``), which would silently succeed on a nested-tuple return
+    element -- e.g. ``return (a, b), c`` -- instead of raising.
+    """
+    if isinstance(elt, ast.Name):
+        return elt.id
+    if attribute_parser.is_data_attribute(elt, symbol_map):
+        return attribute_parser.attribute_name(cast(ast.Attribute, elt))
+    raise TypeError(
+        f"Expected each returned element to be a symbol or an attribute access "
+        f"rooted at a known workflow symbol, but could not parse this from "
+        f"{type(elt)}."
+    )
 
 
 def is_append_call(node: ast.expr | ast.Expr) -> bool:

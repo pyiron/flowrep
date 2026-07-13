@@ -131,6 +131,42 @@ class TestSymbolScopeProduce(unittest.TestCase):
         )
 
 
+class TestProduceSource(unittest.TestCase):
+    def test_records_handle_verbatim(self):
+        scope = SymbolScope({})
+        handle = _make_source("getattr_a_0", "attr")
+        scope.produce_source("attr", handle)
+        self.assertEqual(
+            scope.output_edges, {edge_models.OutputTarget(port="attr"): handle}
+        )
+
+    def test_does_not_add_symbol_to_scope(self):
+        scope = SymbolScope({})
+        scope.produce_source("attr", _make_source("getattr_a_0", "attr"))
+        self.assertNotIn("attr", scope)
+        self.assertEqual(len(scope), 0)
+
+    def test_duplicate_port_raises(self):
+        scope = SymbolScope({})
+        scope.produce_source("attr", _make_source("getattr_a_0", "attr"))
+        with self.assertRaises(ValueError) as ctx:
+            scope.produce_source("attr", _make_source("getattr_a_1", "attr"))
+        self.assertIn("already produced", str(ctx.exception))
+
+    def test_interoperates_with_produce(self):
+        scope = SymbolScope({"a": _make_input("a")})
+        scope.produce("a")
+        scope.produce_source("b", _make_source("getattr_a_0", "attr"))
+        self.assertEqual(scope.outputs, ["a", "b"])
+        self.assertEqual(
+            scope.output_edges,
+            {
+                edge_models.OutputTarget(port="a"): _make_input("a"),
+                edge_models.OutputTarget(port="b"): _make_source("getattr_a_0", "attr"),
+            },
+        )
+
+
 class TestSymbolScopeFork(unittest.TestCase):
     def test_fork_with_remap(self):
         scope = SymbolScope({"xs": _make_input("xs"), "const": _make_input("const")})

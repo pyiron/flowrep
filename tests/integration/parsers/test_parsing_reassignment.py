@@ -103,13 +103,19 @@ class TestAliasNonRegression(unittest.TestCase):
         with self.assertRaises(ValueError):
             _parse(macro)
 
-    def test_attribute_rhs_still_raises(self):
+    def test_attribute_rhs_on_known_symbol_now_injects_getattr(self):
+        """
+        Attribute access rooted at a known workflow symbol is parsed as an
+        injected ``std.getattr_`` node (see ``flowrep.parsers.attribute_parser``).
+        """
+
         def macro(x):
             y = x.real
             return y
 
-        with self.assertRaises(ValueError):
-            _parse(macro)
+        recipe = _parse(macro)
+        self.assertIn("getattr_real_0", recipe.nodes)
+        self.assertEqual(recipe.outputs, ["y"])
 
     def test_alias_to_undefined_symbol_raises(self):
         def macro(x):

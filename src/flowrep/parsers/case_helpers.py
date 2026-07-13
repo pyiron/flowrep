@@ -8,6 +8,7 @@ from pyiron_snippets import versions
 from flowrep import edge_models, subgraph_validation
 from flowrep.parsers import (
     atomic_parser,
+    attribute_parser,
     object_scope,
     parser_helpers,
     parser_protocol,
@@ -39,6 +40,7 @@ def parse_case(
         raise ValueError(
             "Test conditions must be a function call, but got " f"{type(test).__name__}"
         )
+    attribute_parser.reject_method_call(test, symbol_map)
 
     condition = atomic_parser.get_labeled_recipe(test, set(), scope, info_factory)
     if len(condition.recipe.outputs) != 1:

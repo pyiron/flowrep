@@ -7,7 +7,7 @@ from typing import TypeAlias, cast
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models, subgraph_validation
-from flowrep.compiler import flow_control, function
+from flowrep.compiler import flow_control, function, sugar
 from flowrep.prospective import (
     atomic_recipe,
     constant_recipe,
@@ -252,6 +252,52 @@ def emit_workflow_body(
             )
         required_by_handle[handle] = name
 
+    def _obj_source(
+        label: str,
+    ) -> edge_models.SourceHandle | edge_models.InputSource | None:
+        target = edge_models.TargetHandle(node=label, port=sugar.OBJ_PORT)
+        return recipe.input_edges.get(target) or recipe.edges.get(target)
+
+    def _obj_is_symbolic(label: str) -> bool:
+        """True if the getattr's object resolves to a symbol we can write '.' after.
+
+        An object fed by an *inlined* constant would sugar to nonsense (``5 .a``), so
+        such a node keeps the plain-call emission. The parser cannot produce one.
+        """
+        source = _obj_source(label)
+        if source is None:
+            return False
+        if isinstance(source, edge_models.InputSource):
+            return True
+        peer = recipe.nodes[source.node]
+        if isinstance(peer, constant_recipe.ConstantRecipe):
+            return source.node in materialized_constants
+        return True
+
+    # A recognised getattr node is emitted as attribute syntax -- `sym = obj.attr`
+    # -- always as its own statement, never inlined into a consumer's argument list.
+    #
+    # Inlining would be prettier (`f(dc.a)`, `dc.a.val`) but it is not safe. The
+    # parser injects a getattr node together with a `ConstantRecipe` peer carrying the
+    # attribute name, and constant labels come from one shared `constant_N` counter
+    # over the whole workflow. Inlining moves a getattr's creation to its consumer's
+    # statement, which reorders that name-constant relative to every *other* constant
+    # in the workflow (e.g. a literal call argument) and permutes the counter. The
+    # recipe would still execute identically, but it would not re-parse to an equal
+    # one. Emitting one statement per getattr, in topological order, reproduces the
+    # parser's injection order exactly, so the round trip is exact.
+    #
+    # Materialising also gives the efficiency guarantee for free: one node, one
+    # statement, one symbol -- a getattr consumed by several nodes stays a single
+    # node on re-parse rather than being duplicated into each consumer.
+    sugared: dict[str, str] = {
+        label: attr_name
+        for label, node in recipe.nodes.items()
+        if sugar.is_std_getattr(node)
+        and (attr_name := sugar.attribute_name(label, recipe)) is not None
+        and _obj_is_symbolic(label)
+    }
+
     for label in _topological_nodes(recipe):
         node = recipe.nodes[label]
         if isinstance(node, constant_recipe.ConstantRecipe):
@@ -263,6 +309,15 @@ def emit_workflow_body(
             )
             produced[(label, constant_label)] = name
             lines.append(f"{name} = {repr(node.constant)}")
+            continue
+
+        if label in sugared:
+            name = required_by_handle.get((label, sugar.ATTR_PORT)) or alloc.fresh(
+                _output_name_suggestion(label, sugar.ATTR_PORT, 1)
+            )
+            produced[(label, sugar.ATTR_PORT)] = name
+            obj = resolve(_obj_source(label))
+            lines.append(f"{name} = {obj}.{sugared[label]}")
             continue
 
         call_path = node_call_path(node, label, emitter, alloc)

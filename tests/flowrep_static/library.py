@@ -2,7 +2,7 @@
 
 import typing
 
-from flowrep.parsers import atomic_parser, workflow_parser
+from flowrep.parsers import atomic_parser, dataclass_parser, workflow_parser
 
 
 def undecorated_identity(x):
@@ -149,3 +149,19 @@ def make_list(seed) -> typing.Annotated[list, {"label": "data"}]:
 @workflow_parser.workflow
 def macro_identity(x):
     return x
+
+
+# test_attribute_parser / test_workflow_parser / test_compiler / integration
+
+
+class ComplexData:
+    """A plain (non-recipe) payload class, reached via attribute access."""
+
+    def __init__(self, val: int = 0):
+        self.val = val
+
+
+@dataclass_parser.dataclass
+class MyDataclass:
+    a: ComplexData
+    x: int = 1

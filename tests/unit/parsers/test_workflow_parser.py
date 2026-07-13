@@ -17,7 +17,7 @@ from flowrep.parsers import (
 )
 from flowrep.prospective import atomic_recipe, constant_recipe, workflow_recipe
 
-from flowrep_static import library
+from flowrep_static import library, makers
 
 
 def add(x: float = 2.0, y: float = 1) -> float:
@@ -1233,6 +1233,279 @@ class TestLiteralAssignment(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(_assign_literal_to_multiple_targets)
         self.assertIn("exactly one symbol", str(ctx.exception))
+
+
+class TestAttributeAccess(unittest.TestCase):
+    def test_single_access(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            y = dc.x
+            r = library.my_add(y, y)
+            return r
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertIn("getattr_x_0", node.nodes)
+        constants = [
+            n
+            for n in node.nodes.values()
+            if isinstance(n, constant_recipe.ConstantRecipe)
+        ]
+        self.assertTrue(any(c.constant == "x" for c in constants))
+        self.assertEqual(
+            node.edges[edge_models.TargetHandle(node="getattr_x_0", port="obj")],
+            edge_models.SourceHandle(node="MyDataclass_0", port="instance"),
+        )
+
+    def test_chain(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            v = dc.a.val
+            return v
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertIn("getattr_a_0", node.nodes)
+        self.assertIn("getattr_val_0", node.nodes)
+        self.assertEqual(
+            node.edges[edge_models.TargetHandle(node="getattr_val_0", port="obj")],
+            edge_models.SourceHandle(node="getattr_a_0", port="attr"),
+        )
+
+    def test_call_argument_each_access_is_its_own_node(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            r = library.my_add(dc.x, dc.x)
+            return r
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertIn("getattr_x_0", node.nodes)
+        self.assertIn("getattr_x_1", node.nodes)
+
+    def test_hoisting_invariant_call_argument_form(self):
+        def hoisted(x0: int, comp: library.ComplexData):
+            v = comp.val
+            y = library.my_add(x0, v)
+            return y
+
+        def inlined(x0: int, comp: library.ComplexData):
+            y = library.my_add(x0, comp.val)
+            return y
+
+        hoisted_recipe = workflow_parser.parse_workflow(hoisted)
+        inlined_recipe = workflow_parser.parse_workflow(inlined)
+        self.assertEqual(
+            makers.dump_no_refs(hoisted_recipe), makers.dump_no_refs(inlined_recipe)
+        )
+
+    def test_hoisting_invariant_inside_for_loop(self):
+        def hoisted(x0: int, comp: library.ComplexData, items: list):
+            acc = []
+            for item in items:
+                v = comp.val
+                y = library.my_add(item, v)
+                acc.append(y)
+            return acc
+
+        def inlined(x0: int, comp: library.ComplexData, items: list):
+            acc = []
+            for item in items:
+                y = library.my_add(item, comp.val)
+                acc.append(y)
+            return acc
+
+        hoisted_recipe = workflow_parser.parse_workflow(hoisted)
+        inlined_recipe = workflow_parser.parse_workflow(inlined)
+        self.assertEqual(
+            makers.dump_no_refs(hoisted_recipe), makers.dump_no_refs(inlined_recipe)
+        )
+
+    def test_root_is_workflow_input_creates_input_edge(self):
+        def wf(comp: library.ComplexData):
+            v = comp.val
+            return v
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(
+            node.input_edges[
+                edge_models.TargetHandle(node="getattr_val_0", port="obj")
+            ],
+            edge_models.InputSource(port="comp"),
+        )
+
+    def test_method_call_assignment_raises(self):
+        def wf(comp: library.ComplexData):
+            dc = library.MyDataclass(comp, 1)
+            y = dc.method(comp)
+            return y
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("method", str(ctx.exception).lower())
+
+    def test_method_call_in_if_condition_raises(self):
+        def wf(comp: library.ComplexData):
+            dc = library.MyDataclass(comp, 1)
+            if dc.method(comp):  # noqa: SIM108
+                y = comp
+            else:
+                y = comp
+            return y
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("method", str(ctx.exception).lower())
+
+    def test_method_call_in_while_condition_raises(self):
+        def wf(comp: library.ComplexData):
+            dc = library.MyDataclass(comp, 1)
+            while dc.method(comp):
+                comp = comp
+            return comp
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("method", str(ctx.exception).lower())
+
+    def test_attribute_chain_in_if_condition_argument_raises(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            if library.is_positive(dc.x):  # noqa: SIM108
+                y = x0
+            else:
+                y = x0
+            return y
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("bind", str(ctx.exception).lower())
+
+    def test_attribute_chain_in_while_condition_argument_raises(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            while library.is_positive(dc.x):
+                x0 = x0
+            return x0
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("bind", str(ctx.exception).lower())
+
+    def test_multi_target_attribute_assignment_raises(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            p, q = dc.a  # noqa: F841
+            return p
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("exactly one symbol", str(ctx.exception))
+
+    def test_attribute_assignment_target_raises(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            dc.a = comp
+            return dc
+
+        with self.assertRaises(TypeError):
+            workflow_parser.parse_workflow(wf)
+
+    def test_unknown_root_still_raises(self):
+        def wf(x0: int):
+            y = numpy.pi  # noqa: F821 -- never executed, only parsed
+            return y
+
+        with self.assertRaises(ValueError):
+            workflow_parser.parse_workflow(wf)
+
+    def test_return_single_access(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            return dc.a
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.outputs, ["a"])
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="a")],
+            edge_models.SourceHandle(node="getattr_a_0", port="attr"),
+        )
+
+    def test_return_chain(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            return dc.a.val
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.outputs, ["val"])
+
+    def test_return_access_with_explicit_output_label(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            return dc.a
+
+        node = workflow_parser.parse_workflow(wf, "thing")
+        self.assertEqual(node.outputs, ["thing"])
+
+    def test_return_symbol_and_access_in_order(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            other_symbol = x0
+            return dc.a, other_symbol
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.outputs, ["a", "other_symbol"])
+
+    def test_return_duplicate_attribute_port_raises(self):
+        def wf(x0: int, comp: library.ComplexData, comp2: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            dc2 = library.MyDataclass(comp2, x0)
+            return dc.a, dc2.a
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("unique", str(ctx.exception).lower())
+
+    def test_accumulator_append_of_access(self):
+        def wf(items: list):
+            xs = []
+            for item in items:
+                dc = library.MyDataclass(item, 1)
+                xs.append(dc.a)
+            return xs
+
+        node = workflow_parser.parse_workflow(wf)
+        for_node = node.nodes["for_each_0"]
+        self.assertEqual(for_node.outputs, ["xs"])
+        body = for_node.body_node.recipe
+        self.assertEqual(body.outputs, ["a"])
+        self.assertIn("getattr_a_0", body.nodes)
+
+    def test_return_no_value_raises(self):
+        def wf(x0: int):
+            return
+
+        with self.assertRaises(TypeError):
+            workflow_parser.parse_workflow(wf)
+
+    def test_return_non_name_non_attribute_element_raises(self):
+        def wf(x0: int):
+            return x0 + 1
+
+        with self.assertRaises(TypeError):
+            workflow_parser.parse_workflow(wf)
+
+    def test_accumulator_append_of_access_duplicate_port_raises(self):
+        def wf(items: list, others: list):
+            xs = []
+            ys = []
+            for item, other in zip(items, others, strict=True):
+                dc = library.MyDataclass(item, 1)
+                dc2 = library.MyDataclass(other, 1)
+                xs.append(dc.a)
+                ys.append(dc2.a)
+            return xs, ys
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("already produced", str(ctx.exception))
 
 
 if __name__ == "__main__":

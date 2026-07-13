@@ -9,7 +9,12 @@ from types import FunctionType
 from typing import Any, TypeVar, cast
 
 from flowrep import base_models, edge_models
-from flowrep.parsers import constant_parser, label_helpers, symbol_scope
+from flowrep.parsers import (
+    attribute_parser,
+    constant_parser,
+    label_helpers,
+    symbol_scope,
+)
 from flowrep.prospective import constant_recipe, helper_models, union_types
 
 
@@ -158,6 +163,7 @@ def consume_call_arguments(
     *,
     condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
     reserved_ports: set[str] | None = None,
+    hoisted: dict[ast.expr, edge_models.SourceHandle] | None = None,
 ) -> None:
     """Record all argument->port consumptions for a node-creating call.
 
@@ -171,13 +177,30 @@ def consume_call_arguments(
     constant peer inside it, so the peer lives one level up. *reserved_ports* carries
     synthetic port names already allocated for this flow-control chain so that
     multiple literals -- across an if/elif chain -- get distinct, deterministic ports.
+
+    Data-attribute arguments are injected ahead of the call by
+    ``attribute_parser.hoist_call_arguments`` and arrive here in *hoisted*, mapping
+    the argument's AST node to the ``SourceHandle`` of its outermost getattr node. In
+    condition mode there is no room for a peer getattr node inside a flow-control
+    condition, so a data-attribute argument is rejected instead.
     """
     reserved = set() if reserved_ports is None else reserved_ports
+    already_hoisted = {} if hoisted is None else hoisted
 
     def _consume(arg_node: ast.expr, consumer_port: str) -> None:
+        if (handle := already_hoisted.get(arg_node)) is not None:
+            scope.consume_source(handle, child.label, consumer_port)
+            return
         if isinstance(arg_node, ast.Name):
             scope.consume(arg_node.id, child.label, consumer_port)
             return
+        if attribute_parser.is_data_attribute(arg_node, scope):
+            raise ValueError(
+                f"Attribute access on workflow data is not supported in flow-control "
+                f"condition arguments; for input '{consumer_port}' of condition node "
+                f"'{child.label}' found '{ast.unparse(arg_node)}'. Bind it to a "
+                f"symbol before the flow control and pass that symbol instead."
+            )
         is_literal, value = constant_parser.try_parse_constant(arg_node)
         if not is_literal:
             raise TypeError(
