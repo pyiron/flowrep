@@ -179,5 +179,39 @@ class TestRejectMethodCall(unittest.TestCase):
         attribute_parser.reject_method_call(call, scope)  # does not raise
 
 
+class TestRejectUnboundAttribute(unittest.TestCase):
+    def _scope(self) -> symbol_scope.SymbolScope:
+        return symbol_scope.SymbolScope(
+            {"dc": _make_source("MyDataclass_0", "instance")}
+        )
+
+    def test_raises_for_chain_on_known_symbol(self):
+        with self.assertRaises(ValueError) as ctx:
+            attribute_parser.reject_unbound_attribute(
+                _expr("dc.a"), self._scope(), "appended to an accumulator"
+            )
+        message = str(ctx.exception)
+        self.assertIn("appended to an accumulator", message)
+        self.assertIn("dc.a", message)
+        self.assertIn("bind", message.lower())
+
+    def test_raises_for_chain_of_chains(self):
+        with self.assertRaises(ValueError) as ctx:
+            attribute_parser.reject_unbound_attribute(
+                _expr("dc.a.val"), self._scope(), "returned from a workflow"
+            )
+        self.assertIn("dc.a.val", str(ctx.exception))
+
+    def test_noop_for_bare_symbol(self):
+        attribute_parser.reject_unbound_attribute(
+            _expr("dc"), self._scope(), "returned from a workflow"
+        )
+
+    def test_noop_for_chain_on_unknown_root(self):
+        attribute_parser.reject_unbound_attribute(
+            _expr("numpy.pi"), self._scope(), "returned from a workflow"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -441,15 +441,16 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             ast.Name, cast(ast.Attribute, append_call.func).value
         ).id
         appended = append_call.args[0]
-        if attribute_parser.is_data_attribute(appended, self.symbol_map):
-            handle = attribute_parser.inject_attribute_chain(
-                appended, self.symbol_map, self.nodes
+        attribute_parser.reject_unbound_attribute(
+            appended, self.symbol_map, "appended to an accumulator"
+        )
+        if not isinstance(appended, ast.Name):
+            raise TypeError(
+                f"Workflow python definitions can only append a symbol to an "
+                f"accumulator, but '{used_accumulator}.append(...)' got "
+                f"{type(appended).__name__}. Bind the value to a symbol first."
             )
-            port = attribute_parser.attribute_name(cast(ast.Attribute, appended))
-            self.symbol_map.use_accumulator(used_accumulator, port)
-            self.symbol_map.produce_source(port, handle)
-            return
-        appended_symbol = cast(ast.Name, appended).id
+        appended_symbol = appended.id
         self.symbol_map.use_accumulator(used_accumulator, appended_symbol)
         appended_source = self.symbol_map[appended_symbol]
         if isinstance(appended_source, edge_models.SourceHandle):

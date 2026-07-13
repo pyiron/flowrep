@@ -101,6 +101,27 @@ def hoist_call_arguments(
     return hoisted
 
 
+def reject_unbound_attribute(
+    node: ast.expr, symbol_map: symbol_scope.SymbolScope, context: str
+) -> None:
+    """Raise if *node* is an attribute chain used where a port name must be invented.
+
+    Flowrep names a workflow output port, a flow-control input port, and a for-body
+    output port after the *symbol* supplying them. An attribute chain has no symbol,
+    so there is no honest name to give the port. Rather than invent one the user
+    cannot predict from reading their own source, require the binding.
+    """
+    if not is_data_attribute(node, symbol_map):
+        return
+    chain = ast.unparse(node)
+    raise ValueError(
+        f"Attribute access must be bound to a symbol before it can be {context}: "
+        f"got {chain!r}. The port name is taken from the symbol, and {chain!r} has "
+        f"no symbol to take it from. Bind it first -- e.g. `my_value = {chain}` -- "
+        f"and use `my_value` instead."
+    )
+
+
 def reject_method_call(call: ast.Call, symbol_map: symbol_scope.SymbolScope) -> None:
     """Raise if *call* invokes an attribute of a known symbol (``dc.method(x)``)."""
     if is_data_attribute(call.func, symbol_map):

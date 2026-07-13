@@ -1463,21 +1463,6 @@ class TestAttributeAccess(unittest.TestCase):
             workflow_parser.parse_workflow(wf)
         self.assertIn("unique", str(ctx.exception).lower())
 
-    def test_accumulator_append_of_access(self):
-        def wf(items: list):
-            xs = []
-            for item in items:
-                dc = library.MyDataclass(item, 1)
-                xs.append(dc.a)
-            return xs
-
-        node = workflow_parser.parse_workflow(wf)
-        for_node = node.nodes["for_each_0"]
-        self.assertEqual(for_node.outputs, ["xs"])
-        body = for_node.body_node.recipe
-        self.assertEqual(body.outputs, ["a"])
-        self.assertIn("getattr_a_0", body.nodes)
-
     def test_return_no_value_raises(self):
         def wf(x0: int):
             return
@@ -1492,20 +1477,58 @@ class TestAttributeAccess(unittest.TestCase):
         with self.assertRaises(TypeError):
             workflow_parser.parse_workflow(wf)
 
-    def test_accumulator_append_of_access_duplicate_port_raises(self):
+    def test_accumulator_append_of_access_raises(self):
+        def wf(items: list):
+            xs = []
+            for item in items:
+                dc = library.MyDataclass(item, 1)
+                xs.append(dc.a)
+            return xs
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("bind", str(ctx.exception).lower())
+
+    def test_accumulator_append_of_non_symbol_raises(self):
+        def wf(items: list):
+            xs = []
+            for item in items:
+                xs.append(library.my_add(item, 1))
+            return xs
+
+        with self.assertRaises(TypeError):
+            workflow_parser.parse_workflow(wf)
+
+    def test_bound_accesses_of_same_attribute_coexist(self):
         def wf(items: list, others: list):
             xs = []
             ys = []
             for item, other in zip(items, others, strict=True):
                 dc = library.MyDataclass(item, 1)
                 dc2 = library.MyDataclass(other, 1)
-                xs.append(dc.a)
-                ys.append(dc2.a)
+                first = dc.a
+                second = dc2.a
+                xs.append(first)
+                ys.append(second)
             return xs, ys
 
-        with self.assertRaises(ValueError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("already produced", str(ctx.exception))
+        node = workflow_parser.parse_workflow(wf)
+        for_node = node.nodes["for_each_0"]
+        self.assertEqual(for_node.outputs, ["xs", "ys"])
+        body = for_node.body_node.recipe
+        # Two accesses to the same attribute of two different objects are two
+        # distinct nodes feeding two distinctly-named ports. This is the defect.
+        self.assertIn("getattr_a_0", body.nodes)
+        self.assertIn("getattr_a_1", body.nodes)
+        self.assertEqual(body.outputs, ["first", "second"])
+        self.assertEqual(
+            body.output_edges[edge_models.OutputTarget(port="first")],
+            edge_models.SourceHandle(node="getattr_a_0", port="attr"),
+        )
+        self.assertEqual(
+            body.output_edges[edge_models.OutputTarget(port="second")],
+            edge_models.SourceHandle(node="getattr_a_1", port="attr"),
+        )
 
 
 if __name__ == "__main__":

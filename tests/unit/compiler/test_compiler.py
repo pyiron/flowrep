@@ -2383,13 +2383,14 @@ class TestAttributeSugar(unittest.TestCase):
             xs = []
             for item in items:
                 dc = library.MyDataclass(item, 1)
-                xs.append(dc.a)
+                inner = dc.a
+                xs.append(inner)
             return xs
 
         free = makers.reference_free(wf)
         rendered = source._workflow2python(free)
-        self.assertRegex(rendered.source, r"\ba = \w+\.a\b")
-        self.assertIn("xs.append(a)", rendered.source)
+        self.assertRegex(rendered.source, r"\binner = \w+\.a\b")
+        self.assertIn("xs.append(inner)", rendered.source)
         fn = rendered.build()
         result = fn([library.ComplexData(val=1), library.ComplexData(val=2)])
         self.assertEqual([r.val for r in result], [1, 2])
