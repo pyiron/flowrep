@@ -1416,52 +1416,37 @@ class TestAttributeAccess(unittest.TestCase):
         with self.assertRaises(ValueError):
             workflow_parser.parse_workflow(wf)
 
-    def test_return_single_access(self):
+    def test_return_of_access_raises(self):
         def wf(x0: int, comp: library.ComplexData):
             dc = library.MyDataclass(comp, x0)
             return dc.a
 
-        node = workflow_parser.parse_workflow(wf)
-        self.assertEqual(node.outputs, ["a"])
-        self.assertEqual(
-            node.output_edges[edge_models.OutputTarget(port="a")],
-            edge_models.SourceHandle(node="getattr_a_0", port="attr"),
-        )
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        message = str(ctx.exception)
+        self.assertIn("bind", message.lower())
+        self.assertIn("dc.a", message)
 
-    def test_return_chain(self):
+    def test_return_of_chain_raises(self):
         def wf(x0: int, comp: library.ComplexData):
             dc = library.MyDataclass(comp, x0)
             return dc.a.val
 
-        node = workflow_parser.parse_workflow(wf)
-        self.assertEqual(node.outputs, ["val"])
-
-    def test_return_access_with_explicit_output_label(self):
-        def wf(x0: int, comp: library.ComplexData):
-            dc = library.MyDataclass(comp, x0)
-            return dc.a
-
-        node = workflow_parser.parse_workflow(wf, "thing")
-        self.assertEqual(node.outputs, ["thing"])
-
-    def test_return_symbol_and_access_in_order(self):
-        def wf(x0: int, comp: library.ComplexData):
-            dc = library.MyDataclass(comp, x0)
-            other_symbol = x0
-            return dc.a, other_symbol
-
-        node = workflow_parser.parse_workflow(wf)
-        self.assertEqual(node.outputs, ["a", "other_symbol"])
-
-    def test_return_duplicate_attribute_port_raises(self):
-        def wf(x0: int, comp: library.ComplexData, comp2: library.ComplexData):
-            dc = library.MyDataclass(comp, x0)
-            dc2 = library.MyDataclass(comp2, x0)
-            return dc.a, dc2.a
-
-        with self.assertRaises(ValueError) as ctx:
+        with self.assertRaises(ValueError):
             workflow_parser.parse_workflow(wf)
-        self.assertIn("unique", str(ctx.exception).lower())
+
+    def test_bound_access_returns_under_its_symbol(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            v = dc.a
+            return v
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(node.outputs, ["v"])
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="v")],
+            edge_models.SourceHandle(node="getattr_a_0", port="attr"),
+        )
 
     def test_return_no_value_raises(self):
         def wf(x0: int):

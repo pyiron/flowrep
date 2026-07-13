@@ -266,21 +266,10 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     def produce(self, output_port: str, symbol: str | None = None) -> None:
         """Record that `output_port` is sourced from `symbol`."""
         produced_symbol = output_port if symbol is None else symbol
-        self.produce_source(output_port, self[produced_symbol])
-
-    def produce_source(
-        self,
-        output_port: str,
-        source: edge_models.SourceHandle | edge_models.InputSource,
-    ) -> None:
-        """Record a production whose source is a fixed ``SourceHandle`` (e.g. an
-        injected getattr node), bypassing symbol lookup so no synthetic symbol
-        enters ``_sources`` and risks colliding with a user symbol. The
-        production twin of :meth:`consume_source`."""
         if any(p.output_port == output_port for p in self._productions):
             raise ValueError(f"Output port '{output_port}' already produced.")
         self._productions.append(
-            SymbolProduction(output_port=output_port, source=source)
+            SymbolProduction(output_port=output_port, source=self[produced_symbol])
         )
 
     def produce_symbols(self, symbols: list[str]) -> None:

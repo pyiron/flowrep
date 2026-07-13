@@ -2338,7 +2338,8 @@ class TestAttributeSugar(unittest.TestCase):
     def test_access_feeding_output_materializes_and_round_trips(self):
         def wf(x0: int, comp: library.ComplexData):
             dc = library.MyDataclass(comp, x0)
-            return dc.a
+            v = dc.a
+            return v
 
         free = makers.reference_free(wf)
         rendered = source._workflow2python(free)
@@ -2400,7 +2401,8 @@ class TestAttributeSugar(unittest.TestCase):
 
     def test_access_directly_on_workflow_input(self):
         def wf(comp: library.ComplexData):
-            return comp.val
+            v = comp.val
+            return v
 
         free = makers.reference_free(wf)
         rendered = source._workflow2python(free)

@@ -504,75 +504,46 @@ class _WorkflowFunctionParser(WorkflowParser):
         func: types.FunctionType,
         output_labels: Collection[str],
     ) -> None:
-        elements = _return_elements(body.value)
-        port_name_candidates = [
-            _return_port_candidate(elt, self.symbol_map) for elt in elements
-        ]
+        if body.value is not None:
+            elements = (
+                body.value.elts if isinstance(body.value, ast.Tuple) else [body.value]
+            )
+            for element in elements:
+                attribute_parser.reject_unbound_attribute(
+                    element, self.symbol_map, "returned from a workflow"
+                )
+
+        returned_symbols = parser_helpers.resolve_symbols_to_strings(body.value)
         base_models.validate_unique(
-            port_name_candidates,
+            returned_symbols,
             message=f"Workflow python definitions must have unique returns, but "
-            f"got duplicates in: {port_name_candidates}",
+            f"got duplicates in: {returned_symbols}",
         )
 
         annotated_returns = label_helpers.get_annotated_output_labels(func)
         scraped_labels = label_helpers.merge_labels(
             first_choice=annotated_returns,
-            fallback=port_name_candidates,
+            fallback=returned_symbols,
             message_prefix="Annotation labels and returned symbols mis-match. ",
         )
 
-        if output_labels and len(output_labels) != len(elements):
+        if output_labels and len(output_labels) != len(returned_symbols):
             raise ValueError(
                 f"When output_labels are specified ({output_labels}), workflow "
                 f"python definitions have a matching number of returned symbols "
-                f"({port_name_candidates})."
+                f"({returned_symbols})."
             )
 
         final_ports = list(output_labels) if output_labels else scraped_labels
 
-        for elt, port in zip(elements, final_ports, strict=True):
-            if isinstance(elt, ast.Name):
-                if elt.id not in self.symbol_map:
-                    raise ValueError(
-                        f"Return symbol '{elt.id}' is not defined. "
-                        f"Available: {list(self.symbol_map)}"
-                    )
-                self.symbol_map.produce(port, elt.id)
-            else:
-                handle = attribute_parser.inject_attribute_chain(
-                    elt, self.symbol_map, self.nodes
+        for symbol, port in zip(returned_symbols, final_ports, strict=True):
+            if symbol not in self.symbol_map:
+                raise ValueError(
+                    f"Return symbol '{symbol}' is not defined. "
+                    f"Available: {list(self.symbol_map)}"
                 )
-                self.symbol_map.produce_source(port, handle)
 
-
-def _return_elements(node: ast.expr | None) -> list[ast.expr]:
-    """The returned expressions: a single expression, or a tuple's elements."""
-    if node is None:
-        raise TypeError("Workflow python definitions must return a value.")
-    return list(node.elts) if isinstance(node, ast.Tuple) else [node]
-
-
-def _return_port_candidate(elt: ast.expr, symbol_map: symbol_scope.SymbolScope) -> str:
-    """The output-port name candidate for one returned element.
-
-    A returned symbol contributes its own name; a data attribute chain contributes
-    its final attribute name. Anything else raises ``TypeError``.
-
-    Deliberately does *not* delegate to
-    :func:`parser_helpers.resolve_symbols_to_strings` here: that helper also
-    accepts a bare ``ast.Tuple`` of names (it is built for the top-level
-    ``body.value``), which would silently succeed on a nested-tuple return
-    element -- e.g. ``return (a, b), c`` -- instead of raising.
-    """
-    if isinstance(elt, ast.Name):
-        return elt.id
-    if attribute_parser.is_data_attribute(elt, symbol_map):
-        return attribute_parser.attribute_name(cast(ast.Attribute, elt))
-    raise TypeError(
-        f"Expected each returned element to be a symbol or an attribute access "
-        f"rooted at a known workflow symbol, but could not parse this from "
-        f"{type(elt)}."
-    )
+            self.symbol_map.produce(port, symbol)
 
 
 def is_append_call(node: ast.expr | ast.Expr) -> bool:
