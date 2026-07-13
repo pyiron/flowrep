@@ -6,7 +6,7 @@ import inspect
 import textwrap
 from collections.abc import Callable, Iterable
 from types import FunctionType
-from typing import Any, TypeVar, cast
+from typing import Any, TypeAlias, TypeVar, cast
 
 from flowrep import base_models, edge_models
 from flowrep.parsers import (
@@ -22,6 +22,20 @@ class SourceCodeUnavailableError(ValueError): ...
 
 
 _D = TypeVar("_D")
+
+
+FlowControlBindings: TypeAlias = dict[
+    str, constant_recipe.ConstantRecipe | edge_models.SourceHandle
+]
+"""Peers the enclosing walker must wire into a flow-control node's generated ports.
+
+A flow-control recipe has no room to host a peer node inside it, so a literal or an
+attribute chain in a condition becomes a peer of the flow-control node *one level up*,
+reaching it through a generated input port.
+
+A ``ConstantRecipe`` value means "create this peer node and wire it to the port"; a
+``SourceHandle`` means "the peer already exists in your ``nodes`` -- just wire it".
+"""
 
 
 def apply_label_decorator(
@@ -161,7 +175,7 @@ def consume_call_arguments(
     child: helper_models.LabeledRecipe,
     nodes: union_types.Recipes,
     *,
-    condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
+    condition_bindings: FlowControlBindings | None = None,
     reserved_ports: set[str] | None = None,
     hoisted: dict[ast.expr, edge_models.SourceHandle] | None = None,
 ) -> None:
@@ -232,7 +246,7 @@ def _bind_condition_constant(
     child: helper_models.LabeledRecipe,
     consumer_port: str,
     value: Any,
-    condition_bindings: dict[str, constant_recipe.ConstantRecipe],
+    condition_bindings: FlowControlBindings,
     reserved_ports: set[str],
 ) -> None:
     """Expose a literal condition argument as a synthetic flow-input port.

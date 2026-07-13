@@ -347,52 +347,61 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         self,
         label_prefix: str,
         node: union_types.RecipeDiscrimination,
-        condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
+        bindings: parser_helpers.FlowControlBindings | None = None,
     ) -> None:
         label = label_helpers.unique_suffix(label_prefix, self.nodes)
         self.nodes[label] = node
-        self._connect_node_to_enclosing_scope(label, node, condition_bindings)
+        self._connect_node_to_enclosing_scope(label, node, bindings)
 
     def _connect_node_to_enclosing_scope(
         self,
         label: str,
         node: union_types.RecipeDiscrimination,
-        condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
+        bindings: parser_helpers.FlowControlBindings | None = None,
     ):
-        bindings = condition_bindings or {}
+        bound = bindings or {}
         for port in node.inputs:
-            if port in bindings:
-                constant_label = constant_recipe.ConstantRecipe.std_label
-                peer_label = label_helpers.unique_suffix(constant_label, self.nodes)
-                self.nodes[peer_label] = bindings[port]
-                self.symbol_map.consume_source(
-                    edge_models.SourceHandle(node=peer_label, port=constant_label),
-                    label,
-                    port,
-                )
-            else:
+            binding = bound.get(port)
+            if binding is None:
                 self.symbol_map.consume(port, label, port)
+            elif isinstance(binding, edge_models.SourceHandle):
+                self.symbol_map.consume_source(binding, label, port)
+            else:
+                self._attach_constant_peer(label, port, binding)
 
         labeled_node = helper_models.LabeledRecipe(label=label, recipe=node)
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
 
+    def _attach_constant_peer(
+        self, label: str, port: str, recipe: constant_recipe.ConstantRecipe
+    ) -> None:
+        """Create a constant peer of the flow-control node and feed it into *port*."""
+        constant_label = constant_recipe.ConstantRecipe.std_label
+        peer_label = label_helpers.unique_suffix(constant_label, self.nodes)
+        self.nodes[peer_label] = recipe
+        self.symbol_map.consume_source(
+            edge_models.SourceHandle(node=peer_label, port=constant_label),
+            label,
+            port,
+        )
+
     def visit_For(self, tree: ast.For) -> None:
-        for_recipe = for_parser.parse_for_node(self, tree)
+        for_recipe, bindings = for_parser.parse_for_node(self, tree)
         # Accumulators consumed by the for body are no longer available here
         self.symbol_map.declared_accumulators -= set(for_recipe.outputs)
-        self._digest_flow_control("for_each", for_recipe)
+        self._digest_flow_control("for_each", for_recipe, bindings)
 
     def visit_While(self, tree: ast.While) -> None:
-        while_recipe, condition_bindings = while_parser.parse_while_node(self, tree)
-        self._digest_flow_control("while", while_recipe, condition_bindings)
+        while_recipe, bindings = while_parser.parse_while_node(self, tree)
+        self._digest_flow_control("while", while_recipe, bindings)
 
     def visit_If(self, tree: ast.If) -> None:
-        if_recipe, condition_bindings = if_parser.parse_if_node(self, tree)
-        self._digest_flow_control("if", if_recipe, condition_bindings)
+        if_recipe, bindings = if_parser.parse_if_node(self, tree)
+        self._digest_flow_control("if", if_recipe, bindings)
 
     def visit_Try(self, tree: ast.Try) -> None:
-        try_recipe = try_parser.parse_try_node(self, tree)
-        self._digest_flow_control("try", try_recipe)
+        try_recipe, bindings = try_parser.parse_try_node(self, tree)
+        self._digest_flow_control("try", try_recipe, bindings)
 
     def visit_Expr(self, stmt: ast.Expr) -> None:
         if is_append_call(stmt.value):

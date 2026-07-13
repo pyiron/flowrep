@@ -5,7 +5,7 @@ from ast import While
 
 from flowrep import edge_models
 from flowrep.parsers import case_helpers, parser_helpers, parser_protocol
-from flowrep.prospective import constant_recipe, helper_models, while_recipe
+from flowrep.prospective import helper_models, while_recipe
 
 WHILE_CONDITION_LABEL: str = "condition"
 WHILE_BODY_LABEL: str = "body"
@@ -13,7 +13,7 @@ WHILE_BODY_LABEL: str = "body"
 
 def parse_while_node(
     walker: parser_protocol.BodyWalker, tree: ast.While
-) -> tuple[while_recipe.WhileRecipe, dict[str, constant_recipe.ConstantRecipe]]:
+) -> tuple[while_recipe.WhileRecipe, parser_helpers.FlowControlBindings]:
     """
     Walk a while-loop.
 

@@ -4,7 +4,7 @@ import ast
 from typing import NamedTuple
 
 from flowrep import edge_models
-from flowrep.parsers import parser_protocol, symbol_scope
+from flowrep.parsers import parser_helpers, parser_protocol, symbol_scope
 from flowrep.prospective import for_recipe, helper_models
 
 FOR_BODY_LABEL: str = "body"
@@ -25,7 +25,7 @@ Maps accumulator names, xs, to appended symbol names, x, in statements like xs.a
 
 def parse_for_node(
     walker: parser_protocol.BodyWalker, tree: ast.For
-) -> for_recipe.ForEachRecipe:
+) -> tuple[for_recipe.ForEachRecipe, parser_helpers.FlowControlBindings]:
     """
     Walk a for-loop.
 
@@ -65,14 +65,17 @@ def parse_for_node(
         label=FOR_BODY_LABEL, recipe=body_walker.build_model()
     )
 
-    return for_recipe.ForEachRecipe(
-        inputs=inputs,
-        outputs=outputs,
-        body_node=body_node,
-        input_edges=input_edges,
-        output_edges=output_edges,
-        nested_ports=nested_ports,
-        zipped_ports=zipped_ports,
+    return (
+        for_recipe.ForEachRecipe(
+            inputs=inputs,
+            outputs=outputs,
+            body_node=body_node,
+            input_edges=input_edges,
+            output_edges=output_edges,
+            nested_ports=nested_ports,
+            zipped_ports=zipped_ports,
+        ),
+        {},
     )
 
 

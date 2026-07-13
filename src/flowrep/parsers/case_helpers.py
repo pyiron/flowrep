@@ -14,7 +14,7 @@ from flowrep.parsers import (
     parser_protocol,
     symbol_scope,
 )
-from flowrep.prospective import constant_recipe, helper_models, union_types
+from flowrep.prospective import helper_models, union_types
 
 
 def parse_case(
@@ -28,7 +28,7 @@ def parse_case(
 ) -> tuple[
     helper_models.LabeledRecipe,
     edge_models.InputEdges,
-    dict[str, constant_recipe.ConstantRecipe],
+    parser_helpers.FlowControlBindings,
 ]:
     """
     Parse a conditional expression.
@@ -50,7 +50,7 @@ def parse_case(
         )
 
     scope_copy = symbol_map.fork()
-    condition_bindings: dict[str, constant_recipe.ConstantRecipe] = {}
+    condition_bindings: parser_helpers.FlowControlBindings = {}
     parser_helpers.consume_call_arguments(
         scope_copy,
         test,
