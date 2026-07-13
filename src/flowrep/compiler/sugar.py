@@ -12,14 +12,14 @@ from flowrep.prospective import (
     workflow_recipe,
 )
 
-OBJ_PORT = "obj"
-NAME_PORT = "name"
-ATTR_PORT = "attr"
-
 # `LabeledRecipe.recipe` is a discriminated union; the cast narrows it for mypy.
-_GETATTR_FQN = cast(
-    atomic_recipe.AtomicRecipe, std.getattr_.recipe
-).reference.info.fully_qualified_name
+_GETATTR = cast(atomic_recipe.AtomicRecipe, std.getattr_.recipe)
+_GETATTR_FQN = _GETATTR.reference.info.fully_qualified_name
+
+# Port names are derived from the recipe, never spelled out: editing `std.getattr_`
+# must not require editing strings anywhere else in the source.
+OBJ_PORT, NAME_PORT = _GETATTR.inputs
+(ATTR_PORT,) = _GETATTR.outputs
 
 
 def is_std_getattr(node: union_types.RecipeDiscrimination) -> bool:
@@ -32,8 +32,8 @@ def is_std_getattr(node: union_types.RecipeDiscrimination) -> bool:
     return (
         isinstance(node, atomic_recipe.AtomicRecipe)
         and node.reference.info.fully_qualified_name == _GETATTR_FQN
-        and node.inputs == [OBJ_PORT, NAME_PORT]
-        and node.outputs == [ATTR_PORT]
+        and node.inputs == _GETATTR.inputs
+        and node.outputs == _GETATTR.outputs
     )
 
 

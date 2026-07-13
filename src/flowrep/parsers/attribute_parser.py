@@ -42,9 +42,11 @@ from flowrep import edge_models
 from flowrep.parsers import constant_parser, label_helpers, symbol_scope
 from flowrep.prospective import std, union_types
 
-_OBJ_PORT = "obj"
-_NAME_PORT = "name"
-_ATTR_PORT = "attr"
+# Port names are derived from the recipe, never spelled out: editing `std.getattr_`
+# must not require editing strings anywhere else in the source.
+_GETATTR = std.getattr_.recipe
+_OBJ_PORT, _NAME_PORT = _GETATTR.inputs
+(_ATTR_PORT,) = _GETATTR.outputs
 
 
 def chain_root(node: ast.expr) -> ast.Name | None:
@@ -65,11 +67,6 @@ def is_data_attribute(node: ast.expr, symbol_map: symbol_scope.SymbolScope) -> b
         return False
     root = chain_root(node)
     return root is not None and root.id in symbol_map
-
-
-def attribute_name(node: ast.Attribute) -> str:
-    """The outermost attribute name, e.g. ``dc.a.val`` -> ``"val"``."""
-    return node.attr
 
 
 def inject_attribute_chain(

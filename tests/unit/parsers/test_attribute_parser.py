@@ -59,18 +59,6 @@ class TestIsDataAttribute(unittest.TestCase):
         self.assertTrue(attribute_parser.is_data_attribute(_expr("os.path"), scope))
 
 
-class TestAttributeName(unittest.TestCase):
-    def test_outermost_link(self):
-        node = _expr("dc.a.val")
-        assert isinstance(node, ast.Attribute)
-        self.assertEqual(attribute_parser.attribute_name(node), "val")
-
-    def test_single_link(self):
-        node = _expr("dc.a")
-        assert isinstance(node, ast.Attribute)
-        self.assertEqual(attribute_parser.attribute_name(node), "a")
-
-
 class TestInjectAttributeChain(unittest.TestCase):
     def test_single_link_adds_getattr_and_constant(self):
         scope = symbol_scope.SymbolScope(
@@ -177,6 +165,28 @@ class TestRejectMethodCall(unittest.TestCase):
         call = _expr("f(x)")
         assert isinstance(call, ast.Call)
         attribute_parser.reject_method_call(call, scope)  # does not raise
+
+
+class TestInjectionUsesTheRecipePorts(unittest.TestCase):
+    """The injected edges must target whatever ports std.getattr_ actually declares."""
+
+    def test_edges_and_handle_track_the_recipe(self):
+        obj_port, name_port = std.getattr_.recipe.inputs
+        (attr_port,) = std.getattr_.recipe.outputs
+        scope = symbol_scope.SymbolScope(
+            {"dc": _make_source("MyDataclass_0", "instance")}
+        )
+        nodes: dict = {}
+
+        handle = attribute_parser.inject_attribute_chain(_expr("dc.a"), scope, nodes)
+
+        self.assertEqual(handle, _make_source("getattr_a_0", attr_port))
+        self.assertIn(
+            edge_models.TargetHandle(node="getattr_a_0", port=obj_port), scope.edges
+        )
+        self.assertIn(
+            edge_models.TargetHandle(node="getattr_a_0", port=name_port), scope.edges
+        )
 
 
 class TestRejectUnboundAttribute(unittest.TestCase):

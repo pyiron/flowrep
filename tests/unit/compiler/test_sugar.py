@@ -89,5 +89,17 @@ class TestAttributeName(unittest.TestCase):
         self.assertIsNone(sugar.attribute_name("getattr_a_0", recipe))
 
 
+class TestPortConstantsTrackTheRecipe(unittest.TestCase):
+    """Editing std.getattr_'s ports must not require editing strings in src/."""
+
+    def test_input_ports_come_from_the_recipe(self):
+        self.assertEqual(
+            (sugar.OBJ_PORT, sugar.NAME_PORT), tuple(std.getattr_.recipe.inputs)
+        )
+
+    def test_output_port_comes_from_the_recipe(self):
+        self.assertEqual((sugar.ATTR_PORT,), tuple(std.getattr_.recipe.outputs))
+
+
 if __name__ == "__main__":
     unittest.main()
