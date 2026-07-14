@@ -118,51 +118,69 @@ def referenced_top_level_bindings(
                         yield info.module.split(".")[0]
 
 
-def _inlined_loop_variables(recipe: workflow_recipe.WorkflowRecipe) -> set[str]:
-    """Loop-variable names emitted into this workflow's own scope.
+def _inlined_pinned_symbols(recipe: workflow_recipe.WorkflowRecipe) -> set[str]:
+    """Every name the emitter is *forced* to use as a symbol in this function's scope.
 
-    For-loop variables are pinned to body-port names and bypass the allocator, so
-    reserving them prevents allocator-minted symbols from shadowing them. Descends
-    through inlined flow-control bodies; stops at reference-free WorkflowRecipe peer
-    nodes (emitted as nested defs with their own scope) and referenced nodes.
+    Python's flow control introduces no scope, so every inlined ``for``/``if``/``while``/
+    ``try`` body shares one flat namespace with the enclosing ``def``. Most symbols in it
+    are the allocator's to choose, but some are pinned: round-tripping requires a symbol
+    to carry a port name verbatim, or re-parsing regenerates a different port. Pinned
+    names bypass the allocator, so it must learn them *up front* -- a pin emitted later
+    cannot retroactively protect a name the allocator already minted.
+
+    The pins are flow-control output ports, for-loop variables, for-body output ports, and
+    the input ports of flow-control nodes (which force the feeding sibling's output symbol
+    to match).
+
+    Descends through inlined flow-control bodies; stops at reference-free WorkflowRecipe
+    peer nodes (emitted as nested defs, with their own scope) and referenced nodes.
     """
-    names: set[str] = set()
+    names: set[str] = set(statements.flow_control_input_requirements(recipe).values())
     for node in recipe.nodes.values():
-        _collect_loop_variables(node, names)
+        _collect_pinned_symbols(node, names)
     return names
 
 
-def _collect_loop_variables(
+def _collect_pinned_symbols(
     node: union_types.RecipeDiscrimination, names: set[str]
 ) -> None:
+    if not isinstance(node, flow_control.FLOW_CONTROL_TYPES):
+        return  # atomic / referenced / reference-free workflow peer: not inlined here
+
+    # Every flow-control output port is named for an enclosing symbol, and
+    # `emit_flow_control` pins it to that name.
+    names.update(node.outputs)
+
     if isinstance(node, for_recipe.ForEachRecipe):
         names.update(node.iterated_ports)
-        _collect_loop_variables_from_body(node.body_node.recipe, names)
+        # `_emit_for_each` pins every body output to its port name.
+        names.update(node.body_node.recipe.outputs)
+        _collect_pinned_symbols_from_body(node.body_node.recipe, names)
     elif isinstance(node, if_recipe.IfRecipe):
         for body_case in node.cases:
-            _collect_loop_variables_from_body(body_case.body.recipe, names)
+            _collect_pinned_symbols_from_body(body_case.body.recipe, names)
         if node.else_case is not None:
-            _collect_loop_variables_from_body(node.else_case.recipe, names)
+            _collect_pinned_symbols_from_body(node.else_case.recipe, names)
     elif isinstance(node, try_recipe.TryRecipe):
-        _collect_loop_variables_from_body(node.try_node.recipe, names)
+        _collect_pinned_symbols_from_body(node.try_node.recipe, names)
         for exception_case in node.exception_cases:
-            _collect_loop_variables_from_body(exception_case.body.recipe, names)
+            _collect_pinned_symbols_from_body(exception_case.body.recipe, names)
     elif isinstance(node, while_recipe.WhileRecipe):
-        _collect_loop_variables_from_body(node.case.body.recipe, names)
-    # atomic / referenced / reference-free workflow peer node: not inlined here
+        _collect_pinned_symbols_from_body(node.case.body.recipe, names)
 
 
-def _collect_loop_variables_from_body(
+def _collect_pinned_symbols_from_body(
     body: union_types.RecipeDiscrimination, names: set[str]
 ) -> None:
     """Recurse into an inlined body: a WorkflowRecipe's own nodes, or a nested
     flow-control node. Both are emitted into the current scope."""
     if isinstance(body, workflow_recipe.WorkflowRecipe):
+        names.update(statements.flow_control_input_requirements(body).values())
         for node in body.nodes.values():
-            _collect_loop_variables(node, names)
+            _collect_pinned_symbols(node, names)
     elif isinstance(body, flow_control.FLOW_CONTROL_TYPES):
-        _collect_loop_variables(body, names)
-    # single atomic body: no loop variables
+        _collect_pinned_symbols(body, names)
+    # single atomic body: nothing pinned beyond what the caller already reserved
 
 
 def emit_nested_workflow_node(
@@ -319,10 +337,10 @@ def emit_workflow_function(
 ) -> FunctionBuilder:
     alloc = NameAllocator()
     in_syms = {port: alloc.reserve(port) for port in recipe.inputs}
-    # Loop variables are pinned to body-port names and bypass the allocator; reserve
-    # them so node-output symbols never collide with (and get shadowed by) them.
-    for loop_variable in _inlined_loop_variables(recipe):
-        alloc.reserve(loop_variable)
+    # Pinned symbols bypass the allocator, so it has to know them before it mints
+    # anything, or a fresh name can land on one and be silently overwritten.
+    for pinned in _inlined_pinned_symbols(recipe):
+        alloc.reserve(pinned)
     params = _render_params(recipe, signature, emitter)
     lines, out_syms = statements.emit_workflow_body(recipe, in_syms, {}, emitter, alloc)
     # Output port names are pinned via the decorator (see FunctionBuilder.render),

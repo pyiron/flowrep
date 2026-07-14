@@ -6,10 +6,15 @@ import inspect
 import textwrap
 from collections.abc import Callable, Iterable
 from types import FunctionType
-from typing import Any, TypeVar, cast
+from typing import Any, TypeAlias, TypeVar, cast
 
 from flowrep import base_models, edge_models
-from flowrep.parsers import constant_parser, label_helpers, symbol_scope
+from flowrep.parsers import (
+    attribute_parser,
+    constant_parser,
+    label_helpers,
+    symbol_scope,
+)
 from flowrep.prospective import constant_recipe, helper_models, union_types
 
 
@@ -17,6 +22,20 @@ class SourceCodeUnavailableError(ValueError): ...
 
 
 _D = TypeVar("_D")
+
+
+FlowControlBindings: TypeAlias = dict[
+    str, constant_recipe.ConstantRecipe | edge_models.SourceHandle
+]
+"""Peers the enclosing walker must wire into a flow-control node's generated ports.
+
+A flow-control recipe has no room to host a peer node inside it, so a literal or an
+attribute chain in a condition becomes a peer of the flow-control node *one level up*,
+reaching it through a generated input port.
+
+A ``ConstantRecipe`` value means "create this peer node and wire it to the port"; a
+``SourceHandle`` means "the peer already exists in your ``nodes`` -- just wire it".
+"""
 
 
 def apply_label_decorator(
@@ -156,8 +175,9 @@ def consume_call_arguments(
     child: helper_models.LabeledRecipe,
     nodes: union_types.Recipes,
     *,
-    condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
+    condition_bindings: FlowControlBindings | None = None,
     reserved_ports: set[str] | None = None,
+    hoisted: dict[ast.expr, edge_models.SourceHandle] | None = None,
 ) -> None:
     """Record all argument->port consumptions for a node-creating call.
 
@@ -171,10 +191,33 @@ def consume_call_arguments(
     constant peer inside it, so the peer lives one level up. *reserved_ports* carries
     synthetic port names already allocated for this flow-control chain so that
     multiple literals -- across an if/elif chain -- get distinct, deterministic ports.
+
+    Data-attribute arguments are injected ahead of the call by
+    ``attribute_parser.hoist_call_arguments`` and arrive here in *hoisted*, mapping the
+    argument's AST node to the ``SourceHandle`` of its outermost getattr node. Outside
+    condition mode the consuming node is a peer of that getattr and simply reads from
+    it. In condition mode the consumer lives *inside* a flow-control recipe, which has
+    no room for a peer, so the handle is routed through a generated input port and
+    recorded in *condition_bindings* -- exactly as a literal is.
     """
     reserved = set() if reserved_ports is None else reserved_ports
+    already_hoisted = {} if hoisted is None else hoisted
 
     def _consume(arg_node: ast.expr, consumer_port: str) -> None:
+        if (handle := already_hoisted.get(arg_node)) is not None:
+            if condition_bindings is None:
+                scope.consume_source(handle, child.label, consumer_port)
+            else:
+                _bind_condition_source(
+                    scope,
+                    arg_node,
+                    child,
+                    consumer_port,
+                    handle,
+                    condition_bindings,
+                    reserved,
+                )
+            return
         if isinstance(arg_node, ast.Name):
             scope.consume(arg_node.id, child.label, consumer_port)
             return
@@ -210,21 +253,24 @@ def _bind_condition_constant(
     child: helper_models.LabeledRecipe,
     consumer_port: str,
     value: Any,
-    condition_bindings: dict[str, constant_recipe.ConstantRecipe],
+    condition_bindings: FlowControlBindings,
     reserved_ports: set[str],
 ) -> None:
     """Expose a literal condition argument as a synthetic flow-input port.
 
-    The synthetic port name is unique across the condition's real argument symbols
-    (``scope.inputs``) and every synthetic port already allocated for this
-    flow-control chain (*reserved_ports*), so it is a deterministic function of the
-    source and round-trips exactly. The ``ConstantRecipe`` is built eagerly (so a
-    non-JSON literal such as a tuple raises ``ConstantParseError`` with call-site
-    context here, matching non-condition timing) and handed up for the enclosing
-    walker to attach as a peer.
+    The port name is unique against every symbol in the enclosing scope
+    (``set(scope)``) and every port already generated for this flow-control chain
+    (*reserved_ports*), so it is a deterministic function of the source and
+    round-trips exactly. Deduping against the scope rather than the condition's own
+    arguments is what makes it airtight: a flow-control node's inputs are its
+    condition's inputs *plus its body's*, and a body input port is always an
+    enclosing symbol, so a port that dodges every symbol cannot collide with a real
+    one. The ``ConstantRecipe`` is built eagerly (so a non-JSON literal such as a
+    tuple raises ``ConstantParseError`` with call-site context here, matching
+    non-condition timing) and handed up for the enclosing walker to attach as a peer.
     """
     synthetic_port = label_helpers.unique_suffix(
-        constant_recipe.ConstantRecipe.std_label, set(scope.inputs) | reserved_ports
+        constant_recipe.ConstantRecipe.std_label, set(scope) | reserved_ports
     )
     reserved_ports.add(synthetic_port)
     condition_bindings[synthetic_port] = constant_parser.make_constant(
@@ -233,6 +279,33 @@ def _bind_condition_constant(
     )
     scope.consume_input_source(
         edge_models.InputSource(port=synthetic_port), child.label, consumer_port
+    )
+
+
+def _bind_condition_source(
+    scope: symbol_scope.SymbolScope,
+    arg_node: ast.expr,
+    child: helper_models.LabeledRecipe,
+    consumer_port: str,
+    handle: edge_models.SourceHandle,
+    condition_bindings: FlowControlBindings,
+    reserved_ports: set[str],
+) -> None:
+    """Expose a hoisted attribute chain as a generated flow-input port.
+
+    The getattr peer already sits in the enclosing walker's ``nodes`` -- the
+    flow-control node just needs a port to receive it through. The ``SourceHandle``
+    twin of :func:`_bind_condition_constant`; see
+    :func:`attribute_parser.generate_port_name` for why the name is deduped against
+    every enclosing symbol.
+    """
+    generated = attribute_parser.generate_port_name(
+        arg_node, scope.unavailable_names | reserved_ports
+    )
+    reserved_ports.add(generated)
+    condition_bindings[generated] = handle
+    scope.consume_input_source(
+        edge_models.InputSource(port=generated), child.label, consumer_port
     )
 
 

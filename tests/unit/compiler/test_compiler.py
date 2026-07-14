@@ -12,7 +12,7 @@ import unittest
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models, wfms
-from flowrep.compiler import flow_control, function, source, statements
+from flowrep.compiler import flow_control, function, source, statements, sugar
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import (
     atomic_recipe,
@@ -20,6 +20,7 @@ from flowrep.prospective import (
     for_recipe,
     helper_models,
     if_recipe,
+    std,
     try_recipe,
     while_recipe,
     workflow_recipe,
@@ -1955,7 +1956,7 @@ class TestLoopVariableReservation(unittest.TestCase):
             return out
 
         recipe = makers.reference_free(wf)
-        reserved = function._inlined_loop_variables(recipe)
+        reserved = function._inlined_pinned_symbols(recipe)
         self.assertIn("row", reserved)
         self.assertIn("cell", reserved)
         rebuilt = source._workflow2python(recipe).build()
@@ -2273,6 +2274,322 @@ class TestConstantsInConditions(unittest.TestCase):
             return y
 
         self._round_trip(wf, 0.2)
+
+
+class TestAttributeSugar(unittest.TestCase):
+    def test_single_access_as_call_argument(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            r = library.identity(dc.x)
+            return r
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertIn(".x", rendered.source)
+        self.assertNotIn("_getattr_wrapper", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(3, library.ComplexData(val=7)), 3)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_chain(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            v = dc.a.val
+            return v
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        # Each link of the chain is its own statement: a getattr node is never
+        # inlined into a consumer, because that would move its name-constant
+        # relative to the workflow's other constants and permute the shared
+        # `constant_N` counter on re-parse.
+        self.assertRegex(rendered.source, r"\n\s*(\w+) = \w+\.a\n\s*\w+ = \1\.val\n")
+        self.assertNotIn(".a.val", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(3, library.ComplexData(val=7)), 7)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_access_interleaved_with_a_literal_round_trips(self):
+        """Regression: a getattr's name-constant must not be reordered.
+
+        Constant labels come from one shared `constant_N` counter over the whole
+        workflow. Inlining `dc.a` into the `identity` call would defer its name
+        constant past the literal `3`, swapping `constant_0` and `constant_1` on
+        re-parse -- functionally identical, structurally different.
+        """
+
+        def wf(comp: library.ComplexData, n: int):
+            dc = library.MyDataclass(comp, n)
+            v = dc.a
+            w = library.increment(3)
+            r = library.identity(v)
+            return r, w
+
+        free = makers.reference_free(wf)
+        fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_access_feeding_output_materializes_and_round_trips(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            v = dc.a
+            return v
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertRegex(rendered.source, r"\n\s*\w+ = \w+\.a\n")
+        return_lines = [
+            ln for ln in rendered.source.splitlines() if ln.strip().startswith("return")
+        ]
+        self.assertEqual(len(return_lines), 1)
+        self.assertNotIn(".", return_lines[0])
+        fn = rendered.build()
+        result = fn(3, library.ComplexData(val=7))
+        self.assertEqual(result.val, 7)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_fan_out_materializes_exactly_once(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            v = dc.x
+            p = library.identity(v)
+            q = library.negate(v)
+            return p, q
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        assignment_lines = [
+            ln
+            for ln in rendered.source.splitlines()
+            if re.fullmatch(r"\w+ = \w+\.x", ln.strip())
+        ]
+        self.assertEqual(len(assignment_lines), 1)
+        fn = rendered.build()
+        self.assertEqual(fn(3, library.ComplexData(val=1)), (3, -3))
+        rebuilt = fn.flowrep_recipe
+        getattr_nodes = [n for n in rebuilt.nodes.values() if sugar.is_std_getattr(n)]
+        self.assertEqual(len(getattr_nodes), 1)
+        self.assertEqual(makers.dump_no_refs(rebuilt), makers.dump_no_refs(free))
+
+    def test_access_appended_to_accumulator_pins_body_symbol(self):
+        def wf(items: list):
+            xs = []
+            for item in items:
+                dc = library.MyDataclass(item, 1)
+                inner = dc.a
+                xs.append(inner)
+            return xs
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertRegex(rendered.source, r"\binner = \w+\.a\b")
+        self.assertIn("xs.append(inner)", rendered.source)
+        fn = rendered.build()
+        result = fn([library.ComplexData(val=1), library.ComplexData(val=2)])
+        self.assertEqual([r.val for r in result], [1, 2])
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_access_directly_on_workflow_input(self):
+        def wf(comp: library.ComplexData):
+            v = comp.val
+            return v
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertIn(".val", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(library.ComplexData(val=9)), 9)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_getattr_with_unwired_obj_is_not_sugared(self):
+        TH, SH, OT = (
+            edge_models.TargetHandle,
+            edge_models.SourceHandle,
+            edge_models.OutputTarget,
+        )
+        # WorkflowRecipe validates that every required input has a source, so an
+        # unwired `obj` (no default on _getattr_wrapper) cannot be constructed
+        # directly. Build a valid recipe first, then strip the edge via
+        # model_copy, which -- like the analogous shape in test_sugar.py -- skips
+        # validators and produces a shape only hand-construction can reach.
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=[],
+            outputs=["attr"],
+            nodes={
+                "getattr_0": std.getattr_.recipe,
+                "constant_obj": constant_recipe.ConstantRecipe(constant="hi"),
+                "constant_0": constant_recipe.ConstantRecipe(constant="val"),
+            },
+            input_edges={},
+            edges={
+                TH(node="getattr_0", port="obj"): SH(
+                    node="constant_obj", port="constant"
+                ),
+                TH(node="getattr_0", port="name"): SH(
+                    node="constant_0", port="constant"
+                ),
+            },
+            output_edges={OT(port="attr"): SH(node="getattr_0", port="attr")},
+        )
+        stripped_edges = {
+            target: sh
+            for target, sh in wf.edges.items()
+            if not (target.node == "getattr_0" and target.port == "obj")
+        }
+        wf = wf.model_copy(update={"edges": stripped_edges})
+        with self.assertRaises(ValueError):
+            source._workflow2python(wf, function_name="unwired_obj")
+
+    def test_getattr_obj_fed_by_inlined_constant_is_not_sugared(self):
+        TH, SH, OT = (
+            edge_models.TargetHandle,
+            edge_models.SourceHandle,
+            edge_models.OutputTarget,
+        )
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=[],
+            outputs=["attr"],
+            nodes={
+                "constant_obj": constant_recipe.ConstantRecipe(constant=3),
+                "constant_0": constant_recipe.ConstantRecipe(constant="real"),
+                "getattr_0": std.getattr_.recipe,
+            },
+            input_edges={},
+            edges={
+                TH(node="getattr_0", port="obj"): SH(
+                    node="constant_obj", port="constant"
+                ),
+                TH(node="getattr_0", port="name"): SH(
+                    node="constant_0", port="constant"
+                ),
+            },
+            output_edges={OT(port="attr"): SH(node="getattr_0", port="attr")},
+        )
+        rendered = source._workflow2python(wf, function_name="const_obj_getattr")
+        self.assertIn("_getattr_wrapper", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(), 3)
+
+    def test_hand_built_non_sugarable_getattr_emits_call_and_executes(self):
+        TH, IS, SH, OT = (
+            edge_models.TargetHandle,
+            edge_models.InputSource,
+            edge_models.SourceHandle,
+            edge_models.OutputTarget,
+        )
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=["obj_in", "name_in"],
+            outputs=["attr"],
+            nodes={
+                "identity_0": library.identity.flowrep_recipe,
+                "getattr_0": std.getattr_.recipe,
+            },
+            input_edges={
+                TH(node="identity_0", port="x"): IS(port="name_in"),
+                TH(node="getattr_0", port="obj"): IS(port="obj_in"),
+            },
+            edges={
+                TH(node="getattr_0", port="name"): SH(node="identity_0", port="x"),
+            },
+            output_edges={OT(port="attr"): SH(node="getattr_0", port="attr")},
+        )
+        rendered = source._workflow2python(wf, function_name="nonsugar")
+        self.assertIn("_getattr_wrapper", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(library.ComplexData(val=42), "val"), 42)
+
+    def test_bound_access_as_condition_input_round_trips(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            flag = dc.x
+            if library.is_positive(flag):
+                y = library.identity(x0)
+            else:
+                y = library.negate(x0)
+            return y
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertRegex(rendered.source, r"\bflag = \w+\.x\b")
+        fn = rendered.build()
+        self.assertEqual(fn(3, library.ComplexData(val=7)), 3)
+        self.assertEqual(fn(-3, library.ComplexData(val=7)), 3)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+
+class TestPinnedSymbolReservation(unittest.TestCase):
+    """The allocator must know every pinned name *before* it mints anything.
+
+    A pin bypasses the allocator, and a pin emitted later cannot retroactively protect a
+    name the allocator already minted -- so an unreserved pin silently overwrites it.
+    """
+
+    def test_flow_control_input_ports_are_reserved(self):
+        @workflow_parser.workflow
+        def wf(comp, seed):
+            a = library.val(1)
+            b = library.val(2)
+            if library.is_positive(comp.val):
+                m = library.identity(seed)
+            else:
+                m = library.negate(seed)
+            c = library.my_add(a, b)
+            return m, c
+
+        recipe = makers.reference_free(wf)
+        self.assertIn(
+            "val_0",
+            function._inlined_pinned_symbols(recipe),
+            "the if-node's generated input port pins a getattr to `val_0`",
+        )
+
+    def test_for_body_output_ports_are_reserved(self):
+        @workflow_parser.workflow
+        def wf(payload, comp):
+            ys = []
+            for n in payload.xs:
+                d = library.MyDataclass(comp, n)
+                ys.append(d.x)
+            return ys
+
+        recipe = makers.reference_free(wf)
+        reserved = function._inlined_pinned_symbols(recipe)
+        self.assertIn("n", reserved, "loop variable")
+        self.assertIn("x_0", reserved, "the for-body's generated output port")
+        self.assertIn("ys", reserved, "the for node's output port")
+
+    def test_allocator_does_not_mint_over_a_pin(self):
+        """The regression itself: `b` must survive the loop that follows it."""
+
+        @workflow_parser.workflow
+        def wf(comp, seed):
+            a = library.val(1)
+            b = library.val(2)
+            if library.is_positive(comp.val):
+                m = library.identity(seed)
+            else:
+                m = library.negate(seed)
+            c = library.my_add(a, b)
+            return m, c
+
+        recipe = makers.reference_free(wf)
+        rebuilt = source._workflow2python(recipe).build()
+        comp = library.ComplexData(val=7)
+        self.assertEqual(rebuilt(comp, 4), wf(comp, 4))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 import typing
 
-from flowrep.parsers import atomic_parser, workflow_parser
+from flowrep.parsers import atomic_parser, dataclass_parser, workflow_parser
 
 
 def undecorated_identity(x):
@@ -148,4 +148,42 @@ def make_list(seed) -> typing.Annotated[list, {"label": "data"}]:
 
 @workflow_parser.workflow
 def macro_identity(x):
+    return x
+
+
+# test_attribute_parser / test_workflow_parser / test_compiler / integration
+
+
+class ComplexData:
+    """A plain (non-recipe) payload class, reached via attribute access."""
+
+    def __init__(self, val: int = 0):
+        self.val = val
+
+
+class Payload:
+    """A plain (non-recipe) payload class with a list and two scalars, reached via
+    attribute access."""
+
+    def __init__(self, xs: list | None = None, num: int = 1, den: int = 1):
+        self.xs = [] if xs is None else xs
+        self.num = num
+        self.den = den
+
+
+@dataclass_parser.dataclass
+class MyDataclass:
+    a: ComplexData
+    x: int = 1
+
+
+@atomic_parser.atomic
+def val(x):
+    """Deliberately named for ``ComplexData.val``.
+
+    The compiler names a node's output symbol after its label base, so two ``val``
+    nodes mint ``val`` and ``val_0`` -- and ``val_0`` is exactly the port name the
+    parser generates for an attribute chain ending in ``.val``. That coincidence is
+    what forces the compiler-side namespace collision.
+    """
     return x

@@ -4,8 +4,8 @@ import ast
 import dataclasses
 
 from flowrep import edge_models
-from flowrep.parsers import case_helpers, parser_protocol
-from flowrep.prospective import constant_recipe, helper_models, if_recipe
+from flowrep.parsers import case_helpers, parser_helpers, parser_protocol
+from flowrep.prospective import helper_models, if_recipe
 
 IF_CONDITION_LABEL_PREFIX: str = "condition"
 IF_BODY_LABEL_PREFIX: str = "body"
@@ -19,12 +19,12 @@ class _CaseComponents:
     condition: helper_models.LabeledRecipe
     condition_input_edges: edge_models.InputEdges
     body: case_helpers.WalkedBranch
-    condition_bindings: dict[str, constant_recipe.ConstantRecipe]
+    condition_bindings: parser_helpers.FlowControlBindings
 
 
 def parse_if_node(
     walker: parser_protocol.BodyWalker, tree: ast.If
-) -> tuple[if_recipe.IfRecipe, dict[str, constant_recipe.ConstantRecipe]]:
+) -> tuple[if_recipe.IfRecipe, parser_helpers.FlowControlBindings]:
     """
     Walk an if/elif/else chain.
 
@@ -83,7 +83,7 @@ def parse_if_node(
         for cc in cases
     ]
 
-    condition_bindings: dict[str, constant_recipe.ConstantRecipe] = {}
+    condition_bindings: parser_helpers.FlowControlBindings = {}
     for cc in cases:
         condition_bindings.update(cc.condition_bindings)
 

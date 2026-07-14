@@ -12,6 +12,7 @@ from pyiron_snippets import versions
 from flowrep import base_models, edge_models
 from flowrep.parsers import (
     atomic_parser,
+    attribute_parser,
     constant_parser,
     for_parser,
     if_parser,
@@ -271,6 +272,10 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
+            attribute_parser.reject_method_call(rhs, self.symbol_map)
+            hoisted = attribute_parser.hoist_call_arguments(
+                rhs, self.symbol_map, self.nodes
+            )
             child = atomic_parser.get_labeled_recipe(
                 rhs,
                 self.nodes.keys(),
@@ -279,7 +284,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             )
             self.nodes[child.label] = child.recipe
             parser_helpers.consume_call_arguments(
-                self.symbol_map, rhs, child, self.nodes
+                self.symbol_map, rhs, child, self.nodes, hoisted=hoisted
             )
             self.symbol_map.register(new_symbols, child)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
@@ -289,6 +294,23 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                     f"got {new_symbols}"
                 )
             self.symbol_map.register_accumulator(new_symbols[0])
+        elif rhs is not None and attribute_parser.is_data_attribute(
+            rhs, self.symbol_map
+        ):
+            if len(new_symbols) != 1:
+                raise ValueError(
+                    f"Attribute-access assignment must target exactly one symbol, "
+                    f"got {new_symbols}"
+                )
+            handle = attribute_parser.inject_attribute_chain(
+                rhs, self.symbol_map, self.nodes
+            )
+            self.symbol_map.register(
+                new_symbols,
+                helper_models.LabeledRecipe(
+                    label=handle.node, recipe=self.nodes[handle.node]
+                ),
+            )
         elif rhs is not None and (parsed := constant_parser.try_parse_constant(rhs))[0]:
             if len(new_symbols) != 1:
                 raise ValueError(
@@ -316,60 +338,70 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
-                f"a call or empty list on the right-hand-side, but ast found "
-                f"{type(rhs)}"
+                f"a call, empty list, literal constant, symbol alias, or attribute "
+                f"access rooted at a known workflow symbol on the right-hand-side, "
+                f"but ast found {type(rhs)}"
             )
 
     def _digest_flow_control(
         self,
         label_prefix: str,
         node: union_types.RecipeDiscrimination,
-        condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
+        bindings: parser_helpers.FlowControlBindings | None = None,
     ) -> None:
         label = label_helpers.unique_suffix(label_prefix, self.nodes)
         self.nodes[label] = node
-        self._connect_node_to_enclosing_scope(label, node, condition_bindings)
+        self._connect_node_to_enclosing_scope(label, node, bindings)
 
     def _connect_node_to_enclosing_scope(
         self,
         label: str,
         node: union_types.RecipeDiscrimination,
-        condition_bindings: dict[str, constant_recipe.ConstantRecipe] | None = None,
+        bindings: parser_helpers.FlowControlBindings | None = None,
     ):
-        bindings = condition_bindings or {}
+        bound = bindings or {}
         for port in node.inputs:
-            if port in bindings:
-                constant_label = constant_recipe.ConstantRecipe.std_label
-                peer_label = label_helpers.unique_suffix(constant_label, self.nodes)
-                self.nodes[peer_label] = bindings[port]
-                self.symbol_map.consume_source(
-                    edge_models.SourceHandle(node=peer_label, port=constant_label),
-                    label,
-                    port,
-                )
-            else:
+            binding = bound.get(port)
+            if binding is None:
                 self.symbol_map.consume(port, label, port)
+            elif isinstance(binding, edge_models.SourceHandle):
+                self.symbol_map.consume_source(binding, label, port)
+            else:
+                self._attach_constant_peer(label, port, binding)
 
         labeled_node = helper_models.LabeledRecipe(label=label, recipe=node)
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
 
+    def _attach_constant_peer(
+        self, label: str, port: str, recipe: constant_recipe.ConstantRecipe
+    ) -> None:
+        """Create a constant peer of the flow-control node and feed it into *port*."""
+        constant_label = constant_recipe.ConstantRecipe.std_label
+        peer_label = label_helpers.unique_suffix(constant_label, self.nodes)
+        self.nodes[peer_label] = recipe
+        self.symbol_map.consume_source(
+            edge_models.SourceHandle(node=peer_label, port=constant_label),
+            label,
+            port,
+        )
+
     def visit_For(self, tree: ast.For) -> None:
-        for_recipe = for_parser.parse_for_node(self, tree)
+        for_recipe, bindings = for_parser.parse_for_node(self, tree)
         # Accumulators consumed by the for body are no longer available here
         self.symbol_map.declared_accumulators -= set(for_recipe.outputs)
-        self._digest_flow_control("for_each", for_recipe)
+        self._digest_flow_control("for_each", for_recipe, bindings)
 
     def visit_While(self, tree: ast.While) -> None:
-        while_recipe, condition_bindings = while_parser.parse_while_node(self, tree)
-        self._digest_flow_control("while", while_recipe, condition_bindings)
+        while_recipe, bindings = while_parser.parse_while_node(self, tree)
+        self._digest_flow_control("while", while_recipe, bindings)
 
     def visit_If(self, tree: ast.If) -> None:
-        if_recipe, condition_bindings = if_parser.parse_if_node(self, tree)
-        self._digest_flow_control("if", if_recipe, condition_bindings)
+        if_recipe, bindings = if_parser.parse_if_node(self, tree)
+        self._digest_flow_control("if", if_recipe, bindings)
 
     def visit_Try(self, tree: ast.Try) -> None:
-        try_recipe = try_parser.parse_try_node(self, tree)
-        self._digest_flow_control("try", try_recipe)
+        try_recipe, bindings = try_parser.parse_try_node(self, tree)
+        self._digest_flow_control("try", try_recipe, bindings)
 
     def visit_Expr(self, stmt: ast.Expr) -> None:
         if is_append_call(stmt.value):
@@ -417,11 +449,39 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         used_accumulator = cast(
             ast.Name, cast(ast.Attribute, append_call.func).value
         ).id
-        appended_symbol = cast(ast.Name, append_call.args[0]).id
+        appended = append_call.args[0]
+        if attribute_parser.is_data_attribute(appended, self.symbol_map):
+            self._append_attribute(used_accumulator, appended)
+            return
+        if not isinstance(appended, ast.Name):
+            raise TypeError(
+                f"Workflow python definitions can only append a symbol, or an "
+                f"attribute of one, to an accumulator, but "
+                f"'{used_accumulator}.append(...)' got {type(appended).__name__}. "
+                f"Bind the value to a symbol first."
+            )
+        appended_symbol = appended.id
         self.symbol_map.use_accumulator(used_accumulator, appended_symbol)
         appended_source = self.symbol_map[appended_symbol]
         if isinstance(appended_source, edge_models.SourceHandle):
             self.symbol_map.produce(appended_symbol)
+
+    def _append_attribute(self, used_accumulator: str, appended: ast.expr) -> None:
+        """Append an attribute chain, giving its output port a generated name.
+
+        The getattr nodes go *inside* this body -- an ordinary workflow, which has room
+        for peers -- so they re-execute every iteration, exactly as the attribute access
+        would in Python. Only the port name is invented, and it is deduped against every
+        symbol in scope and every port already produced, so it cannot collide.
+        """
+        handle = attribute_parser.inject_attribute_chain(
+            appended, self.symbol_map, self.nodes
+        )
+        port = attribute_parser.generate_port_name(
+            appended, self.symbol_map.unavailable_names
+        )
+        self.symbol_map.use_accumulator(used_accumulator, port)
+        self.symbol_map.produce_source(port, handle)
 
     def generic_visit(self, stmt: ast.AST) -> None:
         raise TypeError(
@@ -471,6 +531,15 @@ class _WorkflowFunctionParser(WorkflowParser):
         func: types.FunctionType,
         output_labels: Collection[str],
     ) -> None:
+        if body.value is not None:
+            elements = (
+                body.value.elts if isinstance(body.value, ast.Tuple) else [body.value]
+            )
+            for element in elements:
+                attribute_parser.reject_unbound_attribute(
+                    element, self.symbol_map, "returned from a workflow"
+                )
+
         returned_symbols = parser_helpers.resolve_symbols_to_strings(body.value)
         base_models.validate_unique(
             returned_symbols,
