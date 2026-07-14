@@ -7,11 +7,8 @@ import operator
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
-from pyiron_snippets import versions
-
-from flowrep import base_models
 from flowrep.parsers import atomic_parser
-from flowrep.prospective import atomic_recipe, helper_models
+from flowrep.prospective import atomic_recipe
 
 
 @atomic_parser.atomic("absolute", unpack_mode=atomic_recipe.UnpackMode.NONE)
@@ -19,798 +16,254 @@ def abs(a, /):
     return operator.abs(a)
 
 
-add = helper_models.LabeledRecipe(
-    label="add",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.add),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["added"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("added", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def add(a, b, /):
+    return operator.add(a, b)
 
-index = helper_models.LabeledRecipe(
-    label="index",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.index),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a"],
-        outputs=["index"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-inv = helper_models.LabeledRecipe(
-    label="inv",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.inv),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a"],
-        outputs=["inverted"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("index", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def index(a, /):
+    return operator.index(a)
 
-invert = helper_models.LabeledRecipe(
-    label="invert",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.invert),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a"],
-        outputs=["inverted"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-neg = helper_models.LabeledRecipe(
-    label="neg",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.neg),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a"],
-        outputs=["negative"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("inverted", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def inv(a, /):
+    return operator.inv(a)
 
-pos = helper_models.LabeledRecipe(
-    label="pos",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.pos),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a"],
-        outputs=["positive"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-not_ = helper_models.LabeledRecipe(
-    label="not_",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.not_),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a"],
-        outputs=["negated"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("inverted", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def invert(a, /):
+    return operator.invert(a)
 
-truth = helper_models.LabeledRecipe(
-    label="truth",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.truth),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a"],
-        outputs=["truth"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-length_hint = helper_models.LabeledRecipe(
-    label="length_hint",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.length_hint),
-            restricted_input_kinds={
-                "obj": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["obj"],
-        outputs=["length"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("negative", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def neg(a, /):
+    return operator.neg(a)
 
-sub = helper_models.LabeledRecipe(
-    label="sub",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.sub),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["difference"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-isub = helper_models.LabeledRecipe(
-    label="isub",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.isub),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["difference"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("positive", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def pos(a, /):
+    return operator.pos(a)
 
-iadd = helper_models.LabeledRecipe(
-    label="iadd",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.iadd),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["added"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-mul = helper_models.LabeledRecipe(
-    label="mul",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.mul),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["product"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("negated", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def not_(a, /):
+    return operator.not_(a)
 
-imul = helper_models.LabeledRecipe(
-    label="imul",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.imul),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["product"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-floordiv = helper_models.LabeledRecipe(
-    label="floordiv",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.floordiv),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["quotient"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("truth", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def truth(a, /):
+    return operator.truth(a)
 
-ifloordiv = helper_models.LabeledRecipe(
-    label="ifloordiv",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.ifloordiv),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["quotient"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-truediv = helper_models.LabeledRecipe(
-    label="truediv",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.truediv),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["quotient"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("length", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def length_hint(obj, /):
+    return operator.length_hint(obj)
 
-itruediv = helper_models.LabeledRecipe(
-    label="itruediv",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.itruediv),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["quotient"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-mod = helper_models.LabeledRecipe(
-    label="mod",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.mod),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["remainder"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("difference", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def sub(a, b, /):
+    return operator.sub(a, b)
 
-imod = helper_models.LabeledRecipe(
-    label="imod",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.imod),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["remainder"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-pow = helper_models.LabeledRecipe(
-    label="pow",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.pow),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["power"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("difference", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def isub(a, b, /):
+    return operator.isub(a, b)
 
-ipow = helper_models.LabeledRecipe(
-    label="ipow",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.ipow),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["power"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-and_ = helper_models.LabeledRecipe(
-    label="and_",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.and_),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["conjunction"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("added", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def iadd(a, b, /):
+    return operator.iadd(a, b)
 
-iand = helper_models.LabeledRecipe(
-    label="iand",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.iand),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["conjunction"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-or_ = helper_models.LabeledRecipe(
-    label="or_",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.or_),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["disjunction"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("product", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def mul(a, b, /):
+    return operator.mul(a, b)
 
-ior = helper_models.LabeledRecipe(
-    label="ior",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.ior),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["disjunction"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-xor = helper_models.LabeledRecipe(
-    label="xor",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.xor),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["exclusive_or"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("product", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def imul(a, b, /):
+    return operator.imul(a, b)
 
-ixor = helper_models.LabeledRecipe(
-    label="ixor",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.ixor),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["exclusive_or"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-lshift = helper_models.LabeledRecipe(
-    label="lshift",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.lshift),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["left_shifted"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("quotient", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def floordiv(a, b, /):
+    return operator.floordiv(a, b)
 
-ilshift = helper_models.LabeledRecipe(
-    label="ilshift",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.ilshift),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["left_shifted"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-rshift = helper_models.LabeledRecipe(
-    label="rshift",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.rshift),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["right_shifted"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("quotient", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def ifloordiv(a, b, /):
+    return operator.ifloordiv(a, b)
 
-irshift = helper_models.LabeledRecipe(
-    label="irshift",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.irshift),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["right_shifted"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-matmul = helper_models.LabeledRecipe(
-    label="matmul",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.matmul),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["matrix_product"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("quotient", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def truediv(a, b, /):
+    return operator.truediv(a, b)
 
-imatmul = helper_models.LabeledRecipe(
-    label="imatmul",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.imatmul),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["matrix_product"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-eq = helper_models.LabeledRecipe(
-    label="eq",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.eq),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["equal"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("quotient", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def itruediv(a, b, /):
+    return operator.itruediv(a, b)
 
-ne = helper_models.LabeledRecipe(
-    label="ne",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.ne),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["not_equal"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-lt = helper_models.LabeledRecipe(
-    label="lt",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.lt),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["less"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("remainder", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def mod(a, b, /):
+    return operator.mod(a, b)
 
-le = helper_models.LabeledRecipe(
-    label="le",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.le),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["less_equal"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-gt = helper_models.LabeledRecipe(
-    label="gt",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.gt),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["greater"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("remainder", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def imod(a, b, /):
+    return operator.imod(a, b)
 
-ge = helper_models.LabeledRecipe(
-    label="ge",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.ge),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["greater_equal"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-is_ = helper_models.LabeledRecipe(
-    label="is_",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.is_),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["identical"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("power", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def pow(a, b, /):
+    return operator.pow(a, b)
 
-is_not = helper_models.LabeledRecipe(
-    label="is_not",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.is_not),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["not_identical"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-contains = helper_models.LabeledRecipe(
-    label="contains",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.contains),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["contains"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("power", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def ipow(a, b, /):
+    return operator.ipow(a, b)
 
-countOf = helper_models.LabeledRecipe(
-    label="countOf",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.countOf),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["count"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-indexOf = helper_models.LabeledRecipe(
-    label="indexOf",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.indexOf),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["index"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("conjunction", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def and_(a, b, /):
+    return operator.and_(a, b)
 
-concat = helper_models.LabeledRecipe(
-    label="concat",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.concat),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["concatenated"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-iconcat = helper_models.LabeledRecipe(
-    label="iconcat",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.iconcat),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["concatenated"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("conjunction", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def iand(a, b, /):
+    return operator.iand(a, b)
 
-getitem = helper_models.LabeledRecipe(
-    label="getitem",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.getitem),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["item"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
 
-setitem = helper_models.LabeledRecipe(
-    label="setitem",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.setitem),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "c": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b", "c"],
-        outputs=["set"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+@atomic_parser.atomic("disjunction", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def or_(a, b, /):
+    return operator.or_(a, b)
 
-delitem = helper_models.LabeledRecipe(
-    label="delitem",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.delitem),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "b": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a", "b"],
-        outputs=["deleted"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+
+@atomic_parser.atomic("disjunction", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def ior(a, b, /):
+    return operator.ior(a, b)
+
+
+@atomic_parser.atomic("exclusive_or", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def xor(a, b, /):
+    return operator.xor(a, b)
+
+
+@atomic_parser.atomic("exclusive_or", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def ixor(a, b, /):
+    return operator.ixor(a, b)
+
+
+@atomic_parser.atomic("left_shifted", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def lshift(a, b, /):
+    return operator.lshift(a, b)
+
+
+@atomic_parser.atomic("left_shifted", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def ilshift(a, b, /):
+    return operator.ilshift(a, b)
+
+
+@atomic_parser.atomic("right_shifted", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def rshift(a, b, /):
+    return operator.rshift(a, b)
+
+
+@atomic_parser.atomic("right_shifted", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def irshift(a, b, /):
+    return operator.irshift(a, b)
+
+
+@atomic_parser.atomic("matrix_product", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def matmul(a, b, /):
+    return operator.matmul(a, b)
+
+
+@atomic_parser.atomic("matrix_product", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def imatmul(a, b, /):
+    return operator.imatmul(a, b)
+
+
+@atomic_parser.atomic("equal", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def eq(a, b, /):
+    return operator.eq(a, b)
+
+
+@atomic_parser.atomic("not_equal", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def ne(a, b, /):
+    return operator.ne(a, b)
+
+
+@atomic_parser.atomic("less", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def lt(a, b, /):
+    return operator.lt(a, b)
+
+
+@atomic_parser.atomic("less_equal", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def le(a, b, /):
+    return operator.le(a, b)
+
+
+@atomic_parser.atomic("greater", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def gt(a, b, /):
+    return operator.gt(a, b)
+
+
+@atomic_parser.atomic("greater_equal", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def ge(a, b, /):
+    return operator.ge(a, b)
+
+
+@atomic_parser.atomic("identical", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def is_(a, b, /):
+    return operator.is_(a, b)
+
+
+@atomic_parser.atomic("not_identical", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def is_not(a, b, /):
+    return operator.is_not(a, b)
+
+
+@atomic_parser.atomic("contains", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def contains(a, b, /):
+    return operator.contains(a, b)
+
+
+@atomic_parser.atomic("count", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def countOf(a, b, /):
+    return operator.countOf(a, b)
+
+
+@atomic_parser.atomic("index", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def indexOf(a, b, /):
+    return operator.indexOf(a, b)
+
+
+@atomic_parser.atomic("concatenated", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def concat(a, b, /):
+    return operator.concat(a, b)
+
+
+@atomic_parser.atomic("concatenated", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def iconcat(a, b, /):
+    return operator.iconcat(a, b)
+
+
+@atomic_parser.atomic("item", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def getitem(a, b, /):
+    return operator.getitem(a, b)
+
+
+@atomic_parser.atomic("set", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def setitem(a, b, c, /):
+    return operator.setitem(a, b, c)
+
+
+@atomic_parser.atomic("deleted", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def delitem(a, b, /):
+    return operator.delitem(a, b)
 
 
 @atomic_parser.atomic("result", unpack_mode=atomic_recipe.UnpackMode.NONE)
