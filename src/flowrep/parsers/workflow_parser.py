@@ -541,11 +541,6 @@ class _WorkflowFunctionParser(WorkflowParser):
                 )
 
         returned_symbols = parser_helpers.resolve_symbols_to_strings(body.value)
-        base_models.validate_unique(
-            returned_symbols,
-            message=f"Workflow python definitions must have unique returns, but "
-            f"got duplicates in: {returned_symbols}",
-        )
 
         annotated_returns = label_helpers.get_annotated_output_labels(func)
         scraped_labels = label_helpers.merge_labels(
@@ -562,6 +557,14 @@ class _WorkflowFunctionParser(WorkflowParser):
             )
 
         final_ports = list(output_labels) if output_labels else scraped_labels
+
+        base_models.validate_unique(
+            final_ports,
+            message=f"Workflow python definitions must have unique outputs, but "
+            f"got duplicates in: {final_ports}. Was the same symbol returned multiple "
+            f"times? If so, try providing unique output labels or -- probably better "
+            f"-- don't return duplicate symbols.",
+        )
 
         for symbol, port in zip(returned_symbols, final_ports, strict=True):
             if symbol not in self.symbol_map:
