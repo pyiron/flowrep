@@ -115,7 +115,7 @@ def _topological_nodes(
     )
 
 
-def _flow_control_input_requirements(
+def flow_control_input_requirements(
     recipe: workflow_recipe.WorkflowRecipe,
 ) -> dict[tuple[str, str], str]:
     """Required source-symbol names imposed by flow-control node inputs.
@@ -238,7 +238,7 @@ def emit_workflow_body(
     # stays inert and it is inlined in the topo loop below -- which is why the
     # conflict branch immediately below remains unreachable in parser-produced
     # recipes.
-    for handle, name in _flow_control_input_requirements(recipe).items():
+    for handle, name in flow_control_input_requirements(recipe).items():
         if (  # pragma: no cover - twin of the output-edge guard above; only a
             # hand-built recipe (one a parser never emits) can name a source for
             # both a flow-control input and an output differently. See

@@ -300,7 +300,7 @@ def _bind_condition_source(
     every enclosing symbol.
     """
     generated = attribute_parser.generate_port_name(
-        arg_node, set(scope) | reserved_ports
+        arg_node, scope.unavailable_names | reserved_ports
     )
     reserved_ports.add(generated)
     condition_bindings[generated] = handle

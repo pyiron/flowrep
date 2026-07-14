@@ -175,3 +175,15 @@ class Payload:
 class MyDataclass:
     a: ComplexData
     x: int = 1
+
+
+@atomic_parser.atomic
+def val(x):
+    """Deliberately named for ``ComplexData.val``.
+
+    The compiler names a node's output symbol after its label base, so two ``val``
+    nodes mint ``val`` and ``val_0`` -- and ``val_0`` is exactly the port name the
+    parser generates for an attribute chain ending in ``.val``. That coincidence is
+    what forces the compiler-side namespace collision.
+    """
+    return x

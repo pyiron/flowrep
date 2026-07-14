@@ -69,10 +69,14 @@ def emit_flow_control(
         for port in node.outputs
         if (label, port) in required_by_handle
     }
-    # Allocate output symbols for all outputs, using required names where available.
+    # A flow-control node's output port is always named after an enclosing *symbol* the
+    # author wrote -- an accumulator, a branch assignment, a loop variable -- so the port
+    # name is a pin, not a hint. `reserve` rather than `fresh`: minting `b_0` for a symbol
+    # the source calls `b` would break the round trip, and would collide with the same
+    # symbol pinned elsewhere (a `while` inside a `try` surfaces one `b` through both).
     out_syms: dict[str, str] = {}
     for port in node.outputs:
-        name = required.get(port) or alloc.fresh(port)
+        name = required.get(port) or alloc.reserve(port)
         produced[(label, port)] = name
         out_syms[port] = name
 

@@ -43,6 +43,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         sources: dict[str, edge_models.InputSource | edge_models.SourceHandle],
         available_accumulators: set[str] | None = None,
         reserved_accumulators: set[str] | None = None,
+        shadowed_symbols: set[str] | None = None,
     ):
         self._sources = dict(sources)
         self._consumptions: list[SymbolConsumption] = []
@@ -56,7 +57,23 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         self.reserved_accumulators: set[str] = (
             set() if reserved_accumulators is None else reserved_accumulators
         )
+        self.shadowed_symbols: set[str] = (
+            set() if shadowed_symbols is None else shadowed_symbols
+        )
         self.consumed_accumulators: dict[str, str] = {}
+
+    @property
+    def unavailable_names(self) -> set[str]:
+        """Every name a *generated* port name must avoid.
+
+        The compiler inlines flow-control bodies into the enclosing ``def``, so a body's
+        ports and its enclosing scope's symbols share one Python namespace. A generated
+        name must therefore dodge more than this scope's own symbols: it must also dodge
+        :attr:`shadowed_symbols` -- names live in the enclosing emitted scope but absent
+        here, chiefly the collection symbol that :meth:`fork` remapped into the loop
+        variable.
+        """
+        return set(self._sources) | self.shadowed_symbols | set(self.outputs)
 
     @property
     def inputs(self) -> list[str]:
@@ -349,4 +366,10 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             available_accumulators=available_accumulators,
             reserved_accumulators=self.reserved_accumulators
             | self.available_accumulators,
+            # Pre-remap names: `for x in coll` hands the child `x` and drops `coll`, but
+            # `coll` is still very much alive in the emitted Python -- it is the thing
+            # being iterated. A name generated in the child must not land on it.
+            shadowed_symbols=(
+                set(self._sources) | self.all_accumulators | self.shadowed_symbols
+            ),
         )

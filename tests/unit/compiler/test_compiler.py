@@ -1956,7 +1956,7 @@ class TestLoopVariableReservation(unittest.TestCase):
             return out
 
         recipe = makers.reference_free(wf)
-        reserved = function._inlined_loop_variables(recipe)
+        reserved = function._inlined_pinned_symbols(recipe)
         self.assertIn("row", reserved)
         self.assertIn("cell", reserved)
         rebuilt = source._workflow2python(recipe).build()
@@ -2529,6 +2529,67 @@ class TestAttributeSugar(unittest.TestCase):
         self.assertEqual(
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
+
+
+class TestPinnedSymbolReservation(unittest.TestCase):
+    """The allocator must know every pinned name *before* it mints anything.
+
+    A pin bypasses the allocator, and a pin emitted later cannot retroactively protect a
+    name the allocator already minted -- so an unreserved pin silently overwrites it.
+    """
+
+    def test_flow_control_input_ports_are_reserved(self):
+        @workflow_parser.workflow
+        def wf(comp, seed):
+            a = library.val(1)
+            b = library.val(2)
+            if library.is_positive(comp.val):
+                m = library.identity(seed)
+            else:
+                m = library.negate(seed)
+            c = library.my_add(a, b)
+            return m, c
+
+        recipe = makers.reference_free(wf)
+        self.assertIn(
+            "val_0",
+            function._inlined_pinned_symbols(recipe),
+            "the if-node's generated input port pins a getattr to `val_0`",
+        )
+
+    def test_for_body_output_ports_are_reserved(self):
+        @workflow_parser.workflow
+        def wf(payload, comp):
+            ys = []
+            for n in payload.xs:
+                d = library.MyDataclass(comp, n)
+                ys.append(d.x)
+            return ys
+
+        recipe = makers.reference_free(wf)
+        reserved = function._inlined_pinned_symbols(recipe)
+        self.assertIn("n", reserved, "loop variable")
+        self.assertIn("x_0", reserved, "the for-body's generated output port")
+        self.assertIn("ys", reserved, "the for node's output port")
+
+    def test_allocator_does_not_mint_over_a_pin(self):
+        """The regression itself: `b` must survive the loop that follows it."""
+
+        @workflow_parser.workflow
+        def wf(comp, seed):
+            a = library.val(1)
+            b = library.val(2)
+            if library.is_positive(comp.val):
+                m = library.identity(seed)
+            else:
+                m = library.negate(seed)
+            c = library.my_add(a, b)
+            return m, c
+
+        recipe = makers.reference_free(wf)
+        rebuilt = source._workflow2python(recipe).build()
+        comp = library.ComplexData(val=7)
+        self.assertEqual(rebuilt(comp, 4), wf(comp, 4))
 
 
 if __name__ == "__main__":

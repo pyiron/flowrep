@@ -478,7 +478,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             appended, self.symbol_map, self.nodes
         )
         port = attribute_parser.generate_port_name(
-            appended, set(self.symbol_map) | set(self.symbol_map.outputs)
+            appended, self.symbol_map.unavailable_names
         )
         self.symbol_map.use_accumulator(used_accumulator, port)
         self.symbol_map.produce_source(port, handle)

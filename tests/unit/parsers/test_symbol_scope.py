@@ -364,5 +364,48 @@ class TestSymbolScopeAlias(unittest.TestCase):
         self.assertEqual(scope.inputs, ["x"])
 
 
+class TestShadowedSymbols(unittest.TestCase):
+    """`fork` must not lose names that stay alive in the emitted Python scope.
+
+    The compiler inlines a for-body into the enclosing ``def``, so the collection
+    symbol is still bound there even though the child scope knows it only by the loop
+    variable's name. A generated port name must dodge it anyway.
+    """
+
+    def test_fork_shadows_pre_remap_symbols(self):
+        parent = SymbolScope(
+            {"coll": _make_input("coll"), "other": _make_input("other")}
+        )
+        child = parent.fork(symbol_remap={"coll": "x"})
+        self.assertNotIn("coll", child, "the remap renames it away, as before")
+        self.assertIn("x", child)
+        self.assertIn(
+            "coll",
+            child.shadowed_symbols,
+            "but the emitted Python still binds `coll` -- it is being iterated",
+        )
+        self.assertIn("other", child.shadowed_symbols)
+
+    def test_fork_shadows_accumulators(self):
+        parent = SymbolScope({"a": _make_input("a")})
+        parent.register_accumulator("acc")
+        child = parent.fork(available_accumulators={"acc"})
+        self.assertIn("acc", child.shadowed_symbols)
+
+    def test_shadowing_is_transitive(self):
+        """A doubly-nested body must dodge names from *both* enclosing levels."""
+        grandparent = SymbolScope({"coll": _make_input("coll")})
+        parent = grandparent.fork(symbol_remap={"coll": "row"})
+        child = parent.fork(symbol_remap={"row": "cell"})
+        self.assertIn("coll", child.shadowed_symbols)
+        self.assertIn("row", child.shadowed_symbols)
+
+    def test_unavailable_names_unions_scope_shadowed_and_outputs(self):
+        scope = SymbolScope({"a": _make_input("a")}, shadowed_symbols={"gone"})
+        scope.register(["b"], _make_labeled_node("node_0", ["out"]))
+        scope.produce("b")
+        self.assertEqual(scope.unavailable_names, {"a", "b", "gone"})
+
+
 if __name__ == "__main__":
     unittest.main()

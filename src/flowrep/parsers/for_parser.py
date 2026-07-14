@@ -214,7 +214,7 @@ def _resolve_collection(
     if attribute_parser.is_data_attribute(iter_expr, symbol_map):
         handle = attribute_parser.inject_attribute_chain(iter_expr, symbol_map, nodes)
         port = attribute_parser.generate_port_name(
-            iter_expr, set(symbol_map) | reserved_ports
+            iter_expr, symbol_map.unavailable_names | reserved_ports
         )
         reserved_ports.add(port)
         return port, handle
