@@ -320,7 +320,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         outputs = outputs or ["output_0"]
         return helper_models.LabeledRecipe(
             label=label,
-            node=atomic_recipe.AtomicRecipe(
+            recipe=atomic_recipe.AtomicRecipe(
                 reference=makers.make_reference(module="test.module", qualname="func"),
                 inputs=inputs,
                 outputs=outputs,

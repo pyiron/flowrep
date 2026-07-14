@@ -558,7 +558,7 @@ class TestForParserStructure(unittest.TestCase):
             return results
 
         fn = self._parse(wf).nodes["for_each_0"]
-        self.assertIsInstance(fn.body_node.node, workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(fn.body_node.recipe, workflow_recipe.WorkflowRecipe)
 
     def test_multiple_accumulators(self):
         def wf(xs):
@@ -618,7 +618,7 @@ class TestForParserStructure(unittest.TestCase):
             return results
 
         fn = self._parse(wf).nodes["for_each_0"]
-        body = fn.body_node.node
+        body = fn.body_node.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         self.assertIn("for_each_0", body.nodes)
         self.assertIsInstance(body.nodes["for_each_0"], for_recipe.ForEachRecipe)
@@ -655,7 +655,7 @@ class TestForParserStructure(unittest.TestCase):
             return results
 
         fn = self._parse(wf).nodes["for_each_0"]
-        body = fn.body_node.node
+        body = fn.body_node.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         while_nodes = [
             n for n in body.nodes.values() if isinstance(n, while_recipe.WhileRecipe)
@@ -678,7 +678,7 @@ class TestForParserStructure(unittest.TestCase):
             return results
 
         fn = self._parse(wf).nodes["for_each_0"]
-        body = fn.body_node.node
+        body = fn.body_node.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         if_nodes = [n for n in body.nodes.values() if isinstance(n, if_recipe.IfRecipe)]
         self.assertEqual(len(if_nodes), 1)
@@ -697,7 +697,7 @@ class TestForParserStructure(unittest.TestCase):
             return results
 
         fn = self._parse(wf).nodes["for_each_0"]
-        body = fn.body_node.node
+        body = fn.body_node.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         try_nodes = [
             n for n in body.nodes.values() if isinstance(n, try_recipe.TryRecipe)
@@ -834,7 +834,7 @@ class TestForParserVersionPropagation(unittest.TestCase):
             wf, version_scraping={self._pkg(): lambda _: custom}
         )
         for_node = node.nodes["for_each_0"]
-        body = for_node.body_node.node
+        body = for_node.body_node.recipe
         child = body.nodes["undecorated_identity_0"]
         self.assertEqual(child.reference.info.version, custom)
 
@@ -857,9 +857,9 @@ class TestForParserVersionPropagation(unittest.TestCase):
             wf, version_scraping={self._pkg(): lambda _: custom}
         )
         for_node = node.nodes["for_each_0"]
-        outer_body = for_node.body_node.node
+        outer_body = for_node.body_node.recipe
         inner_for = outer_body.nodes["for_each_0"]
-        inner_body = inner_for.body_node.node
+        inner_body = inner_for.body_node.recipe
         child = inner_body.nodes["undecorated_identity_0"]
         self.assertEqual(child.reference.info.version, custom)
 

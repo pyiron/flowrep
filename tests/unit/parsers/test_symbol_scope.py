@@ -18,7 +18,7 @@ def _make_source(node: str, port: str) -> edge_models.SourceHandle:
 def _make_labeled_node(label: str, outputs: list[str]) -> helper_models.LabeledRecipe:
     return helper_models.LabeledRecipe(
         label=label,
-        node=atomic_recipe.AtomicRecipe(
+        recipe=atomic_recipe.AtomicRecipe(
             reference=base_models.PythonReference(
                 info=versions.VersionInfo(
                     module="test.module", qualname="func", version=None

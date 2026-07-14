@@ -90,13 +90,13 @@ _if_node = {
         {
             "condition": {
                 "label": "condition_0",
-                "node": library.my_condition.flowrep_recipe,
+                "recipe": library.my_condition.flowrep_recipe,
             },
-            "body": {"label": "body_0", "node": _if_true_body},
+            "body": {"label": "body_0", "recipe": _if_true_body},
             "condition_output": None,
         },
     ],
-    "else_case": {"label": "else_body", "node": _if_else_body},
+    "else_case": {"label": "else_body", "recipe": _if_else_body},
     "input_edges": {
         "condition_0.m": "r",
         "condition_0.n": "y",
@@ -124,7 +124,7 @@ _for_node = {
     "type": "for_each",
     "inputs": ["y", "c", "rs"],
     "outputs": ["acc"],
-    "body_node": {"label": "body", "node": _for_body},
+    "body_node": {"label": "body", "recipe": _for_body},
     "input_edges": {"body.y": "y", "body.c": "c", "body.r": "rs"},
     "output_edges": {"acc": "body.v"},
     "nested_ports": ["r"],
@@ -164,9 +164,9 @@ _while_node = {
     "case": {
         "condition": {
             "label": "condition",
-            "node": library.my_condition.flowrep_recipe,
+            "recipe": library.my_condition.flowrep_recipe,
         },
-        "body": {"label": "body", "node": _while_body},
+        "body": {"label": "body", "recipe": _while_body},
         "condition_output": None,
     },
     "input_edges": {
@@ -219,11 +219,11 @@ _try_node = {
     "type": "try",
     "inputs": ["a", "y", "bound"],
     "outputs": ["b", "z"],
-    "try_node": {"label": "try_body", "node": _try_body},
+    "try_node": {"label": "try_body", "recipe": _try_body},
     "exception_cases": [
         {
             "exceptions": [versions.VersionInfo.of(ValueError)],
-            "body": {"label": "except_body_0", "node": _except_body},
+            "body": {"label": "except_body_0", "recipe": _except_body},
         },
     ],
     "input_edges": {

@@ -145,7 +145,7 @@ def _for_negate() -> for_recipe.ForEachRecipe:
         inputs=["xs"],
         outputs=["ys"],
         body_node=helper_models.LabeledRecipe(
-            label="body", node=library.negate.flowrep_recipe
+            label="body", recipe=library.negate.flowrep_recipe
         ),
         input_edges={
             edge_models.TargetHandle(node="body", port="x"): edge_models.InputSource(
@@ -170,7 +170,7 @@ def _for_add_broadcast() -> for_recipe.ForEachRecipe:
         inputs=["xs", "offset"],
         outputs=["ys", "inputs_used"],
         body_node=helper_models.LabeledRecipe(
-            label="body", node=library.my_add.flowrep_recipe
+            label="body", recipe=library.my_add.flowrep_recipe
         ),
         input_edges={
             edge_models.TargetHandle(node="body", port="a"): edge_models.InputSource(
@@ -198,7 +198,7 @@ def _for_add_zipped() -> for_recipe.ForEachRecipe:
         inputs=["xs", "ys"],
         outputs=["sums"],
         body_node=helper_models.LabeledRecipe(
-            label="body", node=library.my_add.flowrep_recipe
+            label="body", recipe=library.my_add.flowrep_recipe
         ),
         input_edges={
             edge_models.TargetHandle(node="body", port="a"): edge_models.InputSource(
@@ -236,10 +236,10 @@ def _while_countdown() -> while_recipe.WhileRecipe:
         outputs=["n"],
         case=helper_models.ConditionalCase(
             condition=helper_models.LabeledRecipe(
-                label="condition", node=library.is_positive.flowrep_recipe
+                label="condition", recipe=library.is_positive.flowrep_recipe
             ),
             body=helper_models.LabeledRecipe(
-                label="body", node=_decrement_body_workflow()
+                label="body", recipe=_decrement_body_workflow()
             ),
         ),
         input_edges={
@@ -289,17 +289,17 @@ def _if_abs() -> if_recipe.IfRecipe:
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="condition_0",
-                    node=library.is_positive.flowrep_recipe,
+                    recipe=library.is_positive.flowrep_recipe,
                 ),
                 body=helper_models.LabeledRecipe(
                     label="body_0",
-                    node=_identity_body_workflow(),
+                    recipe=_identity_body_workflow(),
                 ),
             )
         ],
         else_case=helper_models.LabeledRecipe(
             label="else_body",
-            node=_negate_body_workflow(),
+            recipe=_negate_body_workflow(),
         ),
         input_edges={
             edge_models.TargetHandle(
@@ -339,18 +339,18 @@ def _if_abs_multi_output_condition() -> if_recipe.IfRecipe:
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="condition_0",
-                    node=_value_and_flag.flowrep_recipe,
+                    recipe=_value_and_flag.flowrep_recipe,
                 ),
                 body=helper_models.LabeledRecipe(
                     label="body_0",
-                    node=_identity_body_workflow(),
+                    recipe=_identity_body_workflow(),
                 ),
                 condition_output="flag",
             )
         ],
         else_case=helper_models.LabeledRecipe(
             label="else_body",
-            node=_negate_body_workflow(),
+            recipe=_negate_body_workflow(),
         ),
         input_edges={
             edge_models.TargetHandle(
@@ -401,7 +401,7 @@ def _try_safe_divide() -> try_recipe.TryRecipe:
         inputs=["a", "b"],
         outputs=["result"],
         try_node=helper_models.LabeledRecipe(
-            label="try_body", node=_divide_body_workflow()
+            label="try_body", recipe=_divide_body_workflow()
         ),
         exception_cases=[
             helper_models.ExceptionCase(
@@ -409,7 +409,7 @@ def _try_safe_divide() -> try_recipe.TryRecipe:
                     versions.VersionInfo.of(ZeroDivisionError),
                 ],
                 body=helper_models.LabeledRecipe(
-                    label="except_body_0", node=_fallback_body_workflow()
+                    label="except_body_0", recipe=_fallback_body_workflow()
                 ),
             )
         ],

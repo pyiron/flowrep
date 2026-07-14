@@ -277,7 +277,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                 self.scope,
                 self.info_factory,
             )
-            self.nodes[child.label] = child.node
+            self.nodes[child.label] = child.recipe
             parser_helpers.consume_call_arguments(
                 self.symbol_map, rhs, child, self.nodes
             )
@@ -304,7 +304,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             )
             self.nodes[label] = node
             self.symbol_map.register(
-                new_symbols, helper_models.LabeledRecipe(label=label, node=node)
+                new_symbols, helper_models.LabeledRecipe(label=label, recipe=node)
             )
         elif isinstance(rhs, ast.Name):
             if len(new_symbols) != 1:
@@ -350,7 +350,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             else:
                 self.symbol_map.consume(port, label, port)
 
-        labeled_node = helper_models.LabeledRecipe(label=label, node=node)
+        labeled_node = helper_models.LabeledRecipe(label=label, recipe=node)
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
 
     def visit_For(self, tree: ast.For) -> None:

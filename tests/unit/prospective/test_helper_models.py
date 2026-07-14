@@ -18,7 +18,7 @@ class TestConditionalCaseValidation(unittest.TestCase):
     def _make_condition(outputs=None):
         return helper_models.LabeledRecipe(
             label="condition",
-            node=makers.make_atomic(
+            recipe=makers.make_atomic(
                 inputs=["x"], outputs=outputs or ["result"], qualname="check"
             ),
         )
@@ -27,7 +27,7 @@ class TestConditionalCaseValidation(unittest.TestCase):
     def _make_body():
         return helper_models.LabeledRecipe(
             label="body",
-            node=makers.make_atomic(inputs=["x"], outputs=["y"], qualname="handle"),
+            recipe=makers.make_atomic(inputs=["x"], outputs=["y"], qualname="handle"),
         )
 
     def test_single_output_condition_no_explicit_output(self):
@@ -82,7 +82,7 @@ class TestExceptionCaseValidation(unittest.TestCase):
         case = helper_models.ExceptionCase(
             exceptions=[value_info],
             body=helper_models.LabeledRecipe(
-                label="handler", node=self._make_except_body()
+                label="handler", recipe=self._make_except_body()
             ),
         )
         self.assertEqual(case.exceptions, [value_info])
@@ -96,7 +96,7 @@ class TestExceptionCaseValidation(unittest.TestCase):
                 versions.VersionInfo.of(KeyError),
             ],
             body=helper_models.LabeledRecipe(
-                label="handler", node=self._make_except_body()
+                label="handler", recipe=self._make_except_body()
             ),
         )
         self.assertEqual(len(case.exceptions), 3)
@@ -107,7 +107,7 @@ class TestExceptionCaseValidation(unittest.TestCase):
             helper_models.ExceptionCase(
                 exceptions=[],
                 body=helper_models.LabeledRecipe(
-                    label="handler", node=self._make_except_body()
+                    label="handler", recipe=self._make_except_body()
                 ),
             )
         self.assertIn("at least one", str(ctx.exception))
@@ -123,7 +123,7 @@ class TestExceptionCaseSerialization(unittest.TestCase):
             ],
             body=helper_models.LabeledRecipe(
                 label="handler",
-                node=atomic_recipe.AtomicRecipe(
+                recipe=atomic_recipe.AtomicRecipe(
                     reference=makers.make_reference("mod", "handle_error"),
                     inputs=["x"],
                     outputs=["y"],
@@ -147,10 +147,10 @@ class TestLabeledNode(unittest.TestCase):
         """LabeledNode with valid label and node."""
         ln = helper_models.LabeledRecipe(
             label="my_node",
-            node=makers.make_atomic(inputs=["x"], outputs=["y"]),
+            recipe=makers.make_atomic(inputs=["x"], outputs=["y"]),
         )
         self.assertEqual(ln.label, "my_node")
-        self.assertIsInstance(ln.node, atomic_recipe.AtomicRecipe)
+        self.assertIsInstance(ln.recipe, atomic_recipe.AtomicRecipe)
 
     def test_labeled_node_with_workflow(self):
         """LabeledNode can contain a WorkflowRecipe."""
@@ -162,13 +162,13 @@ class TestLabeledNode(unittest.TestCase):
             edges={},
             output_edges={"b": "leaf.y"},
         )
-        ln = helper_models.LabeledRecipe(label="nested", node=inner)
-        self.assertIsInstance(ln.node, workflow_recipe.WorkflowRecipe)
+        ln = helper_models.LabeledRecipe(label="nested", recipe=inner)
+        self.assertIsInstance(ln.recipe, workflow_recipe.WorkflowRecipe)
 
     def test_invalid_label_keyword(self):
         """LabeledNode rejects Python keywords as labels."""
         with self.assertRaises(pydantic.ValidationError) as ctx:
-            helper_models.LabeledRecipe(label="for", node=makers.make_atomic())
+            helper_models.LabeledRecipe(label="for", recipe=makers.make_atomic())
         self.assertIn("valid Python identifier", str(ctx.exception))
 
     def test_invalid_label_reserved(self):
@@ -178,7 +178,7 @@ class TestLabeledNode(unittest.TestCase):
                 self.subTest(label=reserved),
                 self.assertRaises(pydantic.ValidationError),
             ):
-                helper_models.LabeledRecipe(label=reserved, node=makers.make_atomic())
+                helper_models.LabeledRecipe(label=reserved, recipe=makers.make_atomic())
 
     def test_invalid_label_not_identifier(self):
         """LabeledNode rejects non-identifiers as labels."""
@@ -187,7 +187,7 @@ class TestLabeledNode(unittest.TestCase):
                 self.subTest(label=invalid),
                 self.assertRaises(pydantic.ValidationError),
             ):
-                helper_models.LabeledRecipe(label=invalid, node=makers.make_atomic())
+                helper_models.LabeledRecipe(label=invalid, recipe=makers.make_atomic())
 
 
 class TestConditionalCase(unittest.TestCase):
@@ -198,11 +198,11 @@ class TestConditionalCase(unittest.TestCase):
         cc = helper_models.ConditionalCase(
             condition=helper_models.LabeledRecipe(
                 label="cond",
-                node=makers.make_atomic(inputs=["x"], outputs=["result"]),
+                recipe=makers.make_atomic(inputs=["x"], outputs=["result"]),
             ),
             body=helper_models.LabeledRecipe(
                 label="body",
-                node=makers.make_atomic(inputs=["y"], outputs=["out"]),
+                recipe=makers.make_atomic(inputs=["y"], outputs=["out"]),
             ),
         )
         self.assertIsNone(cc.condition_output)
@@ -212,11 +212,11 @@ class TestConditionalCase(unittest.TestCase):
         cc = helper_models.ConditionalCase(
             condition=helper_models.LabeledRecipe(
                 label="cond",
-                node=makers.make_atomic(inputs=["x"], outputs=["a", "b", "flag"]),
+                recipe=makers.make_atomic(inputs=["x"], outputs=["a", "b", "flag"]),
             ),
             body=helper_models.LabeledRecipe(
                 label="body",
-                node=makers.make_atomic(inputs=["y"], outputs=["out"]),
+                recipe=makers.make_atomic(inputs=["y"], outputs=["out"]),
             ),
             condition_output="flag",
         )
@@ -228,11 +228,11 @@ class TestConditionalCase(unittest.TestCase):
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="cond",
-                    node=makers.make_atomic(inputs=["x"], outputs=["a", "b"]),
+                    recipe=makers.make_atomic(inputs=["x"], outputs=["a", "b"]),
                 ),
                 body=helper_models.LabeledRecipe(
                     label="body",
-                    node=makers.make_atomic(inputs=["y"], outputs=["out"]),
+                    recipe=makers.make_atomic(inputs=["y"], outputs=["out"]),
                 ),
             )
         self.assertIn("exactly one output", str(ctx.exception))
@@ -243,11 +243,11 @@ class TestConditionalCase(unittest.TestCase):
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="cond",
-                    node=makers.make_atomic(inputs=["x"], outputs=["a", "b"]),
+                    recipe=makers.make_atomic(inputs=["x"], outputs=["a", "b"]),
                 ),
                 body=helper_models.LabeledRecipe(
                     label="body",
-                    node=makers.make_atomic(inputs=["y"], outputs=["out"]),
+                    recipe=makers.make_atomic(inputs=["y"], outputs=["out"]),
                 ),
                 condition_output="nonexistent",
             )
@@ -258,9 +258,9 @@ class TestConditionalCase(unittest.TestCase):
         """Condition and body can have different labels."""
         cc = helper_models.ConditionalCase(
             condition=helper_models.LabeledRecipe(
-                label="check", node=makers.make_atomic(outputs=["ok"])
+                label="check", recipe=makers.make_atomic(outputs=["ok"])
             ),
-            body=helper_models.LabeledRecipe(label="run", node=makers.make_atomic()),
+            body=helper_models.LabeledRecipe(label="run", recipe=makers.make_atomic()),
         )
         self.assertEqual(cc.condition.label, "check")
         self.assertEqual(cc.body.label, "run")
@@ -270,10 +270,10 @@ class TestConditionalCase(unittest.TestCase):
         with self.assertRaises(pydantic.ValidationError) as ctx:
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
-                    label="same", node=makers.make_atomic(outputs=["ok"])
+                    label="same", recipe=makers.make_atomic(outputs=["ok"])
                 ),
                 body=helper_models.LabeledRecipe(
-                    label="same", node=makers.make_atomic()
+                    label="same", recipe=makers.make_atomic()
                 ),
             )
         self.assertIn("distinct labels", str(ctx.exception))

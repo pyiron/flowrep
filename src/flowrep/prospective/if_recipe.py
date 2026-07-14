@@ -61,11 +61,11 @@ class IfRecipe(base_models.NodeRecipe):
     def prospective_nodes(self) -> Recipes:
         nodes = {}
         for case in self.cases:
-            nodes[case.condition.label] = case.condition.node
-            nodes[case.body.label] = case.body.node
+            nodes[case.condition.label] = case.condition.recipe
+            nodes[case.body.label] = case.body.recipe
 
         if self.else_case:
-            nodes[self.else_case.label] = self.else_case.node
+            nodes[self.else_case.label] = self.else_case.recipe
         return nodes
 
     @pydantic.model_validator(mode="after")

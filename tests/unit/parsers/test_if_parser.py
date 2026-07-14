@@ -563,8 +563,8 @@ class TestIfParserStructure(unittest.TestCase):
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
-        self.assertIsInstance(ifn.cases[0].body.node, workflow_recipe.WorkflowRecipe)
-        self.assertIsInstance(ifn.else_case.node, workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(ifn.cases[0].body.recipe, workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(ifn.else_case.recipe, workflow_recipe.WorkflowRecipe)
 
     def test_multiple_outputs(self):
         def wf(x, y):
@@ -666,7 +666,7 @@ class TestIfParserStructure(unittest.TestCase):
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
-        body = ifn.cases[0].body.node
+        body = ifn.cases[0].body.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         for_nodes = [
             n for n in body.nodes.values() if isinstance(n, for_recipe.ForEachRecipe)
@@ -686,7 +686,7 @@ class TestIfParserStructure(unittest.TestCase):
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
-        body = ifn.cases[0].body.node
+        body = ifn.cases[0].body.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         while_nodes = [
             n for n in body.nodes.values() if isinstance(n, while_recipe.WhileRecipe)
@@ -707,7 +707,7 @@ class TestIfParserStructure(unittest.TestCase):
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
-        body = ifn.cases[0].body.node
+        body = ifn.cases[0].body.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         inner_if_nodes = [
             n for n in body.nodes.values() if isinstance(n, if_recipe.IfRecipe)
@@ -729,7 +729,7 @@ class TestIfParserStructure(unittest.TestCase):
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
-        else_body = ifn.else_case.node
+        else_body = ifn.else_case.recipe
         self.assertIsInstance(else_body, workflow_recipe.WorkflowRecipe)
         for_nodes = [
             n
@@ -752,7 +752,7 @@ class TestIfParserStructure(unittest.TestCase):
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
-        body = ifn.cases[0].body.node
+        body = ifn.cases[0].body.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         try_nodes = [
             n for n in body.nodes.values() if isinstance(n, try_recipe.TryRecipe)
@@ -773,7 +773,7 @@ class TestIfParserStructure(unittest.TestCase):
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
-        else_body = ifn.else_case.node
+        else_body = ifn.else_case.recipe
         self.assertIsInstance(else_body, workflow_recipe.WorkflowRecipe)
         try_nodes = [
             n for n in else_body.nodes.values() if isinstance(n, try_recipe.TryRecipe)
@@ -895,7 +895,7 @@ class TestIfParserVersionPropagation(unittest.TestCase):
             wf, version_scraping={self._pkg(): lambda _: custom}
         )
         if_node = node.nodes["if_0"]
-        body = if_node.cases[0].body.node
+        body = if_node.cases[0].body.recipe
         child = body.nodes["undecorated_identity_0"]
         self.assertEqual(child.reference.info.version, custom)
 
@@ -914,7 +914,7 @@ class TestIfParserVersionPropagation(unittest.TestCase):
             wf, version_scraping={self._pkg(): lambda _: custom}
         )
         if_node = node.nodes["if_0"]
-        else_body = if_node.else_case.node
+        else_body = if_node.else_case.recipe
         child = else_body.nodes["undecorated_identity_0"]
         self.assertEqual(child.reference.info.version, custom)
 
@@ -938,10 +938,10 @@ class TestIfParserVersionPropagation(unittest.TestCase):
         )
         if_node = node.nodes["if_0"]
         # condition is pre-decorated, and so keeps its own version
-        condition_node = if_node.cases[0].condition.node
+        condition_node = if_node.cases[0].condition.recipe
         self.assertNotEqual(condition_node.reference.info.version, custom)
         # body child is undecorated, and so picks up custom version
-        body_child = if_node.cases[0].body.node.nodes["undecorated_identity_0"]
+        body_child = if_node.cases[0].body.recipe.nodes["undecorated_identity_0"]
         self.assertEqual(body_child.reference.info.version, custom)
 
     def test_version_constraints_propagate_to_condition(self):

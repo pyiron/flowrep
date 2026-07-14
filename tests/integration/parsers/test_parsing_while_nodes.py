@@ -36,11 +36,11 @@ simple_while_while_node = while_recipe.WhileRecipe.model_validate(
         "case": {
             "condition": {
                 "label": "condition",
-                "node": library.my_condition.flowrep_recipe,
+                "recipe": library.my_condition.flowrep_recipe,
             },
             "body": {
                 "label": "body",
-                "node": simple_while_while_node_body,
+                "recipe": simple_while_while_node_body,
             },
         },
         "input_edges": {
@@ -109,11 +109,11 @@ nest_while_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "case": {
                     "condition": {
                         "label": "condition",
-                        "node": library.my_condition.flowrep_recipe,
+                        "recipe": library.my_condition.flowrep_recipe,
                     },
                     "body": {
                         "label": "body",
-                        "node": {
+                        "recipe": {
                             "type": "workflow",
                             "inputs": ["x", "a", "y", "n"],
                             "outputs": ["x", "y"],
@@ -126,11 +126,11 @@ nest_while_node = workflow_recipe.WorkflowRecipe.model_validate(
                                     "case": {
                                         "condition": {
                                             "label": "condition",
-                                            "node": library.my_condition.flowrep_recipe,
+                                            "recipe": library.my_condition.flowrep_recipe,
                                         },
                                         "body": {
                                             "label": "body",
-                                            "node": {
+                                            "recipe": {
                                                 "type": "workflow",
                                                 "inputs": ["y", "x"],
                                                 "outputs": ["y"],
@@ -247,11 +247,11 @@ multi_reassign_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "case": {
                     "condition": {
                         "label": "condition",
-                        "node": library.my_condition.flowrep_recipe,
+                        "recipe": library.my_condition.flowrep_recipe,
                     },
                     "body": {
                         "label": "body",
-                        "node": multi_reassign_body,
+                        "recipe": multi_reassign_body,
                     },
                 },
                 "input_edges": {
@@ -323,9 +323,9 @@ sequential_whiles_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "case": {
                     "condition": {
                         "label": "condition",
-                        "node": library.my_condition.flowrep_recipe,
+                        "recipe": library.my_condition.flowrep_recipe,
                     },
-                    "body": {"label": "body", "node": seq_while_body},
+                    "body": {"label": "body", "recipe": seq_while_body},
                 },
                 "input_edges": {
                     "condition.m": "x",
@@ -342,9 +342,9 @@ sequential_whiles_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "case": {
                     "condition": {
                         "label": "condition",
-                        "node": library.my_condition.flowrep_recipe,
+                        "recipe": library.my_condition.flowrep_recipe,
                     },
-                    "body": {"label": "body", "node": seq_while_body},
+                    "body": {"label": "body", "recipe": seq_while_body},
                 },
                 "input_edges": {
                     "condition.m": "x",
@@ -400,11 +400,11 @@ chained_body_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "case": {
                     "condition": {
                         "label": "condition",
-                        "node": library.my_condition.flowrep_recipe,
+                        "recipe": library.my_condition.flowrep_recipe,
                     },
                     "body": {
                         "label": "body",
-                        "node": {
+                        "recipe": {
                             "type": "workflow",
                             "inputs": ["x", "a", "b"],
                             "outputs": ["x"],

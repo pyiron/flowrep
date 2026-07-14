@@ -29,11 +29,11 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
                     {
                         "condition": {
                             "label": "condition_0",
-                            "node": library.my_condition.flowrep_recipe,
+                            "recipe": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
@@ -50,7 +50,7 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
                 ],
                 "else_case": {
                     "label": "else_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
@@ -113,11 +113,11 @@ elif_node = workflow_recipe.WorkflowRecipe.model_validate(
                     {
                         "condition": {
                             "label": "condition_0",
-                            "node": library.my_condition.flowrep_recipe,
+                            "recipe": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
@@ -134,11 +134,11 @@ elif_node = workflow_recipe.WorkflowRecipe.model_validate(
                     {
                         "condition": {
                             "label": "condition_1",
-                            "node": library.my_condition.flowrep_recipe,
+                            "recipe": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_1",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
@@ -155,7 +155,7 @@ elif_node = workflow_recipe.WorkflowRecipe.model_validate(
                 ],
                 "else_case": {
                     "label": "else_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["y", "flag"],
                         "outputs": ["z"],
@@ -225,11 +225,11 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
                     {
                         "condition": {
                             "label": "condition_0",
-                            "node": library.my_condition.flowrep_recipe,
+                            "recipe": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "b"],
                                 "outputs": ["y"],
@@ -246,7 +246,7 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
                 ],
                 "else_case": {
                     "label": "else_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "b"],
                         "outputs": ["y"],
@@ -310,11 +310,11 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
                     {
                         "condition": {
                             "label": "condition_0",
-                            "node": library.my_condition.flowrep_recipe,
+                            "recipe": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["a", "b"],
@@ -340,7 +340,7 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
                 ],
                 "else_case": {
                     "label": "else_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "y"],
                         "outputs": ["a", "b"],
@@ -414,11 +414,11 @@ no_else_node = workflow_recipe.WorkflowRecipe.model_validate(
                     {
                         "condition": {
                             "label": "condition_0",
-                            "node": library.my_condition.flowrep_recipe,
+                            "recipe": library.my_condition.flowrep_recipe,
                         },
                         "body": {
                             "label": "body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],

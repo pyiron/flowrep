@@ -14,7 +14,7 @@ from flowrep.prospective import atomic_recipe, helper_models
 
 abs = helper_models.LabeledRecipe(
     label="abs",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.abs),
             restricted_input_kinds={
@@ -29,7 +29,7 @@ abs = helper_models.LabeledRecipe(
 
 add = helper_models.LabeledRecipe(
     label="add",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.add),
             restricted_input_kinds={
@@ -45,7 +45,7 @@ add = helper_models.LabeledRecipe(
 
 index = helper_models.LabeledRecipe(
     label="index",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.index),
             restricted_input_kinds={
@@ -60,7 +60,7 @@ index = helper_models.LabeledRecipe(
 
 inv = helper_models.LabeledRecipe(
     label="inv",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.inv),
             restricted_input_kinds={
@@ -75,7 +75,7 @@ inv = helper_models.LabeledRecipe(
 
 invert = helper_models.LabeledRecipe(
     label="invert",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.invert),
             restricted_input_kinds={
@@ -90,7 +90,7 @@ invert = helper_models.LabeledRecipe(
 
 neg = helper_models.LabeledRecipe(
     label="neg",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.neg),
             restricted_input_kinds={
@@ -105,7 +105,7 @@ neg = helper_models.LabeledRecipe(
 
 pos = helper_models.LabeledRecipe(
     label="pos",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.pos),
             restricted_input_kinds={
@@ -120,7 +120,7 @@ pos = helper_models.LabeledRecipe(
 
 not_ = helper_models.LabeledRecipe(
     label="not_",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.not_),
             restricted_input_kinds={
@@ -135,7 +135,7 @@ not_ = helper_models.LabeledRecipe(
 
 truth = helper_models.LabeledRecipe(
     label="truth",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.truth),
             restricted_input_kinds={
@@ -150,7 +150,7 @@ truth = helper_models.LabeledRecipe(
 
 length_hint = helper_models.LabeledRecipe(
     label="length_hint",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.length_hint),
             restricted_input_kinds={
@@ -165,7 +165,7 @@ length_hint = helper_models.LabeledRecipe(
 
 sub = helper_models.LabeledRecipe(
     label="sub",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.sub),
             restricted_input_kinds={
@@ -181,7 +181,7 @@ sub = helper_models.LabeledRecipe(
 
 isub = helper_models.LabeledRecipe(
     label="isub",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.isub),
             restricted_input_kinds={
@@ -197,7 +197,7 @@ isub = helper_models.LabeledRecipe(
 
 iadd = helper_models.LabeledRecipe(
     label="iadd",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.iadd),
             restricted_input_kinds={
@@ -213,7 +213,7 @@ iadd = helper_models.LabeledRecipe(
 
 mul = helper_models.LabeledRecipe(
     label="mul",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.mul),
             restricted_input_kinds={
@@ -229,7 +229,7 @@ mul = helper_models.LabeledRecipe(
 
 imul = helper_models.LabeledRecipe(
     label="imul",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.imul),
             restricted_input_kinds={
@@ -245,7 +245,7 @@ imul = helper_models.LabeledRecipe(
 
 floordiv = helper_models.LabeledRecipe(
     label="floordiv",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.floordiv),
             restricted_input_kinds={
@@ -261,7 +261,7 @@ floordiv = helper_models.LabeledRecipe(
 
 ifloordiv = helper_models.LabeledRecipe(
     label="ifloordiv",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ifloordiv),
             restricted_input_kinds={
@@ -277,7 +277,7 @@ ifloordiv = helper_models.LabeledRecipe(
 
 truediv = helper_models.LabeledRecipe(
     label="truediv",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.truediv),
             restricted_input_kinds={
@@ -293,7 +293,7 @@ truediv = helper_models.LabeledRecipe(
 
 itruediv = helper_models.LabeledRecipe(
     label="itruediv",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.itruediv),
             restricted_input_kinds={
@@ -309,7 +309,7 @@ itruediv = helper_models.LabeledRecipe(
 
 mod = helper_models.LabeledRecipe(
     label="mod",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.mod),
             restricted_input_kinds={
@@ -325,7 +325,7 @@ mod = helper_models.LabeledRecipe(
 
 imod = helper_models.LabeledRecipe(
     label="imod",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.imod),
             restricted_input_kinds={
@@ -341,7 +341,7 @@ imod = helper_models.LabeledRecipe(
 
 pow = helper_models.LabeledRecipe(
     label="pow",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.pow),
             restricted_input_kinds={
@@ -357,7 +357,7 @@ pow = helper_models.LabeledRecipe(
 
 ipow = helper_models.LabeledRecipe(
     label="ipow",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ipow),
             restricted_input_kinds={
@@ -373,7 +373,7 @@ ipow = helper_models.LabeledRecipe(
 
 and_ = helper_models.LabeledRecipe(
     label="and_",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.and_),
             restricted_input_kinds={
@@ -389,7 +389,7 @@ and_ = helper_models.LabeledRecipe(
 
 iand = helper_models.LabeledRecipe(
     label="iand",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.iand),
             restricted_input_kinds={
@@ -405,7 +405,7 @@ iand = helper_models.LabeledRecipe(
 
 or_ = helper_models.LabeledRecipe(
     label="or_",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.or_),
             restricted_input_kinds={
@@ -421,7 +421,7 @@ or_ = helper_models.LabeledRecipe(
 
 ior = helper_models.LabeledRecipe(
     label="ior",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ior),
             restricted_input_kinds={
@@ -437,7 +437,7 @@ ior = helper_models.LabeledRecipe(
 
 xor = helper_models.LabeledRecipe(
     label="xor",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.xor),
             restricted_input_kinds={
@@ -453,7 +453,7 @@ xor = helper_models.LabeledRecipe(
 
 ixor = helper_models.LabeledRecipe(
     label="ixor",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ixor),
             restricted_input_kinds={
@@ -469,7 +469,7 @@ ixor = helper_models.LabeledRecipe(
 
 lshift = helper_models.LabeledRecipe(
     label="lshift",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.lshift),
             restricted_input_kinds={
@@ -485,7 +485,7 @@ lshift = helper_models.LabeledRecipe(
 
 ilshift = helper_models.LabeledRecipe(
     label="ilshift",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ilshift),
             restricted_input_kinds={
@@ -501,7 +501,7 @@ ilshift = helper_models.LabeledRecipe(
 
 rshift = helper_models.LabeledRecipe(
     label="rshift",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.rshift),
             restricted_input_kinds={
@@ -517,7 +517,7 @@ rshift = helper_models.LabeledRecipe(
 
 irshift = helper_models.LabeledRecipe(
     label="irshift",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.irshift),
             restricted_input_kinds={
@@ -533,7 +533,7 @@ irshift = helper_models.LabeledRecipe(
 
 matmul = helper_models.LabeledRecipe(
     label="matmul",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.matmul),
             restricted_input_kinds={
@@ -549,7 +549,7 @@ matmul = helper_models.LabeledRecipe(
 
 imatmul = helper_models.LabeledRecipe(
     label="imatmul",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.imatmul),
             restricted_input_kinds={
@@ -565,7 +565,7 @@ imatmul = helper_models.LabeledRecipe(
 
 eq = helper_models.LabeledRecipe(
     label="eq",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.eq),
             restricted_input_kinds={
@@ -581,7 +581,7 @@ eq = helper_models.LabeledRecipe(
 
 ne = helper_models.LabeledRecipe(
     label="ne",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ne),
             restricted_input_kinds={
@@ -597,7 +597,7 @@ ne = helper_models.LabeledRecipe(
 
 lt = helper_models.LabeledRecipe(
     label="lt",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.lt),
             restricted_input_kinds={
@@ -613,7 +613,7 @@ lt = helper_models.LabeledRecipe(
 
 le = helper_models.LabeledRecipe(
     label="le",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.le),
             restricted_input_kinds={
@@ -629,7 +629,7 @@ le = helper_models.LabeledRecipe(
 
 gt = helper_models.LabeledRecipe(
     label="gt",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.gt),
             restricted_input_kinds={
@@ -645,7 +645,7 @@ gt = helper_models.LabeledRecipe(
 
 ge = helper_models.LabeledRecipe(
     label="ge",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.ge),
             restricted_input_kinds={
@@ -661,7 +661,7 @@ ge = helper_models.LabeledRecipe(
 
 is_ = helper_models.LabeledRecipe(
     label="is_",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.is_),
             restricted_input_kinds={
@@ -677,7 +677,7 @@ is_ = helper_models.LabeledRecipe(
 
 is_not = helper_models.LabeledRecipe(
     label="is_not",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.is_not),
             restricted_input_kinds={
@@ -693,7 +693,7 @@ is_not = helper_models.LabeledRecipe(
 
 contains = helper_models.LabeledRecipe(
     label="contains",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.contains),
             restricted_input_kinds={
@@ -709,7 +709,7 @@ contains = helper_models.LabeledRecipe(
 
 countOf = helper_models.LabeledRecipe(
     label="countOf",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.countOf),
             restricted_input_kinds={
@@ -725,7 +725,7 @@ countOf = helper_models.LabeledRecipe(
 
 indexOf = helper_models.LabeledRecipe(
     label="indexOf",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.indexOf),
             restricted_input_kinds={
@@ -741,7 +741,7 @@ indexOf = helper_models.LabeledRecipe(
 
 concat = helper_models.LabeledRecipe(
     label="concat",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.concat),
             restricted_input_kinds={
@@ -757,7 +757,7 @@ concat = helper_models.LabeledRecipe(
 
 iconcat = helper_models.LabeledRecipe(
     label="iconcat",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.iconcat),
             restricted_input_kinds={
@@ -773,7 +773,7 @@ iconcat = helper_models.LabeledRecipe(
 
 getitem = helper_models.LabeledRecipe(
     label="getitem",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.getitem),
             restricted_input_kinds={
@@ -789,7 +789,7 @@ getitem = helper_models.LabeledRecipe(
 
 setitem = helper_models.LabeledRecipe(
     label="setitem",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.setitem),
             restricted_input_kinds={
@@ -806,7 +806,7 @@ setitem = helper_models.LabeledRecipe(
 
 delitem = helper_models.LabeledRecipe(
     label="delitem",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(operator.delitem),
             restricted_input_kinds={
@@ -833,7 +833,7 @@ def _call_wrapper(
 
 call = helper_models.LabeledRecipe(
     label="call",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(_call_wrapper),
             restricted_input_kinds={
@@ -862,7 +862,7 @@ def _getattr_wrapper(
 
 getattr_ = helper_models.LabeledRecipe(
     label="getattr_",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(_getattr_wrapper),
             restricted_input_kinds={
@@ -883,7 +883,7 @@ def _identity_function(x):
 
 identity = helper_models.LabeledRecipe(
     label="identity",
-    node=atomic_recipe.AtomicRecipe(
+    recipe=atomic_recipe.AtomicRecipe(
         reference=base_models.PythonReference(
             info=versions.VersionInfo.of(_identity_function),
         ),

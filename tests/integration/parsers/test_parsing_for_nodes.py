@@ -47,7 +47,7 @@ for_node = for_recipe.ForEachRecipe.model_validate(
         "type": "for_each",
         "inputs": ["pass_through"],
         "outputs": ["vecs"],
-        "body_node": {"label": "body", "node": for_body},
+        "body_node": {"label": "body", "recipe": for_body},
         "input_edges": {"body.n": "pass_through"},
         "output_edges": {"vecs": "body.rs"},
         "nested_ports": ["n"],
@@ -137,7 +137,7 @@ zbat_for_node = for_recipe.ForEachRecipe.model_validate(
             "d_accumulator",
             "sums",
         ],
-        "body_node": {"label": "body", "node": zbat_for_body},
+        "body_node": {"label": "body", "recipe": zbat_for_body},
         "input_edges": {
             "body.a": "a",
             "body.b": "bs",
@@ -234,7 +234,7 @@ nested_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["sq_sums"],
                 "body_node": {
                     "label": "body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["n"],
                         "outputs": ["summed"],
@@ -246,7 +246,7 @@ nested_node = workflow_recipe.WorkflowRecipe.model_validate(
                                 "outputs": ["squares"],
                                 "body_node": {
                                     "label": "body",
-                                    "node": {
+                                    "recipe": {
                                         "type": "workflow",
                                         "inputs": ["r"],
                                         "outputs": ["sq"],
@@ -340,7 +340,7 @@ nested_with_passed_input_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["sq_sums"],
                 "body_node": {
                     "label": "body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["n", "range_offset", "square_offset"],
                         "outputs": ["summed"],
@@ -352,7 +352,7 @@ nested_with_passed_input_node = workflow_recipe.WorkflowRecipe.model_validate(
                                 "outputs": ["squares"],
                                 "body_node": {
                                     "label": "body",
-                                    "node": {
+                                    "recipe": {
                                         "type": "workflow",
                                         "inputs": ["r", "square_offset"],
                                         "outputs": ["sq"],

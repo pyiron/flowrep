@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 class LabeledRecipe(pydantic.BaseModel):
     label: base_models.Label
-    node: "RecipeDiscrimination"  # noqa: F821, UP037
+    recipe: "RecipeDiscrimination"  # noqa: F821, UP037
 
 
 class ConditionalCase(pydantic.BaseModel):
@@ -30,15 +30,15 @@ class ConditionalCase(pydantic.BaseModel):
     @pydantic.model_validator(mode="after")
     def validate_condition_is_accessible(self):
         if self.condition_output is None:
-            if len(self.condition.node.outputs) != 1:
+            if len(self.condition.recipe.outputs) != 1:
                 raise ValueError(
                     f"condition must have exactly one output if condition_output is not "
-                    f"provided. Got condition outputs: {self.condition.node.outputs}"
+                    f"provided. Got condition outputs: {self.condition.recipe.outputs}"
                 )
-        elif self.condition_output not in self.condition.node.outputs:
+        elif self.condition_output not in self.condition.recipe.outputs:
             raise ValueError(
                 f"condition_output '{self.condition_output}' is not found among "
-                f"available outputs: {self.condition.node.outputs}"
+                f"available outputs: {self.condition.recipe.outputs}"
             )
         return self
 

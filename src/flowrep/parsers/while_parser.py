@@ -54,7 +54,7 @@ def parse_while_node(
     case = helper_models.ConditionalCase(
         condition=labeled_condition,
         body=helper_models.LabeledRecipe(
-            label=WHILE_BODY_LABEL, node=body_walker.build_model()
+            label=WHILE_BODY_LABEL, recipe=body_walker.build_model()
         ),
     )
 

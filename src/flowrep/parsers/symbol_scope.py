@@ -157,9 +157,9 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             raise ValueError(
                 f"Symbol(s) {overshadowed} already registered as accumulators."
             )
-        if len(new_symbols) != len(child.node.outputs):
+        if len(new_symbols) != len(child.recipe.outputs):
             raise ValueError(
-                f"Cannot map {child.node.outputs} to symbols {new_symbols}"
+                f"Cannot map {child.recipe.outputs} to symbols {new_symbols}"
             )
         reassigned = [s for s in new_symbols if s in self._sources]
         for symbol in reassigned:
@@ -168,7 +168,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         self._sources.update(
             {
                 sym: edge_models.SourceHandle(node=child.label, port=port)
-                for sym, port in zip(new_symbols, child.node.outputs, strict=True)
+                for sym, port in zip(new_symbols, child.recipe.outputs, strict=True)
             }
         )
 
