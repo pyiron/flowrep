@@ -13,7 +13,7 @@ from flowrep.prospective import (
 )
 
 # `LabeledRecipe.recipe` is a discriminated union; the cast narrows it for mypy.
-_GETATTR = cast(atomic_recipe.AtomicRecipe, std.getattr_.recipe)
+_GETATTR = cast(atomic_recipe.AtomicRecipe, std.get_attr.flowrep_recipe)  # type: ignore[attr-defined]
 _GETATTR_FQN = _GETATTR.reference.info.fully_qualified_name
 
 # Port names are derived from the recipe, never spelled out: editing `std.getattr_`

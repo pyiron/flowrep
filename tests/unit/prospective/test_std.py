@@ -41,7 +41,7 @@ class _HasAttrs:
 class TestStdExecution(unittest.TestCase):
 
     def test_abs(self):
-        out = wfms.run_recipe(std.abs.recipe, a=-3)
+        out = wfms.run_recipe(std.abs.flowrep_recipe, a=-3)
         self.assertEqual(3, out.output_ports["absolute"].value)
 
     def test_add(self):
@@ -250,19 +250,22 @@ class TestStdExecution(unittest.TestCase):
 
     def test_call(self):
         with self.subTest("no variadics"):
-            out = wfms.run_recipe(std.call.recipe, obj=_return_42)
+            out = wfms.run_recipe(std.call.flowrep_recipe, obj=_return_42)
             self.assertEqual(42, out.output_ports["result"].value)
         with self.subTest("args"):
-            out = wfms.run_recipe(std.call.recipe, obj=_return_42, args_=(1, 2))
+            out = wfms.run_recipe(std.call.flowrep_recipe, obj=_return_42, args_=(1, 2))
             self.assertEqual((42, (1, 2)), out.output_ports["result"].value)
         with self.subTest("kwargs"):
             out = wfms.run_recipe(
-                std.call.recipe, obj=_return_42, kwargs_={"a": 3, "b": 4}
+                std.call.flowrep_recipe, obj=_return_42, kwargs_={"a": 3, "b": 4}
             )
             self.assertEqual((42, {"a": 3, "b": 4}), out.output_ports["result"].value)
         with self.subTest("both"):
             out = wfms.run_recipe(
-                std.call.recipe, obj=_return_42, args_=(1, 2), kwargs_={"a": 3, "b": 4}
+                std.call.flowrep_recipe,
+                obj=_return_42,
+                args_=(1, 2),
+                kwargs_={"a": 3, "b": 4},
             )
             self.assertEqual(
                 (42, (1, 2), {"a": 3, "b": 4}), out.output_ports["result"].value
@@ -271,23 +274,25 @@ class TestStdExecution(unittest.TestCase):
     def test_getattr_(self):
         with self.subTest("instance attribute"):
             out = wfms.run_recipe(
-                std.getattr_.recipe, obj=_HasAttrs(), name="instance_attr"
+                std.get_attr.flowrep_recipe, obj=_HasAttrs(), name="instance_attr"
             )
             self.assertEqual(42, out.output_ports["attr"].value)
 
         with self.subTest("class attribute"):
             out = wfms.run_recipe(
-                std.getattr_.recipe, obj=_HasAttrs(), name="class_attr"
+                std.get_attr.flowrep_recipe, obj=_HasAttrs(), name="class_attr"
             )
             self.assertEqual("shared", out.output_ports["attr"].value)
 
         with self.subTest("bound method"):
-            out = wfms.run_recipe(std.getattr_.recipe, obj=_HasAttrs(), name="method")
+            out = wfms.run_recipe(
+                std.get_attr.flowrep_recipe, obj=_HasAttrs(), name="method"
+            )
             self.assertEqual("called", out.output_ports["attr"].value())
 
         with self.subTest("tuple attributes are delivered whole"):
             out = wfms.run_recipe(
-                std.getattr_.recipe, obj=_HasAttrs(), name="tuple_attr"
+                std.get_attr.flowrep_recipe, obj=_HasAttrs(), name="tuple_attr"
             )
             self.assertEqual(
                 (1, 2),
@@ -302,19 +307,21 @@ class TestStdExecution(unittest.TestCase):
                 AttributeError, msg="Failed lookups should surface to the caller"
             ),
         ):
-            wfms.run_recipe(std.getattr_.recipe, obj=_HasAttrs(), name="not_here")
+            wfms.run_recipe(
+                std.get_attr.flowrep_recipe, obj=_HasAttrs(), name="not_here"
+            )
 
     def test_identity(self):
         with self.subTest("value"):
-            out = wfms.run_recipe(std.identity.recipe, x=42)
+            out = wfms.run_recipe(std.identity.flowrep_recipe, x=42)
             self.assertEqual(42, out.output_ports["x"].value)
 
         with self.subTest("none"):
-            out = wfms.run_recipe(std.identity.recipe, x=None)
+            out = wfms.run_recipe(std.identity.flowrep_recipe, x=None)
             self.assertIsNone(out.output_ports["x"].value)
 
         with self.subTest("tuples are delivered whole"):
-            out = wfms.run_recipe(std.identity.recipe, x=(1, 2))
+            out = wfms.run_recipe(std.identity.flowrep_recipe, x=(1, 2))
             self.assertEqual(
                 (1, 2),
                 out.output_ports["x"].value,
@@ -324,7 +331,7 @@ class TestStdExecution(unittest.TestCase):
 
         with self.subTest("passthrough is not a copy"):
             obj = _HasAttrs()
-            out = wfms.run_recipe(std.identity.recipe, x=obj)
+            out = wfms.run_recipe(std.identity.flowrep_recipe, x=obj)
             self.assertIs(
                 obj,
                 out.output_ports["x"].value,

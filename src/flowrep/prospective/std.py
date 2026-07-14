@@ -10,22 +10,14 @@ from typing import Any
 from pyiron_snippets import versions
 
 from flowrep import base_models
+from flowrep.parsers import atomic_parser
 from flowrep.prospective import atomic_recipe, helper_models
 
-abs = helper_models.LabeledRecipe(
-    label="abs",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(operator.abs),
-            restricted_input_kinds={
-                "a": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["a"],
-        outputs=["absolute"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
+
+@atomic_parser.atomic("absolute", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def abs(a, /):
+    return operator.abs(a)
+
 
 add = helper_models.LabeledRecipe(
     label="add",
@@ -821,8 +813,11 @@ delitem = helper_models.LabeledRecipe(
 )
 
 
-def _call_wrapper(
+@atomic_parser.atomic("result", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def call(
     obj: Callable,
+    /,
+    *,
     args_: Iterable[Any] | None = None,
     kwargs_: Mapping[str, Any] | None = None,
 ):
@@ -831,28 +826,8 @@ def _call_wrapper(
     return obj(*args_, **kwargs_)
 
 
-call = helper_models.LabeledRecipe(
-    label="call",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(_call_wrapper),
-            restricted_input_kinds={
-                "obj": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "args_": base_models.RestrictedParamKind.KEYWORD_ONLY,
-                "kwargs_": base_models.RestrictedParamKind.KEYWORD_ONLY,
-            },
-        ),
-        inputs=["obj", "args_", "kwargs_"],
-        outputs=["result"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
-
-
-def _getattr_wrapper(
-    obj: object,
-    name: str,
-):
+@atomic_parser.atomic("attr", unpack_mode=atomic_recipe.UnpackMode.NONE)
+def get_attr(obj: object, name: str, /):
     """
     getattr doesn't have an inspectable signature until python 3.13, so provide a
     well-formed wrapper.
@@ -860,35 +835,6 @@ def _getattr_wrapper(
     return getattr(obj, name)
 
 
-getattr_ = helper_models.LabeledRecipe(
-    label="getattr_",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(_getattr_wrapper),
-            restricted_input_kinds={
-                "obj": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-                "name": base_models.RestrictedParamKind.POSITIONAL_ONLY,
-            },
-        ),
-        inputs=["obj", "name"],
-        outputs=["attr"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
-
-
-def _identity_function(x):
+@atomic_parser.atomic
+def identity(x):
     return x
-
-
-identity = helper_models.LabeledRecipe(
-    label="identity",
-    recipe=atomic_recipe.AtomicRecipe(
-        reference=base_models.PythonReference(
-            info=versions.VersionInfo.of(_identity_function),
-        ),
-        inputs=["x"],
-        outputs=["x"],
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
-    ),
-)
