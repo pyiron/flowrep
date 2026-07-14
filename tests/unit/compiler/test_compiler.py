@@ -824,38 +824,6 @@ class TestOutputsEdgeCases(unittest.TestCase):
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
 
-    def test_duplicate_source_port_raises(self):
-        # Hand-build a recipe where two outputs share one source handle.
-        free = makers.reference_free(self._single_two_named_outputs_source())
-        # Force two output ports onto the same source handle.
-
-        single_src = next(iter(free.output_edges.values()))
-        bad = free.model_copy(
-            update={
-                "outputs": ["p", "q"],
-                "output_edges": {
-                    edge_models.OutputTarget(port="p"): single_src,
-                    edge_models.OutputTarget(port="q"): single_src,
-                },
-            }
-        )
-        # p and q both come from the same handle; no required-name conflict at the
-        # top level (we use annotations there), but the source code parser guards
-        # against duplicate output symbols
-        rendered = source._workflow2python(bad)
-        with self.assertRaisesRegex(
-            ValueError,
-            "Workflow python definitions must have unique returns",
-        ):
-            rendered.build()
-
-    def _single_two_named_outputs_source(self):
-        def one(a, b):
-            s = library.my_add(a, b)
-            return s
-
-        return one
-
 
 class TestNestedWorkflowNode(unittest.TestCase):
     def test_reference_free_subworkflow_node(self):

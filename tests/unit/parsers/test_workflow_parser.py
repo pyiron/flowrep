@@ -1235,6 +1235,96 @@ class TestLiteralAssignment(unittest.TestCase):
         self.assertIn("exactly one symbol", str(ctx.exception))
 
 
+class TestParseWorkflowOutputUniqueness(unittest.TestCase):
+    def test_output_uniqueness(self):
+        def wf(x):
+            y = library.identity(x)
+            return y, y
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn(
+            "got duplicates in: ['y', 'y']",
+            str(ctx.exception),
+            msg="It's critical that each output _port_ be uniquely identifiable",
+        )
+
+        output_labels = ["o1", "o2"]
+        node = workflow_parser.parse_workflow(wf, *output_labels)
+        self.assertEqual(
+            node.outputs,
+            output_labels,
+            msg="Returning the same thing twice is permissible, as long as an explicit "
+            "output label is available",
+        )
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="o1")],
+            node.output_edges[edge_models.OutputTarget(port="o2")],
+            msg="The identical output should source from the same place.",
+        )
+
+
+class TestParseWorkflowReassignment(unittest.TestCase):
+    def test_reassignment_uses_most_recent(self):
+        def wf(a, b):
+            y = library.identity(a)
+            y = library.identity(b)
+            return y
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="y")],
+            edge_models.SourceHandle(node="identity_1", port="x"),
+            msg="Output should source from the most recent declaration",
+        )
+
+
+class TestParseWorkflowAliasing(unittest.TestCase):
+    def test_aliasing_uses_most_recent(self):
+        with self.subTest("Assignment most recent"):
+
+            def wf(a, b):
+                y = library.identity(a)
+                z = y
+                z = library.identity(b)
+                return z
+
+            node = workflow_parser.parse_workflow(wf)
+            self.assertEqual(
+                node.output_edges[edge_models.OutputTarget(port="z")],
+                edge_models.SourceHandle(node="identity_1", port="x"),
+                msg="Output should source from the most recent declaration",
+            )
+
+        with self.subTest("Aliasing most recent"):
+
+            def wf(a, b):
+                y = library.identity(a)
+                z = library.identity(b)
+                z = y
+                return z
+
+            node = workflow_parser.parse_workflow(wf)
+            self.assertEqual(
+                node.output_edges[edge_models.OutputTarget(port="z")],
+                edge_models.SourceHandle(node="identity_0", port="x"),
+                msg="Output should source from the most recent declaration",
+            )
+
+    def test_alias_as_duplicate(self):
+        def wf(a):
+            y = library.identity(a)
+            z = y
+            return y, z
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertEqual(["y", "z"], node.outputs)
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="y")],
+            node.output_edges[edge_models.OutputTarget(port="z")],
+        )
+
+
 class TestAttributeAccess(unittest.TestCase):
     def test_single_access(self):
         def wf(x0: int, comp: library.ComplexData):
