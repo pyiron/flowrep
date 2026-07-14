@@ -339,5 +339,184 @@ class TestAttributesInNestedForIterables(unittest.TestCase):
         )
 
 
+@workflow_parser.workflow
+def for_appending_attribute(comp: library.ComplexData, ns: list):
+    xs = []
+    for n in ns:
+        d = library.MyDataclass(comp, n)
+        xs.append(d.x)
+    return xs
+
+
+@workflow_parser.workflow
+def for_appending_bound_attribute(comp: library.ComplexData, ns: list):
+    xs = []
+    for n in ns:
+        d = library.MyDataclass(comp, n)
+        x_0 = d.x
+        xs.append(x_0)
+    return xs
+
+
+class TestAppendingAnAttribute(unittest.TestCase):
+    def test_body_output_port_is_named_for_the_attribute(self):
+        body = for_appending_attribute.flowrep_recipe.nodes["for_each_0"].body_node
+        self.assertEqual(body.recipe.outputs, ["x_0"])
+
+    def test_for_output_port_still_comes_from_the_accumulator(self):
+        recipe = for_appending_attribute.flowrep_recipe
+        self.assertEqual(recipe.nodes["for_each_0"].outputs, ["xs"])
+
+    def test_getattr_lives_inside_the_body(self):
+        """It must re-execute every iteration, exactly as the attribute access would."""
+        body = for_appending_attribute.flowrep_recipe.nodes["for_each_0"].body_node
+        self.assertIn("getattr_x_0", body.recipe.nodes)
+
+    def test_identical_to_the_bound_form(self):
+        self.assertEqual(
+            makers.dump_no_refs(makers.reference_free(for_appending_attribute)),
+            makers.dump_no_refs(makers.reference_free(for_appending_bound_attribute)),
+        )
+
+    def test_executes_via_run_recipe(self):
+        comp = library.ComplexData(val=7)
+        result = wfms.run_recipe(
+            for_appending_attribute.flowrep_recipe, comp=comp, ns=[1, 2, 3]
+        )
+        self.assertEqual(
+            result.output_ports["xs"].value, for_appending_attribute(comp, [1, 2, 3])
+        )
+
+    def test_round_trips_through_source(self):
+        free = makers.reference_free(for_appending_attribute)
+        rendered = source._workflow2python(free)
+        fn = rendered.build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+
+class TestPreservedRejections(unittest.TestCase):
+    """The relaxation is bounded. These must keep raising."""
+
+    def test_returned_attribute_raises(self):
+        """A workflow's outputs are public IO; their names may not be generated."""
+
+        def wf(comp: library.ComplexData):
+            dc = library.MyDataclass(comp, 1)
+            return dc.x
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("returned from a workflow", str(ctx.exception))
+
+    def test_method_call_on_data_raises(self):
+        def wf(comp: library.ComplexData):
+            dc = library.MyDataclass(comp, 1)
+            y = dc.method(comp)
+            return y
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("method", str(ctx.exception).lower())
+
+    def test_literal_iterable_raises(self):
+        def wf(x):
+            ys = []
+            for n in [1, 2, 3]:
+                y = library.my_add(n, x)
+                ys.append(y)
+            return ys
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("symbol", str(ctx.exception).lower())
+
+    def test_literal_append_raises(self):
+        def wf(ns: list):
+            ys = []
+            for n in ns:
+                y = library.identity(n)  # noqa: F841
+                ys.append(3)
+            return ys
+
+        with self.assertRaises(TypeError):
+            workflow_parser.parse_workflow(wf)
+
+    def test_attribute_of_accumulator_raises(self):
+        """Accumulators are name-tracked, not graph data -- taking an attribute of
+        one directly (while it is still active) must raise. A plain post-loop
+        access such as ``ys.count`` is deliberately *not* this case: by then ``ys``
+        is the finalised list output, an ordinary symbol like any other, and taking
+        its attribute is exactly what the error message below tells the reader to
+        do instead. To exercise the guard we shadow the accumulator's own name with
+        the loop variable, so the loop body's ``ys.count`` refers to the still-live
+        accumulator, not the eventual output."""
+
+        def wf(items: list):
+            ys = []
+            for ys in items:
+                z = ys.count
+                w = library.identity(z)
+                ys.append(w)
+            return ys
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("accumulator", str(ctx.exception).lower())
+
+
+@workflow_parser.workflow
+def try_attribute_in_branches(holder: library.Payload):
+    try:
+        y = library.divide(holder.num, holder.den)
+    except ZeroDivisionError:
+        y = library.identity(holder.num)
+    return y
+
+
+class TestAttributeInsideTryBranches(unittest.TestCase):
+    def test_try_node_takes_the_root_symbol_not_a_generated_port(self):
+        recipe = try_attribute_in_branches.flowrep_recipe
+        self.assertEqual(recipe.nodes["try_0"].inputs, ["holder"])
+
+    def test_getattr_lives_inside_the_branch(self):
+        try_node = try_attribute_in_branches.flowrep_recipe.nodes["try_0"]
+        self.assertIn("getattr_num_0", try_node.try_node.recipe.nodes)
+
+    def test_executes_both_branches(self):
+        ok = library.Payload(num=6, den=2)
+        boom = library.Payload(num=6, den=0)
+        for holder in (ok, boom):
+            result = wfms.run_recipe(
+                try_attribute_in_branches.flowrep_recipe, holder=holder
+            )
+            self.assertEqual(
+                result.output_ports["y"].value, try_attribute_in_branches(holder)
+            )
+
+    @unittest.expectedFailure
+    def test_round_trips_through_source(self):
+        """Known gap: a getattr *inside a branch body* leaks into the branch outputs.
+
+        The compiler expands every getattr into its own ``name = obj.attr`` statement,
+        and a branch body's outputs are every locally-registered symbol -- not just a
+        returned one, which is what keeps this invisible at the top level of a
+        ``@workflow``. So re-parsing promotes the compiler's own ``getattr_num`` to a
+        branch output that the original recipe never had.
+
+        Predates this work and is independent of it: attribute access as an ordinary
+        call argument has always been legal, and a plain ``if`` branch with no relaxed
+        condition, for-header, or append reproduces it identically. Left executable
+        rather than deleted, so it flips to an unexpected success when fixed.
+        """
+        free = makers.reference_free(try_attribute_in_branches)
+        rendered = source._workflow2python(free)
+        fn = rendered.build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -450,20 +450,38 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             ast.Name, cast(ast.Attribute, append_call.func).value
         ).id
         appended = append_call.args[0]
-        attribute_parser.reject_unbound_attribute(
-            appended, self.symbol_map, "appended to an accumulator"
-        )
+        if attribute_parser.is_data_attribute(appended, self.symbol_map):
+            self._append_attribute(used_accumulator, appended)
+            return
         if not isinstance(appended, ast.Name):
             raise TypeError(
-                f"Workflow python definitions can only append a symbol to an "
-                f"accumulator, but '{used_accumulator}.append(...)' got "
-                f"{type(appended).__name__}. Bind the value to a symbol first."
+                f"Workflow python definitions can only append a symbol, or an "
+                f"attribute of one, to an accumulator, but "
+                f"'{used_accumulator}.append(...)' got {type(appended).__name__}. "
+                f"Bind the value to a symbol first."
             )
         appended_symbol = appended.id
         self.symbol_map.use_accumulator(used_accumulator, appended_symbol)
         appended_source = self.symbol_map[appended_symbol]
         if isinstance(appended_source, edge_models.SourceHandle):
             self.symbol_map.produce(appended_symbol)
+
+    def _append_attribute(self, used_accumulator: str, appended: ast.expr) -> None:
+        """Append an attribute chain, giving its output port a generated name.
+
+        The getattr nodes go *inside* this body -- an ordinary workflow, which has room
+        for peers -- so they re-execute every iteration, exactly as the attribute access
+        would in Python. Only the port name is invented, and it is deduped against every
+        symbol in scope and every port already produced, so it cannot collide.
+        """
+        handle = attribute_parser.inject_attribute_chain(
+            appended, self.symbol_map, self.nodes
+        )
+        port = attribute_parser.generate_port_name(
+            appended, set(self.symbol_map) | set(self.symbol_map.outputs)
+        )
+        self.symbol_map.use_accumulator(used_accumulator, port)
+        self.symbol_map.produce_source(port, handle)
 
     def generic_visit(self, stmt: ast.AST) -> None:
         raise TypeError(

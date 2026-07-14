@@ -266,11 +266,29 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     def produce(self, output_port: str, symbol: str | None = None) -> None:
         """Record that `output_port` is sourced from `symbol`."""
         produced_symbol = output_port if symbol is None else symbol
-        if any(p.output_port == output_port for p in self._productions):
-            raise ValueError(f"Output port '{output_port}' already produced.")
+        self._reject_duplicate_production(output_port)
         self._productions.append(
             SymbolProduction(output_port=output_port, source=self[produced_symbol])
         )
+
+    def produce_source(
+        self, output_port: str, source: edge_models.SourceHandle
+    ) -> None:
+        """Record that `output_port` is sourced from a fixed ``SourceHandle``.
+
+        The ``SourceHandle`` twin of :meth:`produce`, for an output port whose name was
+        generated rather than taken from a symbol (an attribute chain appended to an
+        accumulator), so no synthetic symbol enters ``_sources`` and risks colliding
+        with a user symbol.
+        """
+        self._reject_duplicate_production(output_port)
+        self._productions.append(
+            SymbolProduction(output_port=output_port, source=source)
+        )
+
+    def _reject_duplicate_production(self, output_port: str) -> None:
+        if any(p.output_port == output_port for p in self._productions):
+            raise ValueError(f"Output port '{output_port}' already produced.")
 
     def produce_symbols(self, symbols: list[str]) -> None:
         """Record that an output port of the same name is sources from each symbol."""

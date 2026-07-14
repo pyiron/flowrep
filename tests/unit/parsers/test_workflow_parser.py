@@ -1483,7 +1483,7 @@ class TestAttributeAccess(unittest.TestCase):
         with self.assertRaises(TypeError):
             workflow_parser.parse_workflow(wf)
 
-    def test_accumulator_append_of_access_raises(self):
+    def test_accumulator_append_of_access_generates_a_port(self):
         def wf(items: list):
             xs = []
             for item in items:
@@ -1491,9 +1491,9 @@ class TestAttributeAccess(unittest.TestCase):
                 xs.append(dc.a)
             return xs
 
-        with self.assertRaises(ValueError) as ctx:
-            workflow_parser.parse_workflow(wf)
-        self.assertIn("bind", str(ctx.exception).lower())
+        node = workflow_parser.parse_workflow(wf)
+        for_node = node.nodes["for_each_0"]
+        self.assertEqual(for_node.body_node.recipe.outputs, ["a_0"])
 
     def test_accumulator_append_of_non_symbol_raises(self):
         def wf(items: list):

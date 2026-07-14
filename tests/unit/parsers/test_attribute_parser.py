@@ -198,10 +198,10 @@ class TestRejectUnboundAttribute(unittest.TestCase):
     def test_raises_for_chain_on_known_symbol(self):
         with self.assertRaises(ValueError) as ctx:
             attribute_parser.reject_unbound_attribute(
-                _expr("dc.a"), self._scope(), "appended to an accumulator"
+                _expr("dc.a"), self._scope(), "returned from a workflow"
             )
         message = str(ctx.exception)
-        self.assertIn("appended to an accumulator", message)
+        self.assertIn("returned from a workflow", message)
         self.assertIn("dc.a", message)
         self.assertIn("bind", message.lower())
 
@@ -220,6 +220,19 @@ class TestRejectUnboundAttribute(unittest.TestCase):
     def test_noop_for_chain_on_unknown_root(self):
         attribute_parser.reject_unbound_attribute(
             _expr("numpy.pi"), self._scope(), "returned from a workflow"
+        )
+
+
+class TestGeneratedPort(unittest.TestCase):
+    def test_takes_the_outermost_attribute(self):
+        self.assertEqual(
+            attribute_parser.generate_port_name(_expr("dc.a.val"), []), "val_0"
+        )
+
+    def test_dodges_taken_names(self):
+        self.assertEqual(
+            attribute_parser.generate_port_name(_expr("dc.val"), ["val_0", "val_1"]),
+            "val_2",
         )
 
 
