@@ -6,32 +6,43 @@ attribute name. The symbol map deliberately shadows the object scope, so a workf
 input named ``os`` makes ``os.path`` an attribute access on that input, exactly as it
 would be at runtime.
 
-Attribute access is allowed in exactly two places: the right-hand side of an
-assignment, and the arguments of an ordinary node call. Everywhere else it must be
-bound to a symbol first (see :func:`reject_unbound_attribute`).
+Attribute access is allowed anywhere a value is, with one exception: the workflow's
+``return``. The rule is
 
-The reason is that flowrep takes port names from two different places:
+    a port name may be *generated* when the port is internal to the recipe; it must
+    come from a *symbol* only when the port is public IO.
+
+Ports get their names from four places:
 
 ===============================  ==========================================
 Port                             Name comes from
 ===============================  ==========================================
 Workflow output port             the returned symbol
-Flow-control input port          the enclosing symbol feeding it
-For-body output port             the appended symbol
+Flow-control input port          the enclosing symbol feeding it, or -- for a
+                                 constant or an attribute chain, which have no
+                                 symbol -- a generated name (see
+                                 :func:`generate_port_name`)
+For-body output port             the appended symbol, or a generated name
 Atomic/workflow node input port  the *callee's* own parameter
 ===============================  ==========================================
 
-An attribute chain has no symbol. Passing ``mul(dc.x, y)`` is fine -- the injected
-getattr node feeds ``mul``'s own ``a`` port, whose name comes from ``mul``. But
-returning a chain, appending one to an accumulator, or passing one to a flow-control
-condition would each require *inventing* a port name, and a port name the user cannot
-predict from reading their own source is an unpleasant interface. So we refuse, and
-ask for the binding.
+Only the first is public IO. A workflow's output ports are its interface, and a
+consumer wiring into them should be able to read their names straight off the source,
+so ``return dc.a`` is refused (see :func:`reject_unbound_attribute`). Everywhere else
+the port is internal wiring, and a generated name costs the reader nothing: the
+compiler emits ``val_0 = x.val`` and re-parsing regenerates exactly that port, so the
+sugared form and the bound form are not merely equivalent recipes -- they are the same
+recipe.
 
-The binding costs one line and changes the recipe not at all -- the getattr node
-exists either way. For a condition it produces exactly the graph one would want
-anyway: a getattr node sitting as a peer of the flow-control node, feeding it through
-a normally-named input port.
+(``@atomic`` stays laxer about its own returns. That asymmetry is deliberate: atomic
+parsing must swallow arbitrary Python functions, including ones the caller did not
+write, whereas a ``@workflow`` author controls their own source.)
+
+Two things a generated name cannot rescue, both refused elsewhere: a method call on
+workflow data (``dc.method(x)``), which needs a callable reference rather than a port
+name, and an attribute in a ``while`` condition rooted at a symbol the loop body
+reassigns (see :func:`while_parser._reject_looped_attribute_roots`), where hoisting the
+getattr out of the loop would silently diverge from Python's per-iteration re-read.
 """
 
 from __future__ import annotations
@@ -155,12 +166,13 @@ def generate_port_name(node: ast.expr, taken: Iterable[str]) -> str:
 def reject_unbound_attribute(
     node: ast.expr, symbol_map: symbol_scope.SymbolScope, context: str
 ) -> None:
-    """Raise if *node* is an attribute chain used where a port name must be invented.
+    """Raise if *node* is an attribute chain used where the port name is public IO.
 
-    Flowrep names a workflow output port, a flow-control input port, and a for-body
-    output port after the *symbol* supplying them. An attribute chain has no symbol,
-    so there is no honest name to give the port. Rather than invent one the user
-    cannot predict from reading their own source, require the binding.
+    A workflow's output ports are its interface. Flowrep names them after the returned
+    symbol, and an attribute chain has no symbol -- so the port would carry a generated
+    name that a consumer cannot read off the source. Everywhere else in a workflow a
+    generated name is fine (the port is internal wiring); here it is not, so we ask for
+    the binding.
     """
     if not is_data_attribute(node, symbol_map):
         return
