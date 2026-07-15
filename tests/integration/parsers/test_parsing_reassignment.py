@@ -125,16 +125,15 @@ class TestAliasNonRegression(unittest.TestCase):
         with self.assertRaises(ValueError):
             _parse(macro)
 
-    def test_constant_rebinding(self):
+    def test_constant_rebinding_raises(self):
         def macro():
             y = 5
             y = 6
             return y
 
-        recipe = _parse(macro)
-        self.assertEqual(recipe.outputs, ["y"])
-        # Two constant nodes exist; the output sources from the second.
-        self.assertEqual(len(recipe.nodes), 2)
+        with self.assertRaises(ValueError) as ctx:
+            _parse(macro)
+        self.assertIn("only as call arguments", str(ctx.exception))
 
 
 class TestAliasAccumulatorInteractions(unittest.TestCase):

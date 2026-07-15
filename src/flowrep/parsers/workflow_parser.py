@@ -311,22 +311,11 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                     label=handle.node, recipe=self.nodes[handle.node]
                 ),
             )
-        elif rhs is not None and (parsed := constant_parser.try_parse_constant(rhs))[0]:
-            if len(new_symbols) != 1:
-                raise ValueError(
-                    f"Literal constant assignment must target exactly one symbol, "
-                    f"got {new_symbols}"
-                )
-            value = parsed[1]
-            label = label_helpers.unique_suffix(
-                constant_recipe.ConstantRecipe.std_label, self.nodes
-            )
-            node: constant_recipe.ConstantRecipe = constant_parser.make_constant(
-                value, f"Assignment to '{new_symbols[0]}'"
-            )
-            self.nodes[label] = node
-            self.symbol_map.register(
-                new_symbols, helper_models.LabeledRecipe(label=label, recipe=node)
+        elif rhs is not None and constant_parser.try_parse_constant(rhs)[0]:
+            raise ValueError(
+                "Workflow python definitions accept constants only as call "
+                "arguments (e.g. f(x, 5)); a bare literal assignment like "
+                "'some_var = 5' is no longer supported."
             )
         elif isinstance(rhs, ast.Name):
             if len(new_symbols) != 1:
@@ -338,7 +327,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
-                f"a call, empty list, literal constant, symbol alias, or attribute "
+                f"a call, empty list, symbol alias, or attribute "
                 f"access rooted at a known workflow symbol on the right-hand-side, "
                 f"but ast found {type(rhs)}"
             )
