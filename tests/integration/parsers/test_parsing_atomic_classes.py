@@ -18,6 +18,8 @@ import flowrep as fr
 from flowrep import base_models
 from flowrep.retrospective.datastructures import NotData
 
+from flowrep_static import library
+
 _KEYWORD_ONLY = base_models.RestrictedParamKind.KEYWORD_ONLY
 
 
@@ -152,6 +154,42 @@ class TestAtomicDeepGenericLimitation(unittest.TestCase):
             "implementation",
         )
         self.assertEqual(port.annotation.__name__, "_TReal")
+
+
+class TestInverseRecipeExecution(unittest.TestCase):
+    def test_autoencoder_round_trip_direct(self):
+        self.assertEqual(library.autoencoder(42, "towel"), (42, "towel"))
+
+    def test_autoencoder_round_trip_run_recipe(self):
+        out = fr.tools.run_recipe(
+            library.autoencoder.flowrep_recipe, foo=42, bar="towel"
+        )
+        self.assertEqual(out.output_ports["f"].value, 42)
+        self.assertEqual(out.output_ports["b"].value, "towel")
+
+    def test_single_autoencoder_round_trip_direct(self):
+        self.assertEqual(library.single_autoencoder(7), 7)
+
+    def test_single_autoencoder_round_trip_run_recipe(self):
+        out = fr.tools.run_recipe(library.single_autoencoder.flowrep_recipe, only=7)
+        self.assertEqual(out.output_ports["o"].value, 7)
+
+    def test_inverse_recipe_run_directly(self):
+        out = fr.tools.run_recipe(
+            library.Pair.flowrep_recipe_inverse, dataclass=library.Pair(1, "a")
+        )
+        self.assertEqual(out.output_ports["foo"].value, 1)
+        self.assertEqual(out.output_ports["bar"].value, "a")
+
+    def test_inverse_recipe_with_defaulted_field(self):
+        # MyDataclass(a: ComplexData, x: int = 1) -- the default is irrelevant
+        # when unpacking an existing instance.
+        instance = library.MyDataclass(library.ComplexData(3), 7)
+        out = fr.tools.run_recipe(
+            library.MyDataclass.flowrep_recipe_inverse, dataclass=instance
+        )
+        self.assertEqual(out.output_ports["a"].value.val, 3)
+        self.assertEqual(out.output_ports["x"].value, 7)
 
 
 if __name__ == "__main__":

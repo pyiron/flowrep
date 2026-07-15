@@ -1,9 +1,14 @@
 import dataclasses
 import inspect
+import typing
 import unittest
 
+from flowrep import base_models
 from flowrep.parsers import atomic_parser, dataclass_parser
 from flowrep.prospective import atomic_recipe
+from flowrep.retrospective import datastructures
+
+from flowrep_static import library
 
 
 class TestDataclassDecorator(unittest.TestCase):
@@ -108,6 +113,100 @@ class TestNamespaceOverlap(unittest.TestCase):
             set(dataclass_parser._DATACLASS_KWARGS).intersection(atomic_kwargs),
             msg="Ensure that dataclass and atomic kwargs don't overlap.",
         )
+
+
+# `datastructures.recipe2data` resolves the bound unpacker via its fully qualified
+# name, which requires it to be importable. Classes defined inline inside a test
+# method have "<locals>" in their qualname and cannot be resolved this way, so the
+# fixtures feeding recipe2data-based assertions must live at module scope.
+@dataclass_parser.dataclass
+class _ModuleWithClassVar:
+    x: int
+    tag: typing.ClassVar[str] = "t"
+
+
+class TestInverseRecipeStructure(unittest.TestCase):
+    def test_multi_field_recipe_shape(self):
+        recipe = library.Pair.flowrep_recipe_inverse
+        self.assertIsInstance(recipe, atomic_recipe.AtomicRecipe)
+        self.assertEqual(recipe.inputs, ["dataclass"])
+        self.assertEqual(recipe.outputs, ["foo", "bar"])
+        self.assertIs(recipe.unpack_mode, atomic_recipe.UnpackMode.TUPLE)
+        self.assertEqual(
+            recipe.reference.restricted_input_kinds,
+            {"dataclass": base_models.RestrictedParamKind.POSITIONAL_ONLY},
+        )
+
+    def test_multi_field_output_annotations(self):
+        ports = datastructures.recipe2data(
+            library.Pair.flowrep_recipe_inverse
+        ).output_ports
+        self.assertEqual(list(ports), ["foo", "bar"])
+        self.assertIs(ports["foo"].annotation, int)
+        self.assertIs(ports["bar"].annotation, str)
+
+    def test_reference_and_unpacker_follow_the_class(self):
+        unpacker = library.Pair._Pair_fields_to_outputs
+        self.assertEqual(unpacker.__name__, "_Pair_fields_to_outputs")
+        self.assertEqual(
+            unpacker.__qualname__,
+            f"{library.Pair.__qualname__}._Pair_fields_to_outputs",
+        )
+        self.assertEqual(unpacker.__module__, library.Pair.__module__)
+
+        info = library.Pair.flowrep_recipe_inverse.reference.info
+        self.assertEqual(
+            info.qualname, f"{library.Pair.__qualname__}._Pair_fields_to_outputs"
+        )
+        self.assertEqual(info.module, library.Pair.__module__)
+
+    def test_single_field_recipe_shape(self):
+        recipe = library.Single.flowrep_recipe_inverse
+        self.assertEqual(recipe.outputs, ["only"])
+        ports = datastructures.recipe2data(recipe).output_ports
+        self.assertEqual(list(ports), ["only"])
+        self.assertIs(ports["only"].annotation, int)
+
+    def test_single_field_return_annotation_is_bare_not_tuple(self):
+        sig = inspect.signature(library.Single._Single_fields_to_outputs)
+        self.assertIs(sig.return_annotation, int)
+
+    def test_classvar_excluded_from_outputs(self):
+        recipe = _ModuleWithClassVar.flowrep_recipe_inverse
+        self.assertEqual(recipe.outputs, ["x"])
+        ports = datastructures.recipe2data(recipe).output_ports
+        self.assertEqual(list(ports), ["x"])
+
+    def test_unpacker_returns_tuple_for_multi_bare_for_single(self):
+        self.assertEqual(
+            library.Pair._Pair_fields_to_outputs(library.Pair(1, "a")), (1, "a")
+        )
+        self.assertEqual(library.Single._Single_fields_to_outputs(library.Single(5)), 5)
+
+    def test_single_field_cannot_be_tuple_unpacked(self):
+        result = library.Single._Single_fields_to_outputs(library.Single(5))
+        self.assertEqual(result, 5)  # `o = ...` form works
+        with self.assertRaises(TypeError):
+            iter(result)  # `(o,) = ...` would raise: bare value, not a 1-tuple
+
+
+class TestInverseRecipeFailures(unittest.TestCase):
+    def test_forward_reference_annotation_raises_at_decoration(self):
+        # We greedily resolve hints via get_type_hints; an unresolvable forward
+        # reference fails at decoration time. This is an accepted limitation.
+        with self.assertRaises(NameError):
+
+            @dataclass_parser.dataclass
+            class Fwd:
+                val: "Undefined"  # noqa: F821
+
+    def test_predefined_inverse_attr_is_guarded(self):
+        with self.assertRaisesRegex(AttributeError, "refusing to overwrite"):
+
+            @dataclass_parser.dataclass
+            class Collide:
+                foo: int
+                flowrep_recipe_inverse: int = 0
 
 
 if __name__ == "__main__":

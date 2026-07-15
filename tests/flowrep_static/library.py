@@ -187,3 +187,31 @@ def val(x):
     what forces the compiler-side namespace collision.
     """
     return x
+
+
+# test_parsing_atomic_classes -- inverse recipe
+
+
+@dataclass_parser.dataclass
+class Pair:
+    foo: int
+    bar: str
+
+
+@dataclass_parser.dataclass
+class Single:
+    only: int
+
+
+@workflow_parser.workflow
+def autoencoder(foo, bar):
+    dc = Pair(foo, bar)
+    f, b = Pair.flowrep_recipe_inverse(dc)
+    return f, b
+
+
+@workflow_parser.workflow
+def single_autoencoder(only):
+    dc = Single(only)
+    o = Single.flowrep_recipe_inverse(dc)
+    return o
