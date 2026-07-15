@@ -2056,78 +2056,48 @@ class TestConstantInlining(unittest.TestCase):
         self.assertIs(type(reparsed_const[1]), int)
 
 
-def _rt_inline_const(a):
-    half = 0.5
-    r = library.my_mul(a, half)
-    return r
-
-
-class TestLiteralAssignRoundTrip(unittest.TestCase):
-    def test_inline_path_round_trips(self):
-        free = makers.reference_free(_rt_inline_const)
-        self.assertTrue(
-            any(
-                isinstance(n, constant_recipe.ConstantRecipe)
-                for n in free.nodes.values()
-            ),
-            msg="Literal assignment should have injected a ConstantRecipe node",
-        )
-        fn = source._workflow2python(free).build()
-        self.assertEqual(
-            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
-        )
-
-    def test_inline_path_executes(self):
-        free = makers.reference_free(_rt_inline_const)
-        fn = source._workflow2python(free).build()
-        self.assertAlmostEqual(fn(4), 4 * 0.5)
-
-
-def _return_constant(a):
-    y = 5
-    return y
-
-
-def _if_body_constant(a):
-    if library.is_positive(a):  # noqa: SIM108
-        y = 5
-    else:
-        y = library.identity(a)
-    return y
-
-
 class TestConstantMaterialize(unittest.TestCase):
-    def test_return_constant_materializes_and_round_trips(self):
-        free = makers.reference_free(_return_constant)
-        rendered = source._workflow2python(free)
-        self.assertIn("= 5", rendered.source)
-        self.assertNotIn("return 5", rendered.source)  # materialized, not inlined
+    TH, IS, SH, OT = (
+        edge_models.TargetHandle,
+        edge_models.InputSource,
+        edge_models.SourceHandle,
+        edge_models.OutputTarget,
+    )
+
+    def _assert_canonical_round_trips(self, rendered):
+        """`rendered` (from a hand-built recipe) must build, and the parsed
+        canonical recipe must then compile/parse idempotently."""
         fn = rendered.build()
+        canonical = fn.flowrep_recipe.model_copy(update={"reference": None})
+        rebuilt = source._workflow2python(canonical).build()
+        self.assertEqual(
+            makers.dump_no_refs(rebuilt.flowrep_recipe),
+            makers.dump_no_refs(fn.flowrep_recipe),
+            msg="Canonical (post-parse) recipe must round-trip exactly",
+        )
+        return fn
+
+    def test_constant_feeding_output_wraps_in_identity(self):
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=["a"],
+            outputs=["y"],
+            nodes={"constant_0": constant_recipe.ConstantRecipe(constant=5)},
+            input_edges={},
+            edges={},
+            output_edges={
+                self.OT(port="y"): self.SH(node="constant_0", port="constant")
+            },
+        )
+        rendered = source._workflow2python(wf, function_name="returns_const")
+        self.assertIn("identity(", rendered.source)
+        self.assertNotIn("return 5", rendered.source)  # not inlined as a bare return
+        self.assertNotIn("constant = 5", rendered.source)  # not a bare assignment
+        fn = self._assert_canonical_round_trips(rendered)
         self.assertEqual(fn(99), 5)
-        self.assertEqual(
-            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
-        )
 
-    def test_constant_in_if_branch_body_materializes_and_round_trips(self):
-        free = makers.reference_free(_if_body_constant)
-        fn = source._workflow2python(free).build()
-        self.assertEqual(fn(5), 5)  # is_positive -> y = 5
-        self.assertEqual(fn(-3), -3)  # else -> identity(a)
-        self.assertEqual(
-            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
-        )
-
-    def test_bare_constant_flow_control_body_compiles_and_executes(self):
+    def test_constant_in_flow_control_body_wraps_in_identity(self):
         # Hand-built `if is_positive(n): m = 42 else: m = -1` with BARE ConstantRecipe
-        # bodies (a shape only hand-construction produces). Round-trip canonicalizes
-        # (parser wraps bodies in workflows), so we assert source + execution, not
-        # dump_no_refs equality.
-        TH, IS, SH, OT = (
-            edge_models.TargetHandle,
-            edge_models.InputSource,
-            edge_models.SourceHandle,
-            edge_models.OutputTarget,
-        )
+        # bodies (a shape only hand-construction produces).
         if_node = if_recipe.IfRecipe(
             inputs=["n"],
             outputs=["m"],
@@ -2137,32 +2107,35 @@ class TestConstantMaterialize(unittest.TestCase):
                         label="cond", recipe=library.is_positive.flowrep_recipe
                     ),
                     body=helper_models.LabeledRecipe(
-                        label="body", recipe=constant_recipe.ConstantRecipe(constant=42)
+                        label="body",
+                        recipe=constant_recipe.ConstantRecipe(constant=42),
                     ),
                 )
             ],
-            input_edges={TH(node="cond", port="n"): IS(port="n")},
+            input_edges={self.TH(node="cond", port="n"): self.IS(port="n")},
             prospective_output_edges={
-                OT(port="m"): [
-                    SH(node="body", port="constant"),
-                    SH(node="else_body", port="constant"),
+                self.OT(port="m"): [
+                    self.SH(node="body", port="constant"),
+                    self.SH(node="else_body", port="constant"),
                 ]
             },
             else_case=helper_models.LabeledRecipe(
-                label="else_body", recipe=constant_recipe.ConstantRecipe(constant=-1)
+                label="else_body",
+                recipe=constant_recipe.ConstantRecipe(constant=-1),
             ),
         )
         wf = workflow_recipe.WorkflowRecipe(
             inputs=["n"],
             outputs=["m"],
             nodes={"if_0": if_node},
-            input_edges={TH(node="if_0", port="n"): IS(port="n")},
+            input_edges={self.TH(node="if_0", port="n"): self.IS(port="n")},
             edges={},
-            output_edges={OT(port="m"): SH(node="if_0", port="m")},
+            output_edges={self.OT(port="m"): self.SH(node="if_0", port="m")},
         )
         rendered = source._workflow2python(wf, function_name="branchy")
-        self.assertIn("= 42", rendered.source)
-        fn = rendered.build()
+        self.assertIn("identity(", rendered.source)
+        self.assertNotIn("m = 42", rendered.source)  # not a bare assignment
+        fn = self._assert_canonical_round_trips(rendered)
         self.assertEqual(fn(5), 42)
         self.assertEqual(fn(-3), -1)
 

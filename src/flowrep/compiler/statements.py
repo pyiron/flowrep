@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from typing import TypeAlias, cast
+from typing import Any, TypeAlias, cast
 
 from pyiron_snippets import versions
 
@@ -11,6 +11,7 @@ from flowrep.compiler import flow_control, function, sugar
 from flowrep.prospective import (
     atomic_recipe,
     constant_recipe,
+    std,
     union_types,
     workflow_recipe,
 )
@@ -104,6 +105,22 @@ def _set_call_path_from_info(
     return call_path
 
 
+def _identity_materialization(value: Any, emitter: function.Emitter) -> str:
+    """Render an ``identity`` call wrapping a constant that cannot be inlined.
+
+    A bare ``name = <literal>`` statement no longer re-parses (constants are only
+    valid as call arguments), so a constant feeding a workflow output or a bare
+    flow-control body is emitted as ``identity(x=<literal>)``. The
+    ``flowrep.prospective.std`` import is hoisted via ``_set_call_path_from_info``.
+    On re-parse this canonicalises to a std ``identity`` atomic node fed by an
+    inlined constant argument, which then round-trips exactly.
+    """
+    call_path = _set_call_path_from_info(
+        std.identity.flowrep_recipe.reference.info, emitter.module_imports
+    )
+    return f"{call_path}(x={value!r})"
+
+
 def _topological_nodes(
     recipe: workflow_recipe.WorkflowRecipe,
 ) -> list[str]:
@@ -194,8 +211,9 @@ def emit_workflow_body(
     lines: list[str] = []
 
     # Constants feeding a workflow output cannot be inlined (a bare `return <literal>`
-    # is not re-parseable), so they are materialized as `sym = repr(value)` below and
-    # resolved to that symbol everywhere.
+    # is not re-parseable, and a bare `sym = <literal>` statement is no longer
+    # re-parseable either), so they are wrapped as `sym = identity(x=<literal>)` below
+    # and resolved to that symbol everywhere.
     materialized_constants = {
         src.node
         for src in recipe.output_edges.values()
@@ -308,7 +326,9 @@ def emit_workflow_body(
                 _output_name_suggestion(label, constant_label, 1)
             )
             produced[(label, constant_label)] = name
-            lines.append(f"{name} = {repr(node.constant)}")
+            lines.append(
+                f"{name} = {_identity_materialization(node.constant, emitter)}"
+            )
             continue
 
         if label in sugared:
@@ -375,7 +395,10 @@ def emit_body(
         name = required.get(constant_label) or alloc.fresh(
             _output_name_suggestion(label, constant_label, 1)
         )
-        return [f"{name} = {repr(recipe.constant)}"], {constant_label: name}
+        return (
+            [f"{name} = {_identity_materialization(recipe.constant, emitter)}"],
+            {constant_label: name},
+        )
     return _emit_single_node_body(recipe, label, in_syms, required, alloc, emitter)
 
 
