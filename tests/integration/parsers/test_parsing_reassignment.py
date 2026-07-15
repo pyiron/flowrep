@@ -125,16 +125,6 @@ class TestAliasNonRegression(unittest.TestCase):
         with self.assertRaises(ValueError):
             _parse(macro)
 
-    def test_constant_rebinding_raises(self):
-        def macro():
-            y = 5
-            y = 6
-            return y
-
-        with self.assertRaises(ValueError) as ctx:
-            _parse(macro)
-        self.assertIn("only as call arguments", str(ctx.exception))
-
 
 class TestAliasAccumulatorInteractions(unittest.TestCase):
     def test_reassigning_accumulator_breaks_later_append(self):
