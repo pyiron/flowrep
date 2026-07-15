@@ -53,7 +53,13 @@ def dataclass(cls=None, /, *output_labels, **kwargs):
 
 
 def dataclass_fields_to_outputs(dataclass):
-    return tuple(getattr(dataclass, f.name) for f in dataclasses.fields(dataclass))
+    field_values = tuple(
+        getattr(dataclass, f.name) for f in dataclasses.fields(dataclass)
+    )
+    if len(field_values) == 1:
+        return field_values[0]
+    else:
+        return field_values
 
 
 def _bind_inverse_recipe(
@@ -118,7 +124,12 @@ def _parse_dataclass_unpacking(cls):
     input_name = "dataclass"
     outputs = [f.name for f in fields]
     # tuple[t0, t1, ...]; __class_getitem__ dodges the type-checker false positive
-    return_annotation = tuple.__class_getitem__(tuple(hints[name] for name in outputs))
+    if len(fields) == 1:
+        return_annotation = hints[outputs[0]]
+    else:
+        return_annotation = tuple.__class_getitem__(
+            tuple(hints[name] for name in outputs)
+        )
     func_sig = inspect.Signature(
         parameters=[
             inspect.Parameter(
