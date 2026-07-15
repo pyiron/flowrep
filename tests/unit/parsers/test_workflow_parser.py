@@ -9,6 +9,7 @@ from pyiron_snippets import versions
 from flowrep import base_models, edge_models
 from flowrep.parsers import (
     atomic_parser,
+    for_parser,
     label_helpers,
     object_scope,
     parser_protocol,
@@ -606,12 +607,12 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
         def wf(x):
             y = add(x)
-            accumulator, too_much = []  # noqa: F841
+            accumulator, too_much = for_parser.accumulator()  # noqa: F841
             return y
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn("must target exactly one symbol", str(ctx.exception))
+        self.assertIn("must be assigned to a single symbol", str(ctx.exception))
 
 
 class TestNestedAttributeResolution(unittest.TestCase):
@@ -1188,11 +1189,12 @@ def _assign_non_literal(a):
 
 
 def _accumulator_wf(items):
-    acc = []
+    acc = for_parser.accumulator()
+    some_list = []
     for x in items:
         y = library.identity(x)
         acc.append(y)
-    return acc
+    return acc, some_list
 
 
 def _assign_literal_to_multiple_targets(a):
@@ -1224,10 +1226,17 @@ class TestLiteralAssignment(unittest.TestCase):
         with self.assertRaises(ValueError):
             workflow_parser.parse_workflow(_assign_non_literal)
 
-    def test_empty_list_remains_accumulator(self):
+    def test_empty_list_is_not_the_same_as_accumulator(self):
         recipe = workflow_parser.parse_workflow(_accumulator_wf)
-        # `acc = []` must NOT have become a constant [] node
-        self.assertFalse(any(c.constant == [] for c in self._constants(recipe)))
+        print(recipe.output_edges)
+        acc_node = recipe.nodes[
+            recipe.output_edges[edge_models.OutputTarget(port="acc")].node
+        ]
+        const_node = recipe.nodes[
+            recipe.output_edges[edge_models.OutputTarget(port="some_list")].node
+        ]
+        self.assertEqual(acc_node.type, base_models.RecipeElementType.FOR_EACH)
+        self.assertEqual(const_node.type, base_models.RecipeElementType.CONSTANT)
 
     def test_literal_assigned_to_multiple_targets_raises(self):
         with self.assertRaises(ValueError) as ctx:
@@ -1388,7 +1397,7 @@ class TestAttributeAccess(unittest.TestCase):
 
     def test_hoisting_invariant_inside_for_loop(self):
         def hoisted(x0: int, comp: library.ComplexData, items: list):
-            acc = []
+            acc = for_parser.accumulator()
             for item in items:
                 v = comp.val
                 y = library.my_add(item, v)
@@ -1396,7 +1405,7 @@ class TestAttributeAccess(unittest.TestCase):
             return acc
 
         def inlined(x0: int, comp: library.ComplexData, items: list):
-            acc = []
+            acc = for_parser.accumulator()
             for item in items:
                 y = library.my_add(item, comp.val)
                 acc.append(y)
@@ -1575,7 +1584,7 @@ class TestAttributeAccess(unittest.TestCase):
 
     def test_accumulator_append_of_access_generates_a_port(self):
         def wf(items: list):
-            xs = []
+            xs = for_parser.accumulator()
             for item in items:
                 dc = library.MyDataclass(item, 1)
                 xs.append(dc.a)
@@ -1587,7 +1596,7 @@ class TestAttributeAccess(unittest.TestCase):
 
     def test_accumulator_append_of_non_symbol_raises(self):
         def wf(items: list):
-            xs = []
+            xs = for_parser.accumulator()
             for item in items:
                 xs.append(library.my_add(item, 1))
             return xs
@@ -1597,8 +1606,8 @@ class TestAttributeAccess(unittest.TestCase):
 
     def test_bound_accesses_of_same_attribute_coexist(self):
         def wf(items: list, others: list):
-            xs = []
-            ys = []
+            xs = for_parser.accumulator()
+            ys = for_parser.accumulator()
             for item, other in zip(items, others, strict=True):
                 dc = library.MyDataclass(item, 1)
                 dc2 = library.MyDataclass(other, 1)
@@ -1625,6 +1634,63 @@ class TestAttributeAccess(unittest.TestCase):
             body.output_edges[edge_models.OutputTarget(port="second")],
             edge_models.SourceHandle(node="getattr_a_1", port="attr"),
         )
+
+
+class TestAccumulatorMisuse(unittest.TestCase):
+    # NOTE: deviates from the plan's literal test bodies. The plan's versions define
+    # `identity`/`fr` as closures local to the test method, but `object_scope` only
+    # resolves names from the parsed function's *module* globals (see
+    # `object_scope.get_scope`), not enclosing-function closures. Function-local
+    # `import flowrep as fr` / `def identity` are therefore invisible to the parser
+    # and the tests fail for the wrong reason (a raw "could not find attribute"
+    # error) regardless of `_is_accumulator`/`_reject_accumulator_as_argument`
+    # correctness. Using the already-module-global `flowrep` import and
+    # `library.identity` (both resolvable) preserves the tests' intent.
+
+    def test_method_call_rhs_still_raises_its_own_error(self):
+        # A method call on a data symbol must reach reject_method_call, not a
+        # resolution error pre-empted by the accumulator identity check.
+        def wf(x):
+            y = x.method(1)
+            return y
+
+        with self.assertRaises(Exception) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertNotIn("resolve symbol", str(ctx.exception).lower())
+
+    def test_chained_call_rhs_does_not_crash_accumulator_check(self):
+        def factory():
+            return lambda z: z
+
+        def wf(a):
+            y = factory()(a)
+            return y
+
+        # Whatever the outcome, it must not be an unhandled resolution TypeError
+        # from the accumulator identity probe.
+        with self.assertRaises(Exception) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertNotIn("build the symbol chain", str(ctx.exception).lower())
+
+    def test_accumulator_in_argument_position_raises_clearly(self):
+        def wf(xs):
+            y = library.identity(for_parser.accumulator())
+            return y
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        msg = str(ctx.exception).lower()
+        self.assertIn("accumulator", msg)
+        self.assertIn("assignment", msg)
+
+    def test_accumulator_tuple_unpack_raises_clearly(self):
+        def wf(xs):
+            a, b = for_parser.accumulator()
+            return a
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        self.assertIn("single symbol", str(ctx.exception).lower())
 
 
 if __name__ == "__main__":

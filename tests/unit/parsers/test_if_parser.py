@@ -7,7 +7,7 @@ import textwrap
 import unittest
 
 from flowrep import edge_models
-from flowrep.parsers import constant_parser, if_parser, workflow_parser
+from flowrep.parsers import constant_parser, for_parser, if_parser, workflow_parser
 from flowrep.prospective import (
     constant_recipe,
     for_recipe,
@@ -656,7 +656,7 @@ class TestIfParserStructure(unittest.TestCase):
 
         def wf(xs, y):
             if library.my_condition(y, y):
-                results = []
+                results = for_parser.accumulator()
                 for x in xs:
                     v = library.identity(x)
                     results.append(v)
@@ -721,7 +721,7 @@ class TestIfParserStructure(unittest.TestCase):
             if library.my_condition(y, y):
                 z = library.identity(y)
             else:
-                results = []
+                results = for_parser.accumulator()
                 for x in xs:
                     v = library.identity(x)
                     results.append(v)

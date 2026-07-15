@@ -254,7 +254,7 @@ class TestForParserErrors(unittest.TestCase):
         """ast.Return inside a for body is not handled → TypeError."""
 
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -267,7 +267,7 @@ class TestForParserErrors(unittest.TestCase):
 
     def test_no_accumulator_used_raises(self):
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)  # noqa: F841
             return results
@@ -278,7 +278,7 @@ class TestForParserErrors(unittest.TestCase):
 
     def test_duplicate_accumulator_appends_raises(self):
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -287,9 +287,9 @@ class TestForParserErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn(
-            "not found among available accumulator symbols", str(ctx.exception)
-        )
+        # The second `.append()` finds `results` already consumed: it is no longer an
+        # available accumulator, nor a plain data symbol, so it reads as undefined.
+        self.assertIn("not defined", str(ctx.exception).lower())
         self.assertIn("results", str(ctx.exception))
 
     def test_assigning_non_empty_list_raises(self):
@@ -306,16 +306,14 @@ class TestForParserErrors(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn(
-            "not found among available accumulator symbols", str(ctx.exception)
-        )
+        self.assertIn("not a for-loop accumulator", str(ctx.exception))
         self.assertIn("results", str(ctx.exception))
 
     def test_accumulator_reassigned_in_nested_while_raises(self):
         """Reassigning an accumulator symbol inside a nested while is rejected."""
 
         def wf(xs, acc_val, bound):
-            acc = []
+            acc = for_parser.accumulator()
             for x in xs:
                 while library.my_condition(acc_val, bound):
                     acc = library.identity(acc_val)
@@ -329,7 +327,7 @@ class TestForParserErrors(unittest.TestCase):
 
     def test_internal_symbol_reassignment_raises(self):
         def wf(xs, y):
-            acc = []
+            acc = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)  # reassigns y from parent scope
                 acc.append(y)
@@ -345,7 +343,7 @@ class TestForParserErrors(unittest.TestCase):
 
     def test_iteration_over_call_raises(self):
         def wf():
-            results = []
+            results = for_parser.accumulator()
             for x in range(10):
                 y = library.identity(x)
                 results.append(y)
@@ -357,8 +355,8 @@ class TestForParserErrors(unittest.TestCase):
 
     def test_tuple_unpacking_without_zip_raises(self):
         def wf(items):
-            results_a = []
-            results_b = []
+            results_a = for_parser.accumulator()
+            results_b = for_parser.accumulator()
             for a, b in items:
                 y = library.identity(a)
                 z = library.identity(b)
@@ -372,8 +370,8 @@ class TestForParserErrors(unittest.TestCase):
 
     def test_zip_with_expression_arg_raises(self):
         def wf(xs):
-            results_a = []
-            results_b = []
+            results_a = for_parser.accumulator()
+            results_b = for_parser.accumulator()
             for a, b in zip(xs, list(), strict=True):
                 y = library.identity(a)
                 z = library.identity(b)
@@ -409,7 +407,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
 
     def test_output_edge_from_body(self):
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -425,8 +423,8 @@ class TestForParserEdgeWiring(unittest.TestCase):
 
     def test_forwarded_iteration_var_is_input_source_in_output_edges(self):
         def wf(xs):
-            collected_xs = []
-            results = []
+            collected_xs = for_parser.accumulator()
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 collected_xs.append(x)
@@ -449,8 +447,8 @@ class TestForParserEdgeWiring(unittest.TestCase):
         """Forwarded iterated input should appear in transferred_outputs."""
 
         def wf(xs):
-            collected_xs = []
-            results = []
+            collected_xs = for_parser.accumulator()
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 collected_xs.append(x)
@@ -469,7 +467,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
         """A symbol used in the body but not iterated is broadcast."""
 
         def wf(xs, c):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = pair(x, c)
                 results.append(y)
@@ -484,7 +482,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
 
     def test_scattered_nested_input(self):
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -499,7 +497,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
 
     def test_scattered_zipped_inputs(self):
         def wf(xs, ys):
-            results = []
+            results = for_parser.accumulator()
             for x, y in zip(xs, ys, strict=True):
                 z = pair(x, y)
                 results.append(z)
@@ -514,7 +512,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
         """Both nested and zipped iteration, all variables consumed."""
 
         def wf(xs, ys, zs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 for y, z in zip(ys, zs, strict=True):
                     t = pair(y, z)
@@ -533,7 +531,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
         """An iteration variable never consumed in the body is an error."""
 
         def wf(xs, ys, zs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:  # noqa: B007
                 for y, z in zip(ys, zs, strict=True):
                     t = pair(y, z)
@@ -557,7 +555,7 @@ class TestForParserStructure(unittest.TestCase):
 
     def test_for_node_registered_in_parent(self):
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -569,7 +567,7 @@ class TestForParserStructure(unittest.TestCase):
 
     def test_body_node_label_is_body(self):
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -580,7 +578,7 @@ class TestForParserStructure(unittest.TestCase):
 
     def test_body_node_is_workflow_node(self):
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -591,8 +589,8 @@ class TestForParserStructure(unittest.TestCase):
 
     def test_multiple_accumulators(self):
         def wf(xs):
-            as_ = []
-            bs = []
+            as_ = for_parser.accumulator()
+            bs = for_parser.accumulator()
             for x in xs:
                 a, b = split(x, x)
                 as_.append(a)
@@ -606,7 +604,7 @@ class TestForParserStructure(unittest.TestCase):
         """Symbols produced by a for-node should be usable downstream."""
 
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -622,7 +620,7 @@ class TestForParserStructure(unittest.TestCase):
     def test_for_consumes_upstream_node_output(self):
         def wf(n):
             xs = library.my_range(n)
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -636,10 +634,10 @@ class TestForParserStructure(unittest.TestCase):
 
     def test_nested_for_inside_body(self):
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 ys = library.my_range(x)
-                inner = []
+                inner = for_parser.accumulator()
                 for y in ys:
                     z = library.identity(y)
                     inner.append(z)
@@ -656,11 +654,11 @@ class TestForParserStructure(unittest.TestCase):
         """After a for-node consumes accumulators, new ones can be defined."""
 
         def wf(xs, ys):
-            first = []
+            first = for_parser.accumulator()
             for x in xs:
                 a = library.identity(x)
                 first.append(a)
-            second = []
+            second = for_parser.accumulator()
             for y in ys:
                 b = library.identity(y)
                 second.append(b)
@@ -675,7 +673,7 @@ class TestForParserStructure(unittest.TestCase):
         """A while-loop inside a for-body produces a WhileRecipe in the body workflow."""
 
         def wf(xs, bound):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 while library.my_condition(y, bound):
@@ -697,7 +695,7 @@ class TestForParserStructure(unittest.TestCase):
         """An if-node inside a for-body produces an IfRecipe in the body workflow."""
 
         def wf(xs, y):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 if library.my_condition(x, y):  # noqa: SIM108
                     v = library.identity(x)
@@ -716,7 +714,7 @@ class TestForParserStructure(unittest.TestCase):
         """A try/except inside a for-body produces a TryRecipe in the body workflow."""
 
         def wf(xs, y):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 try:
                     v = library.identity(x)
@@ -742,7 +740,7 @@ class TestForParserStructure(unittest.TestCase):
 class TestForEachRecipeRoundTrip(unittest.TestCase):
     def test_for_node_round_trip(self):
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -759,8 +757,8 @@ class TestForEachRecipeRoundTrip(unittest.TestCase):
         """The whole workflow containing a for-node survives round-trip."""
 
         def wf(xs, c):
-            collected = []
-            results = []
+            collected = for_parser.accumulator()
+            results = for_parser.accumulator()
             for x in xs:
                 y = pair(x, c)
                 collected.append(x)
@@ -787,7 +785,7 @@ class TestAppendAccumulator(unittest.TestCase):
         """A bare expression that isn't an .append() on an accumulator."""
 
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 library.identity(x)
                 results.append(x)
@@ -800,10 +798,10 @@ class TestAppendAccumulator(unittest.TestCase):
         self.assertIn("but ast found", str(ctx.exception).lower())
 
     def test_append_to_unknown_symbol_raises(self):
-        """Appending to a list that was never initialised as []."""
+        """Appending to a name that was never declared at all."""
 
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 other.append(y)  # noqa: F821
@@ -812,17 +810,32 @@ class TestAppendAccumulator(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn(
-            "not found among available accumulator symbols", str(ctx.exception).lower()
-        )
+        self.assertIn("not defined", str(ctx.exception).lower())
         self.assertIn("other", str(ctx.exception).lower())
-        self.assertIn("results", str(ctx.exception).lower())
+
+    def test_append_to_list_constant_raises(self):
+        """Appending to an empty-list *constant* (not an accumulator) is rejected."""
+
+        def wf(xs):
+            results = for_parser.accumulator()
+            bucket = []
+            for x in xs:
+                y = library.identity(x)
+                bucket.append(y)
+                results.append(y)
+            return results
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        msg = str(ctx.exception).lower()
+        self.assertIn("bucket", msg)
+        self.assertIn("accumulator", msg)
 
     def test_grandparent_accumulator_raises(self):
         """Accumulator defined two levels up is unreachable from inner for-body."""
 
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 ys = library.my_range(x)
                 for y in ys:
@@ -832,14 +845,28 @@ class TestAppendAccumulator(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
-        self.assertIn(
-            "not found among available accumulator symbols",
-            str(ctx.exception).lower(),
-        )
-        self.assertIn(
-            "immediate parent scope",
-            str(ctx.exception).lower(),
-        )
+        msg = str(ctx.exception).lower()
+        self.assertIn("immediate parent scope", msg)
+        self.assertIn("available accumulator", msg)
+
+    def test_grandparent_accumulator_message(self):
+        """A genuine accumulator reached from a grandchild scope gets the dedicated
+        'immediate parent scope' message, not 'not defined'."""
+
+        def wf(xs):
+            results = for_parser.accumulator()
+            for x in xs:
+                ys = library.my_range(x)
+                for y in ys:
+                    z = library.identity(y)
+                    results.append(z)
+            return results
+
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(wf)
+        msg = str(ctx.exception).lower()
+        self.assertIn("immediate parent scope", msg)
+        self.assertIn("available accumulator", msg)
 
 
 class TestForParserVersionPropagation(unittest.TestCase):
@@ -853,7 +880,7 @@ class TestForParserVersionPropagation(unittest.TestCase):
         custom = "10.20.30"
 
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.undecorated_identity(x)
                 results.append(y)
@@ -872,10 +899,10 @@ class TestForParserVersionPropagation(unittest.TestCase):
         custom = "30.40.50"
 
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 ys = library.my_range(x)
-                inner = []
+                inner = for_parser.accumulator()
                 for y in ys:
                     z = library.undecorated_identity(y)
                     inner.append(z)
@@ -894,7 +921,7 @@ class TestForParserVersionPropagation(unittest.TestCase):
 
     def test_version_constraints_propagate_to_condition(self):
         def wf(xs):
-            results = []
+            results = for_parser.accumulator()
             for x in xs:
                 y = library.identity(x)
                 results.append(y)
@@ -903,6 +930,25 @@ class TestForParserVersionPropagation(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf, require_version=True)
         self.assertIn("Could not find a version", str(ctx.exception))
+
+
+class TestAccumulatorMarker(unittest.TestCase):
+    def test_marker_executes_as_empty_list(self):
+        self.assertEqual(for_parser.accumulator(), [])
+
+    def test_marker_is_not_a_node(self):
+        # A plain marker must not masquerade as an atomic node.
+        self.assertFalse(hasattr(for_parser.accumulator, "flowrep_recipe"))
+
+    def test_marker_root_export_is_for_parser_object(self):
+        import flowrep
+
+        self.assertIs(flowrep.accumulator, for_parser.accumulator)
+
+    def test_std_no_longer_exposes_accumulator(self):
+        import flowrep
+
+        self.assertFalse(hasattr(flowrep.std, "accumulator"))
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ import unittest
 from pyiron_snippets import versions
 
 from flowrep import edge_models
-from flowrep.parsers import try_parser, workflow_parser
+from flowrep.parsers import for_parser, try_parser, workflow_parser
 from flowrep.prospective import (
     for_recipe,
     if_recipe,
@@ -498,7 +498,7 @@ class TestTryParserStructure(unittest.TestCase):
 
         def wf(xs, y):
             try:
-                results = []
+                results = for_parser.accumulator()
                 for x in xs:
                     v = library.identity(x)
                     results.append(v)
@@ -583,7 +583,7 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 z = library.identity(y)
             except ValueError:
-                results = []
+                results = for_parser.accumulator()
                 for x in xs:
                     v = library.identity(x)
                     results.append(v)

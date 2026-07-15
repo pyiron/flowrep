@@ -106,8 +106,10 @@ def _emit_for_each(
     alloc: function.NameAllocator,
 ) -> list[str]:
     """Emit a for-each loop as Python source lines."""
-    # 1. Accumulator declarations, named by output port.
-    lines = [f"{out_syms[port]} = []" for port in node.outputs]
+    # 1. Accumulator declarations, named by output port. Emit the explicit marker so
+    #    re-parsing reconstructs the accumulator (a bare `= []` re-parses as a constant).
+    acc_module = emitter.workflow_decorator[0]
+    lines = [f"{out_syms[port]} = {acc_module}.accumulator()" for port in node.outputs]
 
     body_label = node.body_node.label
     body = node.body_node.recipe

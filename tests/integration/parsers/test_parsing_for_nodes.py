@@ -1,7 +1,7 @@
 import inspect
 import unittest
 
-from flowrep.parsers import atomic_parser, workflow_parser
+from flowrep.parsers import atomic_parser, for_parser, workflow_parser
 from flowrep.prospective import for_recipe, workflow_recipe
 
 from flowrep_static import library
@@ -14,7 +14,7 @@ def how_many(lst: list) -> int:
 
 
 def single_iteration(ns):
-    vecs = []
+    vecs = for_parser.accumulator()
 
     pass_through = library.identity(ns)
 
@@ -94,10 +94,10 @@ def takes_many(a, b, c, d):
 
 
 def zipped_broadcast_and_transferred(a, bs, cs, ds):
-    b_accumulator = []
-    c_accumulator = []
-    d_accumulator = []
-    sums = []
+    b_accumulator = for_parser.accumulator()
+    c_accumulator = for_parser.accumulator()
+    d_accumulator = for_parser.accumulator()
+    sums = for_parser.accumulator()
     for b in bs:
         for c, d in zip(cs, ds, strict=True):
             b_accumulator.append(b)
@@ -205,11 +205,11 @@ def nested(ns):
     appends to it in the body.
     """
 
-    sq_sums = []
+    sq_sums = for_parser.accumulator()
     for n in ns:
 
         rs = library.my_range(n)
-        squares = []
+        squares = for_parser.accumulator()
         for r in rs:
             sq = my_square(r)
             squares.append(sq)
@@ -312,11 +312,11 @@ def nested_with_passed_input(ns, range_offset, square_offset):
     since these can be consistently passed through control flow structures
     """
 
-    sq_sums = []
+    sq_sums = for_parser.accumulator()
     for n in ns:
 
         rs = my_offset_range(n, range_offset)
-        squares = []
+        squares = for_parser.accumulator()
         for r in rs:
             sq = my_offset_square(r, square_offset)
             # Uses square_offset from the outer context

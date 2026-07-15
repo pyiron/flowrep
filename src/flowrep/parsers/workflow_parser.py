@@ -272,28 +272,31 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
-            attribute_parser.reject_method_call(rhs, self.symbol_map)
-            hoisted = attribute_parser.hoist_call_arguments(
-                rhs, self.symbol_map, self.nodes
-            )
-            child = atomic_parser.get_labeled_recipe(
-                rhs,
-                self.nodes.keys(),
-                self.scope,
-                self.info_factory,
-            )
-            self.nodes[child.label] = child.recipe
-            parser_helpers.consume_call_arguments(
-                self.symbol_map, rhs, child, self.nodes, hoisted=hoisted
-            )
-            self.symbol_map.register(new_symbols, child)
-        elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
-            if len(new_symbols) != 1:
-                raise ValueError(
-                    f"Empty list assignment must target exactly one symbol, "
-                    f"got {new_symbols}"
+            if self._is_accumulator(rhs):
+                if len(new_symbols) != 1:
+                    raise ValueError(
+                        f"`accumulator()` must be assigned to a single symbol "
+                        f"(e.g. `ys = flowrep.accumulator()`), but the assignment "
+                        f"targets {new_symbols}."
+                    )
+                self.symbol_map.register_accumulator(new_symbols[0])
+            else:
+                self._reject_accumulator_as_argument(rhs)
+                attribute_parser.reject_method_call(rhs, self.symbol_map)
+                hoisted = attribute_parser.hoist_call_arguments(
+                    rhs, self.symbol_map, self.nodes
                 )
-            self.symbol_map.register_accumulator(new_symbols[0])
+                child = atomic_parser.get_labeled_recipe(
+                    rhs,
+                    self.nodes.keys(),
+                    self.scope,
+                    self.info_factory,
+                )
+                self.nodes[child.label] = child.recipe
+                parser_helpers.consume_call_arguments(
+                    self.symbol_map, rhs, child, self.nodes, hoisted=hoisted
+                )
+                self.symbol_map.register(new_symbols, child)
         elif rhs is not None and attribute_parser.is_data_attribute(
             rhs, self.symbol_map
         ):
@@ -342,6 +345,35 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                 f"access rooted at a known workflow symbol on the right-hand-side, "
                 f"but ast found {type(rhs)}"
             )
+
+    def _is_accumulator(self, call: ast.Call) -> bool:
+        """True iff *call* is a call to the accumulator marker.
+
+        Total by construction: callees that are not a resolvable Name/Attribute
+        chain (method calls on data, chained calls, ...) return ``False`` so they
+        fall through to their own, better-targeted handling instead of being
+        pre-empted by a resolution error raised here.
+        """
+        try:
+            resolved = object_scope.resolve_symbol_to_object(call.func, self.scope)
+        except (TypeError, KeyError, AttributeError, ValueError):
+            return False
+        return resolved is for_parser.accumulator
+
+    def _reject_accumulator_as_argument(self, call: ast.Call) -> None:
+        """Reject ``accumulator()`` used anywhere but the whole RHS of an assignment.
+
+        The marker is only meaningful as ``name = flowrep.accumulator()``. Used as a
+        call argument it would otherwise hoist into an ordinary node returning ``[]``,
+        silently losing its accumulator meaning; fail loudly instead.
+        """
+        for argument in list(call.args) + [kw.value for kw in call.keywords]:
+            if isinstance(argument, ast.Call) and self._is_accumulator(argument):
+                raise ValueError(
+                    "`accumulator()` may only appear as the entire right-hand side "
+                    "of a single-symbol assignment (e.g. "
+                    "`ys = flowrep.accumulator()`), not as a call argument."
+                )
 
     def _digest_flow_control(
         self,
@@ -449,6 +481,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         used_accumulator = cast(
             ast.Name, cast(ast.Attribute, append_call.func).value
         ).id
+        self._require_appendable_accumulator(used_accumulator)
         appended = append_call.args[0]
         if attribute_parser.is_data_attribute(appended, self.symbol_map):
             self._append_attribute(used_accumulator, appended)
@@ -465,6 +498,26 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         appended_source = self.symbol_map[appended_symbol]
         if isinstance(appended_source, edge_models.SourceHandle):
             self.symbol_map.produce(appended_symbol)
+
+    def _require_appendable_accumulator(self, name: str) -> None:
+        """Raise a targeted error unless *name* is an accumulator we may append to."""
+        if name in self.symbol_map.available_accumulators:
+            return
+        if name in self.symbol_map:
+            raise ValueError(
+                f"Cannot `.append()` to '{name}': it is not a for-loop accumulator. "
+                f"Collecting values from a for-loop requires an explicit accumulator "
+                f"declared with `flowrep.accumulator()`."
+            )
+        if name in self.symbol_map.all_accumulators:
+            # A genuine accumulator reserved by a grandparent (or further) scope is
+            # neither available here nor a normal data symbol; fall through so
+            # ``use_accumulator`` raises its dedicated "immediate parent scope" message.
+            return
+        raise ValueError(
+            f"'{name}' is not defined, so it cannot be appended to. Declare a for-loop "
+            f"accumulator with `{name} = flowrep.accumulator()` before appending to it."
+        )
 
     def _append_attribute(self, used_accumulator: str, appended: ast.expr) -> None:
         """Append an attribute chain, giving its output port a generated name.

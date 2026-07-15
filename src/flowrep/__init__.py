@@ -6,6 +6,7 @@ attribute onto a function at definition time, and parsers (`parse_atomic`,
 
 import importlib.metadata
 
+from flowrep.api import accumulator as accumulator
 from flowrep.api import atomic as atomic
 from flowrep.api import dataclass as dataclass
 from flowrep.api import parse_atomic as parse_atomic

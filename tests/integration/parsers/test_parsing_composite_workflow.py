@@ -4,7 +4,7 @@ import unittest
 from pyiron_snippets import versions
 
 from flowrep.compiler import source
-from flowrep.parsers import atomic_parser, workflow_parser
+from flowrep.parsers import atomic_parser, for_parser, workflow_parser
 from flowrep.prospective import workflow_recipe
 
 from flowrep_static import library, makers
@@ -36,7 +36,7 @@ def full_composite(x, /, y, *, bound):
             rs = library.my_range(c)
 
             # --- for (level 3) ---
-            acc = []
+            acc = for_parser.accumulator()
             for r in rs:
                 # --- if/else (level 4) ---
                 if library.my_condition(r, y):  # noqa: SIM108

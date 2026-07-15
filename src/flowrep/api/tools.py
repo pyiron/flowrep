@@ -11,6 +11,7 @@ from flowrep.converters.python_workflow_definition import pwd2flowrep as pwd2flo
 from flowrep.parsers.atomic_parser import atomic as atomic
 from flowrep.parsers.atomic_parser import parse_atomic as parse_atomic
 from flowrep.parsers.dataclass_parser import dataclass as dataclass
+from flowrep.parsers.for_parser import accumulator as accumulator
 from flowrep.parsers.workflow_parser import parse_workflow as parse_workflow
 from flowrep.parsers.workflow_parser import workflow as workflow
 from flowrep.retrospective.datastructures import recipe2data as recipe2data

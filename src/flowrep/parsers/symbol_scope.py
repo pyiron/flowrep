@@ -27,12 +27,14 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     instance with remapped symbols.
 
     Accumulators follow a three-stage lifecycle:
-    - declared_accumulators: locally declared via ``acc = []``. Owned by this scope
-        and passed to child scopes as available_accumulators on fork.
-    - available_accumulators: inherited from the parent scope's declared_accumulators.
-        These are the only accumulators a scope is allowed to ``.append()`` to.  This
-        guarantees that an accumulator is only consumable one nesting level below its
-        declaration, preventing grandparent accumulator access.
+    - declared_accumulators: locally declared via ``acc = flowrep.accumulator()``.
+        Owned by this scope and passed to child scopes as
+        ``available_accumulators`` on fork.
+    - available_accumulators: inherited from the parent scope's
+        ``declared_accumulators``. These are the only accumulators a scope is allowed
+        to ``.append()`` to.  This guarantees that an accumulator is only consumable
+        one nesting level below its declaration, preventing grandparent accumulator
+        access.
     - consumed_accumulators: maps ``accumulator_name → appended_symbol``. Populated by
         :meth:`use_accumulator` and read by the parent to finalise control-flow node
         outputs.
@@ -200,8 +202,8 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         if existing_symbol in self.all_accumulators:
             raise ValueError(
                 f"Cannot alias accumulator '{existing_symbol}'. Accumulators are "
-                f"declared directly with `name = []`; hanging a second name on one "
-                f"is not supported."
+                f"declared directly with `name = flowrep.accumulator()`; hanging a "
+                f"second name on one is not supported."
             )
         try:
             source = self[existing_symbol]

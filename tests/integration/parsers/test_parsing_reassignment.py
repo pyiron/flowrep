@@ -1,7 +1,7 @@
 import unittest
 
 from flowrep import edge_models
-from flowrep.parsers import workflow_parser
+from flowrep.parsers import for_parser, workflow_parser
 
 from flowrep_static import library
 
@@ -140,7 +140,7 @@ class TestAliasNonRegression(unittest.TestCase):
 class TestAliasAccumulatorInteractions(unittest.TestCase):
     def test_reassigning_accumulator_breaks_later_append(self):
         def macro(xs, shift=1):
-            ys = []
+            ys = for_parser.accumulator()
             ys = shift  # de-registers the accumulator
             for x in xs:
                 y = library.my_add(x, shift)  # noqa: F841
@@ -153,9 +153,9 @@ class TestAliasAccumulatorInteractions(unittest.TestCase):
 
     def test_deregister_allows_independent_accumulator(self):
         def macro(xs, shift=1):
-            ys = []
+            ys = for_parser.accumulator()
             ys = shift  # ys becomes a plain alias of `shift`
-            zs = []
+            zs = for_parser.accumulator()
             for x in xs:
                 z = library.my_add(x, shift)
                 zs.append(z)
@@ -166,7 +166,7 @@ class TestAliasAccumulatorInteractions(unittest.TestCase):
 
     def test_alias_from_accumulator_is_rejected(self):
         def macro(xs):
-            ys = []
+            ys = for_parser.accumulator()
             zs = ys  # aliasing an accumulator -> error
             for x in xs:
                 zs.append(x)
@@ -191,7 +191,7 @@ class TestAliasForLoopInteractions(unittest.TestCase):
     def test_alias_the_iterable(self):
         def macro(xs):
             zs = xs
-            acc = []
+            acc = for_parser.accumulator()
             for x in zs:
                 y = library.identity(x)
                 acc.append(y)
@@ -209,7 +209,7 @@ class TestAliasForLoopInteractions(unittest.TestCase):
 
     def test_new_symbol_alias_inside_body(self):
         def macro(xs):
-            acc = []
+            acc = for_parser.accumulator()
             for x in xs:
                 y = x
                 z = library.identity(y)
@@ -221,7 +221,7 @@ class TestAliasForLoopInteractions(unittest.TestCase):
 
     def test_alias_rebinding_enclosing_symbol_is_leaked_reassignment(self):
         def macro(xs, w):
-            acc = []
+            acc = for_parser.accumulator()
             for x in xs:
                 w = x  # noqa: F841
                 # ^^ reassigns an enclosing symbol via alias -> leak

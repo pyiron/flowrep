@@ -9,6 +9,7 @@ primarily benefit downstream developers (e.g. WfMS creators).
 
 from flowrep.api import schemas as schemas
 from flowrep.api import tools as tools
+from flowrep.api.tools import accumulator as accumulator
 from flowrep.api.tools import atomic as atomic
 from flowrep.api.tools import dataclass as dataclass
 from flowrep.api.tools import parse_atomic as parse_atomic

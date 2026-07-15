@@ -15,6 +15,18 @@ from flowrep.prospective import for_recipe, helper_models, union_types
 FOR_BODY_LABEL: str = "body"
 
 
+def accumulator() -> list:
+    """Parse-time marker declaring a for-loop accumulator.
+
+    Executes as an empty list, so a decorated ``@workflow`` runs unchanged as plain
+    Python. The workflow parser recognises an assignment whose RHS is a call to *this*
+    object and registers a for-loop accumulator instead of an ordinary node. It is
+    deliberately un-decorated: it carries no ``.flowrep_recipe`` and should not be
+    mistaken for an atomic node.
+    """
+    return []
+
+
 class _IterationAxis(NamedTuple):
     """One axis of `for x in xs`.
 

@@ -13,7 +13,7 @@ from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models, wfms
 from flowrep.compiler import flow_control, function, source, statements, sugar
-from flowrep.parsers import atomic_parser, workflow_parser
+from flowrep.parsers import atomic_parser, for_parser, workflow_parser
 from flowrep.prospective import (
     atomic_recipe,
     constant_recipe,
@@ -860,7 +860,7 @@ class TestNestedWorkflowNode(unittest.TestCase):
 class TestForEach(unittest.TestCase):
     def test_nested_for_round_trip_and_exec(self):
         def mapper(xs, k):
-            acc = []
+            acc = for_parser.accumulator()
             for x in xs:
                 v = library.my_mul(x, k)
                 acc.append(v)
@@ -876,7 +876,7 @@ class TestForEach(unittest.TestCase):
 
     def test_zipped_for(self):
         def zipper(xs, ys):
-            acc = []
+            acc = for_parser.accumulator()
             for x, y in zip(xs, ys, strict=True):
                 v = library.my_add(x, y)
                 acc.append(v)
@@ -897,6 +897,28 @@ class TestForEach(unittest.TestCase):
         rendered = source._workflow2python(workflow_for_each_recipe)
         fn = rendered.build()
         self.assertEqual(fn([1, 2, 3]), [2, 3, 4])
+
+
+class TestAccumulatorRoundTrip(unittest.TestCase):
+    def test_for_accumulator_round_trips_via_marker(self):
+        @workflow_parser.workflow
+        def wf(xs):
+            ys = for_parser.accumulator()
+            for x in xs:
+                y = library.identity(x)
+                ys.append(y)
+            return ys
+
+        rendered = source.flowrep2python(
+            wf.flowrep_recipe.model_copy(update={"reference": None})
+        )
+        self.assertIn("flowrep.accumulator()", rendered.source)
+        self.assertNotIn("ys = []", rendered.source)
+        reparsed = workflow_parser.parse_workflow(rendered.build())
+        self.assertEqual(
+            reparsed.model_copy(update={"reference": None}),
+            wf.flowrep_recipe.model_copy(update={"reference": None}),
+        )
 
 
 class TestIf(unittest.TestCase):
@@ -1207,8 +1229,8 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
     def test_for_each_transferred_input_output(self):
         # A zipped input forwarded straight to an output is collected per iteration.
         def fwd(xs, ks):
-            acc = []
-            kept = []
+            acc = for_parser.accumulator()
+            kept = for_parser.accumulator()
             for x, k in zip(xs, ks, strict=True):
                 v = library.my_add(x, k)
                 acc.append(v)
@@ -1898,7 +1920,7 @@ class TestLoopVariableReservation(unittest.TestCase):
         @workflow_parser.workflow
         def wf(seed, xs):
             x = library.labeled_x(seed)
-            acc = []
+            acc = for_parser.accumulator()
             for x in xs:
                 y = library.loop_inc(x)
                 acc.append(y)
@@ -1914,9 +1936,9 @@ class TestLoopVariableReservation(unittest.TestCase):
     def test_nested_for_loop_variables_all_reserved(self):
         @workflow_parser.workflow
         def wf(rows):
-            out = []
+            out = for_parser.accumulator()
             for row in rows:
-                inner = []
+                inner = for_parser.accumulator()
                 for cell in row:
                     c = library.loop_inc(cell)
                     inner.append(c)
@@ -1935,7 +1957,7 @@ class TestLoopVariableReservation(unittest.TestCase):
         # variable cannot be emitted safely; the guard must raise.
         @workflow_parser.workflow
         def wf(xs):
-            acc = []
+            acc = for_parser.accumulator()
             for x in xs:
                 y = library.loop_inc(x)
                 acc.append(y)
@@ -1977,7 +1999,7 @@ class TestSymbolNaming(unittest.TestCase):
         @workflow_parser.workflow
         def wf(seed):
             data = library.make_list(seed)
-            acc = []
+            acc = for_parser.accumulator()
             for item in data:
                 y = library.loop_inc(item)
                 acc.append(y)
@@ -2349,7 +2371,7 @@ class TestAttributeSugar(unittest.TestCase):
 
     def test_access_appended_to_accumulator_pins_body_symbol(self):
         def wf(items: list):
-            xs = []
+            xs = for_parser.accumulator()
             for item in items:
                 dc = library.MyDataclass(item, 1)
                 inner = dc.a
@@ -2528,7 +2550,7 @@ class TestPinnedSymbolReservation(unittest.TestCase):
     def test_for_body_output_ports_are_reserved(self):
         @workflow_parser.workflow
         def wf(payload, comp):
-            ys = []
+            ys = for_parser.accumulator()
             for n in payload.xs:
                 d = library.MyDataclass(comp, n)
                 ys.append(d.x)

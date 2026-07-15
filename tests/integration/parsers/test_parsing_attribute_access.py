@@ -2,7 +2,7 @@ import unittest
 
 from flowrep import edge_models, wfms
 from flowrep.compiler import source
-from flowrep.parsers import workflow_parser
+from flowrep.parsers import for_parser, workflow_parser
 
 from flowrep_static import library, makers
 
@@ -223,7 +223,7 @@ class TestAttributeInElifChain(unittest.TestCase):
 
 @workflow_parser.workflow
 def for_attribute_iterable(holder: library.Payload):
-    ys = []
+    ys = for_parser.accumulator()
     for n in holder.xs:
         y = library.increment(n)
         ys.append(y)
@@ -233,7 +233,7 @@ def for_attribute_iterable(holder: library.Payload):
 @workflow_parser.workflow
 def for_bound_iterable(holder: library.Payload):
     xs_0 = holder.xs
-    ys = []
+    ys = for_parser.accumulator()
     for n in xs_0:
         y = library.increment(n)
         ys.append(y)
@@ -242,7 +242,7 @@ def for_bound_iterable(holder: library.Payload):
 
 @workflow_parser.workflow
 def for_zipped_attribute_iterables(a: library.Payload, b: library.Payload):
-    zs = []
+    zs = for_parser.accumulator()
     for m, n in zip(a.xs, b.xs, strict=True):
         z = library.my_add(m, n)
         zs.append(z)
@@ -251,7 +251,7 @@ def for_zipped_attribute_iterables(a: library.Payload, b: library.Payload):
 
 @workflow_parser.workflow
 def for_nested_attribute_iterables(a: library.Payload, b: library.Payload):
-    zs = []
+    zs = for_parser.accumulator()
     for m in a.xs:
         for n in b.xs:
             z = library.my_add(m, n)
@@ -341,7 +341,7 @@ class TestAttributesInNestedForIterables(unittest.TestCase):
 
 @workflow_parser.workflow
 def for_appending_attribute(comp: library.ComplexData, ns: list):
-    xs = []
+    xs = for_parser.accumulator()
     for n in ns:
         d = library.MyDataclass(comp, n)
         xs.append(d.x)
@@ -350,7 +350,7 @@ def for_appending_attribute(comp: library.ComplexData, ns: list):
 
 @workflow_parser.workflow
 def for_appending_bound_attribute(comp: library.ComplexData, ns: list):
-    xs = []
+    xs = for_parser.accumulator()
     for n in ns:
         d = library.MyDataclass(comp, n)
         x_0 = d.x
@@ -422,7 +422,7 @@ class TestPreservedRejections(unittest.TestCase):
 
     def test_literal_iterable_raises(self):
         def wf(x):
-            ys = []
+            ys = for_parser.accumulator()
             for n in [1, 2, 3]:
                 y = library.my_add(n, x)
                 ys.append(y)
@@ -434,7 +434,7 @@ class TestPreservedRejections(unittest.TestCase):
 
     def test_literal_append_raises(self):
         def wf(ns: list):
-            ys = []
+            ys = for_parser.accumulator()
             for n in ns:
                 y = library.identity(n)  # noqa: F841
                 ys.append(3)
@@ -454,7 +454,7 @@ class TestPreservedRejections(unittest.TestCase):
         accumulator, not the eventual output."""
 
         def wf(items: list):
-            ys = []
+            ys = for_parser.accumulator()
             for ys in items:
                 z = ys.count
                 w = library.identity(z)

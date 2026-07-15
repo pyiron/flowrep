@@ -1,7 +1,7 @@
 import unittest
 
 from flowrep import edge_models
-from flowrep.parsers import while_parser, workflow_parser
+from flowrep.parsers import for_parser, while_parser, workflow_parser
 from flowrep.prospective import (
     constant_recipe,
     for_recipe,
@@ -376,7 +376,7 @@ class TestWhileParserStructure(unittest.TestCase):
         def wf(x, bound):
             while library.my_condition(x, bound):
                 xs = library.identity(x)
-                acc = []
+                acc = for_parser.accumulator()
                 for i in xs:
                     v = library.identity(i)
                     acc.append(v)
