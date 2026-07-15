@@ -16,7 +16,7 @@ def _wf(x0: int, comp: library.ComplexData):
 
 class TestIsStdGetattr(unittest.TestCase):
     def test_true_for_std_getattr_recipe(self):
-        self.assertTrue(sugar.is_std_getattr(std.getattr_.recipe))
+        self.assertTrue(sugar.is_std_getattr(std.get_attr.flowrep_recipe))
 
     def test_false_for_other_atomic(self):
         self.assertFalse(sugar.is_std_getattr(library.my_add.flowrep_recipe))
@@ -94,11 +94,11 @@ class TestPortConstantsTrackTheRecipe(unittest.TestCase):
 
     def test_input_ports_come_from_the_recipe(self):
         self.assertEqual(
-            (sugar.OBJ_PORT, sugar.NAME_PORT), tuple(std.getattr_.recipe.inputs)
+            (sugar.OBJ_PORT, sugar.NAME_PORT), tuple(std.get_attr.flowrep_recipe.inputs)
         )
 
     def test_output_port_comes_from_the_recipe(self):
-        self.assertEqual((sugar.ATTR_PORT,), tuple(std.getattr_.recipe.outputs))
+        self.assertEqual((sugar.ATTR_PORT,), tuple(std.get_attr.flowrep_recipe.outputs))
 
 
 if __name__ == "__main__":

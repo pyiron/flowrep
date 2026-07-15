@@ -2396,7 +2396,7 @@ class TestAttributeSugar(unittest.TestCase):
             inputs=[],
             outputs=["attr"],
             nodes={
-                "getattr_0": std.getattr_.recipe,
+                "getattr_0": std.get_attr.flowrep_recipe,
                 "constant_obj": constant_recipe.ConstantRecipe(constant="hi"),
                 "constant_0": constant_recipe.ConstantRecipe(constant="val"),
             },
@@ -2432,7 +2432,7 @@ class TestAttributeSugar(unittest.TestCase):
             nodes={
                 "constant_obj": constant_recipe.ConstantRecipe(constant=3),
                 "constant_0": constant_recipe.ConstantRecipe(constant="real"),
-                "getattr_0": std.getattr_.recipe,
+                "getattr_0": std.get_attr.flowrep_recipe,
             },
             input_edges={},
             edges={
@@ -2446,7 +2446,7 @@ class TestAttributeSugar(unittest.TestCase):
             output_edges={OT(port="attr"): SH(node="getattr_0", port="attr")},
         )
         rendered = source._workflow2python(wf, function_name="const_obj_getattr")
-        self.assertIn("_getattr_wrapper", rendered.source)
+        self.assertIn("get_attr", rendered.source)
         fn = rendered.build()
         self.assertEqual(fn(), 3)
 
@@ -2462,7 +2462,7 @@ class TestAttributeSugar(unittest.TestCase):
             outputs=["attr"],
             nodes={
                 "identity_0": library.identity.flowrep_recipe,
-                "getattr_0": std.getattr_.recipe,
+                "getattr_0": std.get_attr.flowrep_recipe,
             },
             input_edges={
                 TH(node="identity_0", port="x"): IS(port="name_in"),
@@ -2474,7 +2474,7 @@ class TestAttributeSugar(unittest.TestCase):
             output_edges={OT(port="attr"): SH(node="getattr_0", port="attr")},
         )
         rendered = source._workflow2python(wf, function_name="nonsugar")
-        self.assertIn("_getattr_wrapper", rendered.source)
+        self.assertIn("get_attr", rendered.source)
         fn = rendered.build()
         self.assertEqual(fn(library.ComplexData(val=42), "val"), 42)
 

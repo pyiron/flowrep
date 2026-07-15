@@ -52,13 +52,7 @@ from collections.abc import Iterable
 
 from flowrep import edge_models
 from flowrep.parsers import constant_parser, label_helpers, symbol_scope
-from flowrep.prospective import std, union_types
-
-# Port names are derived from the recipe, never spelled out: editing `std.getattr_`
-# must not require editing strings anywhere else in the source.
-_GETATTR = std.getattr_.recipe
-_OBJ_PORT, _NAME_PORT = _GETATTR.inputs
-(_ATTR_PORT,) = _GETATTR.outputs
+from flowrep.prospective import union_types
 
 
 def chain_root(node: ast.expr) -> ast.Name | None:
@@ -96,6 +90,14 @@ def inject_attribute_chain(
     *node* must be a data attribute chain (see :func:`is_data_attribute`); callers
     are expected to gate on that before calling.
     """
+    # Port names are derived from the recipe, never spelled out: editing `std.getattr_`
+    # must not require editing strings anywhere else in the source.
+    from flowrep.prospective import std
+
+    _GETATTR = std.get_attr.flowrep_recipe  # type: ignore[attr-defined]
+    _OBJ_PORT, _NAME_PORT = _GETATTR.inputs
+    (_ATTR_PORT,) = _GETATTR.outputs
+
     links: list[ast.Attribute] = []
     current: ast.expr = node
     while isinstance(current, ast.Attribute):
@@ -116,7 +118,7 @@ def inject_attribute_chain(
     handle: edge_models.SourceHandle | None = None
     for link in links:
         label = label_helpers.unique_suffix(f"getattr_{link.attr}", nodes)
-        nodes[label] = std.getattr_.recipe
+        nodes[label] = std.get_attr.flowrep_recipe  # type: ignore[attr-defined]
         if handle is None:
             symbol_map.consume(root.id, label, _OBJ_PORT)
         else:

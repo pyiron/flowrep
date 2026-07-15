@@ -70,7 +70,7 @@ class TestInjectAttributeChain(unittest.TestCase):
         handle = attribute_parser.inject_attribute_chain(node, scope, nodes)
 
         self.assertEqual(set(nodes), {"getattr_a_0", "constant_0"})
-        self.assertIs(nodes["getattr_a_0"], std.getattr_.recipe)
+        self.assertIs(nodes["getattr_a_0"], std.get_attr.flowrep_recipe)
         self.assertIsInstance(nodes["constant_0"], constant_recipe.ConstantRecipe)
         self.assertEqual(nodes["constant_0"].constant, "a")
         self.assertEqual(
@@ -171,8 +171,8 @@ class TestInjectionUsesTheRecipePorts(unittest.TestCase):
     """The injected edges must target whatever ports std.getattr_ actually declares."""
 
     def test_edges_and_handle_track_the_recipe(self):
-        obj_port, name_port = std.getattr_.recipe.inputs
-        (attr_port,) = std.getattr_.recipe.outputs
+        obj_port, name_port = std.get_attr.flowrep_recipe.inputs
+        (attr_port,) = std.get_attr.flowrep_recipe.outputs
         scope = symbol_scope.SymbolScope(
             {"dc": _make_source("MyDataclass_0", "instance")}
         )

@@ -5,6 +5,7 @@ import types
 from collections.abc import Callable, Iterable
 from typing import (
     Annotated,
+    Any,
     TypeVar,
     cast,
     get_args,
@@ -20,7 +21,7 @@ from flowrep.parsers import label_helpers, object_scope, parser_helpers
 from flowrep.parsers.label_helpers import default_output_label
 from flowrep.prospective import atomic_recipe, helper_models
 
-_AtomicTarget = TypeVar("_AtomicTarget", bound=types.FunctionType | type)
+_AtomicTarget = TypeVar("_AtomicTarget", bound=Callable[..., Any])
 
 
 @overload
