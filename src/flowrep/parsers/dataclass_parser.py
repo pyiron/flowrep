@@ -52,7 +52,7 @@ def dataclass(cls=None, /, *output_labels, **kwargs):
     return wrap(cls) if bare else wrap
 
 
-def dataclass_fields_to_outputs(dataclass):
+def dataclass_fields_to_outputs(dataclass, /):
     field_values = tuple(
         getattr(dataclass, f.name) for f in dataclasses.fields(dataclass)
     )
