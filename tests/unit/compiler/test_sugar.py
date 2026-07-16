@@ -1,9 +1,9 @@
 import unittest
 
-from flowrep import edge_models
+from flowrep import edge_models, std
 from flowrep.compiler import sugar
 from flowrep.parsers import workflow_parser
-from flowrep.prospective import constant_recipe, std
+from flowrep.prospective import constant_recipe
 
 from flowrep_static import library, makers
 

@@ -1,9 +1,9 @@
 import ast
 import unittest
 
-from flowrep import edge_models
+from flowrep import edge_models, std
 from flowrep.parsers import attribute_parser, symbol_scope
-from flowrep.prospective import constant_recipe, std
+from flowrep.prospective import constant_recipe
 
 
 def _make_input(port: str) -> edge_models.InputSource:

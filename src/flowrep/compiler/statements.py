@@ -6,12 +6,11 @@ from typing import Any, TypeAlias, cast
 
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models, subgraph_validation
+from flowrep import base_models, edge_models, std, subgraph_validation
 from flowrep.compiler import flow_control, function, sugar
 from flowrep.prospective import (
     atomic_recipe,
     constant_recipe,
-    std,
     union_types,
     workflow_recipe,
 )

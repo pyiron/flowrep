@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from flowrep import wfms
-from flowrep.prospective import std
+from flowrep import std, wfms
 
 
 def _return_42(*args, **kwargs):
