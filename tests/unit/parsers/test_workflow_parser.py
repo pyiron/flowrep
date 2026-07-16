@@ -1175,12 +1175,6 @@ def _assign_list_constant(seed):
     return r
 
 
-def _assign_tuple_constant(a):
-    bad = (1, 2)
-    r = library.identity(bad)
-    return r
-
-
 def _assign_non_literal(a):
     bad = a + 1
     r = library.identity(bad)
@@ -1200,6 +1194,26 @@ def _assign_literal_to_multiple_targets(a):
     return a
 
 
+def _constant_as_argument(a):
+    r = library.my_add(a, 5)
+    return r
+
+
+def _list_as_argument(a):
+    r = library.my_add(a, [1, 2])
+    return r
+
+
+def _tuple_as_argument(a):
+    r = library.my_add(a, (1, 2))
+    return r
+
+
+def _nonliteral_as_argument(a):
+    r = library.identity(a + 1)
+    return r
+
+
 class TestLiteralAssignment(unittest.TestCase):
     def _constants(self, recipe):
         return [
@@ -1208,17 +1222,10 @@ class TestLiteralAssignment(unittest.TestCase):
             if isinstance(n, constant_recipe.ConstantRecipe)
         ]
 
-    def test_scalar_literal_injects_constant(self):
-        recipe = workflow_parser.parse_workflow(_assign_scalar_constant)
-        self.assertTrue(any(c.constant == 0.5 for c in self._constants(recipe)))
-
-    def test_list_literal_injects_constant(self):
-        recipe = workflow_parser.parse_workflow(_assign_list_constant)
-        self.assertTrue(any(c.constant == [1, 2, 3] for c in self._constants(recipe)))
-
-    def test_tuple_literal_assignment_raises(self):
-        with self.assertRaises(ValueError):
-            workflow_parser.parse_workflow(_assign_tuple_constant)
+    def test_scalar_literal_assignment_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            workflow_parser.parse_workflow(_assign_scalar_constant)
+        self.assertIn("only as call arguments", str(ctx.exception))
 
     def test_non_literal_expr_assignment_still_raises(self):
         with self.assertRaises(ValueError):
@@ -1232,7 +1239,29 @@ class TestLiteralAssignment(unittest.TestCase):
     def test_literal_assigned_to_multiple_targets_raises(self):
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(_assign_literal_to_multiple_targets)
-        self.assertIn("exactly one symbol", str(ctx.exception))
+        self.assertIn("only as call arguments", str(ctx.exception))
+
+    def test_constant_valid_as_call_argument(self):
+        recipe = workflow_parser.parse_workflow(_constant_as_argument)
+        self.assertTrue(
+            any(c.constant == 5 for c in self._constants(recipe)),
+            msg="A literal passed as a call argument must still inject a constant node",
+        )
+
+    def test_list_valid_as_call_argument(self):
+        recipe = workflow_parser.parse_workflow(_list_as_argument)
+        self.assertTrue(
+            any(c.constant == [1, 2] for c in self._constants(recipe)),
+            msg="A literal passed as a call argument must still inject a constant node",
+        )
+
+    def test_non_jsonable_as_argument_raises(self):
+        with self.assertRaises(ValueError):
+            workflow_parser.parse_workflow(_tuple_as_argument)
+
+    def test_nonliteral_as_argument_raises(self):
+        with self.assertRaises(TypeError):
+            workflow_parser.parse_workflow(_nonliteral_as_argument(5))
 
 
 class TestParseWorkflowOutputUniqueness(unittest.TestCase):
