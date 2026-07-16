@@ -1,6 +1,6 @@
 import unittest
 
-from flowrep import edge_models
+from flowrep import edge_models, std
 from flowrep.parsers import workflow_parser
 
 from flowrep_static import library
@@ -47,25 +47,25 @@ class TestAliasHappyPath(unittest.TestCase):
 
     def test_alias_of_node_output(self):
         def macro(a, b):
-            y = library.my_add(a, b)
+            y = std.add(a, b)
             z = y
             return z
 
         recipe = _parse(macro)
         self.assertEqual(recipe.outputs, ["z"])
         (source,) = recipe.output_edges.values()
-        self.assertEqual((source.node, source.port), ("my_add_0", "output_0"))
+        self.assertEqual((source.node, source.port), ("add_0", "added"))
 
     def test_local_alias_then_consumed(self):
         def macro(a, b):
             y = a
-            z = library.my_add(y, b)
+            z = std.add(y, b)
             return z
 
         recipe = _parse(macro)
         self.assertEqual(recipe.outputs, ["z"])
         # my_add's `a` input is fed by workflow input `a` (through the alias).
-        add_a = recipe.input_edges[edge_models.TargetHandle(node="my_add_0", port="a")]
+        add_a = recipe.input_edges[edge_models.TargetHandle(node="add_0", port="a")]
         self.assertEqual(add_a.port, "a")
 
     def test_self_alias_is_noop(self):
@@ -132,7 +132,7 @@ class TestAliasAccumulatorInteractions(unittest.TestCase):
             ys = []
             ys = shift  # de-registers the accumulator
             for x in xs:
-                y = library.my_add(x, shift)  # noqa: F841
+                y = std.add(x, shift)  # noqa: F841
                 ys.append(x)
             return ys
 
@@ -146,7 +146,7 @@ class TestAliasAccumulatorInteractions(unittest.TestCase):
             ys = shift  # ys becomes a plain alias of `shift`
             zs = []
             for x in xs:
-                z = library.my_add(x, shift)
+                z = std.add(x, shift)
                 zs.append(z)
             return zs, ys
 
@@ -182,7 +182,7 @@ class TestAliasForLoopInteractions(unittest.TestCase):
             zs = xs
             acc = []
             for x in zs:
-                y = library.identity(x)
+                y = std.identity(x)
                 acc.append(y)
             return acc
 
@@ -201,7 +201,7 @@ class TestAliasForLoopInteractions(unittest.TestCase):
             acc = []
             for x in xs:
                 y = x
-                z = library.identity(y)
+                z = std.identity(y)
                 acc.append(z)
             return acc
 
@@ -214,7 +214,7 @@ class TestAliasForLoopInteractions(unittest.TestCase):
             for x in xs:
                 w = x  # noqa: F841
                 # ^^ reassigns an enclosing symbol via alias -> leak
-                z = library.identity(x)
+                z = std.identity(x)
                 acc.append(z)
             return acc
 
@@ -264,7 +264,7 @@ class TestAliasBranchInteractions(unittest.TestCase):
         def macro(a, x):
             if library.is_positive(a):
                 w = x  # local alias, consumed -> never a branch output
-                y = library.identity(w)
+                y = std.identity(w)
             else:
                 y = library.decrement(x)
             return y
@@ -275,7 +275,7 @@ class TestAliasBranchInteractions(unittest.TestCase):
     def test_cross_branch_input_alias_output_raises(self):
         def macro(a, x, z):
             if library.is_positive(a):  # noqa: SIM108
-                y = library.identity(x)  # node output
+                y = std.identity(x)  # node output
             else:
                 y = z  # input alias -> would-be output disagrees across branches
             return y

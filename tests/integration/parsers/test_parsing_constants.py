@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep import edge_models, wfms
+from flowrep import edge_models, std, wfms
 from flowrep.compiler import source
 from flowrep.parsers import workflow_parser
 from flowrep.prospective import union_types
@@ -11,9 +11,9 @@ from flowrep_static import library, makers
 
 
 def kinetic_energy(mass, velocity):
-    v_2 = library.my_mul(velocity, velocity)
-    mv_2 = library.my_mul(mass, v_2)
-    ke = library.my_mul(0.5, mv_2)
+    v_2 = std.mul(velocity, velocity)
+    mv_2 = std.mul(mass, v_2)
+    ke = std.mul(0.5, mv_2)
     return ke
 
 
@@ -41,11 +41,11 @@ class TestConstantEndToEnd(unittest.TestCase):
 @workflow_parser.workflow
 def shadowed_constant_symbol(x):
     """A user symbol named like a generated port must not be clobbered by one."""
-    constant_0 = library.negate(x)
-    if library.my_condition(x, 3):
-        y = library.my_add(constant_0, x)
+    constant_0 = std.neg(x)
+    if library.my_condition(x, 3):  # noqa: SIM108
+        y = std.add(constant_0, x)
     else:
-        y = library.identity(x)
+        y = std.identity(x)
     return y
 
 
@@ -62,7 +62,7 @@ class TestGeneratedPortDodgesUserSymbols(unittest.TestCase):
         recipe = shadowed_constant_symbol.flowrep_recipe
         self.assertEqual(
             recipe.edges[edge_models.TargetHandle(node="if_0", port="constant_0")],
-            edge_models.SourceHandle(node="negate_0", port="output_0"),
+            edge_models.SourceHandle(node="neg_0", port="negative"),
         )
 
     def test_generated_port_reads_the_constant_peer(self):

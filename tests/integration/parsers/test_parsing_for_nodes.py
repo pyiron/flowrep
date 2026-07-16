@@ -1,6 +1,7 @@
 import inspect
 import unittest
 
+from flowrep import std
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import for_recipe, workflow_recipe
 
@@ -16,10 +17,10 @@ def how_many(lst: list) -> int:
 def single_iteration(ns):
     vecs = []
 
-    pass_through = library.identity(ns)
+    pass_through = std.identity(ns)
 
     for n in pass_through:
-        x = library.identity(n)
+        x = std.identity(n)
         rs = library.my_range(x)
         vecs.append(rs)
 
@@ -33,7 +34,7 @@ for_body = workflow_recipe.WorkflowRecipe.model_validate(
         "inputs": ["n"],
         "outputs": ["rs"],
         "nodes": {
-            "identity_0": library.identity.flowrep_recipe,
+            "identity_0": std.identity.flowrep_recipe,
             "my_range_0": library.my_range.flowrep_recipe,
         },
         "input_edges": {"identity_0.x": "n"},
@@ -62,7 +63,7 @@ single_iteration_node = workflow_recipe.WorkflowRecipe.model_validate(
         "inputs": ["ns"],
         "outputs": ["l", "vecs"],
         "nodes": {
-            "identity_0": library.identity.flowrep_recipe,
+            "identity_0": std.identity.flowrep_recipe,
             "for_each_0": for_node,
             "how_many_0": how_many.flowrep_recipe,
         },

@@ -1,6 +1,6 @@
 import unittest
 
-from flowrep import edge_models, wfms
+from flowrep import edge_models, std, wfms
 from flowrep.compiler import source
 from flowrep.parsers import workflow_parser
 
@@ -11,7 +11,7 @@ from flowrep_static import library, makers
 def wf(x0: int, comp: library.ComplexData):
     dc = library.MyDataclass(comp, x0)
     my_val = dc.a.val
-    repeated = library.my_mul(dc.x, my_val)
+    repeated = std.mul(dc.x, my_val)
     return repeated
 
 
@@ -26,7 +26,7 @@ class TestAttributeAccessEndToEnd(unittest.TestCase):
                 "getattr_a_0",
                 "getattr_val_0",
                 "getattr_x_0",
-                "my_mul_0",
+                "mul_0",
                 "constant_0",
                 "constant_1",
                 "constant_2",
@@ -45,11 +45,11 @@ class TestAttributeAccessEndToEnd(unittest.TestCase):
             edge_models.SourceHandle(node="MyDataclass_0", port="instance"),
         )
         self.assertEqual(
-            recipe.edges[edge_models.TargetHandle(node="my_mul_0", port="a")],
+            recipe.edges[edge_models.TargetHandle(node="mul_0", port="a")],
             edge_models.SourceHandle(node="getattr_x_0", port="attr"),
         )
         self.assertEqual(
-            recipe.edges[edge_models.TargetHandle(node="my_mul_0", port="b")],
+            recipe.edges[edge_models.TargetHandle(node="mul_0", port="b")],
             edge_models.SourceHandle(node="getattr_val_0", port="attr"),
         )
 
@@ -105,7 +105,7 @@ def if_bound_condition(comp: library.ComplexData, x: int):
 @workflow_parser.workflow
 def while_unlooped_attribute_condition(comp: library.ComplexData, seed: int):
     """`comp` is never reassigned, so hoisting the getattr is faithful to Python."""
-    x = library.identity(seed)
+    x = std.identity(seed)
     while library.my_condition(x, comp.val):
         x = library.loop_inc(x)
     return x
@@ -179,9 +179,9 @@ class TestAttributeInWhileCondition(unittest.TestCase):
         """Python would re-read `x.val` each iteration; a hoisted getattr cannot."""
 
         def wf(comp: library.ComplexData):
-            x = library.identity(comp)
+            x = std.identity(comp)
             while library.my_condition(x, x.val):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -201,7 +201,7 @@ def elif_two_attribute_conditions(a: library.ComplexData, b: library.ComplexData
     elif library.my_condition(b.val, 4):
         y = library.decrement(x)
     else:
-        y = library.negate(x)
+        y = std.neg(x)
     return y
 
 
@@ -244,7 +244,7 @@ def for_bound_iterable(holder: library.Payload):
 def for_zipped_attribute_iterables(a: library.Payload, b: library.Payload):
     zs = []
     for m, n in zip(a.xs, b.xs, strict=True):
-        z = library.my_add(m, n)
+        z = std.add(m, n)
         zs.append(z)
     return zs
 
@@ -254,7 +254,7 @@ def for_nested_attribute_iterables(a: library.Payload, b: library.Payload):
     zs = []
     for m in a.xs:
         for n in b.xs:
-            z = library.my_add(m, n)
+            z = std.add(m, n)
             zs.append(z)
     return zs
 
@@ -424,7 +424,7 @@ class TestPreservedRejections(unittest.TestCase):
         def wf(x):
             ys = []
             for n in [1, 2, 3]:
-                y = library.my_add(n, x)
+                y = std.add(n, x)
                 ys.append(y)
             return ys
 
@@ -436,7 +436,7 @@ class TestPreservedRejections(unittest.TestCase):
         def wf(ns: list):
             ys = []
             for n in ns:
-                y = library.identity(n)  # noqa: F841
+                y = std.identity(n)  # noqa: F841
                 ys.append(3)
             return ys
 
@@ -457,7 +457,7 @@ class TestPreservedRejections(unittest.TestCase):
             ys = []
             for ys in items:
                 z = ys.count
-                w = library.identity(z)
+                w = std.identity(z)
                 ys.append(w)
             return ys
 
@@ -469,9 +469,9 @@ class TestPreservedRejections(unittest.TestCase):
 @workflow_parser.workflow
 def try_attribute_in_branches(holder: library.Payload):
     try:
-        y = library.divide(holder.num, holder.den)
+        y = std.truediv(holder.num, holder.den)
     except ZeroDivisionError:
-        y = library.identity(holder.num)
+        y = std.identity(holder.num)
     return y
 
 

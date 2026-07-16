@@ -18,11 +18,6 @@ def multi_result(x):
 
 
 @atomic_parser.atomic
-def identity(x):
-    return x
-
-
-@atomic_parser.atomic
 def my_range(n):
     return list(range(n))
 
@@ -32,30 +27,16 @@ def my_condition(m, n):
     return m < n
 
 
-@atomic_parser.atomic
-def my_add(a, b):
-    return a + b
-
-
-@atomic_parser.atomic
-def my_mul(a, b):
-    return a * b
-
-
 # test_workflow_parser
 
 
-def add(x: float = 2.0, y: float = 1) -> float:
+def typed_add(x: float = 2.0, y: float = 1) -> float:
+    """An add node with type hints"""
     return x + y
 
 
-def multiply(x: float, y: float = 5) -> float:
+def typed_multiply(x: float, y: float = 5) -> float:
     return x * y
-
-
-@atomic_parser.atomic
-def negate(x):
-    return -x
 
 
 @atomic_parser.atomic
@@ -74,11 +55,6 @@ def is_positive(n):
 
 
 @atomic_parser.atomic
-def divide(a, b):
-    return a / b
-
-
-@atomic_parser.atomic
 def divmod_func(a: float, b: float) -> tuple[float, float]:
     quotient = a // b
     remainder = a % b
@@ -87,7 +63,7 @@ def divmod_func(a: float, b: float) -> tuple[float, float]:
 
 @workflow_parser.workflow
 def simple_workflow(a, b):
-    result = add(a, b)
+    result = typed_add(a, b)
     return result
 
 

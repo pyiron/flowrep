@@ -156,7 +156,7 @@ class TestRejectMethodCall(unittest.TestCase):
         scope = symbol_scope.SymbolScope(
             {"dc": _make_source("MyDataclass_0", "instance")}
         )
-        call = _expr("library.my_add(x)")
+        call = _expr("std.add(x)")
         assert isinstance(call, ast.Call)
         attribute_parser.reject_method_call(call, scope)  # does not raise
 

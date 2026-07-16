@@ -3,6 +3,7 @@ import unittest
 
 from pyiron_snippets import versions
 
+from flowrep import std
 from flowrep.compiler import source
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import workflow_recipe
@@ -24,15 +25,15 @@ def full_composite(x, /, y, *, bound):
           while, siblings around for
             for, if/else inside body
     """
-    a = library.my_add(x, y)
+    a = std.add(x, y)
 
     # --- try (level 1) ---
     try:
-        b = library.my_mul(a, y)
+        b = std.mul(a, y)
 
         # --- while (level 2) ---
         while library.my_condition(b, bound):
-            c = library.my_add(b, y)
+            c = std.add(b, y)
             rs = library.my_range(c)
 
             # --- for (level 3) ---
@@ -40,19 +41,19 @@ def full_composite(x, /, y, *, bound):
             for r in rs:
                 # --- if/else (level 4) ---
                 if library.my_condition(r, y):  # noqa: SIM108
-                    v = library.my_add(r, c)
+                    v = std.add(r, c)
                 else:
-                    v = library.my_mul(r, c)
+                    v = std.mul(r, c)
                 acc.append(v)
 
             b = my_sum(acc)
 
-        z = library.identity(b)
+        z = std.identity(b)
     except ValueError:
-        z = library.identity(a)
+        z = std.identity(a)
 
     # --- sibling after try ---
-    result = library.identity(z)
+    result = std.identity(z)
     return result
 
 
@@ -66,20 +67,20 @@ _if_true_body = {
     "type": "workflow",
     "inputs": ["r", "c"],
     "outputs": ["v"],
-    "nodes": {"my_add_0": library.my_add.flowrep_recipe},
-    "input_edges": {"my_add_0.a": "r", "my_add_0.b": "c"},
+    "nodes": {"add_0": std.add.flowrep_recipe},
+    "input_edges": {"add_0.a": "r", "add_0.b": "c"},
     "edges": {},
-    "output_edges": {"v": "my_add_0.output_0"},
+    "output_edges": {"v": "add_0.added"},
 }
 
 _if_else_body = {
     "type": "workflow",
     "inputs": ["r", "c"],
     "outputs": ["v"],
-    "nodes": {"my_mul_0": library.my_mul.flowrep_recipe},
-    "input_edges": {"my_mul_0.a": "r", "my_mul_0.b": "c"},
+    "nodes": {"mul_0": std.mul.flowrep_recipe},
+    "input_edges": {"mul_0.a": "r", "mul_0.b": "c"},
     "edges": {},
-    "output_edges": {"v": "my_mul_0.output_0"},
+    "output_edges": {"v": "mul_0.product"},
 }
 
 _if_node = {
@@ -138,19 +139,19 @@ _while_body = {
     "inputs": ["b", "y"],
     "outputs": ["b"],
     "nodes": {
-        "my_add_0": library.my_add.flowrep_recipe,
+        "add_0": std.add.flowrep_recipe,
         "my_range_0": library.my_range.flowrep_recipe,
         "for_each_0": _for_node,
         "my_sum_0": my_sum.flowrep_recipe,
     },
     "input_edges": {
-        "my_add_0.a": "b",
-        "my_add_0.b": "y",
+        "add_0.a": "b",
+        "add_0.b": "y",
         "for_each_0.y": "y",
     },
     "edges": {
-        "my_range_0.n": "my_add_0.output_0",
-        "for_each_0.c": "my_add_0.output_0",
+        "my_range_0.n": "add_0.added",
+        "for_each_0.c": "add_0.added",
         "for_each_0.rs": "my_range_0.output_0",
         "my_sum_0.lst": "for_each_0.acc",
     },
@@ -185,18 +186,18 @@ _try_body = {
     "inputs": ["a", "y", "bound"],
     "outputs": ["b", "z"],
     "nodes": {
-        "my_mul_0": library.my_mul.flowrep_recipe,
+        "mul_0": std.mul.flowrep_recipe,
         "while_0": _while_node,
-        "identity_0": library.identity.flowrep_recipe,
+        "identity_0": std.identity.flowrep_recipe,
     },
     "input_edges": {
-        "my_mul_0.a": "a",
-        "my_mul_0.b": "y",
+        "mul_0.a": "a",
+        "mul_0.b": "y",
         "while_0.bound": "bound",
         "while_0.y": "y",
     },
     "edges": {
-        "while_0.b": "my_mul_0.output_0",
+        "while_0.b": "mul_0.product",
         "identity_0.x": "while_0.b",
     },
     "output_edges": {
@@ -209,7 +210,7 @@ _except_body = {
     "type": "workflow",
     "inputs": ["a"],
     "outputs": ["z"],
-    "nodes": {"identity_0": library.identity.flowrep_recipe},
+    "nodes": {"identity_0": std.identity.flowrep_recipe},
     "input_edges": {"identity_0.x": "a"},
     "edges": {},
     "output_edges": {"z": "identity_0.x"},
@@ -247,18 +248,18 @@ full_composite_node = workflow_recipe.WorkflowRecipe.model_validate(
         "outputs": ["result"],
         "description": inspect.getdoc(full_composite),
         "nodes": {
-            "my_add_0": library.my_add.flowrep_recipe,
+            "add_0": std.add.flowrep_recipe,
             "try_0": _try_node,
-            "identity_0": library.identity.flowrep_recipe,
+            "identity_0": std.identity.flowrep_recipe,
         },
         "input_edges": {
-            "my_add_0.a": "x",
-            "my_add_0.b": "y",
+            "add_0.a": "x",
+            "add_0.b": "y",
             "try_0.y": "y",
             "try_0.bound": "bound",
         },
         "edges": {
-            "try_0.a": "my_add_0.output_0",
+            "try_0.a": "add_0.added",
             "identity_0.x": "try_0.z",
         },
         "output_edges": {"result": "identity_0.x"},

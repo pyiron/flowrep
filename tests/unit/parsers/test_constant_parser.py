@@ -1,6 +1,6 @@
 import unittest
 
-from flowrep import edge_models
+from flowrep import edge_models, std
 from flowrep.parsers import symbol_scope, workflow_parser
 from flowrep.prospective import constant_recipe
 
@@ -8,9 +8,9 @@ from flowrep_static import library
 
 
 def kinetic_energy(mass, velocity):
-    v_2 = library.my_mul(velocity, velocity)
-    mv_2 = library.my_mul(mass, v_2)
-    ke = library.my_mul(0.5, mv_2)
+    v_2 = std.mul(velocity, velocity)
+    mv_2 = std.mul(mass, v_2)
+    ke = std.mul(0.5, mv_2)
     return ke
 
 
@@ -20,17 +20,17 @@ def keyword_constant(x):
 
 
 def compound_constant(x):
-    y = library.my_mul(x, [1.0, 1, "1", {"key": [42]}])
+    y = std.mul(x, [1.0, 1, "1", {"key": [42]}])
     return y
 
 
 def tuple_arg(x):
-    y = library.my_mul(x, (1, 2))
+    y = std.mul(x, (1, 2))
     return y
 
 
 def lambda_arg(x):
-    y = library.my_mul(x, lambda z: z)
+    y = std.mul(x, lambda z: z)
     return y
 
 
@@ -41,8 +41,8 @@ class TestConstantParsing(unittest.TestCase):
         const = recipe.nodes["constant_0"]
         self.assertIsInstance(const, constant_recipe.ConstantRecipe)
         self.assertEqual(const.constant, 0.5)
-        # The 3rd my_mul consumes the constant on its first port 'a'
-        edge = recipe.edges[edge_models.TargetHandle(node="my_mul_2", port="a")]
+        # The 3rd mul consumes the constant on its first port 'a'
+        edge = recipe.edges[edge_models.TargetHandle(node="mul_2", port="a")]
         self.assertEqual(
             edge, edge_models.SourceHandle(node="constant_0", port="constant")
         )
@@ -62,7 +62,7 @@ class TestConstantParsing(unittest.TestCase):
     def test_tuple_arg_rejected(self):
         with self.assertRaises(Exception) as ctx:
             workflow_parser.parse_workflow(tuple_arg)
-        self.assertIn("my_mul_0", str(ctx.exception))
+        self.assertIn("mul_0", str(ctx.exception))
 
     def test_lambda_arg_rejected(self):
         with self.assertRaises(TypeError):

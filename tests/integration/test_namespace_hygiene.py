@@ -15,6 +15,7 @@ behavioural assertion forces them. Both are kept: recipe equality still catches
 
 import unittest
 
+from flowrep import std
 from flowrep.compiler import source
 from flowrep.parsers import workflow_parser
 
@@ -81,7 +82,7 @@ def sequential_loops(payload, comp):
         ys.append(d.x)
     zs = []
     for m in x_0:
-        e = library.identity(m)
+        e = std.identity(m)
         zs.append(e)
     return ys, zs
 
@@ -100,11 +101,11 @@ def compiler_minted_collision(comp, seed):
     """
     a = library.val(1)
     b = library.val(2)
-    if library.is_positive(comp.val):
-        m = library.identity(seed)
+    if library.is_positive(comp.val):  # noqa: SIM108
+        m = std.identity(seed)
     else:
-        m = library.negate(seed)
-    c = library.my_add(a, b)
+        m = std.neg(seed)
+    c = std.add(a, b)
     return m, c
 
 
