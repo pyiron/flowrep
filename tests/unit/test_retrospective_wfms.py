@@ -377,9 +377,9 @@ def _divide_body_workflow() -> workflow_recipe.WorkflowRecipe:
         inputs=["a", "b"],
         outputs=["result"],
         child_label="divide_0",
-        child_recipe=library.divide.flowrep_recipe,
+        child_recipe=std.truediv.flowrep_recipe,
         input_map={"a": "a", "b": "b"},
-        output_map={"result": "output_0"},
+        output_map={"result": "quotient"},
     )
 
 

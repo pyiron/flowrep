@@ -55,11 +55,6 @@ def is_positive(n):
 
 
 @atomic_parser.atomic
-def divide(a, b):
-    return a / b
-
-
-@atomic_parser.atomic
 def divmod_func(a: float, b: float) -> tuple[float, float]:
     quotient = a // b
     remainder = a % b

@@ -179,7 +179,7 @@ workflow_try_recipe = workflow_recipe.WorkflowRecipe(
             outputs=["z"],
             try_node=helper_models.LabeledRecipe(
                 label="try_body",
-                recipe=library.divide.flowrep_recipe,
+                recipe=std.truediv.flowrep_recipe,
             ),
             exception_cases=[
                 helper_models.ExceptionCase(
@@ -203,7 +203,7 @@ workflow_try_recipe = workflow_recipe.WorkflowRecipe(
             },
             prospective_output_edges={
                 edge_models.OutputTarget(port="z"): [
-                    edge_models.SourceHandle(node="try_body", port="output_0"),
+                    edge_models.SourceHandle(node="try_body", port="quotient"),
                     edge_models.SourceHandle(node="except_body", port="x"),
                 ]
             },
@@ -1035,7 +1035,7 @@ class TestTry(unittest.TestCase):
     def test_try_except_round_trip_and_exec(self):
         def safe_div(a, b):
             try:
-                z = library.divide(a, b)
+                z = std.truediv(a, b)
             except ZeroDivisionError:
                 z = std.identity(a)
             return z
@@ -1228,7 +1228,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
     def test_multi_exception_except_clause(self):
         def f(a, b):
             try:
-                z = library.divide(a, b)
+                z = std.truediv(a, b)
             except (ZeroDivisionError, ValueError):
                 z = std.identity(a)
             return z
@@ -1650,9 +1650,9 @@ class TestModuleNames(unittest.TestCase):
     def test_referenced_top_level_bindings_collects_and_skips_builtins(self):
         def safe_div(a, b):
             try:
-                z = library.divide(a, b)
+                z = std.truediv(a, b)
             except ZeroDivisionError:
-                z = std.identity(a)
+                z = library.typed_add(a, b)
             return z
 
         def custom(a, b):

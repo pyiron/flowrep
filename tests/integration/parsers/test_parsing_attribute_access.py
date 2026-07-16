@@ -469,7 +469,7 @@ class TestPreservedRejections(unittest.TestCase):
 @workflow_parser.workflow
 def try_attribute_in_branches(holder: library.Payload):
     try:
-        y = library.divide(holder.num, holder.den)
+        y = std.truediv(holder.num, holder.den)
     except ZeroDivisionError:
         y = std.identity(holder.num)
     return y
