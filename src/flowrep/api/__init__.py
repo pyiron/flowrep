@@ -7,6 +7,7 @@ tools list is likely to be useful for all power users, while schemas are intende
 primarily benefit downstream developers (e.g. WfMS creators).
 """
 
+import flowrep.std as std
 from flowrep.api import schemas as schemas
 from flowrep.api import tools as tools
 from flowrep.api.tools import atomic as atomic
@@ -14,4 +15,3 @@ from flowrep.api.tools import dataclass as dataclass
 from flowrep.api.tools import parse_atomic as parse_atomic
 from flowrep.api.tools import parse_workflow as parse_workflow
 from flowrep.api.tools import workflow as workflow
-from flowrep.prospective import std as std

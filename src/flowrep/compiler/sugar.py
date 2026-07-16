@@ -3,11 +3,10 @@ from __future__ import annotations
 import keyword
 from typing import Any, cast
 
-from flowrep import edge_models
+from flowrep import edge_models, std
 from flowrep.prospective import (
     atomic_recipe,
     constant_recipe,
-    std,
     union_types,
     workflow_recipe,
 )

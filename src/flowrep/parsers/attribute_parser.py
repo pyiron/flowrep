@@ -92,7 +92,7 @@ def inject_attribute_chain(
     """
     # Port names are derived from the recipe, never spelled out: editing `std.getattr_`
     # must not require editing strings anywhere else in the source.
-    from flowrep.prospective import std
+    from flowrep import std
 
     _GETATTR = std.get_attr.flowrep_recipe  # type: ignore[attr-defined]
     _OBJ_PORT, _NAME_PORT = _GETATTR.inputs
