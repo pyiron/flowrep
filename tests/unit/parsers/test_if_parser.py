@@ -103,7 +103,7 @@ class TestParseIfConditionErrors(unittest.TestCase):
             if flag:
                 x = std.identity(x)
             else:
-                x = library.my_add(x, x)
+                x = std.add(x, x)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -117,7 +117,7 @@ class TestParseIfConditionErrors(unittest.TestCase):
             if x < bound:
                 x = std.identity(x)
             else:
-                x = library.my_add(x, bound)
+                x = std.add(x, bound)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -131,7 +131,7 @@ class TestParseIfConditionErrors(unittest.TestCase):
             if library.multi_result(x):
                 x = std.identity(x)
             else:
-                x = library.my_add(x, x)
+                x = std.add(x, x)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -145,7 +145,7 @@ class TestParseIfConditionErrors(unittest.TestCase):
             if library.my_condition(x, flag):
                 x = std.identity(x)
             elif other:
-                x = library.my_add(x, x)
+                x = std.add(x, x)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -297,7 +297,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = library.my_mul(x, y)
             return z
@@ -315,7 +315,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y, flag):
             if library.my_condition(x, flag):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             elif library.my_condition(y, flag):
                 z = library.my_mul(x, y)
             else:
@@ -339,7 +339,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = library.my_mul(x, y)
             return z
@@ -358,7 +358,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = library.my_mul(x, y)
             return z
@@ -376,7 +376,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = library.my_mul(x, y)
             return z
@@ -394,7 +394,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y, flag):
             if library.my_condition(x, flag):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             elif library.my_condition(y, flag):
                 z = library.my_mul(x, y)
             else:
@@ -414,7 +414,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
         def wf(x, y):
             z = std.identity(x)
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             return z
 
         ifn = self._get_if_node(wf)
@@ -431,7 +431,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                a = library.my_add(x, y)
+                a = std.add(x, y)
                 b = library.my_mul(x, y)  # noqa: F841
                 # b is part of the if-node output intentionally, since not all branches
                 # need to return the same things. We don't care here whether (or in this
@@ -470,7 +470,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y, flag):
             if library.my_condition(x, flag):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = std.identity(y)
             return z
@@ -493,7 +493,7 @@ class TestIfParserStructure(unittest.TestCase):
     def test_if_node_registered_in_parent(self):
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = library.my_mul(x, y)
             return z
@@ -505,7 +505,7 @@ class TestIfParserStructure(unittest.TestCase):
     def test_condition_labels(self):
         def wf(x, y, flag):
             if library.my_condition(x, flag):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             elif library.my_condition(y, flag):
                 z = library.my_mul(x, y)
             else:
@@ -519,7 +519,7 @@ class TestIfParserStructure(unittest.TestCase):
     def test_body_labels(self):
         def wf(x, y, flag):
             if library.my_condition(x, flag):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             elif library.my_condition(y, flag):
                 z = library.my_mul(x, y)
             else:
@@ -533,7 +533,7 @@ class TestIfParserStructure(unittest.TestCase):
     def test_else_label(self):
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = library.my_mul(x, y)
             return z
@@ -546,7 +546,7 @@ class TestIfParserStructure(unittest.TestCase):
         def wf(x, y):
             z = std.identity(x)
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
@@ -557,7 +557,7 @@ class TestIfParserStructure(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = library.my_mul(x, y)
             return z
@@ -569,11 +569,11 @@ class TestIfParserStructure(unittest.TestCase):
     def test_multiple_outputs(self):
         def wf(x, y):
             if library.my_condition(x, y):
-                a = library.my_add(x, y)
+                a = std.add(x, y)
                 b = library.my_mul(x, y)
             else:
                 a = library.my_mul(x, y)
-                b = library.my_add(x, y)
+                b = std.add(x, y)
             return a, b
 
         ifn = self._parse(wf).nodes["if_0"]
@@ -583,25 +583,25 @@ class TestIfParserStructure(unittest.TestCase):
         """If node can consume sibling output from a preceding node."""
 
         def wf(a, b):
-            x = library.my_add(a, b)
+            x = std.add(a, b)
             if library.my_condition(x, b):
                 y = library.my_mul(x, b)
             else:
-                y = library.my_add(x, b)
+                y = std.add(x, b)
             return y
 
         node = self._parse(wf)
         target = edge_models.TargetHandle(node="if_0", port="x")
         self.assertIn(target, node.edges)
-        self.assertEqual(node.edges[target].node, "my_add_0")
-        self.assertEqual(node.edges[target].port, "output_0")
+        self.assertEqual(node.edges[target].node, "add_0")
+        self.assertEqual(node.edges[target].port, "added")
 
     def test_if_output_consumed_by_downstream_node(self):
         """Output of if node feeds a downstream sibling."""
 
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = library.my_mul(x, y)
             result = std.identity(z)
@@ -616,13 +616,13 @@ class TestIfParserStructure(unittest.TestCase):
     def test_multiple_if_nodes_get_unique_labels(self):
         def wf(x, y, m, n):
             if library.my_condition(x, m):
-                a = library.my_add(x, y)
+                a = std.add(x, y)
             else:
                 a = library.my_mul(x, y)
             if library.my_condition(a, n):
                 b = std.identity(a)
             else:
-                b = library.my_add(a, y)
+                b = std.add(a, y)
             return b
 
         node = self._parse(wf)
@@ -634,13 +634,13 @@ class TestIfParserStructure(unittest.TestCase):
 
         def wf(x, y, m, n):
             if library.my_condition(x, m):
-                a = library.my_add(x, y)
+                a = std.add(x, y)
             else:
                 a = library.my_mul(x, y)
             if library.my_condition(a, n):
                 b = std.identity(a)
             else:
-                b = library.my_add(a, y)
+                b = std.add(a, y)
             return b
 
         node = self._parse(wf)
@@ -679,7 +679,7 @@ class TestIfParserStructure(unittest.TestCase):
         def wf(x, y, bound):
             if library.my_condition(x, y):
                 while library.my_condition(x, bound):
-                    x = library.my_add(x, y)
+                    x = std.add(x, y)
                 z = std.identity(x)
             else:
                 z = std.identity(y)
@@ -699,7 +699,7 @@ class TestIfParserStructure(unittest.TestCase):
         def wf(x, y, m):
             if library.my_condition(x, y):
                 if library.my_condition(x, m):
-                    z = library.my_add(x, y)
+                    z = std.add(x, y)
                 else:
                     z = library.my_mul(x, y)
             else:
@@ -744,7 +744,7 @@ class TestIfParserStructure(unittest.TestCase):
         def wf(x, y):
             if library.my_condition(x, y):
                 try:
-                    z = library.my_add(x, y)
+                    z = std.add(x, y)
                 except ValueError:
                     z = library.my_mul(x, y)
             else:
@@ -767,7 +767,7 @@ class TestIfParserStructure(unittest.TestCase):
                 z = std.identity(x)
             else:
                 try:
-                    z = library.my_add(x, y)
+                    z = std.add(x, y)
                 except ValueError:
                     z = library.my_mul(x, y)
             return z
@@ -790,7 +790,7 @@ class TestIfRecipeRoundTrip(unittest.TestCase):
     def test_if_else_round_trip(self):
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = library.my_mul(x, y)
             return z
@@ -805,7 +805,7 @@ class TestIfRecipeRoundTrip(unittest.TestCase):
     def test_if_elif_else_round_trip(self):
         def wf(x, y, flag):
             if library.my_condition(x, flag):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             elif library.my_condition(y, flag):
                 z = library.my_mul(x, y)
             else:
@@ -823,7 +823,7 @@ class TestIfRecipeRoundTrip(unittest.TestCase):
         def wf(x, y):
             z = std.identity(x)
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             return z
 
         ifn = workflow_parser.parse_workflow(wf).nodes["if_0"]
@@ -838,7 +838,7 @@ class TestIfRecipeRoundTrip(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.my_add(x, y)
+                z = std.add(x, y)
             else:
                 z = library.my_mul(x, y)
             result = std.identity(z)
@@ -854,11 +854,11 @@ class TestIfRecipeRoundTrip(unittest.TestCase):
     def test_multi_output_if_round_trip(self):
         def wf(x, y):
             if library.my_condition(x, y):
-                a = library.my_add(x, y)
+                a = std.add(x, y)
                 b = library.my_mul(x, y)
             else:
                 a = library.my_mul(x, y)
-                b = library.my_add(x, y)
+                b = std.add(x, y)
             return a, b
 
         node = workflow_parser.parse_workflow(wf)
@@ -962,11 +962,11 @@ class TestIfParserLocalImport(unittest.TestCase):
 
         def my_wf(x, y):
             if library.my_condition(x, y):
-                from flowrep_static.local_library import my_add as ma
+                from flowrep_static.local_library import add as ma
 
                 sum_ = ma(x, y)
             else:
-                sum_ = library.my_add(x, y)
+                sum_ = std.add(x, y)
             return sum_
 
         node = workflow_parser.parse_workflow(my_wf)
@@ -976,7 +976,7 @@ class TestIfParserLocalImport(unittest.TestCase):
 
         def my_wf(x, y):
             if library.my_condition(x, y):
-                from flowrep_static.local_library import my_add as ma
+                from flowrep_static.local_library import add as ma
 
                 sum_ = ma(x, y)
             else:
@@ -991,11 +991,11 @@ class TestIfParserLocalImport(unittest.TestCase):
 
         def my_wf(x, y):
             if library.my_condition(x, y):
-                from flowrep_static.local_library import my_add as ma
+                from flowrep_static.local_library import add as ma
 
                 sum_ = ma(x, y)
             else:
-                sum_ = library.my_add(x, y)
+                sum_ = std.add(x, y)
 
             bigger = ma(sum_, y)
             return bigger

@@ -15,7 +15,7 @@ _TYPE_ERROR_INFO = versions.VersionInfo.of(TypeError)
 # 1. Simple try/except — single symbol assigned in both branches
 def simple_try_except(x, y):
     try:
-        z = library.my_add(x, y)
+        z = std.add(x, y)
     except ValueError:
         z = library.my_mul(x, y)
     return z
@@ -38,11 +38,11 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": library.my_add.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
                         },
-                        "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+                        "input_edges": {"add_0.a": "x", "add_0.b": "y"},
                         "edges": {},
-                        "output_edges": {"z": "my_add_0.output_0"},
+                        "output_edges": {"z": "add_0.added"},
                     },
                 },
                 "exception_cases": [
@@ -96,7 +96,7 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
 # 2. try with multiple except handlers
 def try_multi_except(x, y):
     try:
-        z = library.my_add(x, y)
+        z = std.add(x, y)
     except ValueError:
         z = library.my_mul(x, y)
     except TypeError:
@@ -121,11 +121,11 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": library.my_add.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
                         },
-                        "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+                        "input_edges": {"add_0.a": "x", "add_0.b": "y"},
                         "edges": {},
-                        "output_edges": {"z": "my_add_0.output_0"},
+                        "output_edges": {"z": "add_0.added"},
                     },
                 },
                 "exception_cases": [
@@ -200,11 +200,11 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
 
 # 3. try-node embedded between upstream and downstream siblings
 def try_with_context(a, b):
-    x = library.my_add(a, b)
+    x = std.add(a, b)
     try:
         y = library.my_mul(x, b)
     except ValueError:
-        y = library.my_add(x, b)
+        y = std.add(x, b)
     z = std.identity(y)
     return z
 
@@ -215,7 +215,7 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
         "inputs": ["a", "b"],
         "outputs": ["z"],
         "nodes": {
-            "my_add_0": library.my_add.flowrep_recipe,
+            "add_0": std.add.flowrep_recipe,
             "try_0": {
                 "type": "try",
                 "inputs": ["x", "b"],
@@ -244,14 +244,14 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
                                 "inputs": ["x", "b"],
                                 "outputs": ["y"],
                                 "nodes": {
-                                    "my_add_0": library.my_add.flowrep_recipe,
+                                    "add_0": std.add.flowrep_recipe,
                                 },
                                 "input_edges": {
-                                    "my_add_0.a": "x",
-                                    "my_add_0.b": "b",
+                                    "add_0.a": "x",
+                                    "add_0.b": "b",
                                 },
                                 "edges": {},
-                                "output_edges": {"y": "my_add_0.output_0"},
+                                "output_edges": {"y": "add_0.added"},
                             },
                         },
                     }
@@ -268,9 +268,9 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
             },
             "identity_0": std.identity.flowrep_recipe,
         },
-        "input_edges": {"my_add_0.a": "a", "my_add_0.b": "b", "try_0.b": "b"},
+        "input_edges": {"add_0.a": "a", "add_0.b": "b", "try_0.b": "b"},
         "edges": {
-            "try_0.x": "my_add_0.output_0",
+            "try_0.x": "add_0.added",
             "identity_0.x": "try_0.y",
         },
         "output_edges": {"z": "identity_0.x"},
@@ -289,11 +289,11 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
 # 4. Multiple outputs from try/except branches
 def multi_output_try(x, y):
     try:
-        a = library.my_add(x, y)
+        a = std.add(x, y)
         b = library.my_mul(x, y)
     except ValueError:
         a = library.my_mul(x, y)
-        b = library.my_add(x, y)
+        b = std.add(x, y)
     return a, b
 
 
@@ -314,18 +314,18 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "inputs": ["x", "y"],
                         "outputs": ["a", "b"],
                         "nodes": {
-                            "my_add_0": library.my_add.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
                             "my_mul_0": library.my_mul.flowrep_recipe,
                         },
                         "input_edges": {
-                            "my_add_0.a": "x",
-                            "my_add_0.b": "y",
+                            "add_0.a": "x",
+                            "add_0.b": "y",
                             "my_mul_0.a": "x",
                             "my_mul_0.b": "y",
                         },
                         "edges": {},
                         "output_edges": {
-                            "a": "my_add_0.output_0",
+                            "a": "add_0.added",
                             "b": "my_mul_0.output_0",
                         },
                     },
@@ -341,18 +341,18 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
                                 "outputs": ["a", "b"],
                                 "nodes": {
                                     "my_mul_0": library.my_mul.flowrep_recipe,
-                                    "my_add_0": library.my_add.flowrep_recipe,
+                                    "add_0": std.add.flowrep_recipe,
                                 },
                                 "input_edges": {
                                     "my_mul_0.a": "x",
                                     "my_mul_0.b": "y",
-                                    "my_add_0.a": "x",
-                                    "my_add_0.b": "y",
+                                    "add_0.a": "x",
+                                    "add_0.b": "y",
                                 },
                                 "edges": {},
                                 "output_edges": {
                                     "a": "my_mul_0.output_0",
-                                    "b": "my_add_0.output_0",
+                                    "b": "add_0.added",
                                 },
                             },
                         },
@@ -388,7 +388,7 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
 # 5. Tuple exception types in a single handler
 def try_tuple_exceptions(x, y):
     try:
-        z = library.my_add(x, y)
+        z = std.add(x, y)
     except (ValueError, TypeError):
         z = library.my_mul(x, y)
     return z
@@ -411,11 +411,11 @@ tuple_exc_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": library.my_add.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
                         },
-                        "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+                        "input_edges": {"add_0.a": "x", "add_0.b": "y"},
                         "edges": {},
-                        "output_edges": {"z": "my_add_0.output_0"},
+                        "output_edges": {"z": "add_0.added"},
                     },
                 },
                 "exception_cases": [

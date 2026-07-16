@@ -10,7 +10,7 @@ from flowrep_static import library
 def simple_while(a=10, b=20, c=40):
     x = std.identity(a)
     while library.my_condition(x, c):
-        x = library.my_add(x, b)
+        x = std.add(x, b)
     y = std.identity(x)
     return y
 
@@ -22,10 +22,10 @@ simple_while_while_node_body = workflow_recipe.WorkflowRecipe.model_validate(
         "type": "workflow",
         "inputs": ["x", "b"],
         "outputs": ["x"],
-        "nodes": {"my_add_0": library.my_add.flowrep_recipe},
-        "input_edges": {"my_add_0.a": "x", "my_add_0.b": "b"},
+        "nodes": {"add_0": std.add.flowrep_recipe},
+        "input_edges": {"add_0.a": "x", "add_0.b": "b"},
         "edges": {},
-        "output_edges": {"x": "my_add_0.output_0"},
+        "output_edges": {"x": "add_0.added"},
     }
 )
 
@@ -90,9 +90,9 @@ def nested_while(x, m, n, a):
     y = std.identity(x)  # Initial value for y must be available
     # since we return it from a while node
     while library.my_condition(x, m):
-        x = library.my_add(x, a)
+        x = std.add(x, a)
         while library.my_condition(y, n):
-            y = library.my_add(y, x)
+            y = std.add(y, x)
     return x, y
 
 
@@ -119,7 +119,7 @@ nest_while_node = workflow_recipe.WorkflowRecipe.model_validate(
                             "inputs": ["x", "a", "y", "n"],
                             "outputs": ["x", "y"],
                             "nodes": {
-                                "my_add_0": library.my_add.flowrep_recipe,
+                                "add_0": std.add.flowrep_recipe,
                                 "while_0": {
                                     "type": "while",
                                     "inputs": ["y", "n", "x"],
@@ -136,16 +136,14 @@ nest_while_node = workflow_recipe.WorkflowRecipe.model_validate(
                                                 "inputs": ["y", "x"],
                                                 "outputs": ["y"],
                                                 "nodes": {
-                                                    "my_add_0": library.my_add.flowrep_recipe,
+                                                    "add_0": std.add.flowrep_recipe,
                                                 },
                                                 "input_edges": {
-                                                    "my_add_0.a": "y",
-                                                    "my_add_0.b": "x",
+                                                    "add_0.a": "y",
+                                                    "add_0.b": "x",
                                                 },
                                                 "edges": {},
-                                                "output_edges": {
-                                                    "y": "my_add_0.output_0"
-                                                },
+                                                "output_edges": {"y": "add_0.added"},
                                             },
                                         },
                                     },
@@ -159,14 +157,14 @@ nest_while_node = workflow_recipe.WorkflowRecipe.model_validate(
                                 },
                             },
                             "input_edges": {
-                                "my_add_0.a": "x",
-                                "my_add_0.b": "a",
+                                "add_0.a": "x",
+                                "add_0.b": "a",
                                 "while_0.y": "y",
                                 "while_0.n": "n",
                             },
-                            "edges": {"while_0.x": "my_add_0.output_0"},
+                            "edges": {"while_0.x": "add_0.added"},
                             "output_edges": {
-                                "x": "my_add_0.output_0",
+                                "x": "add_0.added",
                                 "y": "while_0.y",
                             },
                         },
@@ -206,8 +204,8 @@ nest_while_node = workflow_recipe.WorkflowRecipe.model_validate(
 
 def multi_reassign(x, y, bound):
     while library.my_condition(x, bound):
-        x = library.my_add(x, y)
-        y = library.my_add(y, x)  # Gets internal edge to first library.my_add
+        x = std.add(x, y)
+        y = std.add(y, x)  # Gets internal edge to first std.add
     return x, y
 
 
@@ -217,20 +215,20 @@ multi_reassign_body = workflow_recipe.WorkflowRecipe.model_validate(
         "inputs": ["x", "y"],
         "outputs": ["x", "y"],
         "nodes": {
-            "my_add_0": library.my_add.flowrep_recipe,
-            "my_add_1": library.my_add.flowrep_recipe,
+            "add_0": std.add.flowrep_recipe,
+            "add_1": std.add.flowrep_recipe,
         },
         "input_edges": {
-            "my_add_0.a": "x",
-            "my_add_0.b": "y",
-            "my_add_1.a": "y",
+            "add_0.a": "x",
+            "add_0.b": "y",
+            "add_1.a": "y",
         },
         "edges": {
-            "my_add_1.b": "my_add_0.output_0",
+            "add_1.b": "add_0.added",
         },
         "output_edges": {
-            "x": "my_add_0.output_0",
-            "y": "my_add_1.output_0",
+            "x": "add_0.added",
+            "y": "add_1.added",
         },
     }
 )
@@ -291,11 +289,11 @@ multi_reassign_node = workflow_recipe.WorkflowRecipe.model_validate(
 
 def sequential_whiles(x, y, m, n):
     while library.my_condition(x, m):
-        x = library.my_add(x, y)
+        x = std.add(x, y)
     while library.my_condition(
         x, n
     ):  # Fully sequential -- gets a sibling edge to first while
-        x = library.my_add(x, y)
+        x = std.add(x, y)
     return x
 
 
@@ -304,10 +302,10 @@ seq_while_body = workflow_recipe.WorkflowRecipe.model_validate(
         "type": "workflow",
         "inputs": ["x", "y"],
         "outputs": ["x"],
-        "nodes": {"my_add_0": library.my_add.flowrep_recipe},
-        "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+        "nodes": {"add_0": std.add.flowrep_recipe},
+        "input_edges": {"add_0.a": "x", "add_0.b": "y"},
         "edges": {},
-        "output_edges": {"x": "my_add_0.output_0"},
+        "output_edges": {"x": "add_0.added"},
     }
 )
 
@@ -383,8 +381,8 @@ sequential_whiles_node = workflow_recipe.WorkflowRecipe.model_validate(
 
 def chained_body(x, a, b, bound):
     while library.my_condition(x, bound):
-        tmp = library.my_add(x, a)  # Internally created variable creates internal edge
-        x = library.my_add(tmp, b)
+        tmp = std.add(x, a)  # Internally created variable creates internal edge
+        x = std.add(tmp, b)
     return x
 
 
@@ -410,19 +408,19 @@ chained_body_node = workflow_recipe.WorkflowRecipe.model_validate(
                             "inputs": ["x", "a", "b"],
                             "outputs": ["x"],
                             "nodes": {
-                                "my_add_0": library.my_add.flowrep_recipe,
-                                "my_add_1": library.my_add.flowrep_recipe,
+                                "add_0": std.add.flowrep_recipe,
+                                "add_1": std.add.flowrep_recipe,
                             },
                             "input_edges": {
-                                "my_add_0.a": "x",
-                                "my_add_0.b": "a",
-                                "my_add_1.b": "b",
+                                "add_0.a": "x",
+                                "add_0.b": "a",
+                                "add_1.b": "b",
                             },
                             "edges": {
-                                "my_add_1.a": "my_add_0.output_0",
+                                "add_1.a": "add_0.added",
                             },
                             "output_edges": {
-                                "x": "my_add_1.output_0",
+                                "x": "add_1.added",
                             },
                         },
                     },

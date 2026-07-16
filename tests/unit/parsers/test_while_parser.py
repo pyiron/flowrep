@@ -34,7 +34,7 @@ class TestParseWhileConditionErrors(unittest.TestCase):
 
         def wf(x, bound):
             while x < bound:
-                x = library.my_add(x, bound)
+                x = std.add(x, bound)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -204,7 +204,7 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
         def wf(x, step, bound):
             while library.my_condition(x, bound):
-                x = library.my_add(x, step)
+                x = std.add(x, step)
             return x
 
         wn = self._get_while_node(wf)
@@ -239,7 +239,7 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
     def test_multiple_reassignments_become_outputs(self):
         def wf(x, y, bound):
             while library.my_condition(x, bound):
-                x = library.my_add(x, y)
+                x = std.add(x, y)
                 y = std.identity(x)
             return x, y
 
@@ -309,7 +309,7 @@ class TestWhileParserStructure(unittest.TestCase):
     def test_outputs_subset_of_inputs(self):
         def wf(x, step, bound):
             while library.my_condition(x, bound):
-                x = library.my_add(x, step)
+                x = std.add(x, step)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -362,7 +362,7 @@ class TestWhileParserStructure(unittest.TestCase):
 
         def wf(x, bound, y):
             while library.my_condition(x, bound):
-                x = library.my_add(x, x)
+                x = std.add(x, x)
                 y = std.identity(x)
             return y
 
@@ -399,7 +399,7 @@ class TestWhileParserStructure(unittest.TestCase):
         def wf(x, y, bound):
             while library.my_condition(x, bound):
                 if library.my_condition(x, y):  # noqa: SIM108
-                    x = library.my_add(x, y)
+                    x = std.add(x, y)
                 else:
                     x = std.identity(x)
             return x
@@ -418,7 +418,7 @@ class TestWhileParserStructure(unittest.TestCase):
         def wf(x, y, bound):
             while library.my_condition(x, bound):
                 try:
-                    x = library.my_add(x, y)
+                    x = std.add(x, y)
                 except ValueError:
                     x = std.identity(x)
             return x
@@ -452,7 +452,7 @@ class TestWhileParserRoundTrip(unittest.TestCase):
 
         def wf(x, step, bound):
             while library.my_condition(x, bound):
-                x = library.my_add(x, step)
+                x = std.add(x, step)
             y = std.identity(x)
             return y
 

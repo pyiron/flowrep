@@ -105,7 +105,7 @@ def compiler_minted_collision(comp, seed):
         m = std.identity(seed)
     else:
         m = library.negate(seed)
-    c = library.my_add(a, b)
+    c = std.add(a, b)
     return m, c
 
 

@@ -43,7 +43,7 @@ def shadowed_constant_symbol(x):
     """A user symbol named like a generated port must not be clobbered by one."""
     constant_0 = library.negate(x)
     if library.my_condition(x, 3):  # noqa: SIM108
-        y = library.my_add(constant_0, x)
+        y = std.add(constant_0, x)
     else:
         y = std.identity(x)
     return y

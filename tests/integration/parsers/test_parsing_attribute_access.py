@@ -244,7 +244,7 @@ def for_bound_iterable(holder: library.Payload):
 def for_zipped_attribute_iterables(a: library.Payload, b: library.Payload):
     zs = []
     for m, n in zip(a.xs, b.xs, strict=True):
-        z = library.my_add(m, n)
+        z = std.add(m, n)
         zs.append(z)
     return zs
 
@@ -254,7 +254,7 @@ def for_nested_attribute_iterables(a: library.Payload, b: library.Payload):
     zs = []
     for m in a.xs:
         for n in b.xs:
-            z = library.my_add(m, n)
+            z = std.add(m, n)
             zs.append(z)
     return zs
 
@@ -424,7 +424,7 @@ class TestPreservedRejections(unittest.TestCase):
         def wf(x):
             ys = []
             for n in [1, 2, 3]:
-                y = library.my_add(n, x)
+                y = std.add(n, x)
                 ys.append(y)
             return ys
 

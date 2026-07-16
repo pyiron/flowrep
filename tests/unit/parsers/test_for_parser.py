@@ -316,7 +316,7 @@ class TestForParserErrors(unittest.TestCase):
             for x in xs:
                 while library.my_condition(acc_val, bound):
                     acc = std.identity(acc_val)
-                    acc_val = library.my_add(acc_val, x)
+                    acc_val = std.add(acc_val, x)
                 acc.append(x)
             return acc
 
@@ -699,7 +699,7 @@ class TestForParserStructure(unittest.TestCase):
                 if library.my_condition(x, y):  # noqa: SIM108
                     v = std.identity(x)
                 else:
-                    v = library.my_add(x, y)
+                    v = std.add(x, y)
                 results.append(v)
             return results
 
@@ -718,7 +718,7 @@ class TestForParserStructure(unittest.TestCase):
                 try:
                     v = std.identity(x)
                 except ValueError:
-                    v = library.my_add(x, y)
+                    v = std.add(x, y)
                 results.append(v)
             return results
 

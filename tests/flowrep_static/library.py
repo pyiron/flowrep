@@ -28,11 +28,6 @@ def my_condition(m, n):
 
 
 @atomic_parser.atomic
-def my_add(a, b):
-    return a + b
-
-
-@atomic_parser.atomic
 def my_mul(a, b):
     return a * b
 

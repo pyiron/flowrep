@@ -19,7 +19,7 @@ class TestIsStdGetattr(unittest.TestCase):
         self.assertTrue(sugar.is_std_getattr(std.get_attr.flowrep_recipe))
 
     def test_false_for_other_atomic(self):
-        self.assertFalse(sugar.is_std_getattr(library.my_add.flowrep_recipe))
+        self.assertFalse(sugar.is_std_getattr(std.add.flowrep_recipe))
 
     def test_false_for_constant_recipe(self):
         self.assertFalse(

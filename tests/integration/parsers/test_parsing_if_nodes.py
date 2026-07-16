@@ -10,7 +10,7 @@ from flowrep_static import library
 # 1. Simple if/else — single symbol assigned in both branches
 def simple_if_else(x, y):
     if library.my_condition(x, y):  # noqa: SIM108
-        z = library.my_add(x, y)
+        z = std.add(x, y)
     else:
         z = library.my_mul(x, y)
     return z
@@ -39,11 +39,11 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_add_0": library.my_add.flowrep_recipe,
+                                    "add_0": std.add.flowrep_recipe,
                                 },
-                                "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+                                "input_edges": {"add_0.a": "x", "add_0.b": "y"},
                                 "edges": {},
-                                "output_edges": {"z": "my_add_0.output_0"},
+                                "output_edges": {"z": "add_0.added"},
                             },
                         },
                         "condition_output": None,
@@ -92,11 +92,11 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
 # 2. if/elif/else chain
 def if_elif_else(x, y, flag):
     if library.my_condition(x, flag):
-        z = library.my_add(x, y)
+        z = std.add(x, y)
     elif library.my_condition(y, flag):
         z = library.my_mul(x, y)
     else:
-        z = library.my_add(y, flag)
+        z = std.add(y, flag)
     return z
 
 
@@ -123,11 +123,11 @@ elif_node = workflow_recipe.WorkflowRecipe.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_add_0": library.my_add.flowrep_recipe,
+                                    "add_0": std.add.flowrep_recipe,
                                 },
-                                "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+                                "input_edges": {"add_0.a": "x", "add_0.b": "y"},
                                 "edges": {},
-                                "output_edges": {"z": "my_add_0.output_0"},
+                                "output_edges": {"z": "add_0.added"},
                             },
                         },
                         "condition_output": None,
@@ -161,11 +161,11 @@ elif_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "inputs": ["y", "flag"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": library.my_add.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
                         },
-                        "input_edges": {"my_add_0.a": "y", "my_add_0.b": "flag"},
+                        "input_edges": {"add_0.a": "y", "add_0.b": "flag"},
                         "edges": {},
-                        "output_edges": {"z": "my_add_0.output_0"},
+                        "output_edges": {"z": "add_0.added"},
                     },
                 },
                 "input_edges": {
@@ -202,11 +202,11 @@ elif_node = workflow_recipe.WorkflowRecipe.model_validate(
 
 # 3. if-node embedded between upstream and downstream siblings
 def if_with_context(a, b):
-    x = library.my_add(a, b)
+    x = std.add(a, b)
     if library.my_condition(x, b):  # noqa: SIM108
         y = library.my_mul(x, b)
     else:
-        y = library.my_add(x, b)
+        y = std.add(x, b)
     z = std.identity(y)
     return z
 
@@ -217,7 +217,7 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
         "inputs": ["a", "b"],
         "outputs": ["z"],
         "nodes": {
-            "my_add_0": library.my_add.flowrep_recipe,
+            "add_0": std.add.flowrep_recipe,
             "if_0": {
                 "type": "if",
                 "inputs": ["x", "b"],
@@ -252,11 +252,11 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "inputs": ["x", "b"],
                         "outputs": ["y"],
                         "nodes": {
-                            "my_add_0": library.my_add.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
                         },
-                        "input_edges": {"my_add_0.a": "x", "my_add_0.b": "b"},
+                        "input_edges": {"add_0.a": "x", "add_0.b": "b"},
                         "edges": {},
-                        "output_edges": {"y": "my_add_0.output_0"},
+                        "output_edges": {"y": "add_0.added"},
                     },
                 },
                 "input_edges": {
@@ -271,8 +271,8 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
             },
             "identity_0": std.identity.flowrep_recipe,
         },
-        "input_edges": {"my_add_0.a": "a", "my_add_0.b": "b", "if_0.b": "b"},
-        "edges": {"if_0.x": "my_add_0.output_0", "identity_0.x": "if_0.y"},
+        "input_edges": {"add_0.a": "a", "add_0.b": "b", "if_0.b": "b"},
+        "edges": {"if_0.x": "add_0.added", "identity_0.x": "if_0.y"},
         "output_edges": {"z": "identity_0.x"},
         "reference": {
             "info": {
@@ -289,11 +289,11 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
 # 4. Multiple outputs from if branches
 def multi_output_if(x, y):
     if library.my_condition(x, y):
-        a = library.my_add(x, y)
+        a = std.add(x, y)
         b = library.my_mul(x, y)
     else:
         a = library.my_mul(x, y)
-        b = library.my_add(x, y)
+        b = std.add(x, y)
     return a, b
 
 
@@ -320,18 +320,18 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["a", "b"],
                                 "nodes": {
-                                    "my_add_0": library.my_add.flowrep_recipe,
+                                    "add_0": std.add.flowrep_recipe,
                                     "my_mul_0": library.my_mul.flowrep_recipe,
                                 },
                                 "input_edges": {
-                                    "my_add_0.a": "x",
-                                    "my_add_0.b": "y",
+                                    "add_0.a": "x",
+                                    "add_0.b": "y",
                                     "my_mul_0.a": "x",
                                     "my_mul_0.b": "y",
                                 },
                                 "edges": {},
                                 "output_edges": {
-                                    "a": "my_add_0.output_0",
+                                    "a": "add_0.added",
                                     "b": "my_mul_0.output_0",
                                 },
                             },
@@ -347,18 +347,18 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "outputs": ["a", "b"],
                         "nodes": {
                             "my_mul_0": library.my_mul.flowrep_recipe,
-                            "my_add_0": library.my_add.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
                         },
                         "input_edges": {
                             "my_mul_0.a": "x",
                             "my_mul_0.b": "y",
-                            "my_add_0.a": "x",
-                            "my_add_0.b": "y",
+                            "add_0.a": "x",
+                            "add_0.b": "y",
                         },
                         "edges": {},
                         "output_edges": {
                             "a": "my_mul_0.output_0",
-                            "b": "my_add_0.output_0",
+                            "b": "add_0.added",
                         },
                     },
                 },
@@ -396,7 +396,7 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
 def if_no_else(x, y):
     z = std.identity(x)
     if library.my_condition(x, y):
-        z = library.my_add(x, y)
+        z = std.add(x, y)
     return z
 
 
@@ -424,11 +424,11 @@ no_else_node = workflow_recipe.WorkflowRecipe.model_validate(
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_add_0": library.my_add.flowrep_recipe,
+                                    "add_0": std.add.flowrep_recipe,
                                 },
-                                "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+                                "input_edges": {"add_0.a": "x", "add_0.b": "y"},
                                 "edges": {},
-                                "output_edges": {"z": "my_add_0.output_0"},
+                                "output_edges": {"z": "add_0.added"},
                             },
                         },
                         "condition_output": None,
