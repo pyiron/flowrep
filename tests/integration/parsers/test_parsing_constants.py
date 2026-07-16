@@ -11,9 +11,9 @@ from flowrep_static import library, makers
 
 
 def kinetic_energy(mass, velocity):
-    v_2 = library.my_mul(velocity, velocity)
-    mv_2 = library.my_mul(mass, v_2)
-    ke = library.my_mul(0.5, mv_2)
+    v_2 = std.mul(velocity, velocity)
+    mv_2 = std.mul(mass, v_2)
+    ke = std.mul(0.5, mv_2)
     return ke
 
 

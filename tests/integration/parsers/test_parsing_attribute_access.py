@@ -11,7 +11,7 @@ from flowrep_static import library, makers
 def wf(x0: int, comp: library.ComplexData):
     dc = library.MyDataclass(comp, x0)
     my_val = dc.a.val
-    repeated = library.my_mul(dc.x, my_val)
+    repeated = std.mul(dc.x, my_val)
     return repeated
 
 
@@ -26,7 +26,7 @@ class TestAttributeAccessEndToEnd(unittest.TestCase):
                 "getattr_a_0",
                 "getattr_val_0",
                 "getattr_x_0",
-                "my_mul_0",
+                "mul_0",
                 "constant_0",
                 "constant_1",
                 "constant_2",
@@ -45,11 +45,11 @@ class TestAttributeAccessEndToEnd(unittest.TestCase):
             edge_models.SourceHandle(node="MyDataclass_0", port="instance"),
         )
         self.assertEqual(
-            recipe.edges[edge_models.TargetHandle(node="my_mul_0", port="a")],
+            recipe.edges[edge_models.TargetHandle(node="mul_0", port="a")],
             edge_models.SourceHandle(node="getattr_x_0", port="attr"),
         )
         self.assertEqual(
-            recipe.edges[edge_models.TargetHandle(node="my_mul_0", port="b")],
+            recipe.edges[edge_models.TargetHandle(node="mul_0", port="b")],
             edge_models.SourceHandle(node="getattr_val_0", port="attr"),
         )
 

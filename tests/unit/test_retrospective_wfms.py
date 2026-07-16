@@ -100,7 +100,7 @@ def _linear_workflow() -> workflow_recipe.WorkflowRecipe:
         outputs=["result"],
         nodes={
             "add_0": std.add.flowrep_recipe,
-            "mul_0": library.my_mul.flowrep_recipe,
+            "mul_0": std.mul.flowrep_recipe,
         },
         input_edges={
             edge_models.TargetHandle(node="add_0", port="a"): edge_models.InputSource(
@@ -120,7 +120,7 @@ def _linear_workflow() -> workflow_recipe.WorkflowRecipe:
         },
         output_edges={
             edge_models.OutputTarget(port="result"): edge_models.SourceHandle(
-                node="mul_0", port="output_0"
+                node="mul_0", port="product"
             ),
         },
     )
@@ -135,7 +135,7 @@ def _passthrough_workflow(x: int = 42) -> int:
 def _diamond_workflow(a: int, b: int = 1) -> int:
     s = std.add(a, b)
     n = library.negate(a)
-    result = library.my_mul(s, n)
+    result = std.mul(s, n)
     return result
 
 
@@ -1041,8 +1041,8 @@ class TestTopoSort(unittest.TestCase):
 
     def test_diamond_order(self):
         order = wfms._topo_sort_children(_diamond_workflow.flowrep_recipe)
-        self.assertLess(order.index("add_0"), order.index("my_mul_0"))
-        self.assertLess(order.index("negate_0"), order.index("my_mul_0"))
+        self.assertLess(order.index("add_0"), order.index("mul_0"))
+        self.assertLess(order.index("negate_0"), order.index("mul_0"))
 
     def test_independent_nodes_sorted_alphabetically(self):
         order = wfms._topo_sort_children(_diamond_workflow.flowrep_recipe)
@@ -1200,7 +1200,7 @@ class TestProvenanceWalk(unittest.TestCase):
         mul_node = wf.nodes["mul_0"]
         self.assertEqual(mul_node.input_ports["a"].value, 8)
         self.assertEqual(mul_node.input_ports["b"].value, 2)
-        self.assertEqual(mul_node.output_ports["output_0"].value, 16)
+        self.assertEqual(mul_node.output_ports["product"].value, 16)
 
 
 class TestConstantData(unittest.TestCase):
@@ -1224,9 +1224,9 @@ def _kinetic_energy(mass, velocity):
     # workflow's own reference by importing it, which requires the function be
     # reachable by its fully-qualified name -- a `<locals>` qualname (as produced
     # by a function nested inside a test method) cannot be imported.
-    v_2 = library.my_mul(velocity, velocity)
-    mv_2 = library.my_mul(mass, v_2)
-    ke = library.my_mul(0.5, mv_2)
+    v_2 = std.mul(velocity, velocity)
+    mv_2 = std.mul(mass, v_2)
+    ke = std.mul(0.5, mv_2)
     return ke
 
 

@@ -27,11 +27,6 @@ def my_condition(m, n):
     return m < n
 
 
-@atomic_parser.atomic
-def my_mul(a, b):
-    return a * b
-
-
 # test_workflow_parser
 
 

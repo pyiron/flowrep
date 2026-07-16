@@ -29,7 +29,7 @@ def full_composite(x, /, y, *, bound):
 
     # --- try (level 1) ---
     try:
-        b = library.my_mul(a, y)
+        b = std.mul(a, y)
 
         # --- while (level 2) ---
         while library.my_condition(b, bound):
@@ -43,7 +43,7 @@ def full_composite(x, /, y, *, bound):
                 if library.my_condition(r, y):  # noqa: SIM108
                     v = std.add(r, c)
                 else:
-                    v = library.my_mul(r, c)
+                    v = std.mul(r, c)
                 acc.append(v)
 
             b = my_sum(acc)
@@ -77,10 +77,10 @@ _if_else_body = {
     "type": "workflow",
     "inputs": ["r", "c"],
     "outputs": ["v"],
-    "nodes": {"my_mul_0": library.my_mul.flowrep_recipe},
-    "input_edges": {"my_mul_0.a": "r", "my_mul_0.b": "c"},
+    "nodes": {"mul_0": std.mul.flowrep_recipe},
+    "input_edges": {"mul_0.a": "r", "mul_0.b": "c"},
     "edges": {},
-    "output_edges": {"v": "my_mul_0.output_0"},
+    "output_edges": {"v": "mul_0.product"},
 }
 
 _if_node = {
@@ -186,18 +186,18 @@ _try_body = {
     "inputs": ["a", "y", "bound"],
     "outputs": ["b", "z"],
     "nodes": {
-        "my_mul_0": library.my_mul.flowrep_recipe,
+        "mul_0": std.mul.flowrep_recipe,
         "while_0": _while_node,
         "identity_0": std.identity.flowrep_recipe,
     },
     "input_edges": {
-        "my_mul_0.a": "a",
-        "my_mul_0.b": "y",
+        "mul_0.a": "a",
+        "mul_0.b": "y",
         "while_0.bound": "bound",
         "while_0.y": "y",
     },
     "edges": {
-        "while_0.b": "my_mul_0.output_0",
+        "while_0.b": "mul_0.product",
         "identity_0.x": "while_0.b",
     },
     "output_edges": {

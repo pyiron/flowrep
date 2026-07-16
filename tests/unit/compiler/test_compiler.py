@@ -763,7 +763,7 @@ class TestMultiNodeDag(unittest.TestCase):
         # round-tripping a normal one then re-inserting nodes in reverse.
         def chained(a, b):
             s = std.add(a, b)
-            t = library.my_mul(s, b)
+            t = std.mul(s, b)
             return t
 
         free = makers.reference_free(chained)
@@ -862,7 +862,7 @@ class TestForEach(unittest.TestCase):
         def mapper(xs, k):
             acc = []
             for x in xs:
-                v = library.my_mul(x, k)
+                v = std.mul(x, k)
                 acc.append(v)
             return acc
 
@@ -906,7 +906,7 @@ class TestIf(unittest.TestCase):
                 # a < b
                 v = std.add(a, b)
             else:
-                v = library.my_mul(a, b)
+                v = std.mul(a, b)
             return v
 
         free = makers.reference_free(chooser)
@@ -1165,7 +1165,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
 
         def chained(a, b):
             s = std.add(a, b)
-            t = library.my_mul(s, b)
+            t = std.mul(s, b)
             return t
 
         free = makers.reference_free(chained)
@@ -2010,9 +2010,9 @@ class TestSymbolNaming(unittest.TestCase):
 class TestConstantInlining(unittest.TestCase):
     def _ke_recipe(self):
         def kinetic_energy(mass, velocity):
-            v_2 = library.my_mul(velocity, velocity)
-            mv_2 = library.my_mul(mass, v_2)
-            ke = library.my_mul(0.5, mv_2)
+            v_2 = std.mul(velocity, velocity)
+            mv_2 = std.mul(mass, v_2)
+            ke = std.mul(0.5, mv_2)
             return ke
 
         return kinetic_energy, makers.reference_free(kinetic_energy)
@@ -2037,7 +2037,7 @@ class TestConstantInlining(unittest.TestCase):
 
     def test_compound_and_type_fidelity_round_trip(self):
         def uses_compound(x):
-            y = library.my_mul(x, [1.0, 1, "1", {"key": [42]}])
+            y = std.mul(x, [1.0, 1, "1", {"key": [42]}])
             return y
 
         free = makers.reference_free(uses_compound)

@@ -81,7 +81,7 @@ class TestTryUnsupportedSyntax(unittest.TestCase):
             except ValueError:
                 z = std.identity(x)
             else:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         with self.assertRaises(NotImplementedError) as ctx:
@@ -97,7 +97,7 @@ class TestTryUnsupportedSyntax(unittest.TestCase):
             except ValueError:
                 z = std.identity(x)
             finally:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         with self.assertRaises(NotImplementedError) as ctx:
@@ -170,7 +170,7 @@ class TestTryParserEdgeWiring(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         tn = self._get_try_node(wf)
@@ -190,7 +190,7 @@ class TestTryParserEdgeWiring(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         tn = self._get_try_node(wf)
@@ -208,7 +208,7 @@ class TestTryParserEdgeWiring(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             except TypeError:
                 z = std.identity(x)
             return z
@@ -230,7 +230,7 @@ class TestTryParserEdgeWiring(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         tn = self._get_try_node(wf)
@@ -248,7 +248,7 @@ class TestTryParserEdgeWiring(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             except TypeError:
                 z = std.identity(x)
             return z
@@ -269,9 +269,9 @@ class TestTryParserEdgeWiring(unittest.TestCase):
         def wf(x, y):
             try:
                 a = std.add(x, y)
-                b = library.my_mul(x, y)  # noqa: F841
+                b = std.mul(x, y)  # noqa: F841
             except ValueError:
-                a = library.my_mul(x, y)
+                a = std.mul(x, y)
             return a
 
         tn = self._get_try_node(wf)
@@ -326,7 +326,7 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         node = self._parse(wf)
@@ -338,7 +338,7 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -349,7 +349,7 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             except TypeError:
                 z = std.identity(x)
             return z
@@ -365,7 +365,7 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -381,7 +381,7 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -396,7 +396,7 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except (ValueError, TypeError):
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -412,9 +412,9 @@ class TestTryParserStructure(unittest.TestCase):
         def wf(x, y):
             try:
                 a = std.add(x, y)
-                b = library.my_mul(x, y)
+                b = std.mul(x, y)
             except ValueError:
-                a = library.my_mul(x, y)
+                a = std.mul(x, y)
                 b = std.add(x, y)
             return a, b
 
@@ -427,7 +427,7 @@ class TestTryParserStructure(unittest.TestCase):
         def wf(a, b):
             x = std.add(a, b)
             try:
-                y = library.my_mul(x, b)
+                y = std.mul(x, b)
             except ValueError:
                 y = std.add(x, b)
             return y
@@ -445,7 +445,7 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             result = std.identity(z)
             return result
 
@@ -460,7 +460,7 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 a = std.add(x, y)
             except ValueError:
-                a = library.my_mul(x, y)
+                a = std.mul(x, y)
             try:
                 b = std.identity(a)
             except TypeError:
@@ -478,7 +478,7 @@ class TestTryParserStructure(unittest.TestCase):
             try:
                 a = std.add(x, y)
             except ValueError:
-                a = library.my_mul(x, y)
+                a = std.mul(x, y)
             try:
                 b = std.identity(a)
             except TypeError:
@@ -543,7 +543,7 @@ class TestTryParserStructure(unittest.TestCase):
                 if library.my_condition(x, y):  # noqa: SIM108
                     z = std.add(x, y)
                 else:
-                    z = library.my_mul(x, y)
+                    z = std.mul(x, y)
             except ValueError:
                 z = std.identity(x)
             return z
@@ -564,7 +564,7 @@ class TestTryParserStructure(unittest.TestCase):
                 except TypeError:
                     z = std.identity(x)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -634,7 +634,7 @@ class TestTryParserStructure(unittest.TestCase):
                 if library.my_condition(x, y):  # noqa: SIM108
                     z = std.add(x, y)
                 else:
-                    z = library.my_mul(x, y)
+                    z = std.mul(x, y)
             return z
 
         tn = self._parse(wf).nodes["try_0"]
@@ -657,7 +657,7 @@ class TestTryRecipeRoundTrip(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         tn = workflow_parser.parse_workflow(wf).nodes["try_0"]
@@ -672,7 +672,7 @@ class TestTryRecipeRoundTrip(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             except TypeError:
                 z = std.identity(x)
             return z
@@ -689,7 +689,7 @@ class TestTryRecipeRoundTrip(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except (ValueError, TypeError):
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             return z
 
         tn = workflow_parser.parse_workflow(wf).nodes["try_0"]
@@ -706,7 +706,7 @@ class TestTryRecipeRoundTrip(unittest.TestCase):
             try:
                 z = std.add(x, y)
             except ValueError:
-                z = library.my_mul(x, y)
+                z = std.mul(x, y)
             result = std.identity(z)
             return result
 
@@ -721,9 +721,9 @@ class TestTryRecipeRoundTrip(unittest.TestCase):
         def wf(x, y):
             try:
                 a = std.add(x, y)
-                b = library.my_mul(x, y)
+                b = std.mul(x, y)
             except ValueError:
-                a = library.my_mul(x, y)
+                a = std.mul(x, y)
                 b = std.add(x, y)
             return a, b
 

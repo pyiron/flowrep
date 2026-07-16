@@ -1166,7 +1166,7 @@ class TestNestedDescriptions(unittest.TestCase):
 
 def _assign_scalar_constant(a):
     half = 0.5
-    r = library.my_mul(a, half)
+    r = std.mul(a, half)
     return r
 
 
