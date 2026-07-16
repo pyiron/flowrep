@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, NamedTuple, get_origin
 
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models, wfms
+from flowrep import base_models, edge_models, std, wfms
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import (
     atomic_recipe,
@@ -263,7 +263,7 @@ def _identity_body_workflow() -> workflow_recipe.WorkflowRecipe:
         inputs=["x"],
         outputs=["y"],
         child_label="identity_0",
-        child_recipe=library.identity.flowrep_recipe,
+        child_recipe=std.identity.flowrep_recipe,
         input_map={"x": "x"},
         output_map={"y": "x"},  # identity output port is named "x"
     )
@@ -389,7 +389,7 @@ def _fallback_body_workflow() -> workflow_recipe.WorkflowRecipe:
         inputs=["a"],
         outputs=["result"],
         child_label="identity_0",
-        child_recipe=library.identity.flowrep_recipe,
+        child_recipe=std.identity.flowrep_recipe,
         input_map={"x": "a"},
         output_map={"result": "x"},
     )
@@ -446,7 +446,7 @@ def _failing_try(x):
     try:
         y = _raises_value(x)
     except TypeError:
-        y = library.identity(x)
+        y = std.identity(x)
     return y
 
 
@@ -546,7 +546,7 @@ class TestPorts(unittest.TestCase):
 
 class TestAtomicFromRecipe(unittest.TestCase):
     def test_simple(self):
-        node = datastructures.AtomicData.from_recipe(library.identity.flowrep_recipe)
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
         self.assertTrue(callable(node.function))
         self.assertIn("x", node.input_ports)
         self.assertIn("x", node.output_ports)
@@ -617,7 +617,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
                 atomic_recipe.AtomicRecipe(
                     inputs=["these", "are_not", "correct"],
                     outputs=["x"],
-                    reference=library.identity.flowrep_recipe.reference,
+                    reference=std.identity.flowrep_recipe.reference,
                 )
             )
         self.assertIn("not found in signature", str(ctx.exception))
@@ -741,7 +741,7 @@ class TestFlowControlFromRecipe(unittest.TestCase):
 class TestRecipe2Live(unittest.TestCase):
     def test_conversion_types(self):
         for recipe, type_ in (
-            (library.identity.flowrep_recipe, datastructures.AtomicData),
+            (std.identity.flowrep_recipe, datastructures.AtomicData),
             (_linear_workflow(), datastructures.DagData),
             (_for_negate(), datastructures.ForEachData),
             (_if_abs(), datastructures.IfData),
@@ -806,11 +806,11 @@ class TestAtomicFromRecipeVariadic(unittest.TestCase):
         self.assertEqual(node.input_ports["x"].default, 0)
 
     def test_extras_without_variadic_always_raise(self):
-        """`library.identity` has no variadic absorber; extras must fail."""
+        """`std.identity` has no variadic absorber; extras must fail."""
         recipe = atomic_recipe.AtomicRecipe(
             inputs=["x", "extra"],
             outputs=["x"],
-            reference=library.identity.flowrep_recipe.reference,
+            reference=std.identity.flowrep_recipe.reference,
         )
         with self.assertRaises(ValueError) as ctx:
             datastructures.AtomicData.from_recipe(recipe, allow_variadic_inputs=True)
@@ -882,7 +882,7 @@ class TestRunAtomic(unittest.TestCase):
         self.assertEqual(node.output_ports["output_0"].value, 7)
 
     def test_identity_preserves_value(self):
-        node = wfms.run_recipe(library.identity.flowrep_recipe, x=42)
+        node = wfms.run_recipe(std.identity.flowrep_recipe, x=42)
         self.assertEqual(node.output_ports["x"].value, 42)
 
     def test_default_used_when_input_omitted(self):
@@ -1006,9 +1006,9 @@ class TestRunWorkflow(unittest.TestCase):
             inputs=["x"],
             outputs=["result"],
             nodes={
-                "a": library.identity.flowrep_recipe,
+                "a": std.identity.flowrep_recipe,
                 "b": library.negate.flowrep_recipe,
-                "c": library.identity.flowrep_recipe,
+                "c": std.identity.flowrep_recipe,
             },
             input_edges={
                 edge_models.TargetHandle(node="a", port="x"): edge_models.InputSource(

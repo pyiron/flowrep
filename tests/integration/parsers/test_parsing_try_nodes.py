@@ -2,6 +2,7 @@ import unittest
 
 from pyiron_snippets import versions
 
+from flowrep import std
 from flowrep.parsers import workflow_parser
 from flowrep.prospective import workflow_recipe
 
@@ -99,7 +100,7 @@ def try_multi_except(x, y):
     except ValueError:
         z = library.my_mul(x, y)
     except TypeError:
-        z = library.identity(x)
+        z = std.identity(x)
     return z
 
 
@@ -157,7 +158,7 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
                                 "inputs": ["x"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "identity_0": library.identity.flowrep_recipe,
+                                    "identity_0": std.identity.flowrep_recipe,
                                 },
                                 "input_edges": {"identity_0.x": "x"},
                                 "edges": {},
@@ -204,7 +205,7 @@ def try_with_context(a, b):
         y = library.my_mul(x, b)
     except ValueError:
         y = library.my_add(x, b)
-    z = library.identity(y)
+    z = std.identity(y)
     return z
 
 
@@ -265,7 +266,7 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
                     "y": ["try_body.y", "except_body_0.y"],
                 },
             },
-            "identity_0": library.identity.flowrep_recipe,
+            "identity_0": std.identity.flowrep_recipe,
         },
         "input_edges": {"my_add_0.a": "a", "my_add_0.b": "b", "try_0.b": "b"},
         "edges": {

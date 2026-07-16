@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep import edge_models, wfms
+from flowrep import edge_models, std, wfms
 from flowrep.compiler import source
 from flowrep.parsers import workflow_parser
 from flowrep.prospective import union_types
@@ -42,10 +42,10 @@ class TestConstantEndToEnd(unittest.TestCase):
 def shadowed_constant_symbol(x):
     """A user symbol named like a generated port must not be clobbered by one."""
     constant_0 = library.negate(x)
-    if library.my_condition(x, 3):
+    if library.my_condition(x, 3):  # noqa: SIM108
         y = library.my_add(constant_0, x)
     else:
-        y = library.identity(x)
+        y = std.identity(x)
     return y
 
 

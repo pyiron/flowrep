@@ -1,6 +1,6 @@
 import unittest
 
-from flowrep import edge_models
+from flowrep import edge_models, std
 from flowrep.parsers import workflow_parser
 
 from flowrep_static import library
@@ -182,7 +182,7 @@ class TestAliasForLoopInteractions(unittest.TestCase):
             zs = xs
             acc = []
             for x in zs:
-                y = library.identity(x)
+                y = std.identity(x)
                 acc.append(y)
             return acc
 
@@ -201,7 +201,7 @@ class TestAliasForLoopInteractions(unittest.TestCase):
             acc = []
             for x in xs:
                 y = x
-                z = library.identity(y)
+                z = std.identity(y)
                 acc.append(z)
             return acc
 
@@ -214,7 +214,7 @@ class TestAliasForLoopInteractions(unittest.TestCase):
             for x in xs:
                 w = x  # noqa: F841
                 # ^^ reassigns an enclosing symbol via alias -> leak
-                z = library.identity(x)
+                z = std.identity(x)
                 acc.append(z)
             return acc
 
@@ -264,7 +264,7 @@ class TestAliasBranchInteractions(unittest.TestCase):
         def macro(a, x):
             if library.is_positive(a):
                 w = x  # local alias, consumed -> never a branch output
-                y = library.identity(w)
+                y = std.identity(w)
             else:
                 y = library.decrement(x)
             return y
@@ -275,7 +275,7 @@ class TestAliasBranchInteractions(unittest.TestCase):
     def test_cross_branch_input_alias_output_raises(self):
         def macro(a, x, z):
             if library.is_positive(a):  # noqa: SIM108
-                y = library.identity(x)  # node output
+                y = std.identity(x)  # node output
             else:
                 y = z  # input alias -> would-be output disagrees across branches
             return y

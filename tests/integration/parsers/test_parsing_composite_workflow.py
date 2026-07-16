@@ -3,6 +3,7 @@ import unittest
 
 from pyiron_snippets import versions
 
+from flowrep import std
 from flowrep.compiler import source
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import workflow_recipe
@@ -47,12 +48,12 @@ def full_composite(x, /, y, *, bound):
 
             b = my_sum(acc)
 
-        z = library.identity(b)
+        z = std.identity(b)
     except ValueError:
-        z = library.identity(a)
+        z = std.identity(a)
 
     # --- sibling after try ---
-    result = library.identity(z)
+    result = std.identity(z)
     return result
 
 
@@ -187,7 +188,7 @@ _try_body = {
     "nodes": {
         "my_mul_0": library.my_mul.flowrep_recipe,
         "while_0": _while_node,
-        "identity_0": library.identity.flowrep_recipe,
+        "identity_0": std.identity.flowrep_recipe,
     },
     "input_edges": {
         "my_mul_0.a": "a",
@@ -209,7 +210,7 @@ _except_body = {
     "type": "workflow",
     "inputs": ["a"],
     "outputs": ["z"],
-    "nodes": {"identity_0": library.identity.flowrep_recipe},
+    "nodes": {"identity_0": std.identity.flowrep_recipe},
     "input_edges": {"identity_0.x": "a"},
     "edges": {},
     "output_edges": {"z": "identity_0.x"},
@@ -249,7 +250,7 @@ full_composite_node = workflow_recipe.WorkflowRecipe.model_validate(
         "nodes": {
             "my_add_0": library.my_add.flowrep_recipe,
             "try_0": _try_node,
-            "identity_0": library.identity.flowrep_recipe,
+            "identity_0": std.identity.flowrep_recipe,
         },
         "input_edges": {
             "my_add_0.a": "x",

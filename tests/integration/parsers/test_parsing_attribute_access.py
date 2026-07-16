@@ -1,6 +1,6 @@
 import unittest
 
-from flowrep import edge_models, wfms
+from flowrep import edge_models, std, wfms
 from flowrep.compiler import source
 from flowrep.parsers import workflow_parser
 
@@ -105,7 +105,7 @@ def if_bound_condition(comp: library.ComplexData, x: int):
 @workflow_parser.workflow
 def while_unlooped_attribute_condition(comp: library.ComplexData, seed: int):
     """`comp` is never reassigned, so hoisting the getattr is faithful to Python."""
-    x = library.identity(seed)
+    x = std.identity(seed)
     while library.my_condition(x, comp.val):
         x = library.loop_inc(x)
     return x
@@ -179,9 +179,9 @@ class TestAttributeInWhileCondition(unittest.TestCase):
         """Python would re-read `x.val` each iteration; a hoisted getattr cannot."""
 
         def wf(comp: library.ComplexData):
-            x = library.identity(comp)
+            x = std.identity(comp)
             while library.my_condition(x, x.val):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -436,7 +436,7 @@ class TestPreservedRejections(unittest.TestCase):
         def wf(ns: list):
             ys = []
             for n in ns:
-                y = library.identity(n)  # noqa: F841
+                y = std.identity(n)  # noqa: F841
                 ys.append(3)
             return ys
 
@@ -457,7 +457,7 @@ class TestPreservedRejections(unittest.TestCase):
             ys = []
             for ys in items:
                 z = ys.count
-                w = library.identity(z)
+                w = std.identity(z)
                 ys.append(w)
             return ys
 
@@ -471,7 +471,7 @@ def try_attribute_in_branches(holder: library.Payload):
     try:
         y = library.divide(holder.num, holder.den)
     except ZeroDivisionError:
-        y = library.identity(holder.num)
+        y = std.identity(holder.num)
     return y
 
 

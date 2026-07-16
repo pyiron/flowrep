@@ -1,5 +1,6 @@
 import unittest
 
+from flowrep import std
 from flowrep.parsers import workflow_parser
 from flowrep.prospective import while_recipe, workflow_recipe
 
@@ -7,10 +8,10 @@ from flowrep_static import library
 
 
 def simple_while(a=10, b=20, c=40):
-    x = library.identity(a)
+    x = std.identity(a)
     while library.my_condition(x, c):
         x = library.my_add(x, b)
-    y = library.identity(x)
+    y = std.identity(x)
     return y
 
 
@@ -59,9 +60,9 @@ simple_while_node = workflow_recipe.WorkflowRecipe.model_validate(
         "inputs": ["a", "b", "c"],
         "outputs": ["y"],
         "nodes": {
-            "identity_0": library.identity.flowrep_recipe,
+            "identity_0": std.identity.flowrep_recipe,
             "while_0": simple_while_while_node,
-            "identity_1": library.identity.flowrep_recipe,
+            "identity_1": std.identity.flowrep_recipe,
         },
         "input_edges": {
             "identity_0.x": "a",
@@ -86,7 +87,7 @@ simple_while_node = workflow_recipe.WorkflowRecipe.model_validate(
 
 
 def nested_while(x, m, n, a):
-    y = library.identity(x)  # Initial value for y must be available
+    y = std.identity(x)  # Initial value for y must be available
     # since we return it from a while node
     while library.my_condition(x, m):
         x = library.my_add(x, a)
@@ -101,7 +102,7 @@ nest_while_node = workflow_recipe.WorkflowRecipe.model_validate(
         "inputs": ["x", "m", "n", "a"],
         "outputs": ["x", "y"],
         "nodes": {
-            "identity_0": library.identity.flowrep_recipe,
+            "identity_0": std.identity.flowrep_recipe,
             "while_0": {
                 "type": "while",
                 "inputs": ["x", "m", "a", "y", "n"],

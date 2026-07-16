@@ -6,7 +6,7 @@ from typing import Annotated, Any
 import pydantic
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models
+from flowrep import base_models, edge_models, std
 from flowrep.parsers import (
     atomic_parser,
     label_helpers,
@@ -841,7 +841,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_version_is_populated(self):
         def my_wf(x):
-            y = library.identity(x)
+            y = std.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(my_wf)
@@ -851,7 +851,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_fqn_is_populated(self):
         def my_wf(x):
-            y = library.identity(x)
+            y = std.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(my_wf)
@@ -860,7 +860,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_forbid_main_raises(self):
         def my_wf(x):
-            y = library.identity(x)
+            y = std.identity(x)
             return y
 
         my_wf.__module__ = "__main__"
@@ -870,7 +870,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_forbid_locals_raises(self):
         def my_wf(x):
-            y = library.identity(x)
+            y = std.identity(x)
             return y
 
         my_wf.__qualname__ = "outer.<locals>.my_wf"
@@ -883,7 +883,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
         try:
 
             def my_wf(x):
-                y = library.identity(x)
+                y = std.identity(x)
                 return y
 
             my_wf.__module__ = _UNVERSIONED_MODULE_NAME
@@ -895,7 +895,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
     def test_version_scraping_is_forwarded(self):
         def my_wf(x):
-            y = library.identity(x)
+            y = std.identity(x)
             return y
 
         custom_version = "99.0.0"
@@ -911,7 +911,7 @@ class TestParseWorkflowVersionParams(unittest.TestCase):
 
         def my_wf(a, b):
             x = library.my_add(a, b)
-            y = library.identity(x)
+            y = std.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(my_wf)
@@ -933,7 +933,7 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
             }
         )
         def my_wf(x):
-            y = library.identity(x)
+            y = std.identity(x)
             return y
 
         self.assertEqual(my_wf.flowrep_recipe.reference.info.version, custom_version)
@@ -943,7 +943,7 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
 
             @workflow_parser.workflow(forbid_locals=True)
             def inner(x):
-                y = library.identity(x)
+                y = std.identity(x)
                 return y
 
 
@@ -1040,14 +1040,14 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
         custom = "99.99.99"
 
         def my_wf(x):
-            y = library.identity(x)
+            y = std.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(
             my_wf, version_scraping={self._pkg(): lambda _: custom}
         )
         child = node.nodes["identity_0"]
-        # library.identity was decorated at import time; its recipe is fixed
+        # std.identity was decorated at import time; its recipe is fixed
         self.assertNotEqual(child.reference.info.version, custom)
 
     def test_scraping_propagates_through_chained_nodes(self):
@@ -1171,20 +1171,20 @@ def _assign_scalar_constant(a):
 
 def _assign_list_constant(seed):
     data = [1, 2, 3]
-    r = library.identity(data)
+    r = std.identity(data)
     return r
 
 
 def _assign_non_literal(a):
     bad = a + 1
-    r = library.identity(bad)
+    r = std.identity(bad)
     return r
 
 
 def _accumulator_wf(items):
     acc = []
     for x in items:
-        y = library.identity(x)
+        y = std.identity(x)
         acc.append(y)
     return acc
 
@@ -1210,7 +1210,7 @@ def _tuple_as_argument(a):
 
 
 def _nonliteral_as_argument(a):
-    r = library.identity(a + 1)
+    r = std.identity(a + 1)
     return r
 
 
@@ -1267,7 +1267,7 @@ class TestLiteralAssignment(unittest.TestCase):
 class TestParseWorkflowOutputUniqueness(unittest.TestCase):
     def test_output_uniqueness(self):
         def wf(x):
-            y = library.identity(x)
+            y = std.identity(x)
             return y, y
 
         with self.assertRaises(ValueError) as ctx:
@@ -1296,8 +1296,8 @@ class TestParseWorkflowOutputUniqueness(unittest.TestCase):
 class TestParseWorkflowReassignment(unittest.TestCase):
     def test_reassignment_uses_most_recent(self):
         def wf(a, b):
-            y = library.identity(a)
-            y = library.identity(b)
+            y = std.identity(a)
+            y = std.identity(b)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -1313,9 +1313,9 @@ class TestParseWorkflowAliasing(unittest.TestCase):
         with self.subTest("Assignment most recent"):
 
             def wf(a, b):
-                y = library.identity(a)
+                y = std.identity(a)
                 z = y
-                z = library.identity(b)
+                z = std.identity(b)
                 return z
 
             node = workflow_parser.parse_workflow(wf)
@@ -1328,8 +1328,8 @@ class TestParseWorkflowAliasing(unittest.TestCase):
         with self.subTest("Aliasing most recent"):
 
             def wf(a, b):
-                y = library.identity(a)
-                z = library.identity(b)
+                y = std.identity(a)
+                z = std.identity(b)
                 z = y
                 return z
 
@@ -1342,7 +1342,7 @@ class TestParseWorkflowAliasing(unittest.TestCase):
 
     def test_alias_as_duplicate(self):
         def wf(a):
-            y = library.identity(a)
+            y = std.identity(a)
             z = y
             return y, z
 
@@ -1488,9 +1488,9 @@ class TestAttributeAccess(unittest.TestCase):
         def wf(x0: int, comp: library.ComplexData):
             dc = library.MyDataclass(comp, x0)
             if library.is_positive(dc.x):  # noqa: SIM108
-                y = library.identity(x0)
+                y = std.identity(x0)
             else:
-                y = library.identity(x0)
+                y = std.identity(x0)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -1500,8 +1500,8 @@ class TestAttributeAccess(unittest.TestCase):
         def wf(x0: int, comp: library.ComplexData):
             dc = library.MyDataclass(comp, x0)
             flag = dc.x
-            if library.is_positive(flag):
-                y = library.identity(x0)
+            if library.is_positive(flag):  # noqa: SIM108
+                y = std.identity(x0)
             else:
                 y = library.negate(x0)
             return y

@@ -186,7 +186,7 @@ workflow_try_recipe = workflow_recipe.WorkflowRecipe(
                     exceptions=[versions.VersionInfo.of(ZeroDivisionError)],
                     body=helper_models.LabeledRecipe(
                         label="except_body",
-                        recipe=library.identity.flowrep_recipe,
+                        recipe=std.identity.flowrep_recipe,
                     ),
                 )
             ],
@@ -1035,7 +1035,7 @@ class TestTry(unittest.TestCase):
             try:
                 z = library.divide(a, b)
             except ZeroDivisionError:
-                z = library.identity(a)
+                z = std.identity(a)
             return z
 
         free = makers.reference_free(safe_div)
@@ -1052,7 +1052,7 @@ class TestTry(unittest.TestCase):
             try:
                 z = library.raises_custom(a, b)
             except library.MyCustomException:
-                z = library.identity(a)
+                z = std.identity(a)
             return z
 
         free = makers.reference_free(custom_exception_branch)
@@ -1222,7 +1222,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
         # increment(x, step=1): 'step' is defaulted and left unsourced as a condition.
         def f(a):
             if library.increment(a):  # noqa: SIM108
-                r = library.identity(a)
+                r = std.identity(a)
             else:
                 r = library.negate(a)
             return r
@@ -1239,7 +1239,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             try:
                 z = library.divide(a, b)
             except (ZeroDivisionError, ValueError):
-                z = library.identity(a)
+                z = std.identity(a)
             return z
 
         free = makers.reference_free(f)
@@ -1535,7 +1535,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             pass
 
         def f(x: Custom):
-            r = library.identity(x)
+            r = std.identity(x)
             return r
 
         free = makers.reference_free(f)
@@ -1550,7 +1550,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             pass
 
         def f(a) -> Custom:
-            r = library.identity(a)
+            r = std.identity(a)
             return r
 
         free = makers.reference_free(f)
@@ -1659,32 +1659,33 @@ class TestModuleNames(unittest.TestCase):
             try:
                 z = library.divide(a, b)
             except ZeroDivisionError:
-                z = library.identity(a)
+                z = std.identity(a)
             return z
 
         def custom(a, b):
             try:
                 z = library.raises_custom(a, b)
             except library.MyCustomException:
-                z = library.identity(a)
+                z = std.identity(a)
             return z
 
         free_safe = makers.reference_free(safe_div)
         free_custom = makers.reference_free(custom)
 
         # All calls live in flowrep_static.library -> top binding "flowrep_static".
+        # Or in the standard library
         # ZeroDivisionError is a builtin and must be skipped (no import emitted).
         self.assertEqual(
             set(function.referenced_top_level_bindings(free_safe)),
-            {"flowrep_static"},
+            {"flowrep_static", "flowrep"},
         )
         self.assertNotIn(
             "builtins", set(function.referenced_top_level_bindings(free_safe))
         )
-        # The non-builtin custom exception still resolves to flowrep_static.
+        # The non-builtin custom exception still resolves to flowrep_static/flowrep (std).
         self.assertEqual(
             set(function.referenced_top_level_bindings(free_custom)),
-            {"flowrep_static"},
+            {"flowrep_static", "flowrep"},
         )
 
     def test_nested_subworkflow_def_names_do_not_collide(self):
@@ -2154,10 +2155,10 @@ class TestConstantsInConditions(unittest.TestCase):
 
     def test_if_condition_literal_round_trips_and_executes(self):
         def wf(m):
-            if library.my_condition(m, 0.5):
-                y = library.identity(m)
+            if library.my_condition(m, 0.5):  # noqa: SIM108
+                y = std.identity(m)
             else:
-                y = library.identity(m)
+                y = std.identity(m)
             return y
 
         free = self._round_trip(wf, 0.2)
@@ -2167,12 +2168,12 @@ class TestConstantsInConditions(unittest.TestCase):
 
     def test_elif_condition_literal_round_trips_and_executes(self):
         def wf(x, y):
-            if library.my_condition(x, y):
-                z = library.identity(x)
+            if library.my_condition(x, y):  # noqa: SIM108
+                z = std.identity(x)
             elif library.my_condition(x, 5):
-                z = library.identity(y)
+                z = std.identity(y)
             else:
-                z = library.identity(x)
+                z = std.identity(x)
             return z
 
         self._round_trip(wf, 10, 3)
@@ -2188,10 +2189,10 @@ class TestConstantsInConditions(unittest.TestCase):
 
     def test_multiple_literals_in_one_condition_round_trip(self):
         def wf(m):
-            if library.my_condition(0.3, 0.5):
-                y = library.identity(m)
+            if library.my_condition(0.3, 0.5):  # noqa: SIM108
+                y = std.identity(m)
             else:
-                y = library.identity(m)
+                y = std.identity(m)
             return y
 
         free = self._round_trip(wf, 7)
@@ -2205,12 +2206,12 @@ class TestConstantsInConditions(unittest.TestCase):
     def test_nested_condition_literal_round_trips(self):
         def wf(m):
             if library.my_condition(m, 0.5):
-                if library.my_condition(m, 0.7):
-                    y = library.identity(m)
+                if library.my_condition(m, 0.7):  # noqa: SIM108
+                    y = std.identity(m)
                 else:
-                    y = library.identity(m)
+                    y = std.identity(m)
             else:
-                y = library.identity(m)
+                y = std.identity(m)
             return y
 
         self._round_trip(wf, 0.2)
@@ -2220,7 +2221,7 @@ class TestAttributeSugar(unittest.TestCase):
     def test_single_access_as_call_argument(self):
         def wf(x0: int, comp: library.ComplexData):
             dc = library.MyDataclass(comp, x0)
-            r = library.identity(dc.x)
+            r = std.identity(dc.x)
             return r
 
         free = makers.reference_free(wf)
@@ -2266,7 +2267,7 @@ class TestAttributeSugar(unittest.TestCase):
             dc = library.MyDataclass(comp, n)
             v = dc.a
             w = library.increment(3)
-            r = library.identity(v)
+            r = std.identity(v)
             return r, w
 
         free = makers.reference_free(wf)
@@ -2300,7 +2301,7 @@ class TestAttributeSugar(unittest.TestCase):
         def wf(x0: int, comp: library.ComplexData):
             dc = library.MyDataclass(comp, x0)
             v = dc.x
-            p = library.identity(v)
+            p = std.identity(v)
             q = library.negate(v)
             return p, q
 
@@ -2433,7 +2434,7 @@ class TestAttributeSugar(unittest.TestCase):
             inputs=["obj_in", "name_in"],
             outputs=["attr"],
             nodes={
-                "identity_0": library.identity.flowrep_recipe,
+                "identity_0": std.identity.flowrep_recipe,
                 "getattr_0": std.get_attr.flowrep_recipe,
             },
             input_edges={
@@ -2454,8 +2455,8 @@ class TestAttributeSugar(unittest.TestCase):
         def wf(x0: int, comp: library.ComplexData):
             dc = library.MyDataclass(comp, x0)
             flag = dc.x
-            if library.is_positive(flag):
-                y = library.identity(x0)
+            if library.is_positive(flag):  # noqa: SIM108
+                y = std.identity(x0)
             else:
                 y = library.negate(x0)
             return y
@@ -2484,7 +2485,7 @@ class TestPinnedSymbolReservation(unittest.TestCase):
             a = library.val(1)
             b = library.val(2)
             if library.is_positive(comp.val):
-                m = library.identity(seed)
+                m = std.identity(seed)
             else:
                 m = library.negate(seed)
             c = library.my_add(a, b)
@@ -2520,7 +2521,7 @@ class TestPinnedSymbolReservation(unittest.TestCase):
             a = library.val(1)
             b = library.val(2)
             if library.is_positive(comp.val):
-                m = library.identity(seed)
+                m = std.identity(seed)
             else:
                 m = library.negate(seed)
             c = library.my_add(a, b)

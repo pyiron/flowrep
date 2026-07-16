@@ -1,5 +1,6 @@
 import unittest
 
+from flowrep import std
 from flowrep.parsers import workflow_parser
 from flowrep.prospective import workflow_recipe
 
@@ -206,7 +207,7 @@ def if_with_context(a, b):
         y = library.my_mul(x, b)
     else:
         y = library.my_add(x, b)
-    z = library.identity(y)
+    z = std.identity(y)
     return z
 
 
@@ -268,7 +269,7 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
                 },
                 "prospective_output_edges": {"y": ["body_0.y", "else_body.y"]},
             },
-            "identity_0": library.identity.flowrep_recipe,
+            "identity_0": std.identity.flowrep_recipe,
         },
         "input_edges": {"my_add_0.a": "a", "my_add_0.b": "b", "if_0.b": "b"},
         "edges": {"if_0.x": "my_add_0.output_0", "identity_0.x": "if_0.y"},
@@ -393,7 +394,7 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
 # 5. if without else — output may be non-data;
 #    symbol must pre-exist so the WfMS has a fallback
 def if_no_else(x, y):
-    z = library.identity(x)
+    z = std.identity(x)
     if library.my_condition(x, y):
         z = library.my_add(x, y)
     return z
@@ -405,7 +406,7 @@ no_else_node = workflow_recipe.WorkflowRecipe.model_validate(
         "inputs": ["x", "y"],
         "outputs": ["z"],
         "nodes": {
-            "identity_0": library.identity.flowrep_recipe,
+            "identity_0": std.identity.flowrep_recipe,
             "if_0": {
                 "type": "if",
                 "inputs": ["x", "y"],

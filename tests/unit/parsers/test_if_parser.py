@@ -6,7 +6,7 @@ import ast
 import textwrap
 import unittest
 
-from flowrep import edge_models
+from flowrep import edge_models, std
 from flowrep.parsers import constant_parser, if_parser, workflow_parser
 from flowrep.prospective import (
     constant_recipe,
@@ -101,7 +101,7 @@ class TestParseIfConditionErrors(unittest.TestCase):
 
         def wf(x, flag):
             if flag:
-                x = library.identity(x)
+                x = std.identity(x)
             else:
                 x = library.my_add(x, x)
             return x
@@ -115,7 +115,7 @@ class TestParseIfConditionErrors(unittest.TestCase):
 
         def wf(x, bound):
             if x < bound:
-                x = library.identity(x)
+                x = std.identity(x)
             else:
                 x = library.my_add(x, bound)
             return x
@@ -129,7 +129,7 @@ class TestParseIfConditionErrors(unittest.TestCase):
 
         def wf(x):
             if library.multi_result(x):
-                x = library.identity(x)
+                x = std.identity(x)
             else:
                 x = library.my_add(x, x)
             return x
@@ -143,7 +143,7 @@ class TestParseIfConditionErrors(unittest.TestCase):
 
         def wf(x, flag, other):
             if library.my_condition(x, flag):
-                x = library.identity(x)
+                x = std.identity(x)
             elif other:
                 x = library.my_add(x, x)
             return x
@@ -158,9 +158,9 @@ class TestParseIfConditionErrors(unittest.TestCase):
 
         def wf(x):
             if library.my_condition(x, 5):
-                y = library.identity(x)
+                y = std.identity(x)
             else:
-                y = library.identity(x)
+                y = std.identity(x)
             return y
 
         recipe = workflow_parser.parse_workflow(wf)
@@ -195,11 +195,11 @@ class TestParseIfConditionErrors(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.identity(x)
+                z = std.identity(x)
             elif library.my_condition(x, 5):
-                z = library.identity(y)
+                z = std.identity(y)
             else:
-                z = library.identity(x)
+                z = std.identity(x)
             return z
 
         recipe = workflow_parser.parse_workflow(wf)
@@ -215,9 +215,9 @@ class TestParseIfConditionErrors(unittest.TestCase):
 
         def wf(m):
             if library.my_condition(0.3, 0.5):
-                y = library.identity(m)
+                y = std.identity(m)
             else:
-                y = library.identity(m)
+                y = std.identity(m)
             return y
 
         recipe = workflow_parser.parse_workflow(wf)
@@ -241,9 +241,9 @@ class TestParseIfConditionErrors(unittest.TestCase):
 
         def wf(m):
             if library.my_condition(m, (1, 2)):
-                y = library.identity(m)
+                y = std.identity(m)
             else:
-                y = library.identity(m)
+                y = std.identity(m)
             return y
 
         with self.assertRaises(constant_parser.ConstantParseError) as ctx:
@@ -264,10 +264,10 @@ class TestIfBodyErrors(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                x = library.identity(x)
+                x = std.identity(x)
                 return x
             else:
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         with self.assertRaises(TypeError) as ctx:
@@ -319,7 +319,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
             elif library.my_condition(y, flag):
                 z = library.my_mul(x, y)
             else:
-                z = library.identity(x)
+                z = std.identity(x)
             return z
 
         ifn = self._get_if_node(wf)
@@ -398,7 +398,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
             elif library.my_condition(y, flag):
                 z = library.my_mul(x, y)
             else:
-                z = library.identity(x)
+                z = std.identity(x)
             return z
 
         ifn = self._get_if_node(wf)
@@ -412,7 +412,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
         """Without else, only the if-branch contributes a prospective source."""
 
         def wf(x, y):
-            z = library.identity(x)
+            z = std.identity(x)
             if library.my_condition(x, y):
                 z = library.my_add(x, y)
             return z
@@ -457,9 +457,9 @@ class TestIfParserEdgeWiring(unittest.TestCase):
 
         def wf(x, y, flag):
             if library.my_condition(x, flag):
-                z = library.identity(y)
+                z = std.identity(y)
             else:
-                z = library.identity(y)
+                z = std.identity(y)
             return z
 
         ifn = self._get_if_node(wf)
@@ -472,7 +472,7 @@ class TestIfParserEdgeWiring(unittest.TestCase):
             if library.my_condition(x, flag):
                 z = library.my_add(x, y)
             else:
-                z = library.identity(y)
+                z = std.identity(y)
             return z
 
         ifn = self._get_if_node(wf)
@@ -509,7 +509,7 @@ class TestIfParserStructure(unittest.TestCase):
             elif library.my_condition(y, flag):
                 z = library.my_mul(x, y)
             else:
-                z = library.identity(x)
+                z = std.identity(x)
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
@@ -523,7 +523,7 @@ class TestIfParserStructure(unittest.TestCase):
             elif library.my_condition(y, flag):
                 z = library.my_mul(x, y)
             else:
-                z = library.identity(x)
+                z = std.identity(x)
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
@@ -544,7 +544,7 @@ class TestIfParserStructure(unittest.TestCase):
 
     def test_no_else_case(self):
         def wf(x, y):
-            z = library.identity(x)
+            z = std.identity(x)
             if library.my_condition(x, y):
                 z = library.my_add(x, y)
             return z
@@ -604,7 +604,7 @@ class TestIfParserStructure(unittest.TestCase):
                 z = library.my_add(x, y)
             else:
                 z = library.my_mul(x, y)
-            result = library.identity(z)
+            result = std.identity(z)
             return result
 
         node = self._parse(wf)
@@ -620,7 +620,7 @@ class TestIfParserStructure(unittest.TestCase):
             else:
                 a = library.my_mul(x, y)
             if library.my_condition(a, n):
-                b = library.identity(a)
+                b = std.identity(a)
             else:
                 b = library.my_add(a, y)
             return b
@@ -638,7 +638,7 @@ class TestIfParserStructure(unittest.TestCase):
             else:
                 a = library.my_mul(x, y)
             if library.my_condition(a, n):
-                b = library.identity(a)
+                b = std.identity(a)
             else:
                 b = library.my_add(a, y)
             return b
@@ -658,11 +658,11 @@ class TestIfParserStructure(unittest.TestCase):
             if library.my_condition(y, y):
                 results = []
                 for x in xs:
-                    v = library.identity(x)
+                    v = std.identity(x)
                     results.append(v)
-                z = library.identity(results)
+                z = std.identity(results)
             else:
-                z = library.identity(y)
+                z = std.identity(y)
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
@@ -680,9 +680,9 @@ class TestIfParserStructure(unittest.TestCase):
             if library.my_condition(x, y):
                 while library.my_condition(x, bound):
                     x = library.my_add(x, y)
-                z = library.identity(x)
+                z = std.identity(x)
             else:
-                z = library.identity(y)
+                z = std.identity(y)
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
@@ -703,7 +703,7 @@ class TestIfParserStructure(unittest.TestCase):
                 else:
                     z = library.my_mul(x, y)
             else:
-                z = library.identity(x)
+                z = std.identity(x)
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
@@ -719,13 +719,13 @@ class TestIfParserStructure(unittest.TestCase):
 
         def wf(xs, y):
             if library.my_condition(y, y):
-                z = library.identity(y)
+                z = std.identity(y)
             else:
                 results = []
                 for x in xs:
-                    v = library.identity(x)
+                    v = std.identity(x)
                     results.append(v)
-                z = library.identity(results)
+                z = std.identity(results)
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
@@ -748,7 +748,7 @@ class TestIfParserStructure(unittest.TestCase):
                 except ValueError:
                     z = library.my_mul(x, y)
             else:
-                z = library.identity(x)
+                z = std.identity(x)
             return z
 
         ifn = self._parse(wf).nodes["if_0"]
@@ -764,7 +764,7 @@ class TestIfParserStructure(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.identity(x)
+                z = std.identity(x)
             else:
                 try:
                     z = library.my_add(x, y)
@@ -809,7 +809,7 @@ class TestIfRecipeRoundTrip(unittest.TestCase):
             elif library.my_condition(y, flag):
                 z = library.my_mul(x, y)
             else:
-                z = library.identity(x)
+                z = std.identity(x)
             return z
 
         ifn = workflow_parser.parse_workflow(wf).nodes["if_0"]
@@ -821,7 +821,7 @@ class TestIfRecipeRoundTrip(unittest.TestCase):
 
     def test_if_no_else_round_trip(self):
         def wf(x, y):
-            z = library.identity(x)
+            z = std.identity(x)
             if library.my_condition(x, y):
                 z = library.my_add(x, y)
             return z
@@ -841,7 +841,7 @@ class TestIfRecipeRoundTrip(unittest.TestCase):
                 z = library.my_add(x, y)
             else:
                 z = library.my_mul(x, y)
-            result = library.identity(z)
+            result = std.identity(z)
             return result
 
         node = workflow_parser.parse_workflow(wf)
@@ -905,7 +905,7 @@ class TestIfParserVersionPropagation(unittest.TestCase):
 
         def wf(x, y):
             if library.my_condition(x, y):
-                z = library.identity(x)
+                z = std.identity(x)
             else:
                 z = library.undecorated_identity(y)
             return z

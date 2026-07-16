@@ -10,7 +10,7 @@ import ast
 import textwrap
 import unittest
 
-from flowrep import edge_models
+from flowrep import edge_models, std
 from flowrep.parsers import atomic_parser, for_parser, symbol_scope, workflow_parser
 from flowrep.prospective import (
     atomic_recipe,
@@ -256,7 +256,7 @@ class TestForParserErrors(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
                 return results
             return results
@@ -269,7 +269,7 @@ class TestForParserErrors(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)  # noqa: F841
+                y = std.identity(x)  # noqa: F841
             return results
 
         with self.assertRaises(ValueError) as ctx:
@@ -280,7 +280,7 @@ class TestForParserErrors(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
                 results.append(y)
             return results
@@ -300,7 +300,7 @@ class TestForParserErrors(unittest.TestCase):
         def wf(xs):
             results = [0]
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
             return results
 
@@ -315,7 +315,7 @@ class TestForParserErrors(unittest.TestCase):
             acc = []
             for x in xs:
                 while library.my_condition(acc_val, bound):
-                    acc = library.identity(acc_val)
+                    acc = std.identity(acc_val)
                     acc_val = library.my_add(acc_val, x)
                 acc.append(x)
             return acc
@@ -328,9 +328,9 @@ class TestForParserErrors(unittest.TestCase):
         def wf(xs, y):
             acc = []
             for x in xs:
-                y = library.identity(x)  # reassigns y from parent scope
+                y = std.identity(x)  # reassigns y from parent scope
                 acc.append(y)
-            z = library.identity(y)  # which y is this?
+            z = std.identity(y)  # which y is this?
             return acc, z
 
         with self.assertRaises(ValueError) as ctx:
@@ -344,7 +344,7 @@ class TestForParserErrors(unittest.TestCase):
         def wf():
             results = []
             for x in range(10):
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
             return results
 
@@ -357,8 +357,8 @@ class TestForParserErrors(unittest.TestCase):
             results_a = []
             results_b = []
             for a, b in items:
-                y = library.identity(a)
-                z = library.identity(b)
+                y = std.identity(a)
+                z = std.identity(b)
                 results_a.append(y)
                 results_b.append(z)
             return results_a, results_b
@@ -372,8 +372,8 @@ class TestForParserErrors(unittest.TestCase):
             results_a = []
             results_b = []
             for a, b in zip(xs, list(), strict=True):
-                y = library.identity(a)
-                z = library.identity(b)
+                y = std.identity(a)
+                z = std.identity(b)
                 results_a.append(y)
                 results_b.append(z)
             return results_a, results_b
@@ -408,7 +408,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
             return results
 
@@ -425,7 +425,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
             collected_xs = []
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 collected_xs.append(x)
                 results.append(y)
             return collected_xs, results
@@ -449,7 +449,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
             collected_xs = []
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 collected_xs.append(x)
                 results.append(y)
             return collected_xs, results
@@ -483,7 +483,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
             return results
 
@@ -516,7 +516,7 @@ class TestForParserEdgeWiring(unittest.TestCase):
                 for y, z in zip(ys, zs, strict=True):
                     t = pair(y, z)
                     # x must be consumed or we get an unused-iterator error
-                    u = library.identity(x)  # noqa: F841
+                    u = std.identity(x)  # noqa: F841
                     # But there is no necessity for everything in the body to be
                     # captured and passed back out to the for-node output
                     results.append(t)
@@ -556,7 +556,7 @@ class TestForParserStructure(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
             return results
 
@@ -568,7 +568,7 @@ class TestForParserStructure(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
             return results
 
@@ -579,7 +579,7 @@ class TestForParserStructure(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
             return results
 
@@ -605,9 +605,9 @@ class TestForParserStructure(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
-            z = library.identity(results)
+            z = std.identity(results)
             return z
 
         node = self._parse(wf)
@@ -621,7 +621,7 @@ class TestForParserStructure(unittest.TestCase):
             xs = library.my_range(n)
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
             return results
 
@@ -638,7 +638,7 @@ class TestForParserStructure(unittest.TestCase):
                 ys = library.my_range(x)
                 inner = []
                 for y in ys:
-                    z = library.identity(y)
+                    z = std.identity(y)
                     inner.append(z)
                 results.append(inner)
             return results
@@ -655,11 +655,11 @@ class TestForParserStructure(unittest.TestCase):
         def wf(xs, ys):
             first = []
             for x in xs:
-                a = library.identity(x)
+                a = std.identity(x)
                 first.append(a)
             second = []
             for y in ys:
-                b = library.identity(y)
+                b = std.identity(y)
                 second.append(b)
             return first, second
 
@@ -674,9 +674,9 @@ class TestForParserStructure(unittest.TestCase):
         def wf(xs, bound):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 while library.my_condition(y, bound):
-                    y = library.identity(y)
+                    y = std.identity(y)
                 results.append(y)
             return results
 
@@ -697,7 +697,7 @@ class TestForParserStructure(unittest.TestCase):
             results = []
             for x in xs:
                 if library.my_condition(x, y):  # noqa: SIM108
-                    v = library.identity(x)
+                    v = std.identity(x)
                 else:
                     v = library.my_add(x, y)
                 results.append(v)
@@ -716,7 +716,7 @@ class TestForParserStructure(unittest.TestCase):
             results = []
             for x in xs:
                 try:
-                    v = library.identity(x)
+                    v = std.identity(x)
                 except ValueError:
                     v = library.my_add(x, y)
                 results.append(v)
@@ -741,7 +741,7 @@ class TestForEachRecipeRoundTrip(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
             return results
 
@@ -786,11 +786,11 @@ class TestAppendAccumulator(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                library.identity(x)
+                std.identity(x)
                 results.append(x)
             return results
 
-        # The bare `library.identity(x)` is an ast.Expr but not an append to an
+        # The bare `std.identity(x)` is an ast.Expr but not an append to an
         # accumulator, so is_append_call returns False → TypeError
         with self.assertRaises(TypeError) as ctx:
             workflow_parser.parse_workflow(wf)
@@ -802,7 +802,7 @@ class TestAppendAccumulator(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 other.append(y)  # noqa: F821
                 results.append(y)
             return results
@@ -823,7 +823,7 @@ class TestAppendAccumulator(unittest.TestCase):
             for x in xs:
                 ys = library.my_range(x)
                 for y in ys:
-                    z = library.identity(y)
+                    z = std.identity(y)
                     results.append(z)
             return results
 
@@ -893,7 +893,7 @@ class TestForParserVersionPropagation(unittest.TestCase):
         def wf(xs):
             results = []
             for x in xs:
-                y = library.identity(x)
+                y = std.identity(x)
                 results.append(y)
             return results
 
