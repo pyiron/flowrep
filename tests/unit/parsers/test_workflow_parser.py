@@ -1501,7 +1501,7 @@ class TestAttributeAccess(unittest.TestCase):
             if library.is_positive(flag):  # noqa: SIM108
                 y = std.identity(x0)
             else:
-                y = library.negate(x0)
+                y = std.neg(x0)
             return y
 
         node = workflow_parser.parse_workflow(wf)

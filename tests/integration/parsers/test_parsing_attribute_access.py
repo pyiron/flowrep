@@ -201,7 +201,7 @@ def elif_two_attribute_conditions(a: library.ComplexData, b: library.ComplexData
     elif library.my_condition(b.val, 4):
         y = library.decrement(x)
     else:
-        y = library.negate(x)
+        y = std.neg(x)
     return y
 
 

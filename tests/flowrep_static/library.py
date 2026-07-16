@@ -40,11 +40,6 @@ def typed_multiply(x: float, y: float = 5) -> float:
 
 
 @atomic_parser.atomic
-def negate(x):
-    return -x
-
-
-@atomic_parser.atomic
 def increment(x, step=1):
     return x + step
 

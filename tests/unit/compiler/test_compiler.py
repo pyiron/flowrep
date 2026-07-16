@@ -1215,7 +1215,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             if library.increment(a):  # noqa: SIM108
                 r = std.identity(a)
             else:
-                r = library.negate(a)
+                r = std.neg(a)
             return r
 
         free = makers.reference_free(f)
@@ -2297,7 +2297,7 @@ class TestAttributeSugar(unittest.TestCase):
             dc = library.MyDataclass(comp, x0)
             v = dc.x
             p = std.identity(v)
-            q = library.negate(v)
+            q = std.neg(v)
             return p, q
 
         free = makers.reference_free(wf)
@@ -2453,7 +2453,7 @@ class TestAttributeSugar(unittest.TestCase):
             if library.is_positive(flag):  # noqa: SIM108
                 y = std.identity(x0)
             else:
-                y = library.negate(x0)
+                y = std.neg(x0)
             return y
 
         free = makers.reference_free(wf)
@@ -2479,10 +2479,10 @@ class TestPinnedSymbolReservation(unittest.TestCase):
         def wf(comp, seed):
             a = library.val(1)
             b = library.val(2)
-            if library.is_positive(comp.val):
+            if library.is_positive(comp.val):  # noqa: SIM108
                 m = std.identity(seed)
             else:
-                m = library.negate(seed)
+                m = std.neg(seed)
             c = std.add(a, b)
             return m, c
 
@@ -2515,10 +2515,10 @@ class TestPinnedSymbolReservation(unittest.TestCase):
         def wf(comp, seed):
             a = library.val(1)
             b = library.val(2)
-            if library.is_positive(comp.val):
+            if library.is_positive(comp.val):  # noqa: SIM108
                 m = std.identity(seed)
             else:
-                m = library.negate(seed)
+                m = std.neg(seed)
             c = std.add(a, b)
             return m, c
 

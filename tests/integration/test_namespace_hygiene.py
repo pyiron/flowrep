@@ -104,7 +104,7 @@ def compiler_minted_collision(comp, seed):
     if library.is_positive(comp.val):  # noqa: SIM108
         m = std.identity(seed)
     else:
-        m = library.negate(seed)
+        m = std.neg(seed)
     c = std.add(a, b)
     return m, c
 

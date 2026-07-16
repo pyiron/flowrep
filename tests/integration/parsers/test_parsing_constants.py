@@ -41,7 +41,7 @@ class TestConstantEndToEnd(unittest.TestCase):
 @workflow_parser.workflow
 def shadowed_constant_symbol(x):
     """A user symbol named like a generated port must not be clobbered by one."""
-    constant_0 = library.negate(x)
+    constant_0 = std.neg(x)
     if library.my_condition(x, 3):  # noqa: SIM108
         y = std.add(constant_0, x)
     else:
@@ -62,7 +62,7 @@ class TestGeneratedPortDodgesUserSymbols(unittest.TestCase):
         recipe = shadowed_constant_symbol.flowrep_recipe
         self.assertEqual(
             recipe.edges[edge_models.TargetHandle(node="if_0", port="constant_0")],
-            edge_models.SourceHandle(node="negate_0", port="output_0"),
+            edge_models.SourceHandle(node="neg_0", port="negative"),
         )
 
     def test_generated_port_reads_the_constant_peer(self):

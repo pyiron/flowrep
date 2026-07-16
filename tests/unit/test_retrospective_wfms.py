@@ -134,7 +134,7 @@ def _passthrough_workflow(x: int = 42) -> int:
 @workflow_parser.workflow
 def _diamond_workflow(a: int, b: int = 1) -> int:
     s = std.add(a, b)
-    n = library.negate(a)
+    n = std.neg(a)
     result = std.mul(s, n)
     return result
 
@@ -145,19 +145,19 @@ def _for_negate() -> for_recipe.ForEachRecipe:
         inputs=["xs"],
         outputs=["ys"],
         body_node=helper_models.LabeledRecipe(
-            label="body", recipe=library.negate.flowrep_recipe
+            label="body", recipe=std.neg.flowrep_recipe
         ),
         input_edges={
-            edge_models.TargetHandle(node="body", port="x"): edge_models.InputSource(
+            edge_models.TargetHandle(node="body", port="a"): edge_models.InputSource(
                 port="xs"
             )
         },
         output_edges={
             edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
-                node="body", port="output_0"
+                node="body", port="negative"
             )
         },
-        nested_ports=["x"],
+        nested_ports=["a"],
     )
 
 
@@ -273,10 +273,10 @@ def _negate_body_workflow() -> workflow_recipe.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["x"],
         outputs=["y"],
-        child_label="negate_0",
-        child_recipe=library.negate.flowrep_recipe,
-        input_map={"x": "x"},
-        output_map={"y": "output_0"},
+        child_label="neg_0",
+        child_recipe=std.neg.flowrep_recipe,
+        input_map={"a": "x"},
+        output_map={"y": "negative"},
     )
 
 
@@ -1007,7 +1007,7 @@ class TestRunWorkflow(unittest.TestCase):
             outputs=["result"],
             nodes={
                 "a": std.identity.flowrep_recipe,
-                "b": library.negate.flowrep_recipe,
+                "b": std.neg.flowrep_recipe,
                 "c": std.identity.flowrep_recipe,
             },
             input_edges={
@@ -1019,13 +1019,13 @@ class TestRunWorkflow(unittest.TestCase):
                 ),
             },
             edges={
-                edge_models.TargetHandle(node="b", port="x"): edge_models.SourceHandle(
+                edge_models.TargetHandle(node="b", port="a"): edge_models.SourceHandle(
                     node="a", port="x"
                 ),
             },
             output_edges={
                 edge_models.OutputTarget(port="result"): edge_models.SourceHandle(
-                    node="b", port="output_0"
+                    node="b", port="negative"
                 ),
             },
         )
@@ -1042,12 +1042,12 @@ class TestTopoSort(unittest.TestCase):
     def test_diamond_order(self):
         order = wfms._topo_sort_children(_diamond_workflow.flowrep_recipe)
         self.assertLess(order.index("add_0"), order.index("mul_0"))
-        self.assertLess(order.index("negate_0"), order.index("mul_0"))
+        self.assertLess(order.index("neg_0"), order.index("mul_0"))
 
     def test_independent_nodes_sorted_alphabetically(self):
         order = wfms._topo_sort_children(_diamond_workflow.flowrep_recipe)
         # add_0 and negate_0 are independent, should be alphabetically ordered
-        self.assertLess(order.index("add_0"), order.index("negate_0"))
+        self.assertLess(order.index("add_0"), order.index("neg_0"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
