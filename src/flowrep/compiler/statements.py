@@ -116,7 +116,8 @@ def _identity_materialization(value: Any, emitter: function.Emitter) -> str:
     inlined constant argument, which then round-trips exactly.
     """
     call_path = _set_call_path_from_info(
-        std.identity.flowrep_recipe.reference.info, emitter.module_imports
+        std.identity.flowrep_recipe.reference.info,  # type: ignore[attr-defined]
+        emitter.module_imports,
     )
     return f"{call_path}(x={value!r})"
 
