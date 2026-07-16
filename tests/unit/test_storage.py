@@ -149,11 +149,11 @@ class TestListLexicalPaths(_BagTestCase):
             "inputs.b",
             "outputs.result",
             # Child node
-            "add_0",
+            "typed_add_0",
             # Child IO
-            "add_0.inputs.x",
-            "add_0.inputs.y",
-            "add_0.outputs.output_0",
+            "typed_add_0.inputs.x",
+            "typed_add_0.inputs.y",
+            "typed_add_0.outputs.output_0",
         }
         self.assertSetEqual(set(paths), expected)
 
@@ -189,7 +189,7 @@ class TestLoadFromBag(_BagTestCase):
         self.assertIsInstance(obj, datastructures.DagData)
 
     def test_load_child_node(self):
-        obj = storage.load_from_bag(self._bag, "add_0")
+        obj = storage.load_from_bag(self._bag, "typed_add_0")
         self.assertIsInstance(obj, datastructures.AtomicData)
 
     def test_load_input_port(self):
@@ -201,16 +201,16 @@ class TestLoadFromBag(_BagTestCase):
         self.assertIsInstance(obj, datastructures.OutputDataPort)
 
     def test_load_child_input_port(self):
-        obj = storage.load_from_bag(self._bag, "add_0.inputs.x")
+        obj = storage.load_from_bag(self._bag, "typed_add_0.inputs.x")
         self.assertIsInstance(obj, datastructures.InputDataPort)
 
     def test_load_child_output_port(self):
-        obj = storage.load_from_bag(self._bag, "add_0.outputs.output_0")
+        obj = storage.load_from_bag(self._bag, "typed_add_0.outputs.output_0")
         self.assertIsInstance(obj, datastructures.OutputDataPort)
 
     def test_load_child_output_port_has_data(self):
         """The saved workflow was run with a=3, b=4, so output should be 7."""
-        obj = storage.load_from_bag(self._bag, "add_0.outputs.output_0")
+        obj = storage.load_from_bag(self._bag, "typed_add_0.outputs.output_0")
         self.assertIsInstance(obj, datastructures.OutputDataPort)
         self.assertEqual(obj.value, 7)
 
@@ -224,15 +224,15 @@ class TestLoadFromBag(_BagTestCase):
 
     def test_terminated_in_child_inputs_raises(self):
         with self.assertRaisesRegex(ValueError, "terminated in 'inputs'"):
-            storage.load_from_bag(self._bag, "add_0.inputs")
+            storage.load_from_bag(self._bag, "typed_add_0.inputs")
 
     def test_invalid_path_raises(self):
         with self.assertRaisesRegex(ValueError, "nonexistent"):
             storage.load_from_bag(self._bag, "nonexistent")
 
     def test_invalid_nested_path_includes_walked_path(self):
-        with self.assertRaisesRegex(ValueError, r"at 'add_0\.bad_port'"):
-            storage.load_from_bag(self._bag, "add_0.bad_port")
+        with self.assertRaisesRegex(ValueError, r"at 'typed_add_0\.bad_port'"):
+            storage.load_from_bag(self._bag, "typed_add_0.bad_port")
 
     def test_invalid_port_under_io_group(self):
         with self.assertRaisesRegex(ValueError, "no_such_port"):
@@ -244,7 +244,7 @@ class TestLoadFromBag(_BagTestCase):
             mock.patch.object(self._bag, "load", return_value="a plain string"),
             self.assertRaisesRegex(TypeError, "Expected to load one of"),
         ):
-            storage.load_from_bag(self._bag, "add_0")
+            storage.load_from_bag(self._bag, "typed_add_0")
 
 
 class TestExtendPath(_BagTestCase):
@@ -255,8 +255,8 @@ class TestExtendPath(_BagTestCase):
         self._bag = boh.H5Bag(path)
 
     def test_step_into_node(self):
-        result = storage._extend_path(self._bag, "object", "add_0", "")
-        self.assertEqual(result, "object/state/nodes/add_0")
+        result = storage._extend_path(self._bag, "object", "typed_add_0", "")
+        self.assertEqual(result, "object/state/nodes/typed_add_0")
 
     def test_step_into_inputs(self):
         result = storage._extend_path(self._bag, "object", "inputs", "")
@@ -327,11 +327,11 @@ class TestLexicalBagBrowserMethods(_BagTestCase):
 
     def test_list_paths(self):
         paths = self.browser.list_paths()
-        self.assertIn("add_0", paths)
+        self.assertIn("typed_add_0", paths)
         self.assertIn("inputs.a", paths)
 
     def test_load_node(self):
-        obj = self.browser.load("add_0")
+        obj = self.browser.load("typed_add_0")
         self.assertIsInstance(obj, datastructures.AtomicData)
 
     def test_load_port(self):

@@ -20,15 +20,6 @@ from flowrep.prospective import atomic_recipe, constant_recipe, workflow_recipe
 from flowrep_static import library, makers
 
 
-def typed_add(x: float = 2.0, y: float = 1) -> float:
-    """Add two numbers together."""
-    return x + y
-
-
-def multiply(x: float, y: float = 5) -> float:
-    return x * y
-
-
 def operation(x: float, y: float) -> tuple[float, float]:
     return x + y, x - y
 
@@ -86,8 +77,8 @@ class Outer:
 def inner_macro(a, b=10):
     """This is the inner workflow."""
     c, d = operation(a, b)
-    e = typed_add(c, y=d)
-    f = multiply(e)
+    e = library.typed_add(c, y=d)
+    f = library.typed_multiply(e)
     return f
 
 
@@ -95,7 +86,7 @@ def inner_macro(a, b=10):
 def outer_workflow(a, b):
     """This is the outer workflow."""
     y = inner_macro(a, b)
-    z: float = typed_add(y, b)  # ast.AnnAssignment
+    z: float = library.typed_add(y, b)  # ast.AnnAssignment
     return z
 
 
@@ -118,19 +109,21 @@ class TestWorkflowDecorator(unittest.TestCase):
     def test_workflow_without_args(self):
         @workflow_parser.workflow
         def simple_wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         self.assertTrue(hasattr(simple_wf, "flowrep_recipe"))
         self.assertIsInstance(simple_wf.flowrep_recipe, workflow_recipe.WorkflowRecipe)
         self.assertEqual(
-            simple_wf(2), typed_add(2), msg="Should still just be regular functions"
+            simple_wf(2),
+            library.typed_add(2),
+            msg="Should still just be regular functions",
         )
 
     def test_workflow_with_output_labels(self):
         @workflow_parser.workflow("result")
         def simple_wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         self.assertEqual(simple_wf.flowrep_recipe.outputs, ["result"])
@@ -146,7 +139,7 @@ class TestWorkflowDecorator(unittest.TestCase):
     def test_workflow_empty_parens_infers_labels(self):
         @workflow_parser.workflow()
         def wf(x):
-            result = typed_add(x)
+            result = library.typed_add(x)
             return result
 
         self.assertEqual(wf.flowrep_recipe.outputs, ["result"])
@@ -154,10 +147,10 @@ class TestWorkflowDecorator(unittest.TestCase):
     def test_workflow_preserves_function_behavior(self):
         @workflow_parser.workflow
         def wf(a, b):
-            c = typed_add(a, b)
+            c = library.typed_add(a, b)
             return c
 
-        self.assertEqual(wf(3, 4), typed_add(3, 4))
+        self.assertEqual(wf(3, 4), library.typed_add(3, 4))
 
     def test_workflow_captures_function_docstring(self):
         @workflow_parser.workflow
@@ -201,7 +194,7 @@ class TestParseWorkflowBasic(unittest.TestCase):
 
     def test_single_node_workflow(self):
         def wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -211,15 +204,15 @@ class TestParseWorkflowBasic(unittest.TestCase):
 
     def test_chained_nodes(self):
         def wf(x):
-            y = typed_add(x)
-            z = multiply(y)
+            y = library.typed_add(x)
+            z = library.typed_multiply(y)
             return z
 
         node = workflow_parser.parse_workflow(wf)
         self.assertEqual(node.inputs, ["x"])
         self.assertEqual(node.outputs, ["z"])
         self.assertIn("typed_add_0", node.nodes)
-        self.assertIn("multiply_0", node.nodes)
+        self.assertIn("typed_multiply_0", node.nodes)
 
     def test_multiple_outputs(self):
         def wf(x, y):
@@ -232,7 +225,7 @@ class TestParseWorkflowBasic(unittest.TestCase):
 
     def test_keyword_arguments(self):
         def wf(a, b):
-            c = typed_add(a, y=b)
+            c = library.typed_add(a, y=b)
             return c
 
         node = workflow_parser.parse_workflow(wf)
@@ -243,7 +236,7 @@ class TestParseWorkflowBasic(unittest.TestCase):
 
     def test_mixed_positional_and_keyword(self):
         def wf(a, b):
-            c = typed_add(a, y=b)
+            c = library.typed_add(a, y=b)
             return c
 
         node = workflow_parser.parse_workflow(wf)
@@ -315,7 +308,7 @@ class TestParseWorkflowBasic(unittest.TestCase):
 class TestParseWorkflowEdges(unittest.TestCase):
     def test_input_edges_from_workflow_inputs(self):
         def wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -325,12 +318,12 @@ class TestParseWorkflowEdges(unittest.TestCase):
 
     def test_internal_edges_between_nodes(self):
         def wf(x):
-            y = typed_add(x)
-            z = multiply(y)
+            y = library.typed_add(x)
+            z = library.typed_multiply(y)
             return z
 
         node = workflow_parser.parse_workflow(wf)
-        target = edge_models.TargetHandle(node="multiply_0", port="x")
+        target = edge_models.TargetHandle(node="typed_multiply_0", port="x")
         self.assertIn(target, node.edges)
         source = node.edges[target]
         self.assertEqual(source.node, "typed_add_0")
@@ -338,7 +331,7 @@ class TestParseWorkflowEdges(unittest.TestCase):
 
     def test_output_edges(self):
         def wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -352,8 +345,8 @@ class TestParseWorkflowEdges(unittest.TestCase):
         """Symbol reuse should create edges using the most recent definition"""
 
         def wf(x):
-            y = typed_add(x)
-            y = multiply(y)
+            y = library.typed_add(x)
+            y = library.typed_multiply(y)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -361,7 +354,7 @@ class TestParseWorkflowEdges(unittest.TestCase):
             node.edges,
             {
                 edge_models.TargetHandle(
-                    node="multiply_0", port="x"
+                    node="typed_multiply_0", port="x"
                 ): edge_models.SourceHandle(node="typed_add_0", port="output_0")
             },
         )
@@ -369,7 +362,7 @@ class TestParseWorkflowEdges(unittest.TestCase):
             node.output_edges,
             {
                 edge_models.OutputTarget(port="y"): edge_models.SourceHandle(
-                    node="multiply_0", port="output_0"
+                    node="typed_multiply_0", port="output_0"
                 )
             },
         )
@@ -390,12 +383,12 @@ class TestParseWorkflowNested(unittest.TestCase):
     def test_nested_workflow_edges(self):
         def outer_wf(a):
             b = inner_macro(a)
-            c = multiply(b)
+            c = library.typed_multiply(b)
             return c
 
         node = workflow_parser.parse_workflow(outer_wf)
         # inner_wf output -> multiply input
-        target = edge_models.TargetHandle(node="multiply_0", port="x")
+        target = edge_models.TargetHandle(node="typed_multiply_0", port="x")
         self.assertIn(target, node.edges)
         self.assertEqual(node.edges[target].node, "inner_macro_0")
         self.assertEqual(node.edges[target].port, "f")
@@ -474,7 +467,7 @@ class TestNestedWorkflowFullySourcing(unittest.TestCase):
 class TestParseWorkflowOutputLabels(unittest.TestCase):
     def test_explicit_labels_override_inferred(self):
         def wf(x):
-            result = typed_add(x)
+            result = library.typed_add(x)
             return result
 
         node = workflow_parser.parse_workflow(wf, "custom_output")
@@ -491,7 +484,7 @@ class TestParseWorkflowOutputLabels(unittest.TestCase):
 
     def test_workflow_labels_from_annotation(self):
         def wf(x) -> Annotated[Any, {"label": "result"}]:
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -499,7 +492,7 @@ class TestParseWorkflowOutputLabels(unittest.TestCase):
 
     def test_workflow_annotations_mismatch_raises(self):
         def wf(x) -> tuple[Annotated[Any, {"label": "result"}], int]:
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         with self.assertRaises(ValueError) as ctx:
@@ -512,7 +505,7 @@ class TestParseWorkflowOutputLabels(unittest.TestCase):
 class TestParseWorkflowErrors(unittest.TestCase):
     def test_no_return_raises(self):
         def wf(x):
-            y = typed_add(x)  # noqa: F841
+            y = library.typed_add(x)  # noqa: F841
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
@@ -520,8 +513,8 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
     def test_multiple_returns_raises(self):
         def wf(x, flag):
-            y = typed_add(x)
-            z = multiply(x)
+            y = library.typed_add(x)
+            z = library.multiply(x)
             return y
             return z
 
@@ -530,7 +523,7 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
     def test_unknown_symbol_raises(self):
         def wf(x):
-            y = typed_add(unknown_var)  # noqa: F821
+            y = library.typed_add(unknown_var)  # noqa: F821
             return y
 
         with self.assertRaises(KeyError) as ctx:
@@ -548,7 +541,7 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
     def test_duplicate_return_symbols_raises(self):
         def wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y, y
 
         with self.assertRaises(ValueError) as ctx:
@@ -558,7 +551,7 @@ class TestParseWorkflowErrors(unittest.TestCase):
     def test_unrecognized_node_raises(self):
         def wf(x):
             print("This is not allowed")
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y, y
 
         with self.assertRaises(TypeError) as ctx:
@@ -567,7 +560,7 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
     def test_too_many_symbols_raises(self):
         def wf(x):
-            y, z = typed_add(x)
+            y, z = library.typed_add(x)
             return y, z
 
         with self.assertRaises(ValueError) as ctx:
@@ -591,7 +584,7 @@ class TestParseWorkflowErrors(unittest.TestCase):
 
     def test_unrecognized_return_raises(self):
         def wf(x):
-            y = typed_add(x)  # noqa: F841
+            y = library.typed_add(x)  # noqa: F841
             return z  # noqa: F821
 
         with self.assertRaises(ValueError) as ctx:
@@ -605,7 +598,7 @@ class TestParseWorkflowErrors(unittest.TestCase):
         """
 
         def wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             accumulator, too_much = []  # noqa: F841
             return y
 
@@ -635,7 +628,7 @@ class TestAnnotatedAssignment(unittest.TestCase):
     def test_annotated_assignment(self):
         @workflow_parser.workflow
         def wf(x):
-            y: int = typed_add(x)
+            y: int = library.typed_add(x)
             return y
 
         node = wf.flowrep_recipe
@@ -649,9 +642,9 @@ class TestWorkflowRecipeNaming(unittest.TestCase):
     def test_multiple_calls_same_function(self):
         @workflow_parser.workflow
         def wf(x):
-            a = typed_add(x)
-            b = typed_add(a)
-            c = typed_add(b)
+            a = library.typed_add(x)
+            b = library.typed_add(a)
+            c = library.typed_add(b)
             return c
 
         node = wf.flowrep_recipe
@@ -732,7 +725,7 @@ class TestWorkflowFullyQualifiedName(unittest.TestCase):
 
     def test_fqn_set_on_parsed_workflow(self):
         def wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -744,7 +737,7 @@ class TestWorkflowFullyQualifiedName(unittest.TestCase):
     def test_fqn_on_decorated_workflow(self):
         @workflow_parser.workflow
         def decorated_wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         self.assertEqual(
@@ -755,7 +748,7 @@ class TestWorkflowFullyQualifiedName(unittest.TestCase):
     def test_fqn_on_decorated_workflow_with_args(self):
         @workflow_parser.workflow("result")
         def decorated_wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         self.assertEqual(
@@ -779,7 +772,7 @@ class TestWorkflowFullyQualifiedName(unittest.TestCase):
 
     def test_fqn_roundtrips_through_serialization(self):
         def wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -797,7 +790,7 @@ class TestWorkflowVariadicRejection(unittest.TestCase):
 
     def test_varargs_rejected(self):
         def wf(*args):
-            y = typed_add(args[0])
+            y = library.typed_add(args[0])
             return y
 
         with self.assertRaises(ValueError) as ctx:
@@ -807,7 +800,7 @@ class TestWorkflowVariadicRejection(unittest.TestCase):
 
     def test_kwargs_rejected(self):
         def wf(**kwargs):
-            y = typed_add(kwargs["x"])
+            y = library.typed_add(kwargs["x"])
             return y
 
         with self.assertRaises(ValueError) as ctx:
@@ -817,7 +810,7 @@ class TestWorkflowVariadicRejection(unittest.TestCase):
 
     def test_keyword_only_accepted(self):
         def wf(a, *, key=1):
-            y = typed_add(a, key)
+            y = library.typed_add(a, key)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -829,7 +822,7 @@ class TestWorkflowVariadicRejection(unittest.TestCase):
 
     def test_positional_or_keyword_omitted_from_restricted(self):
         def wf(a, b):
-            c = typed_add(a, b)
+            c = library.typed_add(a, b)
             return c
 
         node = workflow_parser.parse_workflow(wf)
@@ -925,7 +918,7 @@ class TestWorkflowDecoratorVersionParams(unittest.TestCase):
 
     def test_decorator_passes_version_scraping(self):
         custom_version = "42.0.0"
-        module_base = typed_add.__module__.split(".")[0]
+        module_base = self.__module__.split(".")[0]
 
         @workflow_parser.workflow(
             version_scraping={
@@ -952,7 +945,7 @@ class TestParseWorkflowHasDefault(unittest.TestCase):
 
     def test_workflow_inputs_with_defaults_from_signature(self):
         def wf(a, b=5):
-            c = typed_add(a, b)
+            c = library.typed_add(a, b)
             return c
 
         node = workflow_parser.parse_workflow(wf)
@@ -960,7 +953,7 @@ class TestParseWorkflowHasDefault(unittest.TestCase):
 
     def test_workflow_no_defaults(self):
         def wf(a, b):
-            c = typed_add(a, b)
+            c = library.typed_add(a, b)
             return c
 
         node = workflow_parser.parse_workflow(wf)
@@ -968,7 +961,7 @@ class TestParseWorkflowHasDefault(unittest.TestCase):
 
     def test_workflow_all_defaults(self):
         def wf(a=1, b=2):
-            c = typed_add(a, b)
+            c = library.typed_add(a, b)
             return c
 
         node = workflow_parser.parse_workflow(wf)
@@ -978,7 +971,9 @@ class TestParseWorkflowHasDefault(unittest.TestCase):
         """Undecorated children parsed on-the-fly should carry inputs_with_defaults."""
 
         def wf(x):
-            y = typed_add(x)  # add has x=2.0, y=1 → inputs_with_defaults=["x", "y"]
+            y = library.typed_add(
+                x
+            )  # add has x=2.0, y=1 → inputs_with_defaults=["x", "y"]
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -987,24 +982,26 @@ class TestParseWorkflowHasDefault(unittest.TestCase):
 
     def test_child_mixed_defaults(self):
         def wf(x):
-            y = multiply(x)  # multiply has (x, y=5) → inputs_with_defaults=["y"]
+            y = library.typed_multiply(
+                x
+            )  # multiply has (x, y=5) → inputs_with_defaults=["y"]
             return y
 
         node = workflow_parser.parse_workflow(wf)
-        child = node.nodes["multiply_0"]
+        child = node.nodes["typed_multiply_0"]
         self.assertEqual(child.reference.inputs_with_defaults, ["y"])
 
     def test_decorator_preserves_inputs_with_defaults(self):
         @workflow_parser.workflow
         def wf(a, b=10):
-            c = typed_add(a, b)
+            c = library.typed_add(a, b)
             return c
 
         self.assertEqual(wf.flowrep_recipe.reference.inputs_with_defaults, ["b"])
 
     def test_roundtrip_preserves_inputs_with_defaults(self):
         def wf(a, b=5):
-            c = typed_add(a, b)
+            c = library.typed_add(a, b)
             return c
 
         node = workflow_parser.parse_workflow(wf)
@@ -1019,14 +1016,14 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
     """Verify version_scraping propagates to child nodes parsed inside a workflow."""
 
     def _pkg(self) -> str:
-        return typed_add.__module__.split(".")[0]
+        return library.typed_add.__module__.split(".")[0]
 
     def test_scraping_propagates_to_undecorated_child(self):
         """An undecorated function parsed on-the-fly should receive the scraping map."""
         custom = "11.22.33"
 
         def my_wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         node = workflow_parser.parse_workflow(
@@ -1055,24 +1052,24 @@ class TestWorkflowVersionScrapingPropagation(unittest.TestCase):
         custom = "44.55.66"
 
         def my_wf(x):
-            y = typed_add(x)
-            z = multiply(y)
+            y = library.typed_add(x)
+            z = library.typed_multiply(y)
             return z
 
         node = workflow_parser.parse_workflow(
             my_wf, version_scraping={self._pkg(): lambda _: custom}
         )
         self.assertEqual(node.nodes["typed_add_0"].reference.info.version, custom)
-        self.assertEqual(node.nodes["multiply_0"].reference.info.version, custom)
+        self.assertEqual(node.nodes["typed_multiply_0"].reference.info.version, custom)
 
     def test_decorator_propagates_scraping_to_children(self):
         """@workflow decorator forwards version_scraping to child nodes."""
         custom = "77.88.99"
-        pkg = typed_add.__module__.split(".")[0]
+        pkg = library.typed_add.__module__.split(".")[0]
 
         @workflow_parser.workflow(version_scraping={pkg: lambda _: custom})
         def my_wf(x):
-            y = typed_add(x)
+            y = library.typed_add(x)
             return y
 
         child = my_wf.flowrep_recipe.nodes["typed_add_0"]
@@ -1160,7 +1157,7 @@ class TestNestedDescriptions(unittest.TestCase):
         self.assertEqual(recipe.nodes["inner_macro_0"].description, inner_macro.__doc__)
         self.assertEqual(
             recipe.nodes["inner_macro_0"].nodes["typed_add_0"].description,
-            typed_add.__doc__,
+            library.typed_add.__doc__,
         )
 
 

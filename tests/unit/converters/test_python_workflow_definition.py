@@ -573,8 +573,8 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
         """x, y → add → multiply → result"""
 
         def wf(x: float, y: float) -> float:
-            s = library.add(x, y)
-            p = library.multiply(s, y)
+            s = library.typed_add(x, y)
+            p = library.typed_multiply(s, y)
             return p
 
         node = workflow_parser.parse_workflow(wf)
@@ -584,8 +584,8 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
         """One input feeds multiple children."""
 
         def wf(x: float, y: float) -> float:
-            s = library.add(x, y)
-            p = library.multiply(x, s)
+            s = library.typed_add(x, y)
+            p = library.typed_multiply(x, s)
             return p
 
         node = workflow_parser.parse_workflow(wf)
@@ -596,7 +596,7 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
 
         def wf(x: float) -> float:
             a, b = library.multi_result(x)
-            c = library.add(a, b)
+            c = library.typed_add(a, b)
             return c
 
         node = workflow_parser.parse_workflow(wf)
@@ -606,7 +606,7 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
         """Simplest case: one function, all inputs wired, one output."""
 
         def wf(x: float, y: float) -> float:
-            z = library.add(x, y)
+            z = library.typed_add(x, y)
             return z
 
         node = workflow_parser.parse_workflow(wf)
@@ -617,7 +617,7 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
 
         def wf(x: float) -> float:
             a, b = library.multi_result(x)
-            c = library.add(a, b)
+            c = library.typed_add(a, b)
             return c
 
         node = workflow_parser.parse_workflow(wf)
@@ -637,19 +637,19 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
         """Explicit single-output port names round-trip via sourcePort strings."""
 
         def wf(x: float, y: float) -> float:
-            z = library.add(x, y)
+            z = library.typed_add(x, y)
             return z
 
         node = workflow_parser.parse_workflow(wf)
         # The add node's single output has a real name (not __result__)
-        add_node = node.nodes["add_0"]
+        add_node = node.nodes["typed_add_0"]
         self.assertNotEqual(add_node.outputs[0], pwd_conv._DEFAULT_OUTPUT_PORT)
 
         pwd_wf = pwd_conv.flowrep2pwd(node, x=10.0, y=1.0)
         fr_rt, _ = pwd_conv.pwd2flowrep(pwd_wf)
 
         # Port name must survive
-        self.assertEqual(add_node.outputs, fr_rt.nodes["add_0"].outputs)
+        self.assertEqual(add_node.outputs, fr_rt.nodes["typed_add_0"].outputs)
 
 
 @unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
