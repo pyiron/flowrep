@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import dataclasses
 import inspect
 import textwrap
 import unittest
@@ -11,22 +10,6 @@ from typing import Annotated, NamedTuple
 from flowrep import base_models
 from flowrep.parsers import atomic_parser, label_helpers, parser_helpers
 from flowrep.prospective import atomic_recipe
-
-
-@dataclasses.dataclass
-class _Result:
-    x: int
-    y: int
-
-
-@dataclasses.dataclass
-class _TypingProblem:
-    x: YouCantFindThis  # noqa: F821
-
-
-@atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.DATACLASS)
-def my_result(result: _Result) -> _Result:
-    return result
 
 
 def _make_func_in_module(module: str, qualname: str) -> FunctionType:
@@ -397,29 +380,6 @@ class TestParseAtomicWithOutputLabels(unittest.TestCase):
         node = atomic_parser.parse_atomic(func)
         self.assertEqual(node.outputs, ["result"])
 
-    def test_explicit_labels_with_dataclass(self):
-
-        def func() -> _Result:
-            return _Result(1, 2)
-
-        # Should use dataclass fields, not explicit labels
-        node = atomic_parser.parse_atomic(
-            func, unpack_mode=atomic_recipe.UnpackMode.DATACLASS
-        )
-        self.assertEqual(node.outputs, ["x", "y"])
-
-    def test_explicit_labels_with_dataclass_wrong_count_raises(self):
-
-        def func() -> _Result:
-            return _Result(1, 2)
-
-        with self.assertRaises(ValueError) as ctx:
-            atomic_parser.parse_atomic(
-                func, "only_one", unpack_mode=atomic_recipe.UnpackMode.DATACLASS
-            )
-
-        self.assertIn("expected 2 labels", str(ctx.exception))
-
 
 class TestAtomicEdgeCases(unittest.TestCase):
     def test_atomic_preserves_function_with_labels(self):
@@ -694,121 +654,6 @@ class TestExtractCombinedReturnLabels(unittest.TestCase):
         self.assertEqual(labels, [("a", "b")])
 
 
-class TestParseDataclassReturnLabels(unittest.TestCase):
-    def test_valid_dataclass_return(self):
-
-        def func() -> _Result:
-            return _Result(1, 2)
-
-        labels = atomic_parser._parse_dataclass_return_labels(func)
-        self.assertEqual(labels, ["x", "y"])
-
-    def test_missing_return_annotation_raises_error(self):
-        def func():
-            return dataclasses.make_dataclass("Result", [("x", int)])()
-
-        with self.assertRaises(ValueError) as ctx:
-            atomic_parser._parse_dataclass_return_labels(func)
-        self.assertIn("return type annotation", str(ctx.exception))
-
-    def test_non_dataclass_annotation_raises_error(self):
-        def func() -> int:
-            return 42
-
-        with self.assertRaises(ValueError) as ctx:
-            atomic_parser._parse_dataclass_return_labels(func)
-        self.assertIn("dataclass", str(ctx.exception))
-
-    def test_multiple_return_statements(self):
-
-        def func(flag) -> _Result:
-            if flag:
-                return _Result(1, 2)
-            return _Result(2, 3)
-
-        labels = atomic_parser._parse_dataclass_return_labels(func)
-        self.assertEqual(labels, ["x", "y"])
-
-    def test_dangerous_returns(self):
-
-        def func(flag) -> _Result:
-            if flag:
-                return 42
-            return _Result(2, 3)
-
-        labels = atomic_parser._parse_dataclass_return_labels(func)
-        self.assertEqual(
-            labels,
-            ["x", "y"],
-            msg="THIS IS THE DEVELOPER'S PROBLEM. We can't stop them from lying in "
-            "their return statements.",
-        )
-
-    def test_multiple_returns_raises_error(self):
-        @dataclasses.dataclass
-        class Result:
-            x: int
-
-        def func() -> tuple[Result, Result]:
-            return Result(0), Result(1)
-
-        with self.assertRaises(ValueError) as ctx:
-            atomic_parser._parse_dataclass_return_labels(func)
-        self.assertIn("exactly one value", str(ctx.exception).lower())
-
-    def test_inconsistent_returns_raises_error(self):
-        @dataclasses.dataclass
-        class Result:
-            x: int
-
-        def func(flag) -> Result:
-            if flag:
-                return Result(1), Result(2)
-            return Result(3)
-
-        with self.assertRaises(ValueError) as ctx:
-            atomic_parser._parse_dataclass_return_labels(func)
-        self.assertIn("same number of elements", str(ctx.exception).lower())
-
-    def test_unimportable_annotation_raises(self):
-        """
-        This should probably never be hittable in practice, because it requires the
-        user to ask for dataclass unpacking, and hinting something unimported, but
-        usually the hint and the returned object will be the same in this case (and
-        thus safely imported!)
-        """
-
-        def func() -> NotImportable:  # noqa: F821
-            return _TypingProblem(42)
-
-        with self.assertRaisesRegex(
-            NameError, "requires the return annotation to be importable"
-        ):
-            atomic_parser._parse_dataclass_return_labels(func)
-
-
-class TestParseDataclassCallDifferences(unittest.TestCase):
-    def test_call_differences(self):
-        input = _Result(1, 2)
-        with self.subTest("Direct call"):
-            self.assertIs(
-                input,
-                my_result(input),
-                msg="Unpacking mode should not impack the decorated function -- the "
-                "function should just do what it looks like it does",
-            )
-
-        with self.subTest("Recipe call"):
-            x, y = my_result.flowrep_recipe(input)
-            self.assertEqual(
-                input.x,
-                x,
-                msg="The recipe claims it unpacks things, and it should when used as a "
-                "callable",
-            )
-            self.assertEqual(input.y, y)
-
-
 class TestParseTupleReturnLabelsWithAnnotations(unittest.TestCase):
     def test_annotation_overrides_scraped(self):
         def func() -> Annotated[int, {"label": "custom"}]:
@@ -1022,28 +867,6 @@ class TestAtomicWithAnnotations(unittest.TestCase):
             return x, "somewhere"
 
         self.assertEqual(func.flowrep_recipe.outputs, ["dist", "city"])
-
-
-class TestAnnotationWithDataclass(unittest.TestCase):
-    def test_dataclass_mode_ignores_annotated_wrapper(self):
-
-        def func() -> Annotated[_Result, {"label": "ignored"}]:
-            return _Result(1, 2)
-
-        node = atomic_parser.parse_atomic(
-            func, unpack_mode=atomic_recipe.UnpackMode.DATACLASS
-        )
-        self.assertEqual(node.outputs, ["x", "y"])
-
-    def test_dataclass_mode_ignores_output_meta_wrapper(self):
-
-        def func() -> Annotated[_Result, label_helpers.OutputMeta(label="ignored")]:
-            return _Result(1, 2)
-
-        node = atomic_parser.parse_atomic(
-            func, unpack_mode=atomic_recipe.UnpackMode.DATACLASS
-        )
-        self.assertEqual(node.outputs, ["x", "y"])
 
 
 class TestParseAtomicVersionParams(unittest.TestCase):

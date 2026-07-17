@@ -3,7 +3,7 @@ import inspect
 import typing
 import unittest
 
-from flowrep import base_models
+from flowrep import base_models, wfms
 from flowrep.parsers import atomic_parser, dataclass_parser
 from flowrep.prospective import atomic_recipe
 from flowrep.retrospective import datastructures
@@ -207,6 +207,37 @@ class TestInverseRecipeFailures(unittest.TestCase):
             class Collide:
                 foo: int
                 flowrep_recipe_inverse: int = 0
+
+
+class TestRecipeMatchesPython(unittest.TestCase):
+    """
+    The inverse recipe is callable, so WfMS execution and raw python must agree.
+    """
+
+    def test_multi_field_inverse_recipe_call_matches_wfms_run(self):
+        instance = library.Pair(1, "a")
+        recipe = library.Pair.flowrep_recipe_inverse
+
+        raw = recipe(instance)
+        node = wfms.run_recipe(recipe, dataclass=instance)
+        via_wfms = tuple(node.output_ports[label].value for label in recipe.outputs)
+
+        self.assertEqual(raw, (1, "a"), msg="Raw call unpacks the fields")
+        self.assertEqual(
+            raw,
+            via_wfms,
+            msg="Running the recipe through a WfMS must agree with calling it directly",
+        )
+
+    def test_single_field_inverse_recipe_call_matches_wfms_run(self):
+        instance = library.Single(5)
+        recipe = library.Single.flowrep_recipe_inverse
+
+        raw = recipe(instance)
+        node = wfms.run_recipe(recipe, dataclass=instance)
+
+        self.assertEqual(raw, 5, msg="A single field unpacks bare, not as a 1-tuple")
+        self.assertEqual(raw, node.output_ports["only"].value)
 
 
 if __name__ == "__main__":

@@ -1,15 +1,11 @@
 import ast
-import dataclasses
 import inspect
 import types
 from collections.abc import Callable, Iterable
 from typing import (
-    Annotated,
     Any,
     TypeVar,
     cast,
-    get_args,
-    get_origin,
     get_type_hints,
     overload,
 )
@@ -195,8 +191,6 @@ def _get_output_labels(
         return _parse_return_label_without_unpacking(func)
     elif unpack_mode == atomic_recipe.UnpackMode.TUPLE:
         return _parse_tuple_return_labels(func)
-    elif unpack_mode == atomic_recipe.UnpackMode.DATACLASS:
-        return _parse_dataclass_return_labels(func)
     raise TypeError(
         f"Invalid unpack mode: {unpack_mode}. Possible values are "
         f"{', '.join(atomic_recipe.UnpackMode.__members__.values())}"
@@ -277,37 +271,6 @@ def _extract_return_labels(ret: ast.Return) -> tuple[str, ...]:
             if isinstance(ret.value, ast.Name)
             else (default_output_label(0),)
         )
-
-
-def _parse_dataclass_return_labels(func: types.FunctionType) -> list[str]:
-    source_code_return = _parse_tuple_return_labels(func)
-    if len(source_code_return) != 1:
-        raise ValueError(
-            f"Dataclass unpack mode requires function code to returns to consist of "
-            f"exactly one value, i.e. the dataclass instance, but got "
-            f"{source_code_return}"
-        )
-
-    try:
-        hints = get_type_hints(func, include_extras=True)
-    except NameError as e:
-        raise NameError(
-            "Dataclass unpack mode requires the return annotation to be importable at "
-            "runtime. Evaluating the return annotation for "
-            f"{func.__module__}.{func.__qualname__} failed with: {e}"
-        ) from e
-    ann = hints.get("return")
-
-    origin = get_origin(ann)
-    return_hint = get_args(ann)[0] if origin is Annotated else ann
-
-    if dataclasses.is_dataclass(return_hint):
-        return [f.name for f in dataclasses.fields(return_hint)]
-
-    raise ValueError(
-        f"Dataclass unpack mode requires a return type annotation that is a "
-        f"(perhaps Annotated) dataclass, but got {return_hint}"
-    )
 
 
 def get_labeled_recipe(

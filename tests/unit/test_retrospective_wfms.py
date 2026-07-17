@@ -40,15 +40,6 @@ def get_blue(colors: SeabornColors) -> str:
     return colors.blue
 
 
-@dataclasses.dataclass
-class InaccessibleFieldAnnotation:
-    x: SeabornColors
-
-
-def return_problematic_dataclass(x) -> InaccessibleFieldAnnotation:
-    return InaccessibleFieldAnnotation(x)
-
-
 class _RetroPoint(NamedTuple):
     x: int
     y: int
@@ -585,23 +576,6 @@ class TestAtomicFromRecipe(unittest.TestCase):
         origin = get_origin(node.output_ports["result"].annotation)
         self.assertIs(origin, tuple)
 
-    def test_unpacking_dataclass(self):
-        recipe = atomic_parser.parse_atomic(
-            takes_positional_only,
-            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
-        )
-        node = datastructures.AtomicData.from_recipe(recipe)
-        self.assertIs(node.output_ports["x"].annotation, int)
-        self.assertIs(node.output_ports["y"].annotation, int)
-
-    def test_unpacking_dataclass_with_inaccessible_field_raises(self):
-        recipe = atomic_parser.parse_atomic(
-            return_problematic_dataclass,
-            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
-        )
-        with self.assertRaisesRegex(NameError, "name 'SeabornColors' is not defined"):
-            datastructures.AtomicData.from_recipe(recipe)
-
     def test_unpacking_dataclass_as_none(self):
         recipe = atomic_parser.parse_atomic(
             takes_positional_only,
@@ -916,17 +890,6 @@ class TestRunAtomic(unittest.TestCase):
         )
         node = wfms.run_recipe(recipe, a=1, b=2)
         self.assertEqual(node.output_ports["result"].value, (0, 1))
-
-    def test_unpacking_dataclass(self):
-        recipe = atomic_parser.parse_atomic(
-            takes_positional_only,
-            "dc_x_field",
-            "dc_y_field",
-            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
-        )
-        node = wfms.run_recipe(recipe, x=1, y=2)
-        self.assertEqual(node.output_ports["dc_x_field"].value, 1)
-        self.assertEqual(node.output_ports["dc_y_field"].value, 2)
 
     def test_unrecognized_input_raises(self):
         with self.assertRaises(ValueError) as ctx:
