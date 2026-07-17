@@ -66,10 +66,6 @@ class LinkHandler(Protocol):
         """The std recipe injected per link. Two inputs (obj, key), one output."""
         ...
 
-    def label_base(self, link: ast.expr) -> str:
-        """The node label prefix, before :func:`label_helpers.unique_suffix`."""
-        ...
-
     def port_base(self, link: ast.expr) -> str:
         """The generated port name base, before :func:`label_helpers.unique_suffix`."""
         ...
@@ -97,6 +93,22 @@ def _handler_for(link: ast.expr) -> LinkHandler:
         return _HANDLERS[type(link)]
     except KeyError:  # pragma: no cover - callers gate on is_data_access
         raise TypeError(f"Not a data-access link: {ast.dump(link)}") from None
+
+
+def _label_base(recipe: atomic_recipe.AtomicRecipe) -> str:
+    """The callee's own name, as ``atomic_parser`` would label an equivalent call.
+
+    An injected link must carry the label the explicit call form produces: that identity
+    is what makes ``dc.a`` and ``std.get_attr(dc, "a")`` the same recipe, and so what
+    lets the compiler round-trip a link by emitting *either* rendering. Without it the
+    compiler would be obliged to emit one specific rendering, and its sugar would be
+    load-bearing rather than cosmetic.
+
+    Deliberately duplicates ``atomic_parser._infer_node_name``'s rule rather than
+    importing it: ``atomic_parser`` imports ``parser_helpers``, which imports this
+    module, so the import would cycle. Keep the two in step.
+    """
+    return recipe.reference.info.qualname.rsplit(".", 1)[-1]
 
 
 def chain_root(node: ast.expr) -> ast.Name | None:
@@ -161,7 +173,7 @@ def inject_chain(
         recipe = handler.recipe
         obj_port, key_port = recipe.inputs
         (out_port,) = recipe.outputs
-        label = label_helpers.unique_suffix(handler.label_base(link), nodes)
+        label = label_helpers.unique_suffix(_label_base(recipe), nodes)
         nodes[label] = recipe
         if handle is None:
             symbol_map.consume(root.id, label, obj_port)

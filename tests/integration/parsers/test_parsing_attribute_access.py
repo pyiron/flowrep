@@ -15,6 +15,17 @@ def wf(x0: int, comp: library.ComplexData):
     return repeated
 
 
+@workflow_parser.workflow
+def attribute_std_form(x0: int, comp: library.ComplexData):
+    """The explicit call the sugar must be indistinguishable from."""
+    dc = library.MyDataclass(comp, x0)
+    a_0 = std.get_attr(dc, "a")
+    my_val = std.get_attr(a_0, "val")
+    x_0 = std.get_attr(dc, "x")
+    repeated = std.mul(x_0, my_val)
+    return repeated
+
+
 class TestAttributeAccessEndToEnd(unittest.TestCase):
     def test_parses_expected_graph(self):
         recipe = wf.flowrep_recipe
@@ -23,9 +34,9 @@ class TestAttributeAccessEndToEnd(unittest.TestCase):
             set(recipe.nodes),
             {
                 "MyDataclass_0",
-                "getattr_a_0",
-                "getattr_val_0",
-                "getattr_x_0",
+                "get_attr_0",
+                "get_attr_1",
+                "get_attr_2",
                 "mul_0",
                 "constant_0",
                 "constant_1",
@@ -33,24 +44,24 @@ class TestAttributeAccessEndToEnd(unittest.TestCase):
             },
         )
         self.assertEqual(
-            recipe.edges[edge_models.TargetHandle(node="getattr_a_0", port="obj")],
+            recipe.edges[edge_models.TargetHandle(node="get_attr_0", port="obj")],
             edge_models.SourceHandle(node="MyDataclass_0", port="instance"),
         )
         self.assertEqual(
-            recipe.edges[edge_models.TargetHandle(node="getattr_val_0", port="obj")],
-            edge_models.SourceHandle(node="getattr_a_0", port="attr"),
+            recipe.edges[edge_models.TargetHandle(node="get_attr_1", port="obj")],
+            edge_models.SourceHandle(node="get_attr_0", port="attr"),
         )
         self.assertEqual(
-            recipe.edges[edge_models.TargetHandle(node="getattr_x_0", port="obj")],
+            recipe.edges[edge_models.TargetHandle(node="get_attr_2", port="obj")],
             edge_models.SourceHandle(node="MyDataclass_0", port="instance"),
         )
         self.assertEqual(
             recipe.edges[edge_models.TargetHandle(node="mul_0", port="a")],
-            edge_models.SourceHandle(node="getattr_x_0", port="attr"),
+            edge_models.SourceHandle(node="get_attr_2", port="attr"),
         )
         self.assertEqual(
             recipe.edges[edge_models.TargetHandle(node="mul_0", port="b")],
-            edge_models.SourceHandle(node="getattr_val_0", port="attr"),
+            edge_models.SourceHandle(node="get_attr_1", port="attr"),
         )
 
     def test_executes_via_run_recipe(self):
@@ -80,6 +91,16 @@ class TestAttributeAccessEndToEnd(unittest.TestCase):
         self.assertRegex(rendered.source, r"\n\s*(\w+) = \w+\.a\n\s*\w+ = \1\.val\n")
         self.assertRegex(rendered.source, r"\n\s*\w+ = \w+\.x\n")
         self.assertNotIn("_getattr_wrapper", rendered.source)
+
+    def test_identical_to_the_std_call_form(self):
+        """The label rule, stated as a test: `dc.a` is not merely equivalent to
+        `std.get_attr(dc, 'a')` -- it is the same recipe. That identity is what frees
+        the compiler to emit either rendering, and so demotes `sugar.py` from
+        load-bearing to cosmetic."""
+        self.assertEqual(
+            makers.dump_no_refs(makers.reference_free(wf)),
+            makers.dump_no_refs(makers.reference_free(attribute_std_form)),
+        )
 
 
 @workflow_parser.workflow
@@ -120,7 +141,7 @@ class TestAttributeInCondition(unittest.TestCase):
         recipe = if_attribute_condition.flowrep_recipe
         self.assertEqual(
             recipe.edges[edge_models.TargetHandle(node="if_0", port="val_0")],
-            edge_models.SourceHandle(node="getattr_val_0", port="attr"),
+            edge_models.SourceHandle(node="get_attr_0", port="attr"),
         )
 
     def test_identical_to_the_bound_form(self):
@@ -268,7 +289,7 @@ class TestAttributeAsForIterable(unittest.TestCase):
         recipe = for_attribute_iterable.flowrep_recipe
         self.assertEqual(
             recipe.edges[edge_models.TargetHandle(node="for_each_0", port="xs_0")],
-            edge_models.SourceHandle(node="getattr_xs_0", port="attr"),
+            edge_models.SourceHandle(node="get_attr_0", port="attr"),
         )
 
     def test_identical_to_the_bound_form(self):
@@ -370,7 +391,7 @@ class TestAppendingAnAttribute(unittest.TestCase):
     def test_getattr_lives_inside_the_body(self):
         """It must re-execute every iteration, exactly as the attribute access would."""
         body = for_appending_attribute.flowrep_recipe.nodes["for_each_0"].body_node
-        self.assertIn("getattr_x_0", body.recipe.nodes)
+        self.assertIn("get_attr_0", body.recipe.nodes)
 
     def test_identical_to_the_bound_form(self):
         self.assertEqual(
@@ -482,7 +503,7 @@ class TestAttributeInsideTryBranches(unittest.TestCase):
 
     def test_getattr_lives_inside_the_branch(self):
         try_node = try_attribute_in_branches.flowrep_recipe.nodes["try_0"]
-        self.assertIn("getattr_num_0", try_node.try_node.recipe.nodes)
+        self.assertIn("get_attr_0", try_node.try_node.recipe.nodes)
 
     def test_executes_both_branches(self):
         ok = library.Payload(num=6, den=2)

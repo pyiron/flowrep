@@ -54,7 +54,7 @@ class TestIsAttributeSyntax(unittest.TestCase):
 class TestAttributeName(unittest.TestCase):
     def test_returns_name_for_parsed_access(self):
         recipe = makers.reference_free(_wf)
-        self.assertEqual(sugar.attribute_name("getattr_a_0", recipe), "a")
+        self.assertEqual(sugar.attribute_name("get_attr_0", recipe), "a")
 
     def test_none_when_name_port_fed_by_non_constant_node(self):
         recipe = workflow_parser.parse_workflow(_wf).model_copy(

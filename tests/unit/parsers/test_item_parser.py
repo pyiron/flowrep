@@ -22,11 +22,6 @@ class TestHandlerTracksTheRecipe(unittest.TestCase):
     def test_recipe_is_std_getitem(self):
         self.assertIs(item_parser.HANDLER.recipe, std.getitem.flowrep_recipe)
 
-    def test_label_base_matches_the_std_call_form(self):
-        """`d[k]` must mint the label `std.getitem(d, k)` would: that identity is what
-        lets the compiler round-trip item access without desugaring it."""
-        self.assertEqual(item_parser.HANDLER.label_base(_expr("d[0]")), "getitem")
-
     def test_port_base_is_the_recipes_output_port(self):
         (item_port,) = std.getitem.flowrep_recipe.outputs
         self.assertEqual(item_parser.HANDLER.port_base(_expr("d[0]")), item_port)

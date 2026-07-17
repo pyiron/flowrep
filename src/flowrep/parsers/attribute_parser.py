@@ -29,9 +29,6 @@ class AttributeHandler:
 
         return std.get_attr.flowrep_recipe  # type: ignore[attr-defined,no-any-return]
 
-    def label_base(self, link: ast.expr) -> str:
-        return f"getattr_{_link(link).attr}"
-
     def port_base(self, link: ast.expr) -> str:
         return _link(link).attr
 

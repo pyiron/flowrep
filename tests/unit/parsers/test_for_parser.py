@@ -169,9 +169,9 @@ class TestParseSingleForHeader(unittest.TestCase):
         self.assertEqual(axes[0].variable, "x")
         self.assertEqual(axes[0].port, "xs_0")
         self.assertEqual(
-            axes[0].binding, edge_models.SourceHandle(node="getattr_xs_0", port="attr")
+            axes[0].binding, edge_models.SourceHandle(node="get_attr_0", port="attr")
         )
-        self.assertIn("getattr_xs_0", nodes)
+        self.assertIn("get_attr_0", nodes)
 
 
 # ===================================================================
