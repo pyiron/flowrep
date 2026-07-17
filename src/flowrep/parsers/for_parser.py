@@ -5,7 +5,7 @@ from typing import NamedTuple
 
 from flowrep import edge_models
 from flowrep.parsers import (
-    attribute_parser,
+    chain_parser,
     parser_helpers,
     parser_protocol,
     symbol_scope,
@@ -207,20 +207,20 @@ def _resolve_collection(
 
     A for recipe has no room to host a peer, so an attribute chain becomes a getattr
     peer of the for node in the enclosing scope and reaches it through a generated
-    port. See :func:`attribute_parser.generate_port_name` for the naming rule.
+    port. See :func:`chain_parser.generate_port_name` for the naming rule.
     """
     if isinstance(iter_expr, ast.Name):
         return iter_expr.id, None
-    if attribute_parser.is_data_attribute(iter_expr, symbol_map):
-        handle = attribute_parser.inject_attribute_chain(iter_expr, symbol_map, nodes)
-        port = attribute_parser.generate_port_name(
+    if chain_parser.is_data_access(iter_expr, symbol_map):
+        handle = chain_parser.inject_chain(iter_expr, symbol_map, nodes)
+        port = chain_parser.generate_port_name(
             iter_expr, symbol_map.unavailable_names | reserved_ports
         )
         reserved_ports.add(port)
         return port, handle
     raise ValueError(
-        f"For iteration must iterate over a symbol, or an attribute of one, but got "
-        f"'{ast.unparse(iter_expr)}'."
+        f"For iteration must iterate over a symbol, or an attribute or item of one, "
+        f"but got '{ast.unparse(iter_expr)}'."
     )
 
 

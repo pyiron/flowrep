@@ -12,7 +12,7 @@ from pyiron_snippets import versions
 from flowrep import base_models, edge_models
 from flowrep.parsers import (
     atomic_parser,
-    attribute_parser,
+    chain_parser,
     constant_parser,
     for_parser,
     if_parser,
@@ -272,8 +272,8 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
-            attribute_parser.reject_method_call(rhs, self.symbol_map)
-            hoisted = attribute_parser.hoist_call_arguments(
+            chain_parser.reject_method_call(rhs, self.symbol_map)
+            hoisted = chain_parser.hoist_call_arguments(
                 rhs, self.symbol_map, self.nodes
             )
             child = atomic_parser.get_labeled_recipe(
@@ -294,17 +294,13 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                     f"got {new_symbols}"
                 )
             self.symbol_map.register_accumulator(new_symbols[0])
-        elif rhs is not None and attribute_parser.is_data_attribute(
-            rhs, self.symbol_map
-        ):
+        elif rhs is not None and chain_parser.is_data_access(rhs, self.symbol_map):
             if len(new_symbols) != 1:
                 raise ValueError(
-                    f"Attribute-access assignment must target exactly one symbol, "
+                    f"Attribute/item access assignment must target exactly one symbol, "
                     f"got {new_symbols}"
                 )
-            handle = attribute_parser.inject_attribute_chain(
-                rhs, self.symbol_map, self.nodes
-            )
+            handle = chain_parser.inject_chain(rhs, self.symbol_map, self.nodes)
             self.symbol_map.register(
                 new_symbols,
                 helper_models.LabeledRecipe(
@@ -327,7 +323,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
-                f"a call, empty list, symbol alias, or attribute "
+                f"a call, empty list, symbol alias, or attribute/item "
                 f"access rooted at a known workflow symbol on the right-hand-side, "
                 f"but ast found {type(rhs)}"
             )
@@ -439,13 +435,13 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
             ast.Name, cast(ast.Attribute, append_call.func).value
         ).id
         appended = append_call.args[0]
-        if attribute_parser.is_data_attribute(appended, self.symbol_map):
-            self._append_attribute(used_accumulator, appended)
+        if chain_parser.is_data_access(appended, self.symbol_map):
+            self._append_chain(used_accumulator, appended)
             return
         if not isinstance(appended, ast.Name):
             raise TypeError(
                 f"Workflow python definitions can only append a symbol, or an "
-                f"attribute of one, to an accumulator, but "
+                f"attribute or item of one, to an accumulator, but "
                 f"'{used_accumulator}.append(...)' got {type(appended).__name__}. "
                 f"Bind the value to a symbol first."
             )
@@ -455,7 +451,7 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         if isinstance(appended_source, edge_models.SourceHandle):
             self.symbol_map.produce(appended_symbol)
 
-    def _append_attribute(self, used_accumulator: str, appended: ast.expr) -> None:
+    def _append_chain(self, used_accumulator: str, appended: ast.expr) -> None:
         """Append an attribute chain, giving its output port a generated name.
 
         The getattr nodes go *inside* this body -- an ordinary workflow, which has room
@@ -463,10 +459,8 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         would in Python. Only the port name is invented, and it is deduped against every
         symbol in scope and every port already produced, so it cannot collide.
         """
-        handle = attribute_parser.inject_attribute_chain(
-            appended, self.symbol_map, self.nodes
-        )
-        port = attribute_parser.generate_port_name(
+        handle = chain_parser.inject_chain(appended, self.symbol_map, self.nodes)
+        port = chain_parser.generate_port_name(
             appended, self.symbol_map.unavailable_names
         )
         self.symbol_map.use_accumulator(used_accumulator, port)
@@ -525,7 +519,7 @@ class _WorkflowFunctionParser(WorkflowParser):
                 body.value.elts if isinstance(body.value, ast.Tuple) else [body.value]
             )
             for element in elements:
-                attribute_parser.reject_unbound_attribute(
+                chain_parser.reject_unbound_access(
                     element, self.symbol_map, "returned from a workflow"
                 )
 
