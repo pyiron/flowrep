@@ -1361,7 +1361,7 @@ class TestAttributeAccess(unittest.TestCase):
             return r
 
         node = workflow_parser.parse_workflow(wf)
-        self.assertIn("getattr_x_0", node.nodes)
+        self.assertIn("get_attr_0", node.nodes)
         constants = [
             n
             for n in node.nodes.values()
@@ -1369,7 +1369,7 @@ class TestAttributeAccess(unittest.TestCase):
         ]
         self.assertTrue(any(c.constant == "x" for c in constants))
         self.assertEqual(
-            node.edges[edge_models.TargetHandle(node="getattr_x_0", port="obj")],
+            node.edges[edge_models.TargetHandle(node="get_attr_0", port="obj")],
             edge_models.SourceHandle(node="MyDataclass_0", port="instance"),
         )
 
@@ -1380,11 +1380,11 @@ class TestAttributeAccess(unittest.TestCase):
             return v
 
         node = workflow_parser.parse_workflow(wf)
-        self.assertIn("getattr_a_0", node.nodes)
-        self.assertIn("getattr_val_0", node.nodes)
+        self.assertIn("get_attr_0", node.nodes)
+        self.assertIn("get_attr_1", node.nodes)
         self.assertEqual(
-            node.edges[edge_models.TargetHandle(node="getattr_val_0", port="obj")],
-            edge_models.SourceHandle(node="getattr_a_0", port="attr"),
+            node.edges[edge_models.TargetHandle(node="get_attr_1", port="obj")],
+            edge_models.SourceHandle(node="get_attr_0", port="attr"),
         )
 
     def test_call_argument_each_access_is_its_own_node(self):
@@ -1394,8 +1394,8 @@ class TestAttributeAccess(unittest.TestCase):
             return r
 
         node = workflow_parser.parse_workflow(wf)
-        self.assertIn("getattr_x_0", node.nodes)
-        self.assertIn("getattr_x_1", node.nodes)
+        self.assertIn("get_attr_0", node.nodes)
+        self.assertIn("get_attr_1", node.nodes)
 
     def test_hoisting_invariant_call_argument_form(self):
         def hoisted(x0: int, comp: library.ComplexData):
@@ -1442,9 +1442,7 @@ class TestAttributeAccess(unittest.TestCase):
 
         node = workflow_parser.parse_workflow(wf)
         self.assertEqual(
-            node.input_edges[
-                edge_models.TargetHandle(node="getattr_val_0", port="obj")
-            ],
+            node.input_edges[edge_models.TargetHandle(node="get_attr_0", port="obj")],
             edge_models.InputSource(port="comp"),
         )
 
@@ -1506,13 +1504,13 @@ class TestAttributeAccess(unittest.TestCase):
 
         node = workflow_parser.parse_workflow(wf)
         # The getattr node is a peer of the `if`, not inside it.
-        self.assertIn("getattr_x_0", node.nodes)
+        self.assertIn("get_attr_0", node.nodes)
         self.assertIn("if_0", node.nodes)
         # ...and it feeds the flow control through a port named after the symbol.
         self.assertIn("flag", node.nodes["if_0"].inputs)
         self.assertEqual(
             node.edges[edge_models.TargetHandle(node="if_0", port="flag")],
-            edge_models.SourceHandle(node="getattr_x_0", port="attr"),
+            edge_models.SourceHandle(node="get_attr_0", port="attr"),
         )
 
     def test_multi_target_attribute_assignment_raises(self):
@@ -1583,7 +1581,7 @@ class TestAttributeAccess(unittest.TestCase):
         self.assertEqual(node.outputs, ["v"])
         self.assertEqual(
             node.output_edges[edge_models.OutputTarget(port="v")],
-            edge_models.SourceHandle(node="getattr_a_0", port="attr"),
+            edge_models.SourceHandle(node="get_attr_0", port="attr"),
         )
 
     def test_return_no_value_raises(self):
@@ -1641,16 +1639,16 @@ class TestAttributeAccess(unittest.TestCase):
         body = for_node.body_node.recipe
         # Two accesses to the same attribute of two different objects are two
         # distinct nodes feeding two distinctly-named ports. This is the defect.
-        self.assertIn("getattr_a_0", body.nodes)
-        self.assertIn("getattr_a_1", body.nodes)
+        self.assertIn("get_attr_0", body.nodes)
+        self.assertIn("get_attr_1", body.nodes)
         self.assertEqual(body.outputs, ["first", "second"])
         self.assertEqual(
             body.output_edges[edge_models.OutputTarget(port="first")],
-            edge_models.SourceHandle(node="getattr_a_0", port="attr"),
+            edge_models.SourceHandle(node="get_attr_0", port="attr"),
         )
         self.assertEqual(
             body.output_edges[edge_models.OutputTarget(port="second")],
-            edge_models.SourceHandle(node="getattr_a_1", port="attr"),
+            edge_models.SourceHandle(node="get_attr_1", port="attr"),
         )
 
 

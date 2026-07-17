@@ -114,7 +114,7 @@ class TestAliasNonRegression(unittest.TestCase):
             return y
 
         recipe = _parse(macro)
-        self.assertIn("getattr_real_0", recipe.nodes)
+        self.assertIn("get_attr_0", recipe.nodes)
         self.assertEqual(recipe.outputs, ["y"])
 
     def test_alias_to_undefined_symbol_raises(self):

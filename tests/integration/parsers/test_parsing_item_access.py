@@ -153,13 +153,13 @@ class TestMixedChain(unittest.TestCase):
         self.assertEqual(
             list(recipe.nodes),
             [
-                "getattr_sub_0",
+                "get_attr_0",
                 "constant_0",
                 "getitem_0",
                 "constant_1",
                 "getitem_1",
                 "constant_2",
-                "getattr_val_0",
+                "get_attr_1",
                 "constant_3",
             ],
         )
@@ -168,14 +168,14 @@ class TestMixedChain(unittest.TestCase):
         recipe = mixed_chain.flowrep_recipe
         self.assertEqual(
             recipe.edges[edge_models.TargetHandle(node="getitem_0", port="a")],
-            edge_models.SourceHandle(node="getattr_sub_0", port="attr"),
+            edge_models.SourceHandle(node="get_attr_0", port="attr"),
         )
         self.assertEqual(
             recipe.edges[edge_models.TargetHandle(node="getitem_1", port="a")],
             edge_models.SourceHandle(node="getitem_0", port="item"),
         )
         self.assertEqual(
-            recipe.edges[edge_models.TargetHandle(node="getattr_val_0", port="obj")],
+            recipe.edges[edge_models.TargetHandle(node="get_attr_1", port="obj")],
             edge_models.SourceHandle(node="getitem_1", port="item"),
         )
 

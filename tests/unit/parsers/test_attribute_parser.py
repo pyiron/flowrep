@@ -28,12 +28,12 @@ class TestInjectionUsesTheRecipePorts(unittest.TestCase):
 
         handle = chain_parser.inject_chain(_expr("dc.a"), scope, nodes)
 
-        self.assertEqual(handle, _make_source("getattr_a_0", attr_port))
+        self.assertEqual(handle, _make_source("get_attr_0", attr_port))
         self.assertIn(
-            edge_models.TargetHandle(node="getattr_a_0", port=obj_port), scope.edges
+            edge_models.TargetHandle(node="get_attr_0", port=obj_port), scope.edges
         )
         self.assertIn(
-            edge_models.TargetHandle(node="getattr_a_0", port=name_port), scope.edges
+            edge_models.TargetHandle(node="get_attr_0", port=name_port), scope.edges
         )
 
 
@@ -42,11 +42,6 @@ class TestHandlerTracksTheRecipe(unittest.TestCase):
 
     def test_recipe_is_std_get_attr(self):
         self.assertIs(attribute_parser.HANDLER.recipe, std.get_attr.flowrep_recipe)
-
-    def test_label_base_embeds_the_attribute_name(self):
-        self.assertEqual(
-            attribute_parser.HANDLER.label_base(_expr("dc.a")), "getattr_a"
-        )
 
     def test_port_base_is_the_attribute_name(self):
         self.assertEqual(attribute_parser.HANDLER.port_base(_expr("dc.a")), "a")

@@ -79,22 +79,22 @@ class TestInjectChain(unittest.TestCase):
         assert isinstance(node, ast.Attribute)
         handle = chain_parser.inject_chain(node, scope, nodes)
 
-        self.assertEqual(set(nodes), {"getattr_a_0", "constant_0"})
-        self.assertIs(nodes["getattr_a_0"], std.get_attr.flowrep_recipe)
+        self.assertEqual(set(nodes), {"get_attr_0", "constant_0"})
+        self.assertIs(nodes["get_attr_0"], std.get_attr.flowrep_recipe)
         self.assertIsInstance(nodes["constant_0"], constant_recipe.ConstantRecipe)
         self.assertEqual(nodes["constant_0"].constant, "a")
         self.assertEqual(
             scope.edges,
             {
-                edge_models.TargetHandle(node="getattr_a_0", port="obj"): _make_source(
+                edge_models.TargetHandle(node="get_attr_0", port="obj"): _make_source(
                     "MyDataclass_0", "instance"
                 ),
-                edge_models.TargetHandle(node="getattr_a_0", port="name"): _make_source(
+                edge_models.TargetHandle(node="get_attr_0", port="name"): _make_source(
                     "constant_0", "constant"
                 ),
             },
         )
-        self.assertEqual(handle, _make_source("getattr_a_0", "attr"))
+        self.assertEqual(handle, _make_source("get_attr_0", "attr"))
 
     def test_chain_of_two_links(self):
         scope = symbol_scope.SymbolScope(
@@ -106,13 +106,13 @@ class TestInjectChain(unittest.TestCase):
         handle = chain_parser.inject_chain(node, scope, nodes)
 
         self.assertEqual(
-            list(nodes), ["getattr_a_0", "constant_0", "getattr_val_0", "constant_1"]
+            list(nodes), ["get_attr_0", "constant_0", "get_attr_1", "constant_1"]
         )
         self.assertEqual(
-            scope.edges[edge_models.TargetHandle(node="getattr_val_0", port="obj")],
-            _make_source("getattr_a_0", "attr"),
+            scope.edges[edge_models.TargetHandle(node="get_attr_1", port="obj")],
+            _make_source("get_attr_0", "attr"),
         )
-        self.assertEqual(handle, _make_source("getattr_val_0", "attr"))
+        self.assertEqual(handle, _make_source("get_attr_1", "attr"))
 
     def test_root_is_workflow_input_creates_input_edge(self):
         scope = symbol_scope.SymbolScope({"comp": _make_input("comp")})
@@ -124,7 +124,7 @@ class TestInjectChain(unittest.TestCase):
         self.assertEqual(
             scope.input_edges,
             {
-                edge_models.TargetHandle(node="getattr_val_0", port="obj"): _make_input(
+                edge_models.TargetHandle(node="get_attr_0", port="obj"): _make_input(
                     "comp"
                 )
             },
@@ -140,7 +140,7 @@ class TestInjectChain(unittest.TestCase):
         assert isinstance(node1, ast.Attribute) and isinstance(node2, ast.Attribute)
         chain_parser.inject_chain(node1, scope, nodes)
         handle2 = chain_parser.inject_chain(node2, scope, nodes)
-        self.assertEqual(handle2.node, "getattr_a_1")
+        self.assertEqual(handle2.node, "get_attr_1")
 
     def test_accumulator_root_raises(self):
         scope = symbol_scope.SymbolScope({}, available_accumulators={"acc"})
@@ -149,6 +149,26 @@ class TestInjectChain(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             chain_parser.inject_chain(node, scope, {})
         self.assertIn("accumulator", str(ctx.exception).lower())
+
+
+class TestLabelBase(unittest.TestCase):
+    """Injected links carry the label the explicit call form mints.
+
+    The meaning of this rule is pinned end-to-end by
+    `test_parsing_attribute_access.TestAttributeAccessEndToEnd
+    .test_identical_to_the_std_call_form` and its item twin; this is the unit-level
+    statement of it.
+    """
+
+    def test_getattr_label_is_the_callee_name(self):
+        self.assertEqual(
+            chain_parser._label_base(std.get_attr.flowrep_recipe), "get_attr"
+        )
+
+    def test_getitem_label_is_the_callee_name(self):
+        self.assertEqual(
+            chain_parser._label_base(std.getitem.flowrep_recipe), "getitem"
+        )
 
 
 class TestRejectMethodCall(unittest.TestCase):
@@ -234,17 +254,17 @@ class TestInjectMixedChain(unittest.TestCase):
         self.assertEqual(
             list(nodes),
             [
-                "getattr_sub_0",
+                "get_attr_0",
                 "constant_0",
                 "getitem_0",
                 "constant_1",
                 "getitem_1",
                 "constant_2",
-                "getattr_val_0",
+                "get_attr_1",
                 "constant_3",
             ],
         )
-        self.assertEqual(handle, _make_source("getattr_val_0", "attr"))
+        self.assertEqual(handle, _make_source("get_attr_1", "attr"))
 
     def test_each_link_reads_from_the_previous(self):
         scope = symbol_scope.SymbolScope({"holder": _make_input("holder")})
@@ -252,7 +272,7 @@ class TestInjectMixedChain(unittest.TestCase):
         chain_parser.inject_chain(_expr("holder.sub['item']"), scope, nodes)
         self.assertEqual(
             scope.edges[edge_models.TargetHandle(node="getitem_0", port="a")],
-            _make_source("getattr_sub_0", "attr"),
+            _make_source("get_attr_0", "attr"),
         )
 
     def test_item_label_numbering_matches_the_std_call_form(self):

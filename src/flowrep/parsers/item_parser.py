@@ -3,8 +3,8 @@
 ``d[k]`` becomes one ``std.getitem`` node. Its key comes from a symbol (``d[i]``) or a
 ``ConstantRecipe`` peer (``d[0]``, ``d["mass"]``).
 
-The label base is read off the recipe rather than spelled out, so an injected node
-carries exactly the label -- and its constant peer exactly the numbering -- that parsing
+Labels come from :func:`chain_parser._label_base`, so an injected node carries exactly
+the label -- and its constant peer exactly the numbering -- that parsing
 ``std.getitem(d, k)`` would produce. That makes ``d[k]`` and ``std.getitem(d, k)`` the
 *same recipe*, which is why item access round-trips through the compiler with no
 desugaring: the compiler emits the call form, and re-parsing it lands back here.
@@ -34,10 +34,6 @@ class ItemHandler:
         from flowrep import std
 
         return std.getitem.flowrep_recipe  # type: ignore[attr-defined,no-any-return]
-
-    def label_base(self, link: ast.expr) -> str:
-        # The callee's own name, exactly as `atomic_parser` labels `std.getitem(d, k)`.
-        return self.recipe.reference.info.qualname.rsplit(".", 1)[-1]
 
     def port_base(self, link: ast.expr) -> str:
         (item_port,) = self.recipe.outputs
