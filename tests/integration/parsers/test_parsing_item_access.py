@@ -69,6 +69,13 @@ class TestComplexKeyFromAnotherStep(unittest.TestCase):
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
 
+    def test_compiled_source_is_sugared(self):
+        """A symbolic key renders as a symbol, which also pins the ordering: `resolve`
+        can only name the key's node if the topological sort emitted it first."""
+        rendered = source._workflow2python(makers.reference_free(item_symbol_key))
+        self.assertRegex(rendered.source, r"\n\s*\w+ = (\w+)\[(\w+)\]\n")
+        self.assertNotIn("flowrep.std.getitem(", rendered.source)
+
 
 @workflow_parser.workflow
 def item_from_inputs(
@@ -140,6 +147,14 @@ class TestConstantKeys(unittest.TestCase):
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
 
+    def test_compiled_source_is_sugared(self):
+        rendered = source._workflow2python(makers.reference_free(item_constant_keys))
+        # Subscript syntax, one statement per access -- never a call to the underlying
+        # std wrapper.
+        self.assertIn("['mass']", rendered.source)
+        self.assertIn("[0]", rendered.source)
+        self.assertNotIn("flowrep.std.getitem(", rendered.source)
+
 
 @workflow_parser.workflow
 def mixed_chain(holder: library.Nested):
@@ -196,6 +211,15 @@ class TestMixedChain(unittest.TestCase):
         self.assertEqual(
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
+
+    def test_compiled_source_is_sugared(self):
+        """Both syntaxes in one chain: the hybrid rendering is what this replaces."""
+        rendered = source._workflow2python(makers.reference_free(mixed_chain))
+        self.assertIn(".sub", rendered.source)
+        self.assertIn("['item']", rendered.source)
+        self.assertIn("['subitem']", rendered.source)
+        self.assertIn(".val", rendered.source)
+        self.assertNotIn("flowrep.std.getitem(", rendered.source)
 
 
 class TestRejections(unittest.TestCase):
