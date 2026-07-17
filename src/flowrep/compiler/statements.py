@@ -270,19 +270,22 @@ def emit_workflow_body(
             )
         required_by_handle[handle] = name
 
-    def _obj_source(
-        label: str,
+    def _port_source(
+        label: str, port: str
     ) -> edge_models.SourceHandle | edge_models.InputSource | None:
-        target = edge_models.TargetHandle(node=label, port=sugar.OBJ_PORT)
+        target = edge_models.TargetHandle(node=label, port=port)
         return recipe.input_edges.get(target) or recipe.edges.get(target)
 
-    def _obj_is_symbolic(label: str) -> bool:
-        """True if the getattr's object resolves to a symbol we can write '.' after.
+    def _obj_is_symbolic(label: str, obj_port: str) -> bool:
+        """True if the access node's object resolves to a symbol we can subscript or
+        write '.' after.
 
-        An object fed by an *inlined* constant would sugar to nonsense (``5 .a``), so
-        such a node keeps the plain-call emission. The parser cannot produce one.
+        An object fed by an *inlined* constant would sugar to nonsense (``5 .a``), or --
+        for an item -- to legal syntax that re-parses to a different recipe (``[1, 2][0]``
+        is not rooted at a symbol). Either way such a node keeps the plain-call emission.
+        The parser cannot produce one.
         """
-        source = _obj_source(label)
+        source = _port_source(label, obj_port)
         if source is None:
             return False
         if isinstance(source, edge_models.InputSource):
@@ -292,28 +295,41 @@ def emit_workflow_body(
             return source.node in materialized_constants
         return True
 
-    # A recognised getattr node is emitted as attribute syntax -- `sym = obj.attr`
-    # -- always as its own statement, never inlined into a consumer's argument list.
+    # A recognised getattr or getitem node is emitted as native syntax -- `sym = obj.attr`
+    # or `sym = obj[key]` -- always as its own statement, never inlined into a consumer's
+    # argument list.
     #
-    # Inlining would be prettier (`f(dc.a)`, `dc.a.val`) but it is not safe. The
-    # parser injects a getattr node together with a `ConstantRecipe` peer carrying the
-    # attribute name, and constant labels come from one shared `constant_N` counter
-    # over the whole workflow. Inlining moves a getattr's creation to its consumer's
-    # statement, which reorders that name-constant relative to every *other* constant
-    # in the workflow (e.g. a literal call argument) and permutes the counter. The
-    # recipe would still execute identically, but it would not re-parse to an equal
-    # one. Emitting one statement per getattr, in topological order, reproduces the
-    # parser's injection order exactly, so the round trip is exact.
+    # Inlining would be prettier (`f(dc.a)`, `dc.a.val`, `d['a']['b']`) but it is not
+    # safe. The parser injects an access node together with any `ConstantRecipe` peer,
+    # and constant labels come from one shared `constant_N` counter over the whole
+    # workflow. Inlining moves an access node's creation to its consumer's statement,
+    # which reorders that constant relative to every *other* constant in the workflow
+    # (e.g. a literal call argument) and permutes the counter. The recipe would still
+    # execute identically, but it would not re-parse to an equal one. Emitting one
+    # statement per access, in topological order, reproduces the parser's injection order
+    # exactly, so the round trip is exact.
     #
     # Materialising also gives the efficiency guarantee for free: one node, one
-    # statement, one symbol -- a getattr consumed by several nodes stays a single
+    # statement, one symbol -- an access consumed by several nodes stays a single
     # node on re-parse rather than being duplicated into each consumer.
-    sugared: dict[str, str] = {
+    sugared_attrs: dict[str, str] = {
         label: attr_name
         for label, node in recipe.nodes.items()
         if sugar.is_std_getattr(node)
         and (attr_name := sugar.attribute_name(label, recipe)) is not None
-        and _obj_is_symbolic(label)
+        and _obj_is_symbolic(label, sugar.ATTR_OBJ_PORT)
+    }
+
+    # The key-source check is the getitem analogue of `attribute_name` returning None: it
+    # refuses a hand-built recipe whose key edge is missing, which would otherwise reach
+    # `resolve(None)`. No syntax check is needed -- `resolve` renders a constant key as a
+    # literal and any other key as its symbol, and both are legal between brackets.
+    sugared_items: set[str] = {
+        label
+        for label, node in recipe.nodes.items()
+        if sugar.is_std_getitem(node)
+        and _port_source(label, sugar.KEY_PORT) is not None
+        and _obj_is_symbolic(label, sugar.ITEM_OBJ_PORT)
     }
 
     for label in _topological_nodes(recipe):
@@ -331,13 +347,23 @@ def emit_workflow_body(
             )
             continue
 
-        if label in sugared:
+        if label in sugared_attrs:
             name = required_by_handle.get((label, sugar.ATTR_PORT)) or alloc.fresh(
                 _output_name_suggestion(label, sugar.ATTR_PORT, 1)
             )
             produced[(label, sugar.ATTR_PORT)] = name
-            obj = resolve(_obj_source(label))
-            lines.append(f"{name} = {obj}.{sugared[label]}")
+            obj = resolve(_port_source(label, sugar.ATTR_OBJ_PORT))
+            lines.append(f"{name} = {obj}.{sugared_attrs[label]}")
+            continue
+
+        if label in sugared_items:
+            name = required_by_handle.get((label, sugar.ITEM_PORT)) or alloc.fresh(
+                _output_name_suggestion(label, sugar.ITEM_PORT, 1)
+            )
+            produced[(label, sugar.ITEM_PORT)] = name
+            obj = resolve(_port_source(label, sugar.ITEM_OBJ_PORT))
+            key = resolve(_port_source(label, sugar.KEY_PORT))
+            lines.append(f"{name} = {obj}[{key}]")
             continue
 
         call_path = node_call_path(node, label, emitter, alloc)

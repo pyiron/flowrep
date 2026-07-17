@@ -15,10 +15,19 @@ from flowrep.prospective import (
 _GETATTR = cast(atomic_recipe.AtomicRecipe, std.get_attr.flowrep_recipe)  # type: ignore[attr-defined]
 _GETATTR_FQN = _GETATTR.reference.info.fully_qualified_name
 
-# Port names are derived from the recipe, never spelled out: editing `std.getattr_`
-# must not require editing strings anywhere else in the source.
-OBJ_PORT, NAME_PORT = _GETATTR.inputs
+# Port names are derived from the recipe, never spelled out: editing `std.get_attr` or
+# `std.getitem` must not require editing strings anywhere else in the source. The two
+# object ports differ -- `obj` for get_attr, `a` for getitem, which inherits
+# `operator.getitem(a, b)`'s signature -- so each is named for its own link kind.
+ATTR_OBJ_PORT, NAME_PORT = _GETATTR.inputs
 (ATTR_PORT,) = _GETATTR.outputs
+
+# `LabeledRecipe.recipe` is a discriminated union; the cast narrows it for mypy.
+_GETITEM = cast(atomic_recipe.AtomicRecipe, std.getitem.flowrep_recipe)  # type: ignore[attr-defined]
+_GETITEM_FQN = _GETITEM.reference.info.fully_qualified_name
+
+ITEM_OBJ_PORT, KEY_PORT = _GETITEM.inputs
+(ITEM_PORT,) = _GETITEM.outputs
 
 
 def is_std_getattr(node: union_types.RecipeDiscrimination) -> bool:
@@ -33,6 +42,21 @@ def is_std_getattr(node: union_types.RecipeDiscrimination) -> bool:
         and node.reference.info.fully_qualified_name == _GETATTR_FQN
         and node.inputs == _GETATTR.inputs
         and node.outputs == _GETATTR.outputs
+    )
+
+
+def is_std_getitem(node: union_types.RecipeDiscrimination) -> bool:
+    """True if *node* is the standard-library item-access recipe.
+
+    Matched on the referenced function's fully qualified name rather than on
+    ``VersionInfo`` equality, so a recipe serialised under a different flowrep
+    version is still recognised.
+    """
+    return (
+        isinstance(node, atomic_recipe.AtomicRecipe)
+        and node.reference.info.fully_qualified_name == _GETITEM_FQN
+        and node.inputs == _GETITEM.inputs
+        and node.outputs == _GETITEM.outputs
     )
 
 
