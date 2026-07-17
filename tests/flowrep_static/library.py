@@ -165,6 +165,31 @@ def val(x):
     return x
 
 
+class CustomKey:
+    """A hashable non-string key.
+
+    Deliberately not a string: a ``dict[CustomKey, int]`` cannot degrade into
+    string-keyed or attribute access, so a test keyed on one is really exercising the
+    item-access path.
+    """
+
+    def __init__(self, name: str = "k"):
+        self.name = name
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, CustomKey) and self.name == other.name
+
+
+class Nested:
+    """A holder for mixed attribute/item chains: ``holder.sub["item"]["subitem"].val``."""
+
+    def __init__(self, sub: dict | None = None):
+        self.sub = {"item": {"subitem": ComplexData(val=7)}} if sub is None else sub
+
+
 # test_parsing_atomic_classes -- inverse recipe
 
 

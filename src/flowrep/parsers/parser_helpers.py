@@ -10,7 +10,7 @@ from typing import Any, TypeAlias, TypeVar, cast
 
 from flowrep import base_models, edge_models
 from flowrep.parsers import (
-    attribute_parser,
+    chain_parser,
     constant_parser,
     label_helpers,
     symbol_scope,
@@ -193,7 +193,7 @@ def consume_call_arguments(
     multiple literals -- across an if/elif chain -- get distinct, deterministic ports.
 
     Data-attribute arguments are injected ahead of the call by
-    ``attribute_parser.hoist_call_arguments`` and arrive here in *hoisted*, mapping the
+    ``chain_parser.hoist_call_arguments`` and arrive here in *hoisted*, mapping the
     argument's AST node to the ``SourceHandle`` of its outermost getattr node. Outside
     condition mode the consuming node is a peer of that getattr and simply reads from
     it. In condition mode the consumer lives *inside* a flow-control recipe, which has
@@ -296,10 +296,10 @@ def _bind_condition_source(
     The getattr peer already sits in the enclosing walker's ``nodes`` -- the
     flow-control node just needs a port to receive it through. The ``SourceHandle``
     twin of :func:`_bind_condition_constant`; see
-    :func:`attribute_parser.generate_port_name` for why the name is deduped against
+    :func:`chain_parser.generate_port_name` for why the name is deduped against
     every enclosing symbol.
     """
-    generated = attribute_parser.generate_port_name(
+    generated = chain_parser.generate_port_name(
         arg_node, scope.unavailable_names | reserved_ports
     )
     reserved_ports.add(generated)
