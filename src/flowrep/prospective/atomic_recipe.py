@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 from enum import StrEnum
 from typing import Literal
 
@@ -16,12 +15,10 @@ class UnpackMode(StrEnum):
 
     - NONE: Return the output as a single value
     - TUPLE: Split return into one port per tuple element
-    - DATACLASS: Split return into one port per dataclass field
     """
 
     NONE = "none"
     TUPLE = "tuple"
-    DATACLASS = "dataclass"
 
 
 class AtomicRecipe(base_models.NodeRecipe):
@@ -77,8 +74,4 @@ class AtomicRecipe(base_models.NodeRecipe):
 
     def __call__(self, *args, **kwargs):
         func = retrieve.import_from_string(self.reference.info.fully_qualified_name)
-        if self.unpack_mode == UnpackMode.DATACLASS:
-            dc = func(*args, **kwargs)
-            return tuple(getattr(dc, f.name) for f in dataclasses.fields(dc))
-        else:
-            return func(*args, **kwargs)
+        return func(*args, **kwargs)

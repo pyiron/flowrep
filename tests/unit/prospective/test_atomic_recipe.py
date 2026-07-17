@@ -96,16 +96,6 @@ class TestAtomicRecipeUnpackMode(unittest.TestCase):
         )
         self.assertEqual(len(node.outputs), 0)
 
-    def test_dataclass_mode_multiple_outputs(self):
-        node = atomic_recipe.AtomicRecipe(
-            reference=makers.make_reference(),
-            inputs=[],
-            outputs=["a", "b", "c"],
-            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
-        )
-        self.assertEqual(len(node.outputs), 3)
-        self.assertEqual(node.unpack_mode, atomic_recipe.UnpackMode.DATACLASS)
-
     def test_none_mode_single_output(self):
         node = atomic_recipe.AtomicRecipe(
             reference=makers.make_reference(),
@@ -136,7 +126,7 @@ class TestAtomicRecipeUnpackMode(unittest.TestCase):
         self.assertIn(atomic_recipe.UnpackMode.NONE.value, str(ctx.exception))
 
     def test_all_unpack_modes_accepted_as_string(self):
-        for mode in ["none", "tuple", "dataclass"]:
+        for mode in ["none", "tuple"]:
             with self.subTest(mode=mode):
                 node = atomic_recipe.AtomicRecipe(
                     reference=makers.make_reference(),
@@ -151,7 +141,7 @@ class TestUnpackModeEnum(unittest.TestCase):
     """Tests for UnpackMode enum."""
 
     def test_all_expected_values_exist(self):
-        expected = {"none", "tuple", "dataclass"}
+        expected = {"none", "tuple"}
         actual = {e.value for e in atomic_recipe.UnpackMode}
         self.assertEqual(expected, actual)
 

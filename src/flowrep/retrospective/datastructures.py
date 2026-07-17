@@ -318,10 +318,8 @@ def _parse_function(
     return_annotation = hints.get("return", None)
     if unpack_mode == atomic_recipe.UnpackMode.NONE:
         output_ports = _parse_return_without_unpacking(return_annotation, outputs)
-    elif unpack_mode == atomic_recipe.UnpackMode.TUPLE:
+    else:
         output_ports = _parse_return_tuple(return_annotation, outputs)
-    elif unpack_mode == atomic_recipe.UnpackMode.DATACLASS:
-        output_ports = _parse_return_dataclass(return_annotation, outputs)
 
     if isinstance(function, type):
         output_ports[next(iter(output_ports))].annotation = function
@@ -393,42 +391,3 @@ def _parse_return_tuple(
     else:
         output_ports = {outputs[0]: OutputDataPort(annotation=return_annotation)}
     return output_ports
-
-
-def _parse_return_dataclass(
-    return_annotation, outputs: list[str]
-) -> dict[str, OutputDataPort]:
-    if not (
-        isinstance(return_annotation, type)
-        and dataclasses.is_dataclass(return_annotation)
-    ):  # pragma: no cover
-        raise TypeError(
-            f"Return annotation {return_annotation!r} is not a dataclass. This should "
-            f"have been caught by the underlying recipe validation. Please raise a "
-            f"GitHub issue reporting how you got here!"
-        )
-
-    # de-stringify dataclass annotations, if they were forward-references
-    try:
-        hints = get_type_hints(return_annotation, include_extras=True)
-    except NameError as e:
-        fqdn = f"{return_annotation.__module__}.{return_annotation.__qualname__}"
-        raise NameError(
-            f"While parsing return dataclass annotation {fqdn!r}, could not resolve "
-            f"at least one field annotation ({e}). Ensure the missing symbols are "
-            f"importable at runtime in the dataclass' defining module."
-        ) from e
-
-    fields = dataclasses.fields(return_annotation)
-    if len(outputs) != len(fields):  # pragma: no cover
-        raise ValueError(
-            f"Return dataclass {return_annotation!r} has {len(fields)} fields, "
-            f"{[f.name for f in fields]}, but {len(outputs)} outputs, {outputs} were "
-            f"requested. This should have been caught by the underlying recipe "
-            f"validation. Please raise a GitHub issue reporting how you got here!"
-        )
-
-    return {
-        label: OutputDataPort(annotation=hints.get(field.name, None))
-        for label, field in zip(outputs, fields, strict=True)
-    }
