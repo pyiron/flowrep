@@ -484,7 +484,6 @@ def _variadic_recipe(func, inputs, outputs=("result",)):
         reference=base_models.PythonReference(info=versions.VersionInfo.of(func)),
         inputs=list(inputs),
         outputs=list(outputs),
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
     )
 
 
@@ -570,7 +569,6 @@ class TestAtomicFromRecipe(unittest.TestCase):
             inputs=["a", "b"],
             outputs=["result"],
             reference=library.divmod_func.flowrep_recipe.reference,
-            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         node = datastructures.AtomicData.from_recipe(recipe)
         origin = get_origin(node.output_ports["result"].annotation)
@@ -580,7 +578,6 @@ class TestAtomicFromRecipe(unittest.TestCase):
         recipe = atomic_parser.parse_atomic(
             takes_positional_only,
             "dc",
-            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         node = datastructures.AtomicData.from_recipe(recipe)
         self.assertIs(node.output_ports["dc"].annotation, SumClass)
@@ -886,7 +883,6 @@ class TestRunAtomic(unittest.TestCase):
             inputs=["a", "b"],
             outputs=["result"],
             reference=library.divmod_func.flowrep_recipe.reference,
-            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         node = wfms.run_recipe(recipe, a=1, b=2)
         self.assertEqual(node.output_ports["result"].value, (0, 1))

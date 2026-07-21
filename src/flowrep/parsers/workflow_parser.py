@@ -525,7 +525,9 @@ class _WorkflowFunctionParser(WorkflowParser):
 
         returned_symbols = parser_helpers.resolve_symbols_to_strings(body.value)
 
-        annotated_returns = label_helpers.get_annotated_output_labels(func)
+        annotated_returns = label_helpers.get_annotated_output_labels(
+            func, len(returned_symbols) > 1
+        )
         scraped_labels = label_helpers.merge_labels(
             first_choice=annotated_returns,
             fallback=returned_symbols,

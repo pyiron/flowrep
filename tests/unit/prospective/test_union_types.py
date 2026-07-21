@@ -138,7 +138,6 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                         qualname="check",
                                         inputs_with_defaults=["x"],
                                     ),
-                                    "unpack_mode": "tuple",
                                 },
                             },
                             "body": {
@@ -148,7 +147,6 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "inputs": ["x"],
                                     "outputs": ["y"],
                                     "reference": reference_dict(qualname="handle"),
-                                    "unpack_mode": "tuple",
                                 },
                             },
                             "condition_output": None,
@@ -178,7 +176,6 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                         qualname="check",
                                         inputs_with_defaults=["x"],
                                     ),
-                                    "unpack_mode": "tuple",
                                 },
                             },
                             "body": {
@@ -188,7 +185,6 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "inputs": ["x"],
                                     "outputs": ["y"],
                                     "reference": reference_dict(qualname="hanlde"),
-                                    "unpack_mode": "tuple",
                                 },
                             },
                             "condition_output": None,
@@ -203,7 +199,6 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "inputs": ["x"],
                             "outputs": ["y"],
                             "reference": reference_dict(qualname="handle"),
-                            "unpack_mode": "tuple",
                         },
                     },
                 },
@@ -222,7 +217,6 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "inputs": ["x"],
                             "outputs": ["y"],
                             "reference": reference_dict(qualname="try_func"),
-                            "unpack_mode": "tuple",
                         },
                     },
                     "exception_cases": [
@@ -237,7 +231,6 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                     "reference": reference_dict(
                                         qualname="handle_error"
                                     ),
-                                    "unpack_mode": "tuple",
                                 },
                             },
                         }

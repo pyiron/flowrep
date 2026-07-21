@@ -26,7 +26,6 @@ def _make_labeled_node(label: str, outputs: list[str]) -> helper_models.LabeledR
             ),
             inputs=["x"],
             outputs=outputs,
-            unpack_mode="tuple",
         ),
     )
 

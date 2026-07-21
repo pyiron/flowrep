@@ -27,7 +27,6 @@ def atomic(
     func: str | None = None,
     /,
     *output_labels: str,
-    unpack_mode: atomic_recipe.UnpackMode = atomic_recipe.UnpackMode.TUPLE,
     version_scraping: versions.VersionScrapingMap | None = None,
     forbid_main: bool = False,
     forbid_locals: bool = False,
@@ -47,11 +46,10 @@ def atomic(func=None, /, *output_labels, **kwargs):
     Args:
         func: The function to decorate. Passed positionally by Python when the
             decorator is used without parentheses.
-        *output_labels: Explicit names for the node's output ports. When provided,
-            their count must match the number of outputs inferred from the function
-            and the chosen ``unpack_mode``.
-        unpack_mode: How to convert the function's return value into output ports.
-            See :class:`~flowrep.models.nodes.atomic_recipe.UnpackMode`.
+        *output_labels: Explicit names for the node's output ports. When a single value
+            is provided, forces the node to have a single output port (i.e. tuple
+            returns are provided _as_ tuples); when multiple are provided,
+            their count must match the number of outputs inferred from the function.
         version_scraping: Optional mapping from top-level package names to callables
             that return a version string, for packages that don't expose
             ``__version__``. Forwarded to
@@ -109,7 +107,6 @@ def _ensure_recipe_attribute_free(cls: type, context: str) -> None:
 def parse_atomic(
     func: types.FunctionType | type,
     *output_labels: str,
-    unpack_mode: atomic_recipe.UnpackMode = atomic_recipe.UnpackMode.TUPLE,
     version_scraping: versions.VersionScrapingMap | None = None,
     forbid_main: bool = False,
     forbid_locals: bool = False,
@@ -125,10 +122,11 @@ def parse_atomic(
 
     Args:
         func: The function to represent as an atomic node.
-        *output_labels: Explicit output port names. When provided, their count must
-            match the number of outputs inferred from the function and the chosen
-            ``unpack_mode``.
-        unpack_mode: How to convert the function's return value into output ports.
+        *output_labels: Explicit output port names. When absent, output ports are
+         inferred from available returns; when a single label is provided, exactly
+         one output port will be produced regardless of return values (i.e. returning
+         tuple returns _as_ a tuple); when multiple labels are provided, their count
+         is compared against the count scraped from the function itself.
         version_scraping: Optional version-scraping overrides, forwarded to
             :meth:`~pyiron_snippets.versions.VersionInfo.of`.
         forbid_main: If ``True``, raise if the function's module is ``__main__``.
@@ -159,14 +157,14 @@ def parse_atomic(
     scraped_output_labels = (
         ["instance"]
         if isinstance(func, type)
-        else _get_output_labels(func, unpack_mode)
+        else _get_output_labels(func, output_labels)
     )
     if len(output_labels) > 0 and len(output_labels) != len(scraped_output_labels):
         raise ValueError(
-            "Explicitly provided output labels must match the function analysis and "
-            f"unpack_mode: expected {len(scraped_output_labels)} labels for "
-            f"unpack_mode='{unpack_mode}', got {len(output_labels)} labels "
-            f"{output_labels}; inferred labels were {scraped_output_labels}."
+            "Explicitly provided output labels must match the function analysis;"
+            f"{output_labels} were explicitly passed, but {len(scraped_output_labels)} "
+            f"return values were identified and given scraped labels "
+            f"{scraped_output_labels}."
         )
 
     return atomic_recipe.AtomicRecipe(
@@ -180,21 +178,25 @@ def parse_atomic(
             list(output_labels) if len(output_labels) > 0 else scraped_output_labels
         ),
         description=docstring,
-        unpack_mode=unpack_mode,
     )
 
 
 def _get_output_labels(
-    func: types.FunctionType, unpack_mode: atomic_recipe.UnpackMode
+    func: types.FunctionType, output_labels: tuple[str, ...]
 ) -> list[str]:
-    if unpack_mode == atomic_recipe.UnpackMode.NONE:
-        return _parse_return_label_without_unpacking(func)
-    elif unpack_mode == atomic_recipe.UnpackMode.TUPLE:
+    n_explicit = len(output_labels)
+    if n_explicit == 0:
         return _parse_tuple_return_labels(func)
-    raise TypeError(
-        f"Invalid unpack mode: {unpack_mode}. Possible values are "
-        f"{', '.join(atomic_recipe.UnpackMode.__members__.values())}"
-    )
+    elif len(output_labels) == 1:
+        return _parse_return_label_without_unpacking(func)
+    else:  # 0 or >1 labels provided
+        scraped = _parse_tuple_return_labels(func)
+        if len(scraped) != n_explicit:
+            raise ValueError(
+                f"Expected {n_explicit} output labels to match the explict labels {output_labels}, but scraped {len(scraped)}: "
+                f"{output_labels}"
+            )
+        return scraped
 
 
 def _parse_return_label_without_unpacking(func: types.FunctionType) -> list[str]:
@@ -238,7 +240,8 @@ def _parse_tuple_return_labels(func: types.FunctionType) -> list[str]:
     )
 
     # Override with annotation-based labels where available
-    annotated = label_helpers.get_annotated_output_labels(func)
+    annotated = label_helpers.get_annotated_output_labels(func, len(scraped) > 1)
+
     return label_helpers.merge_labels(
         first_choice=annotated,
         fallback=scraped,

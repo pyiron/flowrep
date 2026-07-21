@@ -116,15 +116,11 @@ def _store_atomic_outputs(node: datastructures.AtomicData, result: Any) -> None:
     assert isinstance(recipe, atomic_recipe.AtomicRecipe)
     output_names = list(node.output_ports.keys())
 
-    if recipe.unpack_mode == atomic_recipe.UnpackMode.NONE:
+    if len(output_names) == 1:
         node.output_ports[output_names[0]].value = result
-
     else:
-        if len(output_names) == 1:
-            node.output_ports[output_names[0]].value = result
-        else:
-            for name, val in zip(output_names, result, strict=True):
-                node.output_ports[name].value = val
+        for name, val in zip(output_names, result, strict=True):
+            node.output_ports[name].value = val
 
 
 # ---------------------------------------------------------------------------

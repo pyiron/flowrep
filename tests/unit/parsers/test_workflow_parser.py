@@ -61,7 +61,7 @@ def annotated_operation(
     return x + y, x - y
 
 
-@atomic_parser.atomic("aggregate_result", unpack_mode=atomic_recipe.UnpackMode.NONE)
+@atomic_parser.atomic("aggregate_result")
 def tuple_operation(x: float, y: float) -> tuple[float, float]:
     return x + y, x - y
 

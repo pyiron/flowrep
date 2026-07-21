@@ -131,7 +131,6 @@ class TestInverseRecipeStructure(unittest.TestCase):
         self.assertIsInstance(recipe, atomic_recipe.AtomicRecipe)
         self.assertEqual(recipe.inputs, ["dataclass"])
         self.assertEqual(recipe.outputs, ["foo", "bar"])
-        self.assertIs(recipe.unpack_mode, atomic_recipe.UnpackMode.TUPLE)
         self.assertEqual(
             recipe.reference.restricted_input_kinds,
             {"dataclass": base_models.RestrictedParamKind.POSITIONAL_ONLY},

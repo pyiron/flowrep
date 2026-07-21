@@ -91,21 +91,6 @@ class TestAtomicDecorator(unittest.TestCase):
             simple_func.flowrep_recipe, atomic_parser.parse_atomic(simple_func)
         )
 
-    def test_atomic_with_unpack_mode(self):
-        @atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.NONE)
-        def func_no_unpack(x):
-            return x
-
-        self.assertEqual(
-            func_no_unpack.flowrep_recipe.unpack_mode, atomic_recipe.UnpackMode.NONE
-        )
-        self.assertEqual(
-            func_no_unpack.flowrep_recipe,
-            atomic_parser.parse_atomic(
-                func_no_unpack, unpack_mode=atomic_recipe.UnpackMode.NONE
-            ),
-        )
-
     def test_atomic_preserves_function_behavior(self):
         @atomic_parser.atomic
         def add(a, b):
@@ -133,19 +118,16 @@ class TestParseAtomic(unittest.TestCase):
         self.assertEqual(node.outputs, ["x", "y"])
         self.assertTrue(node.fully_qualified_name.endswith("my_func"))
 
-    def test_unpack_mode_none(self):
+    def test_single_explicit_label_for_tuple_return(self):
         def single_output(x):
             return x * 2, x + 1
 
-        node = atomic_parser.parse_atomic(
-            single_output, unpack_mode=atomic_recipe.UnpackMode.NONE
-        )
+        node = atomic_parser.parse_atomic(single_output, "single_label")
         self.assertEqual(
             node.outputs,
-            ["output_0"],
+            ["single_label"],
             msg="Return tuple should be condensed to a single output port",
         )
-        self.assertEqual(node.unpack_mode, atomic_recipe.UnpackMode.NONE)
 
     def test_parse_atomic_captures_docstring(self):
         def has_docstring(a, b):
@@ -293,13 +275,12 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
         self.assertEqual(func.flowrep_recipe.outputs, ["a", "b"])
         self.assertEqual(func.flowrep_recipe.inputs, ["x", "y"])
 
-    def test_atomic_with_output_labels_and_unpack_mode(self):
-        @atomic_parser.atomic("result", unpack_mode=atomic_recipe.UnpackMode.NONE)
+    def test_atomic_with_single_output_gets_single_port(self):
+        @atomic_parser.atomic("result")
         def func(x):
             return x, x + 1
 
         self.assertEqual(func.flowrep_recipe.outputs, ["result"])
-        self.assertEqual(func.flowrep_recipe.unpack_mode, atomic_recipe.UnpackMode.NONE)
 
     def test_atomic_no_args_infers_labels(self):
         @atomic_parser.atomic
@@ -318,8 +299,8 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
 
         self.assertEqual(func.flowrep_recipe.outputs, ["a", "b"])
 
-    def test_atomic_only_unpack_mode_infers_labels(self):
-        @atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.TUPLE)
+    def test_no_explicit_labels_infers_labels(self):
+        @atomic_parser.atomic
         def func():
             x = 1
             y = 2
@@ -327,14 +308,13 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
 
         self.assertEqual(func.flowrep_recipe.outputs, ["x", "y"])
 
-    def test_atomic_wrong_number_of_labels_raises(self):
-        with self.assertRaises(ValueError) as ctx:
+    def test_single_label_overrides(self):
 
-            @atomic_parser.atomic("only_one")
-            def func():
-                return 1, 2
+        @atomic_parser.atomic("only_one")
+        def func():
+            return 1, 2
 
-        self.assertIn("expected 2 labels", str(ctx.exception))
+        self.assertEqual(func.flowrep_recipe.outputs, ["only_one"])
 
     def test_atomic_with_three_labels(self):
         @atomic_parser.atomic("first", "second", "third")
@@ -345,7 +325,7 @@ class TestAtomicWithOutputLabels(unittest.TestCase):
 
 
 class TestParseAtomicWithOutputLabels(unittest.TestCase):
-    def test_explicit_labels_override_inferred(self):
+    def test_explicit_labels_matching_count(self):
         def func():
             x = 1
             y = 2
@@ -354,13 +334,11 @@ class TestParseAtomicWithOutputLabels(unittest.TestCase):
         node = atomic_parser.parse_atomic(func, "custom_x", "custom_y")
         self.assertEqual(node.outputs, ["custom_x", "custom_y"])
 
-    def test_explicit_labels_with_unpack_none(self):
+    def test_explicit_labels_single_label(self):
         def func():
             return 1, 2
 
-        node = atomic_parser.parse_atomic(
-            func, "single", unpack_mode=atomic_recipe.UnpackMode.NONE
-        )
+        node = atomic_parser.parse_atomic(func, "single")
         self.assertEqual(node.outputs, ["single"])
 
     def test_explicit_labels_mismatch_raises(self):
@@ -370,7 +348,8 @@ class TestParseAtomicWithOutputLabels(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             atomic_parser.parse_atomic(func, "only", "two")
 
-        self.assertIn("expected 3 labels", str(ctx.exception))
+        self.assertIn("2 output labels to match the explict labels", str(ctx.exception))
+        self.assertIn("but scraped 3", str(ctx.exception))
 
     def test_no_explicit_labels_falls_back_to_inferred(self):
         def func():
@@ -417,7 +396,7 @@ class TestAtomicVariadicRejection(unittest.TestCase):
             return args
 
         with self.assertRaises(ValueError) as ctx:
-            atomic_parser.parse_atomic(func, unpack_mode=atomic_recipe.UnpackMode.NONE)
+            atomic_parser.parse_atomic(func)
         self.assertIn("Variadic parameter kinds are not supported", str(ctx.exception))
         self.assertIn("args", str(ctx.exception))
 
@@ -426,7 +405,7 @@ class TestAtomicVariadicRejection(unittest.TestCase):
             return kwargs
 
         with self.assertRaises(ValueError) as ctx:
-            atomic_parser.parse_atomic(func, unpack_mode=atomic_recipe.UnpackMode.NONE)
+            atomic_parser.parse_atomic(func)
         self.assertIn("Variadic parameter kinds are not supported", str(ctx.exception))
         self.assertIn("kwargs", str(ctx.exception))
 
@@ -435,7 +414,7 @@ class TestAtomicVariadicRejection(unittest.TestCase):
             return a
 
         with self.assertRaises(ValueError) as ctx:
-            atomic_parser.parse_atomic(func, unpack_mode=atomic_recipe.UnpackMode.NONE)
+            atomic_parser.parse_atomic(func)
         self.assertIn("Variadic parameter kinds are not supported", str(ctx.exception))
         self.assertIn("args", str(ctx.exception))
 
@@ -459,19 +438,40 @@ class TestAtomicVariadicRejection(unittest.TestCase):
 
 
 class TestGetOutputLabels(unittest.TestCase):
-    def test_unpack_mode_none(self):
-        def func():
-            return 42
+    @classmethod
+    def setUpClass(cls):
+        def func(x, y):
+            return x, 42
 
-        labels = atomic_parser._get_output_labels(func, atomic_recipe.UnpackMode.NONE)
-        self.assertEqual(labels, ["output_0"])
+        cls.func = staticmethod(func)
 
-    def test_invalid_unpack_mode(self):
-        def func():
-            pass
+    def test_without_provided_labels(self):
+        labels = atomic_parser._get_output_labels(self.func, [])
+        self.assertEqual(
+            labels,
+            ["x", "output_1"],
+            msg="Without labels, default to parsing each return value as a port",
+        )
 
-        with self.assertRaises(TypeError):
-            atomic_parser._get_output_labels(func, "invalid")
+    def test_with_single_provided_label(self):
+        labels = atomic_parser._get_output_labels(self.func, ["single_output"])
+        self.assertEqual(
+            labels,
+            ["output_0"],
+            msg="With a single explicit output, all scraped outputs should get lumped together into a single output (with the default name since we can't get a nice name for a tuple here)",
+        )
+
+    def test_matching_provided_labels(self):
+        labels = atomic_parser._get_output_labels(self.func, ["o1", "o2"])
+        self.assertEqual(
+            labels,
+            ["x", "output_1"],
+            msg="With multiple and matching explicit labels, the scraper should find a label for each return",
+        )
+
+    def test_mismatching_provided_labels(self):
+        with self.assertRaises(ValueError):
+            atomic_parser._get_output_labels(self.func, ["o1", "o2", "o3"])
 
 
 class TestParseTupleReturnLabels(unittest.TestCase):
@@ -776,21 +776,22 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         self.assertEqual(func.flowrep_recipe.outputs, ["override1", "override2"])
 
     def test_unpack_none_uses_single_annotation(self):
-        @atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.NONE)
+        @atomic_parser.atomic
         def func(x) -> Annotated[float, {"label": "single_result"}]:
             return x
 
         self.assertEqual(func.flowrep_recipe.outputs, ["single_result"])
 
-    def test_unpack_none_uses_tuple_level_annotation(self):
-        @atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.NONE)
+    def test_singe_return_uses_tuple_level_annotation(self):
+        @atomic_parser.atomic
         def func(x) -> Annotated[tuple[float, str], {"label": "combined"}]:
-            return x, "y"
+            t = tuple(x, "y")
+            return t
 
         self.assertEqual(func.flowrep_recipe.outputs, ["combined"])
 
-    def test_unpack_none_ignores_element_annotations(self):
-        @atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.NONE)
+    def test_forcing_single_output_ignores_element_annotations(self):
+        @atomic_parser.atomic("single_label")
         def func(
             x,
         ) -> tuple[
@@ -799,10 +800,10 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         ]:
             return x, "y"
 
-        self.assertEqual(func.flowrep_recipe.outputs, ["output_0"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["single_label"])
 
-    def test_unpack_none_tuple_with_both_annotations(self):
-        @atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.NONE)
+    def test_annotation_label_overwhelmed_by_return_count(self):
+        @atomic_parser.atomic
         def func(
             x,
         ) -> Annotated[
@@ -814,10 +815,10 @@ class TestAtomicWithAnnotations(unittest.TestCase):
         ]:
             return x, "y"
 
-        self.assertEqual(func.flowrep_recipe.outputs, ["the_pair"])
+        self.assertEqual(func.flowrep_recipe.outputs, ["element_a", "element_b"])
 
-    def test_unpack_tuple_with_both_annotations(self):
-        @atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.TUPLE)
+    def test_scraping_output_labels_from_nested_annotation(self):
+        @atomic_parser.atomic
         def func(
             x,
         ) -> Annotated[
@@ -830,13 +831,6 @@ class TestAtomicWithAnnotations(unittest.TestCase):
             return x, "y"
 
         self.assertEqual(func.flowrep_recipe.outputs, ["element_a", "element_b"])
-
-    def test_unpack_none_no_annotation_falls_back(self):
-        @atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.NONE)
-        def func(x):
-            return x
-
-        self.assertEqual(func.flowrep_recipe.outputs, ["output_0"])
 
     def test_annotation_with_extra_keys_for_other_packages(self):
         """Simulates semantikon-style annotations with extra metadata."""
@@ -989,9 +983,7 @@ class TestParseAtomicHasDefault(unittest.TestCase):
         def func():
             return 42
 
-        node = atomic_parser.parse_atomic(
-            func, unpack_mode=atomic_recipe.UnpackMode.NONE
-        )
+        node = atomic_parser.parse_atomic(func)
         self.assertEqual(node.reference.inputs_with_defaults, [])
 
     def test_decorator_preserves_inputs_with_defaults(self):
