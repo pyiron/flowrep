@@ -13,6 +13,7 @@ from flowrep.parsers.atomic_parser import parse_atomic as parse_atomic
 from flowrep.parsers.dataclass_parser import dataclass as dataclass
 from flowrep.parsers.workflow_parser import parse_workflow as parse_workflow
 from flowrep.parsers.workflow_parser import workflow as workflow
+from flowrep.prospective.constant_recipe import is_jsonable as is_jsonable
 from flowrep.retrospective.datastructures import recipe2data as recipe2data
 from flowrep.retrospective.storage import LexicalBagBrowser as LexicalBagBrowser
 from flowrep.wfms import run_recipe as run_recipe

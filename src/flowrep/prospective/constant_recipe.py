@@ -8,9 +8,9 @@ from typing_extensions import TypeAliasType
 
 from flowrep import base_models
 
-JSON = TypeAliasType(
-    "JSON",
-    "dict[str, JSON] | list[JSON] | str | int | float | bool | None",
+JSONABLE = TypeAliasType(
+    "JSONABLE",
+    "dict[str, JSONABLE] | list[JSONABLE] | str | int | float | bool | None",
 )
 
 
@@ -46,6 +46,15 @@ def _strict_json(value: Any) -> Any:
     )
 
 
+def is_jsonable(value: Any) -> bool:
+    """Whether *value* is JSON-serializable."""
+    try:
+        _strict_json(value)
+        return True
+    except ValueError:
+        return False
+
+
 class ConstantRecipe(base_models.NodeRecipe):
     """A source node emitting a fixed, JSON-serializable value.
 
@@ -64,7 +73,7 @@ class ConstantRecipe(base_models.NodeRecipe):
     outputs: base_models.Labels = pydantic.Field(
         default_factory=lambda: [ConstantRecipe.std_label]
     )
-    constant: JSON
+    constant: JSONABLE
 
     @pydantic.field_validator("constant", mode="before")
     @classmethod

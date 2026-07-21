@@ -23,7 +23,7 @@ from flowrep.edge_models import SourceHandle as SourceHandle
 from flowrep.edge_models import TargetHandle as TargetHandle
 from flowrep.prospective.atomic_recipe import AtomicRecipe as AtomicRecipe
 from flowrep.prospective.atomic_recipe import UnpackMode as UnpackMode
-from flowrep.prospective.constant_recipe import JSON as JSON
+from flowrep.prospective.constant_recipe import JSONABLE as JSONABLE
 from flowrep.prospective.constant_recipe import ConstantRecipe as ConstantRecipe
 from flowrep.prospective.for_recipe import ForEachRecipe as ForEachRecipe
 from flowrep.prospective.helper_models import ConditionalCase as ConditionalCase
