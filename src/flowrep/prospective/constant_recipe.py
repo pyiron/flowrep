@@ -8,9 +8,9 @@ from typing_extensions import TypeAliasType
 
 from flowrep import base_models
 
-JSON = TypeAliasType(
-    "JSON",
-    "dict[str, JSON] | list[JSON] | str | int | float | bool | None",
+JSONABLE = TypeAliasType(
+    "JSONABLE",
+    "dict[str, JSONABLE] | list[JSONABLE] | str | int | float | bool | None",
 )
 
 
@@ -73,7 +73,7 @@ class ConstantRecipe(base_models.NodeRecipe):
     outputs: base_models.Labels = pydantic.Field(
         default_factory=lambda: [ConstantRecipe.std_label]
     )
-    constant: JSON
+    constant: JSONABLE
 
     @pydantic.field_validator("constant", mode="before")
     @classmethod
