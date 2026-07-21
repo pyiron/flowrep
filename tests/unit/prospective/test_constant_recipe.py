@@ -6,6 +6,12 @@ from flowrep import base_models
 from flowrep.prospective import constant_recipe, union_types
 
 
+class TestIsJsonable(unittest.TestCase):
+    def test_is_jsonable(self):
+        self.assertTrue(constant_recipe.is_jsonable([1, 2]))
+        self.assertFalse(constant_recipe.is_jsonable((1, 2)))
+
+
 class TestConstantRecipe(unittest.TestCase):
     def test_defaults_and_call(self):
         c = constant_recipe.ConstantRecipe(constant=0.5)

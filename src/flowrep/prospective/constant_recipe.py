@@ -46,6 +46,15 @@ def _strict_json(value: Any) -> Any:
     )
 
 
+def is_jsonable(value: Any) -> bool:
+    """Whether *value* is JSON-serializable."""
+    try:
+        _strict_json(value)
+        return True
+    except ValueError:
+        return False
+
+
 class ConstantRecipe(base_models.NodeRecipe):
     """A source node emitting a fixed, JSON-serializable value.
 
