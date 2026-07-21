@@ -127,7 +127,7 @@ class _ModuleWithClassVar:
 
 class TestInverseRecipeStructure(unittest.TestCase):
     def test_multi_field_recipe_shape(self):
-        recipe = library.Pair.flowrep_recipe_inverse
+        recipe = library.Pair.flowrep_recipe_unpacking
         self.assertIsInstance(recipe, atomic_recipe.AtomicRecipe)
         self.assertEqual(recipe.inputs, ["dataclass"])
         self.assertEqual(recipe.outputs, ["foo", "bar"])
@@ -139,7 +139,7 @@ class TestInverseRecipeStructure(unittest.TestCase):
 
     def test_multi_field_output_annotations(self):
         ports = datastructures.recipe2data(
-            library.Pair.flowrep_recipe_inverse
+            library.Pair.flowrep_recipe_unpacking
         ).output_ports
         self.assertEqual(list(ports), ["foo", "bar"])
         self.assertIs(ports["foo"].annotation, int)
@@ -154,14 +154,14 @@ class TestInverseRecipeStructure(unittest.TestCase):
         )
         self.assertEqual(unpacker.__module__, library.Pair.__module__)
 
-        info = library.Pair.flowrep_recipe_inverse.reference.info
+        info = library.Pair.flowrep_recipe_unpacking.reference.info
         self.assertEqual(
             info.qualname, f"{library.Pair.__qualname__}._Pair_fields_to_outputs"
         )
         self.assertEqual(info.module, library.Pair.__module__)
 
     def test_single_field_recipe_shape(self):
-        recipe = library.Single.flowrep_recipe_inverse
+        recipe = library.Single.flowrep_recipe_unpacking
         self.assertEqual(recipe.outputs, ["only"])
         ports = datastructures.recipe2data(recipe).output_ports
         self.assertEqual(list(ports), ["only"])
@@ -172,7 +172,7 @@ class TestInverseRecipeStructure(unittest.TestCase):
         self.assertIs(sig.return_annotation, int)
 
     def test_classvar_excluded_from_outputs(self):
-        recipe = _ModuleWithClassVar.flowrep_recipe_inverse
+        recipe = _ModuleWithClassVar.flowrep_recipe_unpacking
         self.assertEqual(recipe.outputs, ["x"])
         ports = datastructures.recipe2data(recipe).output_ports
         self.assertEqual(list(ports), ["x"])
@@ -206,7 +206,7 @@ class TestInverseRecipeFailures(unittest.TestCase):
             @dataclass_parser.dataclass
             class Collide:
                 foo: int
-                flowrep_recipe_inverse: int = 0
+                flowrep_recipe_unpacking: int = 0
 
 
 class TestRecipeMatchesPython(unittest.TestCase):
@@ -216,7 +216,7 @@ class TestRecipeMatchesPython(unittest.TestCase):
 
     def test_multi_field_inverse_recipe_call_matches_wfms_run(self):
         instance = library.Pair(1, "a")
-        recipe = library.Pair.flowrep_recipe_inverse
+        recipe = library.Pair.flowrep_recipe_unpacking
 
         raw = recipe(instance)
         node = wfms.run_recipe(recipe, dataclass=instance)
@@ -231,7 +231,7 @@ class TestRecipeMatchesPython(unittest.TestCase):
 
     def test_single_field_inverse_recipe_call_matches_wfms_run(self):
         instance = library.Single(5)
-        recipe = library.Single.flowrep_recipe_inverse
+        recipe = library.Single.flowrep_recipe_unpacking
 
         raw = recipe(instance)
         node = wfms.run_recipe(recipe, dataclass=instance)

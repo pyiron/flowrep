@@ -176,7 +176,7 @@ class TestInverseRecipeExecution(unittest.TestCase):
 
     def test_inverse_recipe_run_directly(self):
         out = fr.tools.run_recipe(
-            library.Pair.flowrep_recipe_inverse, dataclass=library.Pair(1, "a")
+            library.Pair.flowrep_recipe_unpacking, dataclass=library.Pair(1, "a")
         )
         self.assertEqual(out.output_ports["foo"].value, 1)
         self.assertEqual(out.output_ports["bar"].value, "a")
@@ -186,7 +186,7 @@ class TestInverseRecipeExecution(unittest.TestCase):
         # when unpacking an existing instance.
         instance = library.MyDataclass(library.ComplexData(3), 7)
         out = fr.tools.run_recipe(
-            library.MyDataclass.flowrep_recipe_inverse, dataclass=instance
+            library.MyDataclass.flowrep_recipe_unpacking, dataclass=instance
         )
         self.assertEqual(out.output_ports["a"].value.val, 3)
         self.assertEqual(out.output_ports["x"].value, 7)

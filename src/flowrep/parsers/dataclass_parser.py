@@ -19,7 +19,7 @@ _DATACLASS_KWARGS = frozenset(
     if param.kind is inspect.Parameter.KEYWORD_ONLY
 )
 
-INVERSE_RECIPE_ATTR = "flowrep_recipe_inverse"
+INVERSE_RECIPE_ATTR = "flowrep_recipe_unpacking"
 
 
 @overload
