@@ -201,7 +201,7 @@ def _get_output_labels(
 
 def _parse_return_label_without_unpacking(func: types.FunctionType) -> list[str]:
     """
-    Get output label for UnpackMode.NONE.
+    Get output label without breaking apart return tuples.
 
     Looks for annotation on the return type itself (not tuple elements).
     For `-> Annotated[T, {"label": "x"}]` or `-> Annotated[tuple[...], {"label": "x"}]`
