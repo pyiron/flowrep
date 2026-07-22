@@ -137,7 +137,6 @@ class AtomicData(NodeData[atomic_recipe.AtomicRecipe]):
             recipe.reference.info.fully_qualified_name,
             recipe.inputs,
             recipe.outputs,
-            recipe.unpack_mode,
             allow_variadic_inputs=allow_variadic_inputs,
         )
         return AtomicData(
@@ -250,7 +249,6 @@ def _parse_function(
     fully_qualified_name: str,
     inputs: list[str],
     outputs: list[str],
-    unpack_mode: atomic_recipe.UnpackMode = atomic_recipe.UnpackMode.TUPLE,
     allow_variadic_inputs: bool = True,
 ) -> tuple[
     types.FunctionType,
@@ -316,7 +314,7 @@ def _parse_function(
 
     # --- output ports ---
     return_annotation = hints.get("return", None)
-    if unpack_mode == atomic_recipe.UnpackMode.NONE:
+    if len(outputs) == 1:
         output_ports = _parse_return_without_unpacking(return_annotation, outputs)
     else:
         output_ports = _parse_return_tuple(return_annotation, outputs)
@@ -365,8 +363,8 @@ def _parse_return_tuple(
 
         if return_annotation is not None:
             unpacking_hint = (
-                f"To collect the entire tuple in a single port use "
-                f"{atomic_recipe.UnpackMode.NONE} unpacking mode."
+                "To collect the entire tuple in a single port use a single, explicit "
+                "output label."
             )
 
             if origin is not tuple:

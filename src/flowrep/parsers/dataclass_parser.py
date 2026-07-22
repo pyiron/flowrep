@@ -103,7 +103,6 @@ def _bind_inverse_recipe(
                 "dataclass": base_models.RestrictedParamKind.POSITIONAL_ONLY
             },
         ),
-        unpack_mode=atomic_recipe.UnpackMode.TUPLE,
     )
     setattr(cls, INVERSE_RECIPE_ATTR, reverse_recipe)
     return cls

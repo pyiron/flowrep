@@ -67,90 +67,6 @@ class TestAtomicRecipeSource(unittest.TestCase):
         self.assertIsNone(node.reference.info.version)
 
 
-class TestAtomicRecipeUnpackMode(unittest.TestCase):
-    """Tests for unpack_mode validation."""
-
-    def test_default_unpack_mode_is_tuple(self):
-        node = atomic_recipe.AtomicRecipe(
-            reference=makers.make_reference(),
-            inputs=[],
-            outputs=["a", "b"],
-        )
-        self.assertEqual(node.unpack_mode, atomic_recipe.UnpackMode.TUPLE)
-
-    def test_tuple_mode_multiple_outputs(self):
-        node = atomic_recipe.AtomicRecipe(
-            reference=makers.make_reference(),
-            inputs=[],
-            outputs=["a", "b", "c"],
-            unpack_mode=atomic_recipe.UnpackMode.TUPLE,
-        )
-        self.assertEqual(len(node.outputs), 3)
-
-    def test_tuple_mode_zero_outputs(self):
-        node = atomic_recipe.AtomicRecipe(
-            reference=makers.make_reference(),
-            inputs=[],
-            outputs=[],
-            unpack_mode=atomic_recipe.UnpackMode.TUPLE,
-        )
-        self.assertEqual(len(node.outputs), 0)
-
-    def test_none_mode_single_output(self):
-        node = atomic_recipe.AtomicRecipe(
-            reference=makers.make_reference(),
-            inputs=[],
-            outputs=["result"],
-            unpack_mode=atomic_recipe.UnpackMode.NONE,
-        )
-        self.assertEqual(node.outputs, ["result"])
-
-    def test_none_mode_zero_outputs(self):
-        node = atomic_recipe.AtomicRecipe(
-            reference=makers.make_reference(),
-            inputs=[],
-            outputs=[],
-            unpack_mode=atomic_recipe.UnpackMode.NONE,
-        )
-        self.assertEqual(len(node.outputs), 0)
-
-    def test_none_mode_multiple_outputs_rejected(self):
-        with self.assertRaises(pydantic.ValidationError) as ctx:
-            atomic_recipe.AtomicRecipe(
-                reference=makers.make_reference(),
-                inputs=[],
-                outputs=["a", "b"],
-                unpack_mode=atomic_recipe.UnpackMode.NONE,
-            )
-        self.assertIn("exactly one element", str(ctx.exception))
-        self.assertIn(atomic_recipe.UnpackMode.NONE.value, str(ctx.exception))
-
-    def test_all_unpack_modes_accepted_as_string(self):
-        for mode in ["none", "tuple"]:
-            with self.subTest(mode=mode):
-                node = atomic_recipe.AtomicRecipe(
-                    reference=makers.make_reference(),
-                    inputs=[],
-                    outputs=["out"],
-                    unpack_mode=mode,
-                )
-                self.assertEqual(node.unpack_mode, mode)
-
-
-class TestUnpackModeEnum(unittest.TestCase):
-    """Tests for UnpackMode enum."""
-
-    def test_all_expected_values_exist(self):
-        expected = {"none", "tuple"}
-        actual = {e.value for e in atomic_recipe.UnpackMode}
-        self.assertEqual(expected, actual)
-
-    def test_is_str_enum(self):
-        for mode in atomic_recipe.UnpackMode:
-            self.assertIsInstance(mode, str)
-            self.assertEqual(mode, mode.value)
-
-
 class TestAtomicRecipeSerialization(unittest.TestCase):
     """Tests for serialization roundtrips."""
 
@@ -165,19 +81,6 @@ class TestAtomicRecipeSerialization(unittest.TestCase):
                 data = original.model_dump(mode=mode)
                 restored = atomic_recipe.AtomicRecipe.model_validate(data)
                 self.assertEqual(original, restored)
-
-    def test_roundtrip_with_unpack_mode(self):
-        for mode in atomic_recipe.UnpackMode:
-            with self.subTest(mode=mode):
-                original = atomic_recipe.AtomicRecipe(
-                    reference=makers.make_reference(),
-                    inputs=[],
-                    outputs=["out"],
-                    unpack_mode=mode,
-                )
-                data = original.model_dump(mode="json")
-                restored = atomic_recipe.AtomicRecipe.model_validate(data)
-                self.assertEqual(original.unpack_mode, restored.unpack_mode)
 
     def test_roundtrip_with_version(self):
         original = atomic_recipe.AtomicRecipe(
@@ -198,7 +101,6 @@ class TestAtomicRecipeSerialization(unittest.TestCase):
             reference=makers.make_reference("pkg.mod", "func", "2.0.0"),
             inputs=["x", "y"],
             outputs=["z"],
-            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         data = node.model_dump(mode="json")
         self.assertEqual(data["type"], "atomic")
@@ -212,7 +114,6 @@ class TestAtomicRecipeSerialization(unittest.TestCase):
         )
         self.assertEqual(data["inputs"], ["x", "y"])
         self.assertEqual(data["outputs"], ["z"])
-        self.assertEqual(data["unpack_mode"], "none")
 
     def test_json_structure_version_null_when_absent(self):
         node = atomic_recipe.AtomicRecipe(

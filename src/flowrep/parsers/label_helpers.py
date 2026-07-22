@@ -63,12 +63,14 @@ def extract_label_from_annotated(hint: Any) -> str | None:
     return None
 
 
-def get_annotated_output_labels(func: FunctionType) -> list[str | None] | None:
+def get_annotated_output_labels(
+    func: FunctionType, decompose_annotations: bool = True
+) -> list[str | None] | None:
     """
     Extract output labels from return type annotation using Annotated.
 
-    For TUPLE unpacking - looks at tuple element annotations.
-    Unwraps outer Annotated wrapper if present to get to tuple elements.
+    Unwraps outer Annotated wrapper if present to get to tuple elements when set to
+    ``decompose_annotation``.
 
     Supports:
         - Single: `-> Annotated[T, {"label": "name"}]`
@@ -90,7 +92,7 @@ def get_annotated_output_labels(func: FunctionType) -> list[str | None] | None:
     # Unwrap outer Annotated to get to the actual type (for TUPLE mode,
     # we care about element annotations, not the tuple-level annotation)
     inner_type = return_hint
-    if get_origin(return_hint) is Annotated:
+    if get_origin(return_hint) is Annotated and decompose_annotations:
         inner_type = get_args(return_hint)[0]
 
     origin = get_origin(inner_type)

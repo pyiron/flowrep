@@ -13,7 +13,6 @@ import unittest
 from flowrep import edge_models, std
 from flowrep.parsers import atomic_parser, for_parser, symbol_scope, workflow_parser
 from flowrep.prospective import (
-    atomic_recipe,
     for_recipe,
     if_recipe,
     try_recipe,
@@ -29,12 +28,12 @@ from flowrep_static import library
 # ---------------------------------------------------------------------------
 
 
-@atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.NONE)
+@atomic_parser.atomic("tuple_return")
 def pair(a, b):
     return a, b
 
 
-@atomic_parser.atomic(unpack_mode=atomic_recipe.UnpackMode.TUPLE)
+@atomic_parser.atomic
 def split(a, b):
     return a, b
 
