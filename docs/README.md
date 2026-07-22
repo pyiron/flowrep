@@ -230,10 +230,10 @@ We can look at the template it will follow, e.g., by peeking at the part of the 
 used for the "while" condition:
 
 ```python
->>> recipe_json["nodes"]["double_until_0"]["nodes"]["while_0"]["case"]["condition"]["node"]["type"]
+>>> recipe_json["nodes"]["double_until_0"]["nodes"]["while_0"]["case"]["condition"]["recipe"]["type"]
 'atomic'
 
->>> recipe_json["nodes"]["double_until_0"]["nodes"]["while_0"]["case"]["condition"]["node"]["reference"]["info"]["qualname"]
+>>> recipe_json["nodes"]["double_until_0"]["nodes"]["while_0"]["case"]["condition"]["recipe"]["reference"]["info"]["qualname"]
 'is_less_than_target'
 
 ```

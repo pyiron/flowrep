@@ -3,15 +3,17 @@ from __future__ import annotations
 import ast
 import importlib
 import inspect
+import types
 from collections.abc import Callable, Collection
-from types import FunctionType
-from typing import cast
+from typing import TypeVar, cast, overload
 
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models
 from flowrep.parsers import (
     atomic_parser,
+    chain_parser,
+    constant_parser,
     for_parser,
     if_parser,
     label_helpers,
@@ -22,18 +24,29 @@ from flowrep.parsers import (
     try_parser,
     while_parser,
 )
-from flowrep.prospective import helper_models, union_types, workflow_recipe
+from flowrep.prospective import (
+    constant_recipe,
+    helper_models,
+    union_types,
+    workflow_recipe,
+)
+
+_WorkflowTarget = TypeVar("_WorkflowTarget", bound=types.FunctionType)
 
 
+@overload
+def workflow(func: _WorkflowTarget, /) -> _WorkflowTarget: ...
+@overload
 def workflow(
-    func: FunctionType | str | None = None,
+    func: str | None = None,
     /,
     *output_labels: str,
     version_scraping: versions.VersionScrapingMap | None = None,
     forbid_main: bool = False,
     forbid_locals: bool = False,
     require_version: bool = False,
-) -> FunctionType | Callable[[FunctionType], FunctionType]:
+) -> Callable[[_WorkflowTarget], _WorkflowTarget]: ...
+def workflow(func=None, /, *output_labels: str, **kwargs):
     """
     Decorator that attaches a :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe`
     to the ``flowrep_recipe`` attribute of a function, under constraints that the
@@ -63,22 +76,22 @@ def workflow(
         The original function with a ``flowrep_recipe`` attribute holding a
         :class:`~flowrep.models.nodes.workflow_recipe.WorkflowRecipe`.
     """
-    return parser_helpers.parser2decorator(
+
+    def wrap(f, labels):
+        f.flowrep_recipe = parse_workflow(f, *labels, **kwargs)
+        return f
+
+    return parser_helpers.apply_label_decorator(
         func,
         output_labels,
-        parser=parse_workflow,
+        wrap=wrap,
         decorator_name="@workflow",
-        parser_kwargs={
-            "version_scraping": version_scraping,
-            "forbid_main": forbid_main,
-            "forbid_locals": forbid_locals,
-            "require_version": require_version,
-        },
+        allowed_types=(types.FunctionType,),
     )
 
 
 def parse_workflow(
-    func: FunctionType,
+    func: types.FunctionType,
     *output_labels: str,
     version_scraping: versions.VersionScrapingMap | None = None,
     forbid_main: bool = False,
@@ -259,14 +272,20 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
 
         rhs = body.value
         if isinstance(rhs, ast.Call):
+            chain_parser.reject_method_call(rhs, self.symbol_map)
+            hoisted = chain_parser.hoist_call_arguments(
+                rhs, self.symbol_map, self.nodes
+            )
             child = atomic_parser.get_labeled_recipe(
                 rhs,
                 self.nodes.keys(),
                 self.scope,
                 self.info_factory,
             )
-            self.nodes[child.label] = child.node
-            parser_helpers.consume_call_arguments(self.symbol_map, rhs, child)
+            self.nodes[child.label] = child.recipe
+            parser_helpers.consume_call_arguments(
+                self.symbol_map, rhs, child, self.nodes, hoisted=hoisted
+            )
             self.symbol_map.register(new_symbols, child)
         elif isinstance(rhs, ast.List) and len(rhs.elts) == 0:
             if len(new_symbols) != 1:
@@ -275,46 +294,99 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
                     f"got {new_symbols}"
                 )
             self.symbol_map.register_accumulator(new_symbols[0])
+        elif rhs is not None and chain_parser.is_data_access(rhs, self.symbol_map):
+            if len(new_symbols) != 1:
+                raise ValueError(
+                    f"Attribute/item access assignment must target exactly one symbol, "
+                    f"got {new_symbols}"
+                )
+            handle = chain_parser.inject_chain(rhs, self.symbol_map, self.nodes)
+            self.symbol_map.register(
+                new_symbols,
+                helper_models.LabeledRecipe(
+                    label=handle.node, recipe=self.nodes[handle.node]
+                ),
+            )
+        elif rhs is not None and constant_parser.try_parse_constant(rhs)[0]:
+            raise ValueError(
+                "Workflow python definitions accept constants only as call "
+                "arguments (e.g. f(x, 5)); a bare literal assignment like "
+                "'some_var = 5' is no longer supported."
+            )
+        elif isinstance(rhs, ast.Name):
+            if len(new_symbols) != 1:
+                raise ValueError(
+                    f"Alias assignment must target exactly one symbol -- no unpacking "
+                    f"raw symbols -- got {new_symbols}."
+                )
+            self.symbol_map.alias(new_symbols[0], rhs.id)
         else:
             raise ValueError(
                 f"Workflow python definitions can only interpret assignments with "
-                f"a call or empty list on the right-hand-side, but ast found "
-                f"{type(rhs)}"
+                f"a call, empty list, symbol alias, or attribute/item "
+                f"access rooted at a known workflow symbol on the right-hand-side, "
+                f"but ast found {type(rhs)}"
             )
 
     def _digest_flow_control(
-        self, label_prefix: str, node: union_types.RecipeDiscrimination
+        self,
+        label_prefix: str,
+        node: union_types.RecipeDiscrimination,
+        bindings: parser_helpers.FlowControlBindings | None = None,
     ) -> None:
         label = label_helpers.unique_suffix(label_prefix, self.nodes)
         self.nodes[label] = node
-        self._connect_node_to_enclosing_scope(label, node)
+        self._connect_node_to_enclosing_scope(label, node, bindings)
 
     def _connect_node_to_enclosing_scope(
-        self, label: str, node: union_types.RecipeDiscrimination
+        self,
+        label: str,
+        node: union_types.RecipeDiscrimination,
+        bindings: parser_helpers.FlowControlBindings | None = None,
     ):
+        bound = bindings or {}
         for port in node.inputs:
-            self.symbol_map.consume(port, label, port)
+            binding = bound.get(port)
+            if binding is None:
+                self.symbol_map.consume(port, label, port)
+            elif isinstance(binding, edge_models.SourceHandle):
+                self.symbol_map.consume_source(binding, label, port)
+            else:
+                self._attach_constant_peer(label, port, binding)
 
-        labeled_node = helper_models.LabeledRecipe(label=label, node=node)
+        labeled_node = helper_models.LabeledRecipe(label=label, recipe=node)
         self.symbol_map.register(new_symbols=node.outputs, child=labeled_node)
 
+    def _attach_constant_peer(
+        self, label: str, port: str, recipe: constant_recipe.ConstantRecipe
+    ) -> None:
+        """Create a constant peer of the flow-control node and feed it into *port*."""
+        constant_label = constant_recipe.ConstantRecipe.std_label
+        peer_label = label_helpers.unique_suffix(constant_label, self.nodes)
+        self.nodes[peer_label] = recipe
+        self.symbol_map.consume_source(
+            edge_models.SourceHandle(node=peer_label, port=constant_label),
+            label,
+            port,
+        )
+
     def visit_For(self, tree: ast.For) -> None:
-        for_recipe = for_parser.parse_for_node(self, tree)
+        for_recipe, bindings = for_parser.parse_for_node(self, tree)
         # Accumulators consumed by the for body are no longer available here
         self.symbol_map.declared_accumulators -= set(for_recipe.outputs)
-        self._digest_flow_control("for_each", for_recipe)
+        self._digest_flow_control("for_each", for_recipe, bindings)
 
     def visit_While(self, tree: ast.While) -> None:
-        while_recipe = while_parser.parse_while_node(self, tree)
-        self._digest_flow_control("while", while_recipe)
+        while_recipe, bindings = while_parser.parse_while_node(self, tree)
+        self._digest_flow_control("while", while_recipe, bindings)
 
     def visit_If(self, tree: ast.If) -> None:
-        if_recipe = if_parser.parse_if_node(self, tree)
-        self._digest_flow_control("if", if_recipe)
+        if_recipe, bindings = if_parser.parse_if_node(self, tree)
+        self._digest_flow_control("if", if_recipe, bindings)
 
     def visit_Try(self, tree: ast.Try) -> None:
-        try_recipe = try_parser.parse_try_node(self, tree)
-        self._digest_flow_control("try", try_recipe)
+        try_recipe, bindings = try_parser.parse_try_node(self, tree)
+        self._digest_flow_control("try", try_recipe, bindings)
 
     def visit_Expr(self, stmt: ast.Expr) -> None:
         if is_append_call(stmt.value):
@@ -362,11 +434,37 @@ class WorkflowParser(ast.NodeVisitor, parser_protocol.BodyWalker):
         used_accumulator = cast(
             ast.Name, cast(ast.Attribute, append_call.func).value
         ).id
-        appended_symbol = cast(ast.Name, append_call.args[0]).id
+        appended = append_call.args[0]
+        if chain_parser.is_data_access(appended, self.symbol_map):
+            self._append_chain(used_accumulator, appended)
+            return
+        if not isinstance(appended, ast.Name):
+            raise TypeError(
+                f"Workflow python definitions can only append a symbol, or an "
+                f"attribute or item of one, to an accumulator, but "
+                f"'{used_accumulator}.append(...)' got {type(appended).__name__}. "
+                f"Bind the value to a symbol first."
+            )
+        appended_symbol = appended.id
         self.symbol_map.use_accumulator(used_accumulator, appended_symbol)
         appended_source = self.symbol_map[appended_symbol]
         if isinstance(appended_source, edge_models.SourceHandle):
             self.symbol_map.produce(appended_symbol)
+
+    def _append_chain(self, used_accumulator: str, appended: ast.expr) -> None:
+        """Append an attribute chain, giving its output port a generated name.
+
+        The getattr nodes go *inside* this body -- an ordinary workflow, which has room
+        for peers -- so they re-execute every iteration, exactly as the attribute access
+        would in Python. Only the port name is invented, and it is deduped against every
+        symbol in scope and every port already produced, so it cannot collide.
+        """
+        handle = chain_parser.inject_chain(appended, self.symbol_map, self.nodes)
+        port = chain_parser.generate_port_name(
+            appended, self.symbol_map.unavailable_names
+        )
+        self.symbol_map.use_accumulator(used_accumulator, port)
+        self.symbol_map.produce_source(port, handle)
 
     def generic_visit(self, stmt: ast.AST) -> None:
         raise TypeError(
@@ -385,7 +483,7 @@ class _WorkflowFunctionParser(WorkflowParser):
         info_factory: versions.VersionInfoFactory,
         *,
         source: base_models.PythonReference | None = None,
-        func: FunctionType,
+        func: types.FunctionType,
         output_labels: Collection[str],
     ):
         super().__init__(
@@ -413,15 +511,19 @@ class _WorkflowFunctionParser(WorkflowParser):
     def handle_return(
         self,
         body: ast.Return,
-        func: FunctionType,
+        func: types.FunctionType,
         output_labels: Collection[str],
     ) -> None:
+        if body.value is not None:
+            elements = (
+                body.value.elts if isinstance(body.value, ast.Tuple) else [body.value]
+            )
+            for element in elements:
+                chain_parser.reject_unbound_access(
+                    element, self.symbol_map, "returned from a workflow"
+                )
+
         returned_symbols = parser_helpers.resolve_symbols_to_strings(body.value)
-        base_models.validate_unique(
-            returned_symbols,
-            message=f"Workflow python definitions must have unique returns, but "
-            f"got duplicates in: {returned_symbols}",
-        )
 
         annotated_returns = label_helpers.get_annotated_output_labels(func)
         scraped_labels = label_helpers.merge_labels(
@@ -438,6 +540,14 @@ class _WorkflowFunctionParser(WorkflowParser):
             )
 
         final_ports = list(output_labels) if output_labels else scraped_labels
+
+        base_models.validate_unique(
+            final_ports,
+            message=f"Workflow python definitions must have unique outputs, but "
+            f"got duplicates in: {final_ports}. Was the same symbol returned multiple "
+            f"times? If so, try providing unique output labels or -- probably better "
+            f"-- don't return duplicate symbols.",
+        )
 
         for symbol, port in zip(returned_symbols, final_ports, strict=True):
             if symbol not in self.symbol_map:

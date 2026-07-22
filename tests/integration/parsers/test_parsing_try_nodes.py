@@ -2,10 +2,9 @@ import unittest
 
 from pyiron_snippets import versions
 
+from flowrep import std
 from flowrep.parsers import workflow_parser
 from flowrep.prospective import workflow_recipe
-
-from flowrep_static import library
 
 _VALUE_ERROR_INFO = versions.VersionInfo.of(ValueError)
 _TYPE_ERROR_INFO = versions.VersionInfo.of(TypeError)
@@ -14,9 +13,9 @@ _TYPE_ERROR_INFO = versions.VersionInfo.of(TypeError)
 # 1. Simple try/except — single symbol assigned in both branches
 def simple_try_except(x, y):
     try:
-        z = library.my_add(x, y)
+        z = std.add(x, y)
     except ValueError:
-        z = library.my_mul(x, y)
+        z = std.mul(x, y)
     return z
 
 
@@ -32,16 +31,16 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["z"],
                 "try_node": {
                     "label": "try_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": library.my_add.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
                         },
-                        "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+                        "input_edges": {"add_0.a": "x", "add_0.b": "y"},
                         "edges": {},
-                        "output_edges": {"z": "my_add_0.output_0"},
+                        "output_edges": {"z": "add_0.added"},
                     },
                 },
                 "exception_cases": [
@@ -49,19 +48,19 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_mul_0": library.my_mul.flowrep_recipe,
+                                    "mul_0": std.mul.flowrep_recipe,
                                 },
                                 "input_edges": {
-                                    "my_mul_0.a": "x",
-                                    "my_mul_0.b": "y",
+                                    "mul_0.a": "x",
+                                    "mul_0.b": "y",
                                 },
                                 "edges": {},
-                                "output_edges": {"z": "my_mul_0.output_0"},
+                                "output_edges": {"z": "mul_0.product"},
                             },
                         },
                     }
@@ -95,11 +94,11 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
 # 2. try with multiple except handlers
 def try_multi_except(x, y):
     try:
-        z = library.my_add(x, y)
+        z = std.add(x, y)
     except ValueError:
-        z = library.my_mul(x, y)
+        z = std.mul(x, y)
     except TypeError:
-        z = library.identity(x)
+        z = std.identity(x)
     return z
 
 
@@ -115,16 +114,16 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["z"],
                 "try_node": {
                     "label": "try_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": library.my_add.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
                         },
-                        "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+                        "input_edges": {"add_0.a": "x", "add_0.b": "y"},
                         "edges": {},
-                        "output_edges": {"z": "my_add_0.output_0"},
+                        "output_edges": {"z": "add_0.added"},
                     },
                 },
                 "exception_cases": [
@@ -132,19 +131,19 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_mul_0": library.my_mul.flowrep_recipe,
+                                    "mul_0": std.mul.flowrep_recipe,
                                 },
                                 "input_edges": {
-                                    "my_mul_0.a": "x",
-                                    "my_mul_0.b": "y",
+                                    "mul_0.a": "x",
+                                    "mul_0.b": "y",
                                 },
                                 "edges": {},
-                                "output_edges": {"z": "my_mul_0.output_0"},
+                                "output_edges": {"z": "mul_0.product"},
                             },
                         },
                     },
@@ -152,12 +151,12 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "exceptions": [_TYPE_ERROR_INFO],
                         "body": {
                             "label": "except_body_1",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "identity_0": library.identity.flowrep_recipe,
+                                    "identity_0": std.identity.flowrep_recipe,
                                 },
                                 "input_edges": {"identity_0.x": "x"},
                                 "edges": {},
@@ -199,12 +198,12 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
 
 # 3. try-node embedded between upstream and downstream siblings
 def try_with_context(a, b):
-    x = library.my_add(a, b)
+    x = std.add(a, b)
     try:
-        y = library.my_mul(x, b)
+        y = std.mul(x, b)
     except ValueError:
-        y = library.my_add(x, b)
-    z = library.identity(y)
+        y = std.add(x, b)
+    z = std.identity(y)
     return z
 
 
@@ -214,23 +213,23 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
         "inputs": ["a", "b"],
         "outputs": ["z"],
         "nodes": {
-            "my_add_0": library.my_add.flowrep_recipe,
+            "add_0": std.add.flowrep_recipe,
             "try_0": {
                 "type": "try",
                 "inputs": ["x", "b"],
                 "outputs": ["y"],
                 "try_node": {
                     "label": "try_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "b"],
                         "outputs": ["y"],
                         "nodes": {
-                            "my_mul_0": library.my_mul.flowrep_recipe,
+                            "mul_0": std.mul.flowrep_recipe,
                         },
-                        "input_edges": {"my_mul_0.a": "x", "my_mul_0.b": "b"},
+                        "input_edges": {"mul_0.a": "x", "mul_0.b": "b"},
                         "edges": {},
-                        "output_edges": {"y": "my_mul_0.output_0"},
+                        "output_edges": {"y": "mul_0.product"},
                     },
                 },
                 "exception_cases": [
@@ -238,19 +237,19 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "b"],
                                 "outputs": ["y"],
                                 "nodes": {
-                                    "my_add_0": library.my_add.flowrep_recipe,
+                                    "add_0": std.add.flowrep_recipe,
                                 },
                                 "input_edges": {
-                                    "my_add_0.a": "x",
-                                    "my_add_0.b": "b",
+                                    "add_0.a": "x",
+                                    "add_0.b": "b",
                                 },
                                 "edges": {},
-                                "output_edges": {"y": "my_add_0.output_0"},
+                                "output_edges": {"y": "add_0.added"},
                             },
                         },
                     }
@@ -265,11 +264,11 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
                     "y": ["try_body.y", "except_body_0.y"],
                 },
             },
-            "identity_0": library.identity.flowrep_recipe,
+            "identity_0": std.identity.flowrep_recipe,
         },
-        "input_edges": {"my_add_0.a": "a", "my_add_0.b": "b", "try_0.b": "b"},
+        "input_edges": {"add_0.a": "a", "add_0.b": "b", "try_0.b": "b"},
         "edges": {
-            "try_0.x": "my_add_0.output_0",
+            "try_0.x": "add_0.added",
             "identity_0.x": "try_0.y",
         },
         "output_edges": {"z": "identity_0.x"},
@@ -288,11 +287,11 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
 # 4. Multiple outputs from try/except branches
 def multi_output_try(x, y):
     try:
-        a = library.my_add(x, y)
-        b = library.my_mul(x, y)
+        a = std.add(x, y)
+        b = std.mul(x, y)
     except ValueError:
-        a = library.my_mul(x, y)
-        b = library.my_add(x, y)
+        a = std.mul(x, y)
+        b = std.add(x, y)
     return a, b
 
 
@@ -308,24 +307,24 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["a", "b"],
                 "try_node": {
                     "label": "try_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "y"],
                         "outputs": ["a", "b"],
                         "nodes": {
-                            "my_add_0": library.my_add.flowrep_recipe,
-                            "my_mul_0": library.my_mul.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
+                            "mul_0": std.mul.flowrep_recipe,
                         },
                         "input_edges": {
-                            "my_add_0.a": "x",
-                            "my_add_0.b": "y",
-                            "my_mul_0.a": "x",
-                            "my_mul_0.b": "y",
+                            "add_0.a": "x",
+                            "add_0.b": "y",
+                            "mul_0.a": "x",
+                            "mul_0.b": "y",
                         },
                         "edges": {},
                         "output_edges": {
-                            "a": "my_add_0.output_0",
-                            "b": "my_mul_0.output_0",
+                            "a": "add_0.added",
+                            "b": "mul_0.product",
                         },
                     },
                 },
@@ -334,24 +333,24 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
                         "exceptions": [_VALUE_ERROR_INFO],
                         "body": {
                             "label": "except_body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["a", "b"],
                                 "nodes": {
-                                    "my_mul_0": library.my_mul.flowrep_recipe,
-                                    "my_add_0": library.my_add.flowrep_recipe,
+                                    "mul_0": std.mul.flowrep_recipe,
+                                    "add_0": std.add.flowrep_recipe,
                                 },
                                 "input_edges": {
-                                    "my_mul_0.a": "x",
-                                    "my_mul_0.b": "y",
-                                    "my_add_0.a": "x",
-                                    "my_add_0.b": "y",
+                                    "mul_0.a": "x",
+                                    "mul_0.b": "y",
+                                    "add_0.a": "x",
+                                    "add_0.b": "y",
                                 },
                                 "edges": {},
                                 "output_edges": {
-                                    "a": "my_mul_0.output_0",
-                                    "b": "my_add_0.output_0",
+                                    "a": "mul_0.product",
+                                    "b": "add_0.added",
                                 },
                             },
                         },
@@ -387,9 +386,9 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
 # 5. Tuple exception types in a single handler
 def try_tuple_exceptions(x, y):
     try:
-        z = library.my_add(x, y)
+        z = std.add(x, y)
     except (ValueError, TypeError):
-        z = library.my_mul(x, y)
+        z = std.mul(x, y)
     return z
 
 
@@ -405,16 +404,16 @@ tuple_exc_node = workflow_recipe.WorkflowRecipe.model_validate(
                 "outputs": ["z"],
                 "try_node": {
                     "label": "try_body",
-                    "node": {
+                    "recipe": {
                         "type": "workflow",
                         "inputs": ["x", "y"],
                         "outputs": ["z"],
                         "nodes": {
-                            "my_add_0": library.my_add.flowrep_recipe,
+                            "add_0": std.add.flowrep_recipe,
                         },
-                        "input_edges": {"my_add_0.a": "x", "my_add_0.b": "y"},
+                        "input_edges": {"add_0.a": "x", "add_0.b": "y"},
                         "edges": {},
-                        "output_edges": {"z": "my_add_0.output_0"},
+                        "output_edges": {"z": "add_0.added"},
                     },
                 },
                 "exception_cases": [
@@ -425,19 +424,19 @@ tuple_exc_node = workflow_recipe.WorkflowRecipe.model_validate(
                         ],
                         "body": {
                             "label": "except_body_0",
-                            "node": {
+                            "recipe": {
                                 "type": "workflow",
                                 "inputs": ["x", "y"],
                                 "outputs": ["z"],
                                 "nodes": {
-                                    "my_mul_0": library.my_mul.flowrep_recipe,
+                                    "mul_0": std.mul.flowrep_recipe,
                                 },
                                 "input_edges": {
-                                    "my_mul_0.a": "x",
-                                    "my_mul_0.b": "y",
+                                    "mul_0.a": "x",
+                                    "mul_0.b": "y",
                                 },
                                 "edges": {},
-                                "output_edges": {"z": "my_mul_0.output_0"},
+                                "output_edges": {"z": "mul_0.product"},
                             },
                         },
                     }

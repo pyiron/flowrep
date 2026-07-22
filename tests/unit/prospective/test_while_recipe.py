@@ -301,7 +301,7 @@ class TestWhileRecipeFullySourcing(unittest.TestCase):
             },
             output_edges={},
         )
-        self.assertIn("extra", wn.case.condition.node.inputs)
+        self.assertIn("extra", wn.case.condition.recipe.inputs)
 
     def test_body_unsourced_no_default_raises(self):
         """Body input without edge or default → rejected."""
@@ -354,7 +354,7 @@ class TestWhileRecipeFullySourcing(unittest.TestCase):
             },
             output_edges={},
         )
-        self.assertIn("extra", wn.case.body.node.inputs)
+        self.assertIn("extra", wn.case.body.recipe.inputs)
 
 
 class TestWhileRecipeOutputEdges(unittest.TestCase):
@@ -567,11 +567,11 @@ class TestWhileRecipeSerialization(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="check",
-                    node=makers.make_atomic(inputs=["val"], outputs=["flag"]),
+                    recipe=makers.make_atomic(inputs=["val"], outputs=["flag"]),
                 ),
                 body=helper_models.LabeledRecipe(
                     label="step",
-                    node=makers.make_atomic(inputs=["x", "y"], outputs=["a", "b"]),
+                    recipe=makers.make_atomic(inputs=["x", "y"], outputs=["a", "b"]),
                 ),
             ),
             input_edges={"check.val": "n", "step.x": "n", "step.y": "acc"},
@@ -600,11 +600,11 @@ class TestWhileRecipeSerialization(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="cond",
-                    node=makers.make_atomic(inputs=["v"], outputs=["ok"]),
+                    recipe=makers.make_atomic(inputs=["v"], outputs=["ok"]),
                 ),
                 body=helper_models.LabeledRecipe(
                     label="body",
-                    node=makers.make_atomic(inputs=["p"], outputs=["q"]),
+                    recipe=makers.make_atomic(inputs=["p"], outputs=["q"]),
                 ),
             ),
             input_edges={"cond.v": "a", "body.p": "a"},
@@ -622,11 +622,11 @@ class TestWhileRecipeSerialization(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="cond",
-                    node=makers.make_atomic(inputs=["inp"], outputs=["out"]),
+                    recipe=makers.make_atomic(inputs=["inp"], outputs=["out"]),
                 ),
                 body=helper_models.LabeledRecipe(
                     label="body",
-                    node=makers.make_atomic(inputs=["a"], outputs=["b"]),
+                    recipe=makers.make_atomic(inputs=["a"], outputs=["b"]),
                 ),
             ),
             input_edges={"cond.inp": "x", "body.a": "x"},
@@ -662,18 +662,18 @@ class TestWhileRecipeSerialization(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="check",
-                    node=makers.make_atomic(
+                    recipe=makers.make_atomic(
                         inputs=["v"], outputs=["done"], inputs_with_defaults=["v"]
                     ),
                 ),
-                body=helper_models.LabeledRecipe(label="process", node=inner),
+                body=helper_models.LabeledRecipe(label="process", recipe=inner),
             ),
             input_edges={"process.a": "start"},
             output_edges={"start": "process.b"},
         )
         data = wn.model_dump(mode="json")
         restored = while_recipe.WhileRecipe.model_validate(data)
-        self.assertIsInstance(restored.case.body.node, workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(restored.case.body.recipe, workflow_recipe.WorkflowRecipe)
 
 
 class TestWhileRecipeEdgeCases(unittest.TestCase):
@@ -685,11 +685,11 @@ class TestWhileRecipeEdgeCases(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="c",
-                    node=makers.make_atomic(inputs=[], outputs=["done"]),
+                    recipe=makers.make_atomic(inputs=[], outputs=["done"]),
                 ),
                 body=helper_models.LabeledRecipe(
                     label="b",
-                    node=makers.make_atomic(inputs=[], outputs=[]),
+                    recipe=makers.make_atomic(inputs=[], outputs=[]),
                 ),
             ),
             input_edges={},
@@ -704,11 +704,11 @@ class TestWhileRecipeEdgeCases(unittest.TestCase):
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="c",
-                    node=makers.make_atomic(inputs=[], outputs=[]),  # No outputs!
+                    recipe=makers.make_atomic(inputs=[], outputs=[]),  # No outputs!
                 ),
                 body=helper_models.LabeledRecipe(
                     label="b",
-                    node=makers.make_atomic(inputs=[], outputs=[]),
+                    recipe=makers.make_atomic(inputs=[], outputs=[]),
                 ),
             )
         self.assertIn("exactly one output", str(ctx.exception))
@@ -725,11 +725,11 @@ class TestWhileRecipeEdgeCases(unittest.TestCase):
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="cond",
-                    node=makers.make_atomic(inputs=["val"], outputs=["ok"]),
+                    recipe=makers.make_atomic(inputs=["val"], outputs=["ok"]),
                 ),
                 body=helper_models.LabeledRecipe(
                     label="body",
-                    node=makers.make_atomic(inputs=["inp"], outputs=["out"]),
+                    recipe=makers.make_atomic(inputs=["inp"], outputs=["out"]),
                 ),
             ),
             input_edges={"body.inp": "x", "cond.val": "x"},

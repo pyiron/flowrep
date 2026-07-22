@@ -8,7 +8,6 @@ fully-fledged WfMS can refer.
 
 from __future__ import annotations
 
-import dataclasses
 import itertools
 from collections.abc import Collection
 from typing import Any, cast
@@ -19,6 +18,7 @@ from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.parsers import label_helpers
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     for_recipe,
     helper_models,
     if_recipe,
@@ -41,6 +41,8 @@ def run_recipe(
     match recipe:
         case atomic_recipe.AtomicRecipe():
             return _run_atomic(recipe, **kwargs)
+        case constant_recipe.ConstantRecipe():
+            return _run_constant(recipe, **kwargs)
         case workflow_recipe.WorkflowRecipe():
             return _run_workflow(recipe, **kwargs)
         case for_recipe.ForEachRecipe():
@@ -68,6 +70,13 @@ def _run_atomic(
     result = _call_atomic(node)
     _store_atomic_outputs(node, result)
     return node
+
+
+def _run_constant(
+    recipe: constant_recipe.ConstantRecipe, **kwargs: Any
+) -> datastructures.ConstantData:
+    # A constant has no inputs; its output value is fixed and pre-filled by from_recipe.
+    return datastructures.ConstantData.from_recipe(recipe)
 
 
 def _call_atomic(node: datastructures.AtomicData) -> Any:
@@ -110,17 +119,12 @@ def _store_atomic_outputs(node: datastructures.AtomicData, result: Any) -> None:
     if recipe.unpack_mode == atomic_recipe.UnpackMode.NONE:
         node.output_ports[output_names[0]].value = result
 
-    elif recipe.unpack_mode == atomic_recipe.UnpackMode.TUPLE:
+    else:
         if len(output_names) == 1:
             node.output_ports[output_names[0]].value = result
         else:
             for name, val in zip(output_names, result, strict=True):
                 node.output_ports[name].value = val
-
-    elif recipe.unpack_mode == atomic_recipe.UnpackMode.DATACLASS:
-        fields = dataclasses.fields(result)
-        for label, field in zip(node.recipe.outputs, fields, strict=True):
-            node.output_ports[label].value = getattr(result, field.name)
 
 
 # ---------------------------------------------------------------------------
@@ -221,7 +225,7 @@ def _run_for(
     _populate_input_ports(node, kwargs)
 
     body_label = recipe.body_node.label
-    body_recipe = recipe.body_node.node
+    body_recipe = recipe.body_node.recipe
     iterated_ports = recipe.iterated_ports
 
     # body iterated port -> for-node input name
@@ -311,8 +315,8 @@ def _run_while(
 
     cond_label = recipe.case.condition.label
     body_label = recipe.case.body.label
-    cond_recipe = recipe.case.condition.node
-    body_recipe = recipe.case.body.node
+    cond_recipe = recipe.case.condition.recipe
+    body_recipe = recipe.case.body.recipe
 
     # Working copy of current values — starts from inputs, body outputs update it
     current: dict[str, Any] = {
@@ -370,7 +374,7 @@ def _run_if(recipe: if_recipe.IfRecipe, **kwargs: Any) -> datastructures.IfData:
         cond_kwargs = _gather_dynamic_child_inputs(
             case.condition.label, recipe.input_edges, node
         )
-        cond_node = run_recipe(case.condition.node, **cond_kwargs)
+        cond_node = run_recipe(case.condition.recipe, **cond_kwargs)
         node.nodes[case.condition.label] = cond_node
 
         if _evaluate_condition(case, cond_node):
@@ -390,7 +394,7 @@ def _execute_if_branch(
     branch: helper_models.LabeledRecipe,
 ) -> None:
     branch_kwargs = _gather_dynamic_child_inputs(branch.label, recipe.input_edges, node)
-    branch_node = run_recipe(branch.node, **branch_kwargs)
+    branch_node = run_recipe(branch.recipe, **branch_kwargs)
     node.nodes[branch.label] = branch_node
 
     _populate_prospective_outputs(node, recipe.prospective_output_edges, branch.label)
@@ -414,7 +418,7 @@ def _run_try(recipe: try_recipe.TryRecipe, **kwargs: Any) -> datastructures.TryD
     )
 
     try:
-        try_node = run_recipe(recipe.try_node.node, **try_kwargs)
+        try_node = run_recipe(recipe.try_node.recipe, **try_kwargs)
         node.nodes[recipe.try_node.label] = try_node
         _populate_prospective_outputs(
             node, recipe.prospective_output_edges, recipe.try_node.label
@@ -430,7 +434,7 @@ def _run_try(recipe: try_recipe.TryRecipe, **kwargs: Any) -> datastructures.TryD
                 handler_kwargs = _gather_dynamic_child_inputs(
                     case.body.label, recipe.input_edges, node
                 )
-                handler_node = run_recipe(case.body.node, **handler_kwargs)
+                handler_node = run_recipe(case.body.recipe, **handler_kwargs)
                 node.nodes[case.body.label] = handler_node
                 _populate_prospective_outputs(
                     node, recipe.prospective_output_edges, case.body.label

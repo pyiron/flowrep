@@ -4,7 +4,7 @@ import ast
 
 from pyiron_snippets import versions
 
-from flowrep.parsers import case_helpers, object_scope, parser_protocol
+from flowrep.parsers import case_helpers, object_scope, parser_helpers, parser_protocol
 from flowrep.prospective import helper_models, try_recipe
 
 TRY_BODY_LABEL: str = "try_body"
@@ -13,7 +13,7 @@ EXCEPT_BODY_LABEL_PREFIX: str = "except_body"
 
 def parse_try_node(
     walker: parser_protocol.BodyWalker, tree: ast.Try
-) -> try_recipe.TryRecipe:
+) -> tuple[try_recipe.TryRecipe, parser_helpers.FlowControlBindings]:
     """
     Walk a try/except block.
 
@@ -59,13 +59,16 @@ def parse_try_node(
         for exceptions, branch in zip(exception_groups, except_branches, strict=True)
     ]
 
-    return try_recipe.TryRecipe(
-        inputs=inputs,
-        outputs=outputs,
-        try_node=try_branch.to_labeled_node(),
-        exception_cases=exception_cases,
-        input_edges=input_edges,
-        prospective_output_edges=prospective_output_edges,
+    return (
+        try_recipe.TryRecipe(
+            inputs=inputs,
+            outputs=outputs,
+            try_node=try_branch.to_labeled_node(),
+            exception_cases=exception_cases,
+            input_edges=input_edges,
+            prospective_output_edges=prospective_output_edges,
+        ),
+        {},
     )
 
 

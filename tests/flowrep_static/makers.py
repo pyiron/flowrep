@@ -2,11 +2,9 @@
 
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models
+from flowrep import base_models, edge_models, std
 from flowrep.parsers import workflow_parser
 from flowrep.prospective import atomic_recipe, helper_models, workflow_recipe
-
-from flowrep_static import library
 
 
 def make_reference(
@@ -55,7 +53,7 @@ def make_labeled_atomic(
 ) -> helper_models.LabeledRecipe:
     return helper_models.LabeledRecipe(
         label=label,
-        node=make_atomic(
+        recipe=make_atomic(
             inputs=inputs or [],
             outputs=outputs or [],
             module=module,
@@ -82,7 +80,7 @@ def make_simple_workflow_recipe() -> workflow_recipe.WorkflowRecipe:
     return workflow_recipe.WorkflowRecipe(
         inputs=["a", "b"],
         outputs=["result"],
-        nodes={"add_0": library.my_add.flowrep_recipe},
+        nodes={"add_0": std.add.flowrep_recipe},
         input_edges={
             edge_models.TargetHandle(node="add_0", port="a"): edge_models.InputSource(
                 port="a"
@@ -94,7 +92,7 @@ def make_simple_workflow_recipe() -> workflow_recipe.WorkflowRecipe:
         edges={},
         output_edges={
             edge_models.OutputTarget(port="result"): edge_models.SourceHandle(
-                node="add_0", port="output_0"
+                node="add_0", port="added"
             ),
         },
     )

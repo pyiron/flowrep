@@ -8,12 +8,13 @@ from pyiron_snippets import versions
 from flowrep import edge_models, subgraph_validation
 from flowrep.parsers import (
     atomic_parser,
+    chain_parser,
     object_scope,
     parser_helpers,
     parser_protocol,
     symbol_scope,
 )
-from flowrep.prospective import helper_models
+from flowrep.prospective import helper_models, union_types
 
 
 def parse_case(
@@ -22,7 +23,13 @@ def parse_case(
     symbol_map: symbol_scope.SymbolScope,
     info_factory: versions.VersionInfoFactory,
     label: str,
-) -> tuple[helper_models.LabeledRecipe, edge_models.InputEdges]:
+    nodes: union_types.Recipes,
+    reserved_ports: set[str] | None = None,
+) -> tuple[
+    helper_models.LabeledRecipe,
+    edge_models.InputEdges,
+    parser_helpers.FlowControlBindings,
+]:
     """
     Parse a conditional expression.
 
@@ -33,17 +40,35 @@ def parse_case(
         raise ValueError(
             "Test conditions must be a function call, but got " f"{type(test).__name__}"
         )
+    chain_parser.reject_method_call(test, symbol_map)
 
     condition = atomic_parser.get_labeled_recipe(test, set(), scope, info_factory)
-    if len(condition.node.outputs) != 1:
+    if len(condition.recipe.outputs) != 1:
         raise ValueError(
             f"If/elif condition must return exactly one value (and it had better be "
-            f"truthy), but got {condition.node.outputs}"
+            f"truthy), but got {condition.recipe.outputs}"
         )
 
+    # A flow-control recipe has no room to host a peer, so an attribute argument
+    # becomes a getattr peer of the flow-control node in the *enclosing* scope, and
+    # reaches the condition through a generated input port.
+    hoisted = chain_parser.hoist_call_arguments(test, symbol_map, nodes)
+
     scope_copy = symbol_map.fork()
-    parser_helpers.consume_call_arguments(scope_copy, test, condition)
-    return _relabel_node_data(condition, scope_copy.input_edges, label)
+    condition_bindings: parser_helpers.FlowControlBindings = {}
+    parser_helpers.consume_call_arguments(
+        scope_copy,
+        test,
+        condition,
+        nodes,
+        condition_bindings=condition_bindings,
+        reserved_ports=reserved_ports,
+        hoisted=hoisted,
+    )
+    relabeled_node, relabeled_inputs = _relabel_node_data(
+        condition, scope_copy.input_edges, label
+    )
+    return relabeled_node, relabeled_inputs, condition_bindings
 
 
 def _relabel_node_data(
@@ -52,7 +77,7 @@ def _relabel_node_data(
     new_label: str,
 ) -> tuple[helper_models.LabeledRecipe, edge_models.InputEdges]:
     relabeled_node = helper_models.LabeledRecipe(
-        label=new_label, node=labeled_node.node
+        label=new_label, recipe=labeled_node.recipe
     )
     relabeled_inputs: edge_models.InputEdges = {
         edge_models.TargetHandle(node=new_label, port=target.port): source
@@ -70,7 +95,7 @@ class WalkedBranch:
     def to_labeled_node(self) -> helper_models.LabeledRecipe:
         return helper_models.LabeledRecipe(
             label=self.label,
-            node=self.walker.build_model(),
+            recipe=self.walker.build_model(),
         )
 
 
@@ -131,6 +156,11 @@ def wire_outputs(
             if sym not in seen:
                 seen.add(sym)
                 outputs.append(sym)
+
+    for branch in branches:
+        parser_helpers.reject_input_alias_outputs(
+            branch.walker.symbol_map, outputs, "branch"
+        )
 
     # Build prospective output edges: each output maps to the list of branch
     # body nodes that can source it.

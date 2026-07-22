@@ -84,7 +84,7 @@ class ForEachRecipe(base_models.NodeRecipe):
 
     @property
     def prospective_nodes(self) -> Recipes:
-        return {self.body_node.label: self.body_node.node}
+        return {self.body_node.label: self.body_node.recipe}
 
     @property
     def iterated_ports(self) -> base_models.Labels:
@@ -165,11 +165,11 @@ class ForEachRecipe(base_models.NodeRecipe):
         if invalid := {
             port
             for port in self.iterated_ports
-            if port not in self.body_node.node.inputs
+            if port not in self.body_node.recipe.inputs
         }:
             raise ValueError(
                 f"For node must iterate on body node ports "
-                f"({self.body_node.node.inputs}) but got: {invalid}"
+                f"({self.body_node.recipe.inputs}) but got: {invalid}"
             )
         return self
 
