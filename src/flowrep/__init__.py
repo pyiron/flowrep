@@ -9,7 +9,6 @@ import importlib.metadata
 from flowrep.api import atomic as atomic
 from flowrep.api import dataclass as dataclass
 from flowrep.api import parse_atomic as parse_atomic
-from flowrep.api import parse_workflow as parse_workflow
 from flowrep.api import schemas as schemas
 from flowrep.api import std as std
 from flowrep.api import tools as tools
