@@ -17,7 +17,7 @@ import abc
 import dataclasses
 import inspect
 import types
-from collections.abc import Callable, MutableMapping
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from typing import Any, Generic, Self, TypeVar, get_args, get_origin, get_type_hints
 
 from pyiron_snippets import retrieve, singleton
@@ -91,6 +91,13 @@ class NodeData(Generic[RecipeType], abc.ABC):
     @classmethod
     @abc.abstractmethod
     def from_recipe(cls, recipe: RecipeType) -> Self: ...
+
+    def view(self, expanded: bool = False):
+        """
+        Display this data object as structured JSON in a notebook and return the display
+        object.
+        """
+        return _display_json(_to_jsonable(self), expanded=expanded)
 
 
 def recipe2data(
@@ -385,3 +392,46 @@ def _parse_return_dataclass(
         label: OutputDataPort(annotation=hints.get(field.name, None))
         for label, field in zip(outputs, fields, strict=True)
     }
+
+
+def _to_jsonable(data: Any) -> Any:
+    if data is None or isinstance(data, bool | int | float | str):
+        return data
+    if isinstance(data, Mapping):
+        return {
+            _to_jsonable_key(key): _to_jsonable(value) for key, value in data.items()
+        }
+    if isinstance(data, Sequence) and not isinstance(data, str):
+        return [_to_jsonable(item) for item in data]
+    if dataclasses.is_dataclass(data) and not isinstance(data, type):
+        serialized = {
+            field.name: _to_jsonable(getattr(data, field.name))
+            for field in dataclasses.fields(data)
+        }
+        serialized["type"] = data.__class__.__name__
+        return serialized
+    if hasattr(data, "model_dump"):
+        model_dump = data.model_dump(mode="json")
+        if isinstance(model_dump, Mapping):
+            model_dump["type"] = data.__class__.__name__
+        return _to_jsonable(model_dump)
+    if isinstance(data, type):
+        return f"{data.__module__}.{data.__qualname__}"
+    if inspect.isroutine(data):
+        return f"{data.__module__}.{data.__qualname__}"
+    return repr(data)
+
+
+def _to_jsonable_key(key: Any) -> str:
+    jsonable = _to_jsonable(key)
+    if isinstance(jsonable, str):
+        return jsonable
+    return repr(jsonable)
+
+
+def _display_json(data: Any, *, expanded: bool = False):
+    try:
+        from IPython.display import JSON
+    except ImportError as e:
+        raise ImportError("This tool requires the 'IPython' package.") from e
+    return JSON(data, expanded=expanded)
