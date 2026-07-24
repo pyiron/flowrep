@@ -6,6 +6,7 @@ import dataclasses
 import pickle
 import unittest
 from typing import TYPE_CHECKING, NamedTuple, get_origin
+from unittest import mock
 
 from pyiron_snippets import versions
 
@@ -28,6 +29,13 @@ from flowrep_static import library
 
 if TYPE_CHECKING:
     from pyiron_snippets.colors import SeabornColors
+
+try:
+    from IPython.display import JSON as IPythonJSON
+
+    _has_ipython = True
+except ImportError:
+    _has_ipython = False
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -839,6 +847,43 @@ class TestRecipe2LiveVariadicPropagation(unittest.TestCase):
         wf = datastructures.recipe2data(wf_recipe, allow_variadic_inputs=True)
         self.assertIsInstance(wf, datastructures.DagData)
         self.assertIsInstance(wf.nodes["splitter_0"], datastructures.AtomicData)
+
+
+@unittest.skipUnless(_has_ipython, "IPython not installed")
+class TestDataView(unittest.TestCase):
+    def test_node_data_view(self):
+        node = datastructures.AtomicData.from_recipe(library.identity.flowrep_recipe)
+        with mock.patch(
+            "flowrep.retrospective.datastructures._display_json"
+        ) as mocked_display:
+            mocked_display.return_value = "shown"
+            shown = node.view(expanded=True)
+        self.assertEqual(shown, "shown")
+        mocked_display.assert_called_once_with(mock.ANY, expanded=True)
+        data = mocked_display.call_args.args[0]
+        self.assertEqual(data["type"], "AtomicData")
+        self.assertIn("input_ports", data)
+
+    def test_composite_data_view(self):
+        node = datastructures.DagData.from_recipe(_linear_workflow())
+        with mock.patch(
+            "flowrep.retrospective.datastructures._display_json"
+        ) as mocked_display:
+            mocked_display.return_value = "shown"
+            shown = node.view()
+        self.assertEqual(shown, "shown")
+        mocked_display.assert_called_once()
+        data = mocked_display.call_args.args[0]
+        self.assertEqual(data["type"], "DagData")
+        self.assertIn("nodes", data)
+        self.assertIn("add_0", data["nodes"])
+
+    def test_display_json_helper(self):
+        shown = datastructures._display_json({"x": 1}, expanded=True)
+        self.assertIsInstance(shown, IPythonJSON)
+        self.assertEqual(shown.data, {"x": 1})
+        _, metadata = shown._repr_json_()
+        self.assertTrue(metadata["expanded"])
 
 
 # ═══════════════════════════════════════════════════════════════════════════
