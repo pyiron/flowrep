@@ -5,8 +5,8 @@ from __future__ import annotations
 import dataclasses
 import pickle
 import unittest
-from unittest import mock
 from typing import TYPE_CHECKING, NamedTuple, get_origin
+from unittest import mock
 
 from pyiron_snippets import versions
 
