@@ -417,7 +417,7 @@ def _to_jsonable(data: Any) -> Any:
     if hasattr(data, "model_dump"):
         model_dump = data.model_dump(mode="json")
         if isinstance(model_dump, Mapping):
-            model_dump["type"] = data.__class__.__name__
+            model_dump = {**model_dump, "type": data.__class__.__name__}
         return _to_jsonable(model_dump)
     if isinstance(data, type):
         return f"{data.__module__}.{data.__qualname__}"
