@@ -18,6 +18,11 @@ def multi_result(x):
 
 
 @atomic_parser.atomic
+def identity(x):
+    return x
+
+
+@atomic_parser.atomic
 def my_range(n):
     return list(range(n))
 
