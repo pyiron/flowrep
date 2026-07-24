@@ -1,5 +1,5 @@
 import dataclasses
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 
 from flowrep import edge_models
 from flowrep.prospective import helper_models
@@ -43,11 +43,13 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         sources: dict[str, edge_models.InputSource | edge_models.SourceHandle],
         available_accumulators: set[str] | None = None,
         reserved_accumulators: set[str] | None = None,
+        shadowed_symbols: set[str] | None = None,
     ):
         self._sources = dict(sources)
         self._consumptions: list[SymbolConsumption] = []
         self._productions: list[SymbolProduction] = []
         self.reassigned_symbols: list[str] = []
+        self.input_aliases: set[str] = set()
         self.declared_accumulators: set[str] = set()
         self.available_accumulators: set[str] = (
             set() if available_accumulators is None else available_accumulators
@@ -55,18 +57,35 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         self.reserved_accumulators: set[str] = (
             set() if reserved_accumulators is None else reserved_accumulators
         )
+        self.shadowed_symbols: set[str] = (
+            set() if shadowed_symbols is None else shadowed_symbols
+        )
         self.consumed_accumulators: dict[str, str] = {}
 
     @property
+    def unavailable_names(self) -> set[str]:
+        """Every name a *generated* port name must avoid.
+
+        The compiler inlines flow-control bodies into the enclosing ``def``, so a body's
+        ports and its enclosing scope's symbols share one Python namespace. A generated
+        name must therefore dodge more than this scope's own symbols: it must also dodge
+        :attr:`shadowed_symbols` -- names live in the enclosing emitted scope but absent
+        here, chiefly the collection symbol that :meth:`fork` remapped into the loop
+        variable.
+        """
+        return set(self._sources) | self.shadowed_symbols | set(self.outputs)
+
+    @property
     def inputs(self) -> list[str]:
-        """Ordered unique symbols consumed from InputSources."""
+        """Ordered unique input ports consumed from InputSources."""
         seen: set[str] = set()
         result: list[str] = []
         for c in self._consumptions:
-            if isinstance(c.source, edge_models.InputSource) and c.symbol not in seen:
-                seen.add(c.symbol)
-                result.append(c.symbol)
-            # TODO: Just set.add it?
+            if isinstance(c.source, edge_models.InputSource):
+                port = c.source.port
+                if port not in seen:
+                    seen.add(port)
+                    result.append(port)
         return result
 
     @property
@@ -155,9 +174,9 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             raise ValueError(
                 f"Symbol(s) {overshadowed} already registered as accumulators."
             )
-        if len(new_symbols) != len(child.node.outputs):
+        if len(new_symbols) != len(child.recipe.outputs):
             raise ValueError(
-                f"Cannot map {child.node.outputs} to symbols {new_symbols}"
+                f"Cannot map {child.recipe.outputs} to symbols {new_symbols}"
             )
         reassigned = [s for s in new_symbols if s in self._sources]
         for symbol in reassigned:
@@ -166,9 +185,40 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         self._sources.update(
             {
                 sym: edge_models.SourceHandle(node=child.label, port=port)
-                for sym, port in zip(new_symbols, child.node.outputs, strict=True)
+                for sym, port in zip(new_symbols, child.recipe.outputs, strict=True)
             }
         )
+
+    def alias(self, new_symbol: str, existing_symbol: str) -> None:
+        """Bind *new_symbol* to the same source as *existing_symbol* (``y = x``).
+
+        No node is created; the source is copied. Re-assigning a symbol that was
+        declared as an accumulator de-registers it. Aliasing *from* an
+        accumulator is rejected, since accumulators are name-tracked rather than
+        sourced.
+        """
+        if existing_symbol in self.all_accumulators:
+            raise ValueError(
+                f"Cannot alias accumulator '{existing_symbol}'. Accumulators are "
+                f"declared directly with `name = []`; hanging a second name on one "
+                f"is not supported."
+            )
+        try:
+            source = self[existing_symbol]
+        except KeyError as error:
+            raise ValueError(str(error)) from None
+        self.declared_accumulators.discard(new_symbol)
+        if new_symbol in self._sources and new_symbol not in self.reassigned_symbols:
+            self.reassigned_symbols.append(new_symbol)
+        self._sources[new_symbol] = source
+        if isinstance(source, edge_models.InputSource):
+            self.input_aliases.add(new_symbol)
+        else:
+            self.input_aliases.discard(new_symbol)
+
+    def is_input_alias(self, symbol: str) -> bool:
+        """True if *symbol* was aliased directly to a workflow input."""
+        return symbol in self.input_aliases
 
     def register_accumulator(self, new: str) -> None:
         if new in self._sources:
@@ -192,14 +242,70 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
             )
         )
 
+    def consume_source(
+        self,
+        source: edge_models.SourceHandle,
+        consumer_node: str,
+        consumer_port: str,
+    ) -> None:
+        """Record a consumption whose source is a fixed ``SourceHandle`` (e.g. an
+        injected constant node), bypassing symbol lookup so no synthetic symbol
+        enters ``_sources`` and risks colliding with a user symbol."""
+        self._consumptions.append(
+            SymbolConsumption(
+                symbol=source.node,  # unused for SourceHandle sources; kept for debugging
+                consumer_node=consumer_node,
+                consumer_port=consumer_port,
+                source=source,
+            )
+        )
+
+    def consume_input_source(
+        self,
+        source: edge_models.InputSource,
+        consumer_node: str,
+        consumer_port: str,
+    ) -> None:
+        """Record a consumption whose source is a fixed ``InputSource`` (e.g. a
+        synthetic flow-control input port fed by an injected constant peer),
+        bypassing symbol lookup so no synthetic symbol enters ``_sources`` and
+        risks colliding with a user symbol. The ``InputSource`` twin of
+        :meth:`consume_source`."""
+        self._consumptions.append(
+            SymbolConsumption(
+                symbol=source.port,
+                consumer_node=consumer_node,
+                consumer_port=consumer_port,
+                source=source,
+            )
+        )
+
     def produce(self, output_port: str, symbol: str | None = None) -> None:
         """Record that `output_port` is sourced from `symbol`."""
         produced_symbol = output_port if symbol is None else symbol
-        if any(p.output_port == output_port for p in self._productions):
-            raise ValueError(f"Output port '{output_port}' already produced.")
+        self._reject_duplicate_production(output_port)
         self._productions.append(
             SymbolProduction(output_port=output_port, source=self[produced_symbol])
         )
+
+    def produce_source(
+        self, output_port: str, source: edge_models.SourceHandle
+    ) -> None:
+        """Record that `output_port` is sourced from a fixed ``SourceHandle``.
+
+        The ``SourceHandle`` twin of :meth:`produce`, for an output port whose name was
+        generated rather than taken from a symbol (an attribute chain appended to an
+        accumulator), so no synthetic symbol enters ``_sources`` and risks colliding
+        with a user symbol.
+        """
+        self._reject_duplicate_production(output_port)
+        self._productions.append(
+            SymbolProduction(output_port=output_port, source=source)
+        )
+
+    def _reject_duplicate_production(self, output_port: str) -> None:
+        if any(p.output_port == output_port for p in self._productions):
+            raise ValueError(f"Output port '{output_port}' already produced.")
 
     def produce_symbols(self, symbols: list[str]) -> None:
         """Record that an output port of the same name is sources from each symbol."""
@@ -221,6 +327,7 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
     def fork(
         self,
         symbol_remap: dict[str, str] | None = None,
+        added_symbols: Iterable[str] | None = None,
         available_accumulators: set[str] | None = None,
     ) -> "SymbolScope":
         """
@@ -230,6 +337,11 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         :class:`InputSource` in the child.  *symbol_remap* allows renaming
         symbols in transit (e.g. a for-loop replacing the iterable symbol
         with the iteration variable).
+
+        *added_symbols* introduces symbols the child has but the parent does not: a
+        for-loop variable whose collection was an attribute chain, and so had no
+        parent symbol to remap. They shadow a parent symbol of the same name, exactly
+        as the loop variable does in plain Python.
 
         Accumulator propagation is controlled explicitly via
         *available_accumulators*.  For-loop bodies pass the parent's
@@ -243,12 +355,21 @@ class SymbolScope(Mapping[str, edge_models.InputSource | edge_models.SourceHandl
         access is caught with a clear error rather than silently ignored.
         """
         remap = {} if symbol_remap is None else symbol_remap
+        sources: dict[str, edge_models.InputSource | edge_models.SourceHandle] = {
+            (k := remap.get(key, key)): edge_models.InputSource(port=k)
+            for key in self._sources
+        }
+        for symbol in added_symbols or ():
+            sources[symbol] = edge_models.InputSource(port=symbol)
         return SymbolScope(
-            {
-                (k := remap.get(key, key)): edge_models.InputSource(port=k)
-                for key in self._sources
-            },
+            sources,
             available_accumulators=available_accumulators,
             reserved_accumulators=self.reserved_accumulators
             | self.available_accumulators,
+            # Pre-remap names: `for x in coll` hands the child `x` and drops `coll`, but
+            # `coll` is still very much alive in the emitted Python -- it is the thing
+            # being iterated. A name generated in the child must not land on it.
+            shadowed_symbols=(
+                set(self._sources) | self.all_accumulators | self.shadowed_symbols
+            ),
         )

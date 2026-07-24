@@ -6,14 +6,15 @@ import dataclasses
 import pickle
 import unittest
 from unittest import mock
-from typing import TYPE_CHECKING, get_origin
+from typing import TYPE_CHECKING, NamedTuple, get_origin
 
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models, wfms
+from flowrep import base_models, edge_models, std, wfms
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     for_recipe,
     helper_models,
     if_recipe,
@@ -47,13 +48,9 @@ def get_blue(colors: SeabornColors) -> str:
     return colors.blue
 
 
-@dataclasses.dataclass
-class InaccessibleFieldAnnotation:
-    x: SeabornColors
-
-
-def return_problematic_dataclass(x) -> InaccessibleFieldAnnotation:
-    return InaccessibleFieldAnnotation(x)
+class _RetroPoint(NamedTuple):
+    x: int
+    y: int
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -101,8 +98,8 @@ def _linear_workflow() -> workflow_recipe.WorkflowRecipe:
         inputs=["x", "y", "z"],
         outputs=["result"],
         nodes={
-            "add_0": library.my_add.flowrep_recipe,
-            "mul_0": library.my_mul.flowrep_recipe,
+            "add_0": std.add.flowrep_recipe,
+            "mul_0": std.mul.flowrep_recipe,
         },
         input_edges={
             edge_models.TargetHandle(node="add_0", port="a"): edge_models.InputSource(
@@ -117,12 +114,12 @@ def _linear_workflow() -> workflow_recipe.WorkflowRecipe:
         },
         edges={
             edge_models.TargetHandle(node="mul_0", port="a"): edge_models.SourceHandle(
-                node="add_0", port="output_0"
+                node="add_0", port="added"
             ),
         },
         output_edges={
             edge_models.OutputTarget(port="result"): edge_models.SourceHandle(
-                node="mul_0", port="output_0"
+                node="mul_0", port="product"
             ),
         },
     )
@@ -135,9 +132,9 @@ def _passthrough_workflow(x: int = 42) -> int:
 
 @workflow_parser.workflow
 def _diamond_workflow(a: int, b: int = 1) -> int:
-    s = library.my_add(a, b)
-    n = library.negate(a)
-    result = library.my_mul(s, n)
+    s = std.add(a, b)
+    n = std.neg(a)
+    result = std.mul(s, n)
     return result
 
 
@@ -147,19 +144,19 @@ def _for_negate() -> for_recipe.ForEachRecipe:
         inputs=["xs"],
         outputs=["ys"],
         body_node=helper_models.LabeledRecipe(
-            label="body", node=library.negate.flowrep_recipe
+            label="body", recipe=std.neg.flowrep_recipe
         ),
         input_edges={
-            edge_models.TargetHandle(node="body", port="x"): edge_models.InputSource(
+            edge_models.TargetHandle(node="body", port="a"): edge_models.InputSource(
                 port="xs"
             )
         },
         output_edges={
             edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
-                node="body", port="output_0"
+                node="body", port="negative"
             )
         },
-        nested_ports=["x"],
+        nested_ports=["a"],
     )
 
 
@@ -172,7 +169,7 @@ def _for_add_broadcast() -> for_recipe.ForEachRecipe:
         inputs=["xs", "offset"],
         outputs=["ys", "inputs_used"],
         body_node=helper_models.LabeledRecipe(
-            label="body", node=library.my_add.flowrep_recipe
+            label="body", recipe=std.add.flowrep_recipe
         ),
         input_edges={
             edge_models.TargetHandle(node="body", port="a"): edge_models.InputSource(
@@ -184,7 +181,7 @@ def _for_add_broadcast() -> for_recipe.ForEachRecipe:
         },
         output_edges={
             edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
-                node="body", port="output_0"
+                node="body", port="added"
             ),
             edge_models.OutputTarget(port="inputs_used"): edge_models.InputSource(
                 port="xs"
@@ -200,7 +197,7 @@ def _for_add_zipped() -> for_recipe.ForEachRecipe:
         inputs=["xs", "ys"],
         outputs=["sums"],
         body_node=helper_models.LabeledRecipe(
-            label="body", node=library.my_add.flowrep_recipe
+            label="body", recipe=std.add.flowrep_recipe
         ),
         input_edges={
             edge_models.TargetHandle(node="body", port="a"): edge_models.InputSource(
@@ -212,7 +209,7 @@ def _for_add_zipped() -> for_recipe.ForEachRecipe:
         },
         output_edges={
             edge_models.OutputTarget(port="sums"): edge_models.SourceHandle(
-                node="body", port="output_0"
+                node="body", port="added"
             ),
         },
         zipped_ports=["a", "b"],
@@ -238,10 +235,10 @@ def _while_countdown() -> while_recipe.WhileRecipe:
         outputs=["n"],
         case=helper_models.ConditionalCase(
             condition=helper_models.LabeledRecipe(
-                label="condition", node=library.is_positive.flowrep_recipe
+                label="condition", recipe=library.is_positive.flowrep_recipe
             ),
             body=helper_models.LabeledRecipe(
-                label="body", node=_decrement_body_workflow()
+                label="body", recipe=_decrement_body_workflow()
             ),
         ),
         input_edges={
@@ -265,7 +262,7 @@ def _identity_body_workflow() -> workflow_recipe.WorkflowRecipe:
         inputs=["x"],
         outputs=["y"],
         child_label="identity_0",
-        child_recipe=library.identity.flowrep_recipe,
+        child_recipe=std.identity.flowrep_recipe,
         input_map={"x": "x"},
         output_map={"y": "x"},  # identity output port is named "x"
     )
@@ -275,10 +272,10 @@ def _negate_body_workflow() -> workflow_recipe.WorkflowRecipe:
     return _single_node_workflow(
         inputs=["x"],
         outputs=["y"],
-        child_label="negate_0",
-        child_recipe=library.negate.flowrep_recipe,
-        input_map={"x": "x"},
-        output_map={"y": "output_0"},
+        child_label="neg_0",
+        child_recipe=std.neg.flowrep_recipe,
+        input_map={"a": "x"},
+        output_map={"y": "negative"},
     )
 
 
@@ -291,17 +288,17 @@ def _if_abs() -> if_recipe.IfRecipe:
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="condition_0",
-                    node=library.is_positive.flowrep_recipe,
+                    recipe=library.is_positive.flowrep_recipe,
                 ),
                 body=helper_models.LabeledRecipe(
                     label="body_0",
-                    node=_identity_body_workflow(),
+                    recipe=_identity_body_workflow(),
                 ),
             )
         ],
         else_case=helper_models.LabeledRecipe(
             label="else_body",
-            node=_negate_body_workflow(),
+            recipe=_negate_body_workflow(),
         ),
         input_edges={
             edge_models.TargetHandle(
@@ -341,18 +338,18 @@ def _if_abs_multi_output_condition() -> if_recipe.IfRecipe:
             helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="condition_0",
-                    node=_value_and_flag.flowrep_recipe,
+                    recipe=_value_and_flag.flowrep_recipe,
                 ),
                 body=helper_models.LabeledRecipe(
                     label="body_0",
-                    node=_identity_body_workflow(),
+                    recipe=_identity_body_workflow(),
                 ),
                 condition_output="flag",
             )
         ],
         else_case=helper_models.LabeledRecipe(
             label="else_body",
-            node=_negate_body_workflow(),
+            recipe=_negate_body_workflow(),
         ),
         input_edges={
             edge_models.TargetHandle(
@@ -379,9 +376,9 @@ def _divide_body_workflow() -> workflow_recipe.WorkflowRecipe:
         inputs=["a", "b"],
         outputs=["result"],
         child_label="divide_0",
-        child_recipe=library.divide.flowrep_recipe,
+        child_recipe=std.truediv.flowrep_recipe,
         input_map={"a": "a", "b": "b"},
-        output_map={"result": "output_0"},
+        output_map={"result": "quotient"},
     )
 
 
@@ -391,7 +388,7 @@ def _fallback_body_workflow() -> workflow_recipe.WorkflowRecipe:
         inputs=["a"],
         outputs=["result"],
         child_label="identity_0",
-        child_recipe=library.identity.flowrep_recipe,
+        child_recipe=std.identity.flowrep_recipe,
         input_map={"x": "a"},
         output_map={"result": "x"},
     )
@@ -403,7 +400,7 @@ def _try_safe_divide() -> try_recipe.TryRecipe:
         inputs=["a", "b"],
         outputs=["result"],
         try_node=helper_models.LabeledRecipe(
-            label="try_body", node=_divide_body_workflow()
+            label="try_body", recipe=_divide_body_workflow()
         ),
         exception_cases=[
             helper_models.ExceptionCase(
@@ -411,7 +408,7 @@ def _try_safe_divide() -> try_recipe.TryRecipe:
                     versions.VersionInfo.of(ZeroDivisionError),
                 ],
                 body=helper_models.LabeledRecipe(
-                    label="except_body_0", node=_fallback_body_workflow()
+                    label="except_body_0", recipe=_fallback_body_workflow()
                 ),
             )
         ],
@@ -448,7 +445,7 @@ def _failing_try(x):
     try:
         y = _raises_value(x)
     except TypeError:
-        y = library.identity(x)
+        y = std.identity(x)
     return y
 
 
@@ -495,7 +492,6 @@ def _variadic_recipe(func, inputs, outputs=("result",)):
         reference=base_models.PythonReference(info=versions.VersionInfo.of(func)),
         inputs=list(inputs),
         outputs=list(outputs),
-        unpack_mode=atomic_recipe.UnpackMode.NONE,
     )
 
 
@@ -548,7 +544,7 @@ class TestPorts(unittest.TestCase):
 
 class TestAtomicFromRecipe(unittest.TestCase):
     def test_simple(self):
-        node = datastructures.AtomicData.from_recipe(library.identity.flowrep_recipe)
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
         self.assertTrue(callable(node.function))
         self.assertIn("x", node.input_ports)
         self.assertIn("x", node.output_ports)
@@ -560,7 +556,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
         self.assertIsInstance(node.input_ports["x"].default, datastructures.NotData)
 
     def test_function_resolves_correctly(self):
-        node = datastructures.AtomicData.from_recipe(library.my_add.flowrep_recipe)
+        node = datastructures.AtomicData.from_recipe(std.add.flowrep_recipe)
         self.assertEqual(node.function(3, 4), 7)
 
     def test_multi_output(self):
@@ -581,34 +577,15 @@ class TestAtomicFromRecipe(unittest.TestCase):
             inputs=["a", "b"],
             outputs=["result"],
             reference=library.divmod_func.flowrep_recipe.reference,
-            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         node = datastructures.AtomicData.from_recipe(recipe)
         origin = get_origin(node.output_ports["result"].annotation)
         self.assertIs(origin, tuple)
 
-    def test_unpacking_dataclass(self):
-        recipe = atomic_parser.parse_atomic(
-            takes_positional_only,
-            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
-        )
-        node = datastructures.AtomicData.from_recipe(recipe)
-        self.assertIs(node.output_ports["x"].annotation, int)
-        self.assertIs(node.output_ports["y"].annotation, int)
-
-    def test_unpacking_dataclass_with_inaccessible_field_raises(self):
-        recipe = atomic_parser.parse_atomic(
-            return_problematic_dataclass,
-            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
-        )
-        with self.assertRaisesRegex(NameError, "name 'SeabornColors' is not defined"):
-            datastructures.AtomicData.from_recipe(recipe)
-
     def test_unpacking_dataclass_as_none(self):
         recipe = atomic_parser.parse_atomic(
             takes_positional_only,
             "dc",
-            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         node = datastructures.AtomicData.from_recipe(recipe)
         self.assertIs(node.output_ports["dc"].annotation, SumClass)
@@ -619,7 +596,7 @@ class TestAtomicFromRecipe(unittest.TestCase):
                 atomic_recipe.AtomicRecipe(
                     inputs=["these", "are_not", "correct"],
                     outputs=["x"],
-                    reference=library.identity.flowrep_recipe.reference,
+                    reference=std.identity.flowrep_recipe.reference,
                 )
             )
         self.assertIn("not found in signature", str(ctx.exception))
@@ -658,6 +635,21 @@ class TestAtomicFromRecipe(unittest.TestCase):
         self.assertIn(
             "(n=3) do not match length of return annotation", str(ctx.exception)
         )
+
+    def test_new_based_class_raises(self):
+        # @atomic blocks this at decoration time, so build the recipe by hand to
+        # confirm the retrospective path also fails cleanly (e.g. a deserialized
+        # recipe) rather than silently dropping annotations.
+        recipe = atomic_recipe.AtomicRecipe(
+            inputs=["x", "y"],
+            outputs=["instance"],
+            reference=base_models.PythonReference(
+                info=versions.VersionInfo.of(_RetroPoint),
+            ),
+        )
+        with self.assertRaises(TypeError) as ctx:
+            datastructures.AtomicData.from_recipe(recipe)
+        self.assertIn("__init__", str(ctx.exception))
 
     def test_unavailable_annotation(self):
         with self.assertRaisesRegex(NameError, "name 'SeabornColors' is not defined"):
@@ -698,8 +690,8 @@ class TestWorkflowFromRecipe(unittest.TestCase):
         self.assertEqual(wf.input_ports["b"].default, 1)
         self.assertEqual(set(wf.output_ports), {"result"})
         self.assertIs(wf.output_ports["result"].annotation, int)
-        self.assertIn("my_add_0", wf.nodes)
-        self.assertIsInstance(wf.nodes["my_add_0"], datastructures.AtomicData)
+        self.assertIn("add_0", wf.nodes)
+        self.assertIsInstance(wf.nodes["add_0"], datastructures.AtomicData)
 
     def test_edges_are_carried_over(self):
         recipe = _linear_workflow()
@@ -728,7 +720,7 @@ class TestFlowControlFromRecipe(unittest.TestCase):
 class TestRecipe2Live(unittest.TestCase):
     def test_conversion_types(self):
         for recipe, type_ in (
-            (library.identity.flowrep_recipe, datastructures.AtomicData),
+            (std.identity.flowrep_recipe, datastructures.AtomicData),
             (_linear_workflow(), datastructures.DagData),
             (_for_negate(), datastructures.ForEachData),
             (_if_abs(), datastructures.IfData),
@@ -793,11 +785,11 @@ class TestAtomicFromRecipeVariadic(unittest.TestCase):
         self.assertEqual(node.input_ports["x"].default, 0)
 
     def test_extras_without_variadic_always_raise(self):
-        """`library.identity` has no variadic absorber; extras must fail."""
+        """`std.identity` has no variadic absorber; extras must fail."""
         recipe = atomic_recipe.AtomicRecipe(
             inputs=["x", "extra"],
             outputs=["x"],
-            reference=library.identity.flowrep_recipe.reference,
+            reference=std.identity.flowrep_recipe.reference,
         )
         with self.assertRaises(ValueError) as ctx:
             datastructures.AtomicData.from_recipe(recipe, allow_variadic_inputs=True)
@@ -901,12 +893,12 @@ class TestDataView(unittest.TestCase):
 
 class TestRunAtomic(unittest.TestCase):
     def test_simple(self):
-        node = wfms.run_recipe(library.my_add.flowrep_recipe, a=3, b=4)
+        node = wfms.run_recipe(std.add.flowrep_recipe, a=3, b=4)
         self.assertIsInstance(node, datastructures.AtomicData)
-        self.assertEqual(node.output_ports["output_0"].value, 7)
+        self.assertEqual(node.output_ports["added"].value, 7)
 
     def test_identity_preserves_value(self):
-        node = wfms.run_recipe(library.identity.flowrep_recipe, x=42)
+        node = wfms.run_recipe(std.identity.flowrep_recipe, x=42)
         self.assertEqual(node.output_ports["x"].value, 42)
 
     def test_default_used_when_input_omitted(self):
@@ -924,10 +916,10 @@ class TestRunAtomic(unittest.TestCase):
 
     def test_missing_input_raises(self):
         with self.assertRaisesRegex(ValueError, "no value and no default"):
-            wfms.run_recipe(library.my_add.flowrep_recipe, a=3)
+            wfms.run_recipe(std.add.flowrep_recipe, a=3)
 
     def test_input_ports_populated(self):
-        node = wfms.run_recipe(library.my_add.flowrep_recipe, a=3, b=4)
+        node = wfms.run_recipe(std.add.flowrep_recipe, a=3, b=4)
         self.assertEqual(node.input_ports["a"].value, 3)
         self.assertEqual(node.input_ports["b"].value, 4)
 
@@ -936,28 +928,16 @@ class TestRunAtomic(unittest.TestCase):
             inputs=["a", "b"],
             outputs=["result"],
             reference=library.divmod_func.flowrep_recipe.reference,
-            unpack_mode=atomic_recipe.UnpackMode.NONE,
         )
         node = wfms.run_recipe(recipe, a=1, b=2)
         self.assertEqual(node.output_ports["result"].value, (0, 1))
 
-    def test_unpacking_dataclass(self):
-        recipe = atomic_parser.parse_atomic(
-            takes_positional_only,
-            "dc_x_field",
-            "dc_y_field",
-            unpack_mode=atomic_recipe.UnpackMode.DATACLASS,
-        )
-        node = wfms.run_recipe(recipe, x=1, y=2)
-        self.assertEqual(node.output_ports["dc_x_field"].value, 1)
-        self.assertEqual(node.output_ports["dc_y_field"].value, 2)
-
     def test_unrecognized_input_raises(self):
         with self.assertRaises(ValueError) as ctx:
-            wfms.run_recipe(library.my_add.flowrep_recipe, a=3, not_an_input=4)
+            wfms.run_recipe(std.add.flowrep_recipe, a=3, not_an_input=4)
         self.assertIn("not_an_input", str(ctx.exception))
         self.assertIn("not found", str(ctx.exception))
-        self.assertIn(str(library.my_add.flowrep_recipe.inputs), str(ctx.exception))
+        self.assertIn(str(std.add.flowrep_recipe.inputs), str(ctx.exception))
 
     def test_positional_only_arguments(self):
         recipe = atomic_parser.parse_atomic(takes_positional_only, "result")
@@ -987,7 +967,7 @@ class TestRunWorkflow(unittest.TestCase):
     def test_child_nodes_populated(self):
         wf = wfms.run_recipe(_linear_workflow(), x=1, y=2, z=3)
         self.assertIsInstance(wf.nodes["add_0"], datastructures.AtomicData)
-        self.assertEqual(wf.nodes["add_0"].output_ports["output_0"].value, 3)
+        self.assertEqual(wf.nodes["add_0"].output_ports["added"].value, 3)
 
     def test_child_defaults(self):
         """Atomic child with a default not wired by any edge still works."""
@@ -1030,9 +1010,9 @@ class TestRunWorkflow(unittest.TestCase):
             inputs=["x"],
             outputs=["result"],
             nodes={
-                "a": library.identity.flowrep_recipe,
-                "b": library.negate.flowrep_recipe,
-                "c": library.identity.flowrep_recipe,
+                "a": std.identity.flowrep_recipe,
+                "b": std.neg.flowrep_recipe,
+                "c": std.identity.flowrep_recipe,
             },
             input_edges={
                 edge_models.TargetHandle(node="a", port="x"): edge_models.InputSource(
@@ -1043,13 +1023,13 @@ class TestRunWorkflow(unittest.TestCase):
                 ),
             },
             edges={
-                edge_models.TargetHandle(node="b", port="x"): edge_models.SourceHandle(
+                edge_models.TargetHandle(node="b", port="a"): edge_models.SourceHandle(
                     node="a", port="x"
                 ),
             },
             output_edges={
                 edge_models.OutputTarget(port="result"): edge_models.SourceHandle(
-                    node="b", port="output_0"
+                    node="b", port="negative"
                 ),
             },
         )
@@ -1065,13 +1045,13 @@ class TestTopoSort(unittest.TestCase):
 
     def test_diamond_order(self):
         order = wfms._topo_sort_children(_diamond_workflow.flowrep_recipe)
-        self.assertLess(order.index("my_add_0"), order.index("my_mul_0"))
-        self.assertLess(order.index("negate_0"), order.index("my_mul_0"))
+        self.assertLess(order.index("add_0"), order.index("mul_0"))
+        self.assertLess(order.index("neg_0"), order.index("mul_0"))
 
     def test_independent_nodes_sorted_alphabetically(self):
         order = wfms._topo_sort_children(_diamond_workflow.flowrep_recipe)
         # add_0 and negate_0 are independent, should be alphabetically ordered
-        self.assertLess(order.index("my_add_0"), order.index("negate_0"))
+        self.assertLess(order.index("add_0"), order.index("neg_0"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1220,11 +1200,49 @@ class TestProvenanceWalk(unittest.TestCase):
         add_node = wf.nodes["add_0"]
         self.assertEqual(add_node.input_ports["a"].value, 5)
         self.assertEqual(add_node.input_ports["b"].value, 3)
-        self.assertEqual(add_node.output_ports["output_0"].value, 8)
+        self.assertEqual(add_node.output_ports["added"].value, 8)
         mul_node = wf.nodes["mul_0"]
         self.assertEqual(mul_node.input_ports["a"].value, 8)
         self.assertEqual(mul_node.input_ports["b"].value, 2)
-        self.assertEqual(mul_node.output_ports["output_0"].value, 16)
+        self.assertEqual(mul_node.output_ports["product"].value, 16)
+
+
+class TestConstantData(unittest.TestCase):
+    def test_from_recipe_prefills_value(self):
+        recipe = constant_recipe.ConstantRecipe(constant=0.5)
+        node = datastructures.ConstantData.from_recipe(recipe)
+        self.assertEqual(node.input_ports, {})
+        port = node.output_ports["constant"]
+        self.assertEqual(port.value, 0.5)
+        self.assertIs(port.annotation, float)
+
+    def test_recipe2data_dispatches_constant(self):
+        recipe = constant_recipe.ConstantRecipe(constant=[1, 2])
+        node = datastructures.recipe2data(recipe)
+        self.assertIsInstance(node, datastructures.ConstantData)
+        self.assertEqual(node.output_ports["constant"].value, [1, 2])
+
+
+def _kinetic_energy(mass, velocity):
+    # Module-level (not nested in a test method): DagData.from_recipe resolves a
+    # workflow's own reference by importing it, which requires the function be
+    # reachable by its fully-qualified name -- a `<locals>` qualname (as produced
+    # by a function nested inside a test method) cannot be imported.
+    v_2 = std.mul(velocity, velocity)
+    mv_2 = std.mul(mass, v_2)
+    ke = std.mul(0.5, mv_2)
+    return ke
+
+
+class TestWfMSConstants(unittest.TestCase):
+    def test_run_recipe_on_constant(self):
+        node = wfms.run_recipe(constant_recipe.ConstantRecipe(constant=7))
+        self.assertEqual(node.output_ports["constant"].value, 7)
+
+    def test_end_to_end_kinetic_energy(self):
+        recipe = workflow_parser.parse_workflow(_kinetic_energy)
+        result = wfms.run_recipe(recipe, mass=2.0, velocity=3.0)
+        self.assertEqual(result.output_ports["ke"].value, 0.5 * 2.0 * 3.0 * 3.0)
 
 
 if __name__ == "__main__":

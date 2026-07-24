@@ -18,6 +18,7 @@ class RecipeElementType(StrEnum):
     WHILE = "while"
     IF = "if"
     TRY = "try"
+    CONSTANT = "constant"
 
 
 class IOTypes(StrEnum):
@@ -59,6 +60,30 @@ def validate_unique(v: list[T], message: str | None = None) -> list[T]:
             message or f"List must have unique elements. Duplicates: {set(dupes)}"
         )
     return v
+
+
+def ensure_class_signature_from_init(cls: type, context: str) -> None:
+    """Reject classes whose constructor signature comes from ``__new__``.
+
+    Flowrep derives a class's input parameter names and defaults from
+    ``inspect.signature(cls)`` but reads their annotations from
+    ``cls.__init__``. For classes that define their signature via ``__new__``
+    (e.g. :class:`typing.NamedTuple`, or any class overriding ``__new__``
+    without a corresponding ``__init__``), these two sources disagree and
+    annotations would silently be dropped. Fail loudly instead.
+
+    Args:
+        cls: The class being introspected.
+        context: A short label for the caller (e.g. ``"@atomic"`` or a fully
+            qualified name) used in the error message.
+    """
+    if cls.__init__ is object.__init__ and cls.__new__ is not object.__new__:  # type: ignore[misc, comparison-overlap]
+        raise TypeError(
+            f"{context} cannot introspect {cls.__name__!r}: its constructor "
+            f"signature is defined via __new__ (e.g. NamedTuple or a custom "
+            f"__new__), so flowrep cannot read input annotations from __init__. "
+            f"Define an __init__ with annotated parameters instead."
+        )
 
 
 UniqueList = Annotated[list[T], pydantic.AfterValidator(validate_unique)]

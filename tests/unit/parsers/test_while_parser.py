@@ -1,8 +1,9 @@
 import unittest
 
-from flowrep import edge_models
+from flowrep import edge_models, std
 from flowrep.parsers import while_parser, workflow_parser
 from flowrep.prospective import (
+    constant_recipe,
     for_recipe,
     if_recipe,
     try_recipe,
@@ -21,7 +22,7 @@ class TestParseWhileConditionErrors(unittest.TestCase):
 
         def wf(x, flag):
             while flag:
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -33,7 +34,7 @@ class TestParseWhileConditionErrors(unittest.TestCase):
 
         def wf(x, bound):
             while x < bound:
-                x = library.my_add(x, bound)
+                x = std.add(x, bound)
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -45,12 +46,36 @@ class TestParseWhileConditionErrors(unittest.TestCase):
 
         def wf(x):
             while library.multi_result(x):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         with self.assertRaises(ValueError) as ctx:
             workflow_parser.parse_workflow(wf)
         self.assertIn("exactly one", str(ctx.exception))
+
+    def test_literal_in_condition_parses_to_constant_peer(self):
+        """A literal argument in a while-condition injects a constant peer routed
+        through a synthetic flow-control input port (no longer raises)."""
+
+        def wf(x):
+            while library.my_condition(x, 5):
+                x = std.identity(x)
+            return x
+
+        recipe = workflow_parser.parse_workflow(wf)
+        constant_nodes = [
+            node
+            for node in recipe.nodes.values()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        ]
+        self.assertEqual(len(constant_nodes), 1)
+        self.assertEqual(constant_nodes[0].constant, 5)
+        (while_node,) = [
+            node
+            for node in recipe.nodes.values()
+            if isinstance(node, while_recipe.WhileRecipe)
+        ]
+        self.assertIn("constant_0", while_node.inputs)
 
 
 class TestWhileParserErrors(unittest.TestCase):
@@ -64,7 +89,7 @@ class TestWhileParserErrors(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
                 return x
             return x
 
@@ -77,7 +102,7 @@ class TestWhileParserErrors(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                y = library.identity(x)  # noqa: F841
+                y = std.identity(x)  # noqa: F841
             return x
 
         with self.assertRaises(ValueError) as ctx:
@@ -89,9 +114,9 @@ class TestWhileParserErrors(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             else:
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         with self.assertRaises((ValueError, NotImplementedError)):
@@ -117,7 +142,7 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -135,7 +160,7 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -148,7 +173,7 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -165,7 +190,7 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -179,7 +204,7 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
         def wf(x, step, bound):
             while library.my_condition(x, bound):
-                x = library.my_add(x, step)
+                x = std.add(x, step)
             return x
 
         wn = self._get_while_node(wf)
@@ -193,7 +218,7 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -205,7 +230,7 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
     def test_single_reassignment_becomes_output(self):
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -214,8 +239,8 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
     def test_multiple_reassignments_become_outputs(self):
         def wf(x, y, bound):
             while library.my_condition(x, bound):
-                x = library.my_add(x, y)
-                y = library.identity(x)
+                x = std.add(x, y)
+                y = std.identity(x)
             return x, y
 
         wn = self._get_while_node(wf)
@@ -224,9 +249,9 @@ class TestWhileParserEdgeWiring(unittest.TestCase):
 
     def test_reassignment_from_outer_scope_becomes_output(self):
         def wf(y, bound):
-            x = library.identity(y)
+            x = std.identity(y)
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = self._get_while_node(wf)
@@ -241,7 +266,7 @@ class TestWhileParserStructure(unittest.TestCase):
     def test_while_node_registered_in_parent(self):
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         node = self._parse(wf)
@@ -251,7 +276,7 @@ class TestWhileParserStructure(unittest.TestCase):
     def test_condition_label(self):
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -260,7 +285,7 @@ class TestWhileParserStructure(unittest.TestCase):
     def test_body_label(self):
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -275,16 +300,16 @@ class TestWhileParserStructure(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        self.assertIsInstance(wn.case.body.node, workflow_recipe.WorkflowRecipe)
+        self.assertIsInstance(wn.case.body.recipe, workflow_recipe.WorkflowRecipe)
 
     def test_outputs_subset_of_inputs(self):
         def wf(x, step, bound):
             while library.my_condition(x, bound):
-                x = library.my_add(x, step)
+                x = std.add(x, step)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
@@ -294,9 +319,9 @@ class TestWhileParserStructure(unittest.TestCase):
         """While node can consume sibling output from a preceding node."""
 
         def wf(a, bound):
-            x = library.identity(a)
+            x = std.identity(a)
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         node = self._parse(wf)
@@ -310,8 +335,8 @@ class TestWhileParserStructure(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
-            y = library.identity(x)
+                x = std.identity(x)
+            y = std.identity(x)
             return y
 
         node = self._parse(wf)
@@ -323,9 +348,9 @@ class TestWhileParserStructure(unittest.TestCase):
     def test_multiple_while_nodes_get_unique_labels(self):
         def wf(x, m, n):
             while library.my_condition(x, m):
-                x = library.identity(x)
+                x = std.identity(x)
             while library.my_condition(x, n):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         node = self._parse(wf)
@@ -337,8 +362,8 @@ class TestWhileParserStructure(unittest.TestCase):
 
         def wf(x, bound, y):
             while library.my_condition(x, bound):
-                x = library.my_add(x, x)
-                y = library.identity(x)
+                x = std.add(x, x)
+                y = std.identity(x)
             return y
 
         node = self._parse(wf)
@@ -350,16 +375,16 @@ class TestWhileParserStructure(unittest.TestCase):
 
         def wf(x, bound):
             while library.my_condition(x, bound):
-                xs = library.identity(x)
+                xs = std.identity(x)
                 acc = []
                 for i in xs:
-                    v = library.identity(i)
+                    v = std.identity(i)
                     acc.append(v)
-                x = library.identity(acc)
+                x = std.identity(acc)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        body = wn.case.body.node
+        body = wn.case.body.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         for_nodes = [
             n for n in body.nodes.values() if isinstance(n, for_recipe.ForEachRecipe)
@@ -374,13 +399,13 @@ class TestWhileParserStructure(unittest.TestCase):
         def wf(x, y, bound):
             while library.my_condition(x, bound):
                 if library.my_condition(x, y):  # noqa: SIM108
-                    x = library.my_add(x, y)
+                    x = std.add(x, y)
                 else:
-                    x = library.identity(x)
+                    x = std.identity(x)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        body = wn.case.body.node
+        body = wn.case.body.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         if_nodes = [n for n in body.nodes.values() if isinstance(n, if_recipe.IfRecipe)]
         self.assertEqual(len(if_nodes), 1)
@@ -393,13 +418,13 @@ class TestWhileParserStructure(unittest.TestCase):
         def wf(x, y, bound):
             while library.my_condition(x, bound):
                 try:
-                    x = library.my_add(x, y)
+                    x = std.add(x, y)
                 except ValueError:
-                    x = library.identity(x)
+                    x = std.identity(x)
             return x
 
         wn = self._parse(wf).nodes["while_0"]
-        body = wn.case.body.node
+        body = wn.case.body.recipe
         self.assertIsInstance(body, workflow_recipe.WorkflowRecipe)
         try_nodes = [
             n for n in body.nodes.values() if isinstance(n, try_recipe.TryRecipe)
@@ -412,7 +437,7 @@ class TestWhileParserRoundTrip(unittest.TestCase):
     def test_while_node_round_trip(self):
         def wf(x, bound):
             while library.my_condition(x, bound):
-                x = library.identity(x)
+                x = std.identity(x)
             return x
 
         wn = workflow_parser.parse_workflow(wf).nodes["while_0"]
@@ -427,8 +452,8 @@ class TestWhileParserRoundTrip(unittest.TestCase):
 
         def wf(x, step, bound):
             while library.my_condition(x, bound):
-                x = library.my_add(x, step)
-            y = library.identity(x)
+                x = std.add(x, step)
+            y = std.identity(x)
             return y
 
         node = workflow_parser.parse_workflow(wf)
@@ -458,7 +483,7 @@ class TestWhileParserVersionPropagation(unittest.TestCase):
             wf, version_scraping={self._pkg(): lambda _: custom}
         )
         while_node = node.nodes["while_0"]
-        body = while_node.case.body.node
+        body = while_node.case.body.recipe
         child = body.nodes["undecorated_identity_0"]
         self.assertEqual(child.reference.info.version, custom)
 
@@ -478,10 +503,10 @@ class TestWhileParserVersionPropagation(unittest.TestCase):
         )
         while_node = node.nodes["while_0"]
         # condition is pre-decorated → keeps its own version
-        condition_node = while_node.case.condition.node
+        condition_node = while_node.case.condition.recipe
         self.assertNotEqual(condition_node.reference.info.version, custom)
         # body child is undecorated → picks up custom version
-        body_child = while_node.case.body.node.nodes["undecorated_identity_0"]
+        body_child = while_node.case.body.recipe.nodes["undecorated_identity_0"]
         self.assertEqual(body_child.reference.info.version, custom)
 
     def test_version_constraints_propagate_to_condition(self):

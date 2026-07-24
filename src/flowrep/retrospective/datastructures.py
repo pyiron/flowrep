@@ -25,6 +25,7 @@ from pyiron_snippets import retrieve, singleton
 from flowrep import base_models, edge_models
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     for_recipe,
     if_recipe,
     try_recipe,
@@ -113,6 +114,8 @@ def recipe2data(
             return AtomicData.from_recipe(
                 recipe, allow_variadic_inputs=allow_variadic_inputs
             )
+        case constant_recipe.ConstantRecipe():
+            return ConstantData.from_recipe(recipe)
         case for_recipe.ForEachRecipe():
             return ForEachData.from_recipe(recipe)
         case if_recipe.IfRecipe():
@@ -141,7 +144,6 @@ class AtomicData(NodeData[atomic_recipe.AtomicRecipe]):
             recipe.reference.info.fully_qualified_name,
             recipe.inputs,
             recipe.outputs,
-            recipe.unpack_mode,
             allow_variadic_inputs=allow_variadic_inputs,
         )
         return AtomicData(
@@ -149,6 +151,22 @@ class AtomicData(NodeData[atomic_recipe.AtomicRecipe]):
             input_ports=dict(input_ports),
             output_ports=dict(output_ports),
             function=function,
+        )
+
+
+@dataclasses.dataclass(frozen=False)
+class ConstantData(NodeData[constant_recipe.ConstantRecipe]):
+    @classmethod
+    def from_recipe(cls, recipe: constant_recipe.ConstantRecipe) -> ConstantData:
+        return cls(
+            recipe=recipe,
+            input_ports={},
+            output_ports={
+                constant_recipe.ConstantRecipe.std_label: OutputDataPort(
+                    value=recipe.constant,
+                    annotation=type(recipe.constant),
+                )
+            },
         )
 
 
@@ -238,7 +256,6 @@ def _parse_function(
     fully_qualified_name: str,
     inputs: list[str],
     outputs: list[str],
-    unpack_mode: atomic_recipe.UnpackMode = atomic_recipe.UnpackMode.TUPLE,
     allow_variadic_inputs: bool = True,
 ) -> tuple[
     types.FunctionType,
@@ -247,7 +264,15 @@ def _parse_function(
 ]:
     function = retrieve.import_from_string(fully_qualified_name)
     try:
-        hints = get_type_hints(function, include_extras=True)
+        if isinstance(function, type):
+            base_models.ensure_class_signature_from_init(function, fully_qualified_name)
+            hints = get_type_hints(
+                getattr(function, "__init__"), include_extras=True  # noqa: B009
+            )
+            subst = _typevar_map(function)
+            hints = {k: subst.get(v, v) for k, v in hints.items()}
+        else:
+            hints = get_type_hints(function, include_extras=True)
     except NameError as e:
         raise NameError(
             f"While parsing {fully_qualified_name!r} for recipe inputs {inputs} and "
@@ -277,7 +302,8 @@ def _parse_function(
     missing = set(inputs) - available
     if missing and not accept_extra_inputs:
         raise ValueError(
-            f"Requested inputs {missing} not found in signature of {fully_qualified_name!r}"
+            f"Requested inputs {missing} not found in signature of "
+            f"{fully_qualified_name!r}. Available: {available!r}."
         )
 
     input_ports: dict[str, InputDataPort] = {}
@@ -295,14 +321,31 @@ def _parse_function(
 
     # --- output ports ---
     return_annotation = hints.get("return", None)
-    if unpack_mode == atomic_recipe.UnpackMode.NONE:
+    if len(outputs) == 1:
         output_ports = _parse_return_without_unpacking(return_annotation, outputs)
-    elif unpack_mode == atomic_recipe.UnpackMode.TUPLE:
+    else:
         output_ports = _parse_return_tuple(return_annotation, outputs)
-    elif unpack_mode == atomic_recipe.UnpackMode.DATACLASS:
-        output_ports = _parse_return_dataclass(return_annotation, outputs)
+
+    if isinstance(function, type):
+        output_ports[next(iter(output_ports))].annotation = function
 
     return function, input_ports, output_ports
+
+
+def _typevar_map(cls: type) -> dict[TypeVar, object]:
+    """Map TypeVars to concrete args from a class's specialized bases.
+
+    Walks ``__orig_bases__`` (e.g. ``MyGeneric[int]``) and pairs each origin's
+    declared ``__parameters__`` with the supplied ``__args__``.
+    """
+    mapping: dict[TypeVar, object] = {}
+    for base in getattr(cls, "__orig_bases__", ()):
+        origin = get_origin(base)
+        params = getattr(origin, "__parameters__", ())
+        args = get_args(base)
+        if params and len(params) == len(args):
+            mapping.update(zip(params, args, strict=True))
+    return mapping
 
 
 def _parse_return_without_unpacking(
@@ -327,8 +370,8 @@ def _parse_return_tuple(
 
         if return_annotation is not None:
             unpacking_hint = (
-                f"To collect the entire tuple in a single port use "
-                f"{atomic_recipe.UnpackMode.NONE} unpacking mode."
+                "To collect the entire tuple in a single port use a single, explicit "
+                "output label."
             )
 
             if origin is not tuple:
@@ -353,45 +396,6 @@ def _parse_return_tuple(
     else:
         output_ports = {outputs[0]: OutputDataPort(annotation=return_annotation)}
     return output_ports
-
-
-def _parse_return_dataclass(
-    return_annotation, outputs: list[str]
-) -> dict[str, OutputDataPort]:
-    if not (
-        isinstance(return_annotation, type)
-        and dataclasses.is_dataclass(return_annotation)
-    ):  # pragma: no cover
-        raise TypeError(
-            f"Return annotation {return_annotation!r} is not a dataclass. This should "
-            f"have been caught by the underlying recipe validation. Please raise a "
-            f"GitHub issue reporting how you got here!"
-        )
-
-    # de-stringify dataclass annotations, if they were forward-references
-    try:
-        hints = get_type_hints(return_annotation, include_extras=True)
-    except NameError as e:
-        fqdn = f"{return_annotation.__module__}.{return_annotation.__qualname__}"
-        raise NameError(
-            f"While parsing return dataclass annotation {fqdn!r}, could not resolve "
-            f"at least one field annotation ({e}). Ensure the missing symbols are "
-            f"importable at runtime in the dataclass' defining module."
-        ) from e
-
-    fields = dataclasses.fields(return_annotation)
-    if len(outputs) != len(fields):  # pragma: no cover
-        raise ValueError(
-            f"Return dataclass {return_annotation!r} has {len(fields)} fields, "
-            f"{[f.name for f in fields]}, but {len(outputs)} outputs, {outputs} were "
-            f"requested. This should have been caught by the underlying recipe "
-            f"validation. Please raise a GitHub issue reporting how you got here!"
-        )
-
-    return {
-        label: OutputDataPort(annotation=hints.get(field.name, None))
-        for label, field in zip(outputs, fields, strict=True)
-    }
 
 
 def _to_jsonable(data: Any) -> Any:

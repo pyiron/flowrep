@@ -171,7 +171,7 @@ class TestLoadSelected(_WidgetTestCase):
 
     def test_after_selection(self):
         """Manually set the selected path, then load."""
-        self.tree.selected_lexical_path = "add_0"
+        self.tree.selected_lexical_path = "typed_add_0"
         obj = self.tree.load_selected()
         self.assertIsInstance(obj, datastructures.AtomicData)
 
@@ -191,9 +191,9 @@ class TestOnSelect(_WidgetTestCase):
     def test_select_child_node(self):
         root = self._root_node()
         # Find the add_0 child node
-        add_node = next(n for n in root.nodes if n.name == "add_0")
+        add_node = next(n for n in root.nodes if n.name == "typed_add_0")
         self.tree._on_select({"new": [add_node]})
-        self.assertEqual(self.tree.selected_lexical_path, "add_0")
+        self.assertEqual(self.tree.selected_lexical_path, "typed_add_0")
 
     def test_deselect(self):
         self.tree.selected_lexical_path = "add_0"

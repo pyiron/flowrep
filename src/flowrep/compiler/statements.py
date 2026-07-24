@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from typing import TypeAlias, cast
+from typing import Any, TypeAlias, cast
 
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models, subgraph_validation
-from flowrep.compiler import flow_control, function
+from flowrep import base_models, edge_models, std, subgraph_validation
+from flowrep.compiler import flow_control, function, sugar
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     union_types,
     workflow_recipe,
 )
@@ -103,6 +104,23 @@ def _set_call_path_from_info(
     return call_path
 
 
+def _identity_materialization(value: Any, emitter: function.Emitter) -> str:
+    """Render an ``identity`` call wrapping a constant that cannot be inlined.
+
+    A bare ``name = <literal>`` statement no longer re-parses (constants are only
+    valid as call arguments), so a constant feeding a workflow output or a bare
+    flow-control body is emitted as ``identity(x=<literal>)``. The
+    ``flowrep.prospective.std`` import is hoisted via ``_set_call_path_from_info``.
+    On re-parse this canonicalises to a std ``identity`` atomic node fed by an
+    inlined constant argument, which then round-trips exactly.
+    """
+    call_path = _set_call_path_from_info(
+        std.identity.flowrep_recipe.reference.info,  # type: ignore[attr-defined]
+        emitter.module_imports,
+    )
+    return f"{call_path}(x={value!r})"
+
+
 def _topological_nodes(
     recipe: workflow_recipe.WorkflowRecipe,
 ) -> list[str]:
@@ -114,7 +132,7 @@ def _topological_nodes(
     )
 
 
-def _flow_control_input_requirements(
+def flow_control_input_requirements(
     recipe: workflow_recipe.WorkflowRecipe,
 ) -> dict[tuple[str, str], str]:
     """Required source-symbol names imposed by flow-control node inputs.
@@ -192,9 +210,26 @@ def emit_workflow_body(
     produced: dict[tuple[str, str], str] = {}
     lines: list[str] = []
 
+    # Constants feeding a workflow output cannot be inlined (a bare `return <literal>`
+    # is not re-parseable, and a bare `sym = <literal>` statement is no longer
+    # re-parseable either), so they are wrapped as `sym = identity(x=<literal>)` below
+    # and resolved to that symbol everywhere.
+    materialized_constants = {
+        src.node
+        for src in recipe.output_edges.values()
+        if isinstance(src, edge_models.SourceHandle)
+        and isinstance(recipe.nodes.get(src.node), constant_recipe.ConstantRecipe)
+    }
+
     def resolve(source) -> str:
         if isinstance(source, edge_models.InputSource):
             return in_syms[source.port]
+        source_node = recipe.nodes[source.node]
+        if (
+            isinstance(source_node, constant_recipe.ConstantRecipe)
+            and source.node not in materialized_constants
+        ):
+            return repr(source_node.constant)
         return produced[(source.node, source.port)]
 
     # Map (node, port) -> required symbol name for outputs the parent pins.
@@ -214,8 +249,14 @@ def emit_workflow_body(
 
     # Flow-control nodes derive their input port names from the enclosing symbols
     # feeding them, so each such source must be named after the port for the port
-    # names (and while-loop reassignments) to round-trip.
-    for handle, name in _flow_control_input_requirements(recipe).items():
+    # names (and while-loop reassignments) to round-trip. A constant peer feeding a
+    # flow-control input is normal now (a literal condition argument injects
+    # a constant peer routed through a synthetic flow-control input port). Such a
+    # peer is never also a workflow-output source, so its required_by_handle entry
+    # stays inert and it is inlined in the topo loop below -- which is why the
+    # conflict branch immediately below remains unreachable in parser-produced
+    # recipes.
+    for handle, name in flow_control_input_requirements(recipe).items():
         if (  # pragma: no cover - twin of the output-edge guard above; only a
             # hand-built recipe (one a parser never emits) can name a source for
             # both a flow-control input and an output differently. See
@@ -229,8 +270,101 @@ def emit_workflow_body(
             )
         required_by_handle[handle] = name
 
+    def _port_source(
+        label: str, port: str
+    ) -> edge_models.SourceHandle | edge_models.InputSource | None:
+        target = edge_models.TargetHandle(node=label, port=port)
+        return recipe.input_edges.get(target) or recipe.edges.get(target)
+
+    def _obj_is_symbolic(label: str, obj_port: str) -> bool:
+        """True if the access node's object resolves to a symbol we can subscript or
+        write '.' after.
+
+        An object fed by an *inlined* constant would sugar to nonsense (``5 .a``), or --
+        for an item -- to legal syntax that re-parses to a different recipe (``[1, 2][0]``
+        is not rooted at a symbol). Either way such a node keeps the plain-call emission.
+        The parser cannot produce one.
+        """
+        source = _port_source(label, obj_port)
+        if source is None:
+            return False
+        if isinstance(source, edge_models.InputSource):
+            return True
+        peer = recipe.nodes[source.node]
+        if isinstance(peer, constant_recipe.ConstantRecipe):
+            return source.node in materialized_constants
+        return True
+
+    # A recognised getattr or getitem node is emitted as native syntax -- `sym = obj.attr`
+    # or `sym = obj[key]` -- always as its own statement, never inlined into a consumer's
+    # argument list.
+    #
+    # Inlining would be prettier (`f(dc.a)`, `dc.a.val`, `d['a']['b']`) but it is not
+    # safe. The parser injects an access node together with any `ConstantRecipe` peer,
+    # and constant labels come from one shared `constant_N` counter over the whole
+    # workflow. Inlining moves an access node's creation to its consumer's statement,
+    # which reorders that constant relative to every *other* constant in the workflow
+    # (e.g. a literal call argument) and permutes the counter. The recipe would still
+    # execute identically, but it would not re-parse to an equal one. Emitting one
+    # statement per access, in topological order, reproduces the parser's injection order
+    # exactly, so the round trip is exact.
+    #
+    # Materialising also gives the efficiency guarantee for free: one node, one
+    # statement, one symbol -- an access consumed by several nodes stays a single
+    # node on re-parse rather than being duplicated into each consumer.
+    sugared_attrs: dict[str, str] = {
+        label: attr_name
+        for label, node in recipe.nodes.items()
+        if sugar.is_std_getattr(node)
+        and (attr_name := sugar.attribute_name(label, recipe)) is not None
+        and _obj_is_symbolic(label, sugar.ATTR_OBJ_PORT)
+    }
+
+    # The key-source check is the getitem analogue of `attribute_name` returning None: it
+    # refuses a hand-built recipe whose key edge is missing, which would otherwise reach
+    # `resolve(None)`. No syntax check is needed -- `resolve` renders a constant key as a
+    # literal and any other key as its symbol, and both are legal between brackets.
+    sugared_items: set[str] = {
+        label
+        for label, node in recipe.nodes.items()
+        if sugar.is_std_getitem(node)
+        and _port_source(label, sugar.KEY_PORT) is not None
+        and _obj_is_symbolic(label, sugar.ITEM_OBJ_PORT)
+    }
+
     for label in _topological_nodes(recipe):
         node = recipe.nodes[label]
+        if isinstance(node, constant_recipe.ConstantRecipe):
+            if label not in materialized_constants:
+                continue  # inline at the consumer call site via `resolve`
+            constant_label = constant_recipe.ConstantRecipe.std_label
+            name = required_by_handle.get((label, constant_label)) or alloc.fresh(
+                _output_name_suggestion(label, constant_label, 1)
+            )
+            produced[(label, constant_label)] = name
+            lines.append(
+                f"{name} = {_identity_materialization(node.constant, emitter)}"
+            )
+            continue
+
+        if label in sugared_attrs:
+            name = required_by_handle.get((label, sugar.ATTR_PORT)) or alloc.fresh(
+                _output_name_suggestion(label, sugar.ATTR_PORT, 1)
+            )
+            produced[(label, sugar.ATTR_PORT)] = name
+            obj = resolve(_port_source(label, sugar.ATTR_OBJ_PORT))
+            lines.append(f"{name} = {obj}.{sugared_attrs[label]}")
+            continue
+
+        if label in sugared_items:
+            name = required_by_handle.get((label, sugar.ITEM_PORT)) or alloc.fresh(
+                _output_name_suggestion(label, sugar.ITEM_PORT, 1)
+            )
+            produced[(label, sugar.ITEM_PORT)] = name
+            obj = resolve(_port_source(label, sugar.ITEM_OBJ_PORT))
+            key = resolve(_port_source(label, sugar.KEY_PORT))
+            lines.append(f"{name} = {obj}[{key}]")
+            continue
 
         call_path = node_call_path(node, label, emitter, alloc)
         if call_path is not None:
@@ -281,6 +415,15 @@ def emit_body(
     if isinstance(recipe, flow_control.FLOW_CONTROL_TYPES):
         return flow_control.emit_flow_control_body(
             recipe, label, in_syms, required, emitter, alloc
+        )
+    if isinstance(recipe, constant_recipe.ConstantRecipe):
+        constant_label = constant_recipe.ConstantRecipe.std_label
+        name = required.get(constant_label) or alloc.fresh(
+            _output_name_suggestion(label, constant_label, 1)
+        )
+        return (
+            [f"{name} = {_identity_materialization(recipe.constant, emitter)}"],
+            {constant_label: name},
         )
     return _emit_single_node_body(recipe, label, in_syms, required, alloc, emitter)
 

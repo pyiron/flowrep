@@ -4,7 +4,13 @@ import ast
 from ast import While
 
 from flowrep import edge_models
-from flowrep.parsers import case_helpers, parser_protocol
+from flowrep.parsers import (
+    case_helpers,
+    chain_parser,
+    parser_helpers,
+    parser_protocol,
+    symbol_scope,
+)
 from flowrep.prospective import helper_models, while_recipe
 
 WHILE_CONDITION_LABEL: str = "condition"
@@ -13,7 +19,7 @@ WHILE_BODY_LABEL: str = "body"
 
 def parse_while_node(
     walker: parser_protocol.BodyWalker, tree: ast.While
-) -> while_recipe.WhileRecipe:
+) -> tuple[while_recipe.WhileRecipe, parser_helpers.FlowControlBindings]:
     """
     Walk a while-loop.
 
@@ -24,12 +30,13 @@ def parse_while_node(
     _validate_syntax_is_supported(tree)
 
     # Parse the loop condition — pure AST, no parser state needed
-    labeled_condition, condition_inputs = case_helpers.parse_case(
+    labeled_condition, condition_inputs, condition_bindings = case_helpers.parse_case(
         tree.test,
         walker.scope,
         walker.symbol_map,
         walker.info_factory,
         WHILE_CONDITION_LABEL,
+        walker.nodes,
     )
 
     body_walker = walker.fork(
@@ -40,6 +47,10 @@ def parse_while_node(
     reassigned_symbols = body_walker.symbol_map.reassigned_symbols
 
     _validate_some_output_exists(reassigned_symbols)
+    _reject_looped_chain_symbols(tree.test, walker.symbol_map, reassigned_symbols)
+    parser_helpers.reject_input_alias_outputs(
+        body_walker.symbol_map, reassigned_symbols, "while-loop"
+    )
     body_walker.symbol_map.produce_symbols(reassigned_symbols)
 
     inputs, input_edges = _wire_inputs(
@@ -50,16 +61,19 @@ def parse_while_node(
     case = helper_models.ConditionalCase(
         condition=labeled_condition,
         body=helper_models.LabeledRecipe(
-            label=WHILE_BODY_LABEL, node=body_walker.build_model()
+            label=WHILE_BODY_LABEL, recipe=body_walker.build_model()
         ),
     )
 
-    return while_recipe.WhileRecipe(
-        inputs=inputs,
-        outputs=outputs,
-        case=case,
-        input_edges=input_edges,
-        output_edges=output_edges,
+    return (
+        while_recipe.WhileRecipe(
+            inputs=inputs,
+            outputs=outputs,
+            case=case,
+            input_edges=input_edges,
+            output_edges=output_edges,
+        ),
+        condition_bindings,
     )
 
 
@@ -76,6 +90,53 @@ def _validate_some_output_exists(reassigned_symbols: list[str]):
             "While-loop body must reassign at least one symbol from the "
             "enclosing scope."
         )
+
+
+def _reject_looped_chain_symbols(
+    test: ast.expr,
+    symbol_map: symbol_scope.SymbolScope,
+    reassigned_symbols: list[str],
+) -> None:
+    """Raise if a condition chain depends on a symbol the body reassigns.
+
+    Python re-evaluates a while condition every iteration, so ``x.val`` is re-read
+    against the *updated* ``x`` -- and ``d[k]`` against the updated ``k``. A flowrep
+    condition is a single call fed by hoisted inputs: its injected nodes sit outside the
+    loop, are never re-read, and are not while outputs, so they never feed back. Rather
+    than silently diverge from Python we refuse. A chain whose symbols the loop does not
+    touch hoists faithfully and is allowed -- which is why the guard is on the chain's
+    *dependencies*, not on data access itself.
+
+    An attribute name is a constant, so an attribute chain can only depend on its root;
+    an item key can be a symbol, so ``d[k]`` is caught by a body that reassigns ``k``
+    even though ``d`` is untouched.
+
+    Runs after the body walk, because ``reassigned_symbols`` is the parser's ground
+    truth (it includes symbols reassigned by nested flow control, not just bare
+    assignments). By then the injected peers are already in the enclosing scope; that is
+    harmless, since the exception aborts the whole parse.
+    """
+    if not isinstance(
+        test, ast.Call
+    ):  # pragma: no cover - parse_case rejects non-calls
+        return
+    looped = set(reassigned_symbols)
+    arguments = list(test.args) + [kw.value for kw in test.keywords]
+    for argument in arguments:
+        if not chain_parser.is_data_access(argument, symbol_map):
+            continue
+        offenders = sorted(chain_parser.dependency_symbols(argument) & looped)
+        if offenders:
+            chain = ast.unparse(argument)
+            named = ", ".join(repr(s) for s in offenders)
+            raise ValueError(
+                f"While-condition data access {chain!r} depends on {named}, which the "
+                f"loop body reassigns. Python would re-read {chain!r} every iteration, "
+                f"but a flowrep while-condition is a single call fed by hoisted inputs "
+                f"-- there is no place inside the loop for the access. Either bind it "
+                f"outside the loop (e.g. `v = {chain}`) if you meant to read it once, "
+                f"or move the access into the condition function itself."
+            )
 
 
 def _wire_inputs(

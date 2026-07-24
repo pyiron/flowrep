@@ -22,7 +22,8 @@ from flowrep.edge_models import OutputTarget as OutputTarget
 from flowrep.edge_models import SourceHandle as SourceHandle
 from flowrep.edge_models import TargetHandle as TargetHandle
 from flowrep.prospective.atomic_recipe import AtomicRecipe as AtomicRecipe
-from flowrep.prospective.atomic_recipe import UnpackMode as UnpackMode
+from flowrep.prospective.constant_recipe import JSONABLE as JSONABLE
+from flowrep.prospective.constant_recipe import ConstantRecipe as ConstantRecipe
 from flowrep.prospective.for_recipe import ForEachRecipe as ForEachRecipe
 from flowrep.prospective.helper_models import ConditionalCase as ConditionalCase
 from flowrep.prospective.helper_models import ExceptionCase as ExceptionCase
@@ -36,6 +37,7 @@ from flowrep.prospective.workflow_recipe import WorkflowRecipe as WorkflowRecipe
 from flowrep.retrospective.datastructures import NOT_DATA as NOT_DATA
 from flowrep.retrospective.datastructures import AtomicData as AtomicData
 from flowrep.retrospective.datastructures import CompositeData as CompositeData
+from flowrep.retrospective.datastructures import ConstantData as ConstantData
 from flowrep.retrospective.datastructures import DagData as DagData
 from flowrep.retrospective.datastructures import FlowControlData as FlowControlData
 from flowrep.retrospective.datastructures import ForEachData as ForEachData

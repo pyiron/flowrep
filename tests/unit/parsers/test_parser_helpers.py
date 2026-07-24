@@ -1,22 +1,31 @@
 import ast
+import types
 import unittest
 
 from flowrep import base_models, edge_models
-from flowrep.parsers import parser_helpers, symbol_scope
+from flowrep.parsers import constant_parser, parser_helpers, symbol_scope
 from flowrep.prospective import atomic_recipe, helper_models
 
 from flowrep_static import makers
 
 
-class TestEnsureFunction(unittest.TestCase):
-    def test_rejects_class(self):
+class TestEnsureAllowed(unittest.TestCase):
+    def test_with_class(self):
         class MyClass:
             pass
 
-        with self.assertRaises(TypeError) as ctx:
-            parser_helpers.ensure_function(MyClass, "@atomic")
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
-        self.assertIn("type", str(ctx.exception))
+        with self.subTest("Rejects when type not included"):
+            with self.assertRaises(TypeError) as ctx:
+                parser_helpers._ensure_allowed(
+                    MyClass, (types.FunctionType,), "@atomic"
+                )
+            self.assertIn("'@atomic' can only decorate 'function'", str(ctx.exception))
+            self.assertIn("type", str(ctx.exception))
+
+        with self.subTest("Accepts when type included"):
+            parser_helpers._ensure_allowed(
+                MyClass, (types.FunctionType, type), "@atomic"
+            )
 
     def test_rejects_callable_instance(self):
         class Callable:
@@ -24,20 +33,20 @@ class TestEnsureFunction(unittest.TestCase):
                 pass
 
         with self.assertRaises(TypeError) as ctx:
-            parser_helpers.ensure_function(Callable(), "@atomic")
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+            parser_helpers._ensure_allowed(Callable(), (types.FunctionType,), "@atomic")
+        self.assertIn("'@atomic' can only decorate 'function'", str(ctx.exception))
         self.assertIn("Callable", str(ctx.exception))
 
     def test_accepts_lambda(self):
         # Lambdas are FunctionType, so this should pass _ensure_function
         # (they fail later in parse_atomic due to source unavailability)
         f = lambda: None  # noqa: E731
-        parser_helpers.ensure_function(f, "@atomic")
+        parser_helpers._ensure_allowed(f, (types.FunctionType,), "@atomic")
 
     def test_rejects_builtin(self):
         with self.assertRaises(TypeError) as ctx:
-            parser_helpers.ensure_function(len, "@atomic")
-        self.assertIn("@atomic can only decorate functions", str(ctx.exception))
+            parser_helpers._ensure_allowed(len, (types.FunctionType,), "@atomic")
+        self.assertIn("'@atomic' can only decorate 'function'", str(ctx.exception))
         self.assertIn("builtin_function_or_method", str(ctx.exception))
 
     def test_custom_decorator_name(self):
@@ -45,8 +54,8 @@ class TestEnsureFunction(unittest.TestCase):
             pass
 
         with self.assertRaises(TypeError) as ctx:
-            parser_helpers.ensure_function(Foo(), "@custom")
-        self.assertIn("@custom can only decorate functions", str(ctx.exception))
+            parser_helpers._ensure_allowed(Foo(), (types.FunctionType,), "@custom")
+        self.assertIn("'@custom' can only decorate 'function'", str(ctx.exception))
 
 
 class TestGetFunctionDefinition(unittest.TestCase):
@@ -311,7 +320,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         outputs = outputs or ["output_0"]
         return helper_models.LabeledRecipe(
             label=label,
-            node=atomic_recipe.AtomicRecipe(
+            recipe=atomic_recipe.AtomicRecipe(
                 reference=makers.make_reference(module="test.module", qualname="func"),
                 inputs=inputs,
                 outputs=outputs,
@@ -335,7 +344,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func(x)")
         node = self._make_labeled_node("func_0", inputs=["a"])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertEqual(self._consumed_pairs(scope), [("x", "a")])
 
@@ -344,7 +353,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func(x, y, z)")
         node = self._make_labeled_node("func_0", inputs=["a", "b", "c"])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertEqual(
             self._consumed_pairs(scope), [("x", "a"), ("y", "b"), ("z", "c")]
@@ -355,7 +364,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func(a=x)")
         node = self._make_labeled_node("func_0", inputs=["a"])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertEqual(self._consumed_pairs(scope), [("x", "a")])
 
@@ -364,7 +373,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func(a=x, b=y)")
         node = self._make_labeled_node("func_0", inputs=["a", "b"])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertEqual(self._consumed_pairs(scope), [("x", "a"), ("y", "b")])
 
@@ -373,7 +382,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func(x, b=y)")
         node = self._make_labeled_node("func_0", inputs=["a", "b"])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertEqual(self._consumed_pairs(scope), [("x", "a"), ("y", "b")])
 
@@ -382,7 +391,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func(b=y, a=x)")
         node = self._make_labeled_node("func_0", inputs=["a", "b"])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         # Keywords consumed in call order, not definition order
         self.assertEqual(self._consumed_pairs(scope), [("y", "b"), ("x", "a")])
@@ -392,30 +401,39 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func()")
         node = self._make_labeled_node("func_0", inputs=[])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertEqual(self._consumed_pairs(scope), [])
 
-    def test_literal_positional_raises_type_error(self):
+    def test_literal_positional_injects_constant(self):
+        """A JSON-compatible literal positional arg is no longer an error; it is
+        injected as a ConstantRecipe source node and wired as a sibling edge."""
         scope = self._make_scope([])
         call = self._parse_call("func(42)")
         node = self._make_labeled_node("func_0", inputs=["a"])
+        nodes: dict = {}
 
-        with self.assertRaises(TypeError) as ctx:
-            parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, nodes)
 
-        self.assertIn("symbolic input", str(ctx.exception))
-        self.assertIn("func_0", str(ctx.exception))
+        self.assertEqual(nodes["constant_0"].constant, 42)
+        self.assertEqual(
+            scope.edges[edge_models.TargetHandle(node="func_0", port="a")],
+            edge_models.SourceHandle(node="constant_0", port="constant"),
+        )
 
-    def test_literal_keyword_raises_type_error(self):
+    def test_literal_keyword_injects_constant(self):
         scope = self._make_scope([])
         call = self._parse_call("func(a=42)")
         node = self._make_labeled_node("func_0", inputs=["a"])
+        nodes: dict = {}
 
-        with self.assertRaises(TypeError) as ctx:
-            parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, nodes)
 
-        self.assertIn("symbolic input", str(ctx.exception))
+        self.assertEqual(nodes["constant_0"].constant, 42)
+        self.assertEqual(
+            scope.edges[edge_models.TargetHandle(node="func_0", port="a")],
+            edge_models.SourceHandle(node="constant_0", port="constant"),
+        )
 
     def test_expression_positional_raises_type_error(self):
         scope = self._make_scope(["x", "y"])
@@ -423,7 +441,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         node = self._make_labeled_node("func_0", inputs=["a"])
 
         with self.assertRaises(TypeError) as ctx:
-            parser_helpers.consume_call_arguments(scope, call, node)
+            parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertIn("symbolic input", str(ctx.exception))
 
@@ -433,7 +451,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         node = self._make_labeled_node("func_0", inputs=["a"])
 
         with self.assertRaises(TypeError) as ctx:
-            parser_helpers.consume_call_arguments(scope, call, node)
+            parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertIn("symbolic input", str(ctx.exception))
 
@@ -443,7 +461,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         node = self._make_labeled_node("func_0", inputs=["a"])
 
         with self.assertRaises(TypeError) as ctx:
-            parser_helpers.consume_call_arguments(scope, call, node)
+            parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertIn("symbolic input", str(ctx.exception))
 
@@ -453,30 +471,62 @@ class TestConsumeCallArguments(unittest.TestCase):
         node = self._make_labeled_node("func_0", inputs=["a"])
 
         with self.assertRaises(TypeError) as ctx:
-            parser_helpers.consume_call_arguments(scope, call, node)
+            parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertIn("symbolic input", str(ctx.exception))
 
-    def test_string_literal_keyword_raises_type_error(self):
+    def test_string_literal_keyword_injects_constant(self):
         scope = self._make_scope([])
         call = self._parse_call("func(a='hello')")
         node = self._make_labeled_node("func_0", inputs=["a"])
+        nodes: dict = {}
 
-        with self.assertRaises(TypeError) as ctx:
-            parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, nodes)
 
-        self.assertIn("symbolic input", str(ctx.exception))
+        self.assertEqual(nodes["constant_0"].constant, "hello")
 
-    def test_partial_consumption_before_error(self):
-        """Valid args are consumed before hitting an invalid one."""
+    def test_tuple_literal_raises_constant_parse_error(self):
+        """A syntactic literal that ast.literal_eval accepts but is not
+        JSON-compatible (e.g. a tuple) surfaces as a ConstantParseError, naming the
+        consuming node/port."""
+        scope = self._make_scope([])
+        call = self._parse_call("func((1, 2))")
+        node = self._make_labeled_node("func_0", inputs=["a"])
+
+        with self.assertRaises(constant_parser.ConstantParseError) as ctx:
+            parser_helpers.consume_call_arguments(scope, call, node, {})
+
+        self.assertIn("func_0", str(ctx.exception))
+        self.assertIn("a", str(ctx.exception))
+
+    def test_partial_consumption_before_constant_injection(self):
+        """Valid symbolic args are consumed alongside literal args injected as
+        constants, in call order."""
         scope = self._make_scope(["x"])
         call = self._parse_call("func(x, 42)")
         node = self._make_labeled_node("func_0", inputs=["a", "b"])
+        nodes: dict = {}
 
-        with self.assertRaises(TypeError):
-            parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, nodes)
 
-        # First arg was consumed before the error
+        self.assertEqual(self._consumed_pairs(scope), [("x", "a"), ("constant_0", "b")])
+        self.assertEqual(nodes["constant_0"].constant, 42)
+        self.assertEqual(
+            scope.edges[edge_models.TargetHandle(node="func_0", port="b")],
+            edge_models.SourceHandle(node="constant_0", port="constant"),
+        )
+
+    def test_partial_consumption_before_error(self):
+        """An earlier valid symbol arg is still consumed before a later
+        genuinely-unparseable arg raises."""
+        scope = self._make_scope(["x"])
+        call = self._parse_call("func(x, other_func(y))")
+        node = self._make_labeled_node("func_0", inputs=["a", "b"])
+
+        with self.assertRaises(TypeError) as ctx:
+            parser_helpers.consume_call_arguments(scope, call, node, {})
+
+        self.assertIn("symbolic input", str(ctx.exception))
         self.assertEqual(self._consumed_pairs(scope), [("x", "a")])
 
     def test_preserves_underscore_names(self):
@@ -484,7 +534,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func(_private, __dunder__)")
         node = self._make_labeled_node("func_0", inputs=["a", "b"])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertEqual(
             self._consumed_pairs(scope), [("_private", "a"), ("__dunder__", "b")]
@@ -496,7 +546,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func(x)")
         node = self._make_labeled_node("func_0", inputs=["a"])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         c = scope._consumptions[0]
         self.assertEqual(c.symbol, "x")
@@ -510,7 +560,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func(x, b=y)")
         node = self._make_labeled_node("func_0", inputs=["a", "b"])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertEqual(
             scope.input_edges,
@@ -532,7 +582,7 @@ class TestConsumeCallArguments(unittest.TestCase):
         call = self._parse_call("func(x)")
         node = self._make_labeled_node("func_0", inputs=["a"])
 
-        parser_helpers.consume_call_arguments(scope, call, node)
+        parser_helpers.consume_call_arguments(scope, call, node, {})
 
         self.assertEqual(scope.input_edges, {})
         self.assertEqual(

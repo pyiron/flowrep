@@ -186,7 +186,7 @@ class TestTryRecipeExceptionCasesValidation(unittest.TestCase):
         exception_case = helper_models.ExceptionCase(
             exceptions=[_VALUE_ERROR_INFO],
             body=helper_models.LabeledRecipe(
-                label="workflow_handler", node=workflow_body
+                label="workflow_handler", recipe=workflow_body
             ),
         )
 
@@ -201,7 +201,7 @@ class TestTryRecipeExceptionCasesValidation(unittest.TestCase):
             ),
         )
         self.assertIsInstance(
-            node.exception_cases[0].body.node, workflow_recipe.WorkflowRecipe
+            node.exception_cases[0].body.recipe, workflow_recipe.WorkflowRecipe
         )
 
 
@@ -325,7 +325,7 @@ class TestTryRecipeFullySourcing(unittest.TestCase):
         """Try body input without edge or default → rejected."""
         try_node = helper_models.LabeledRecipe(
             label="try_body",
-            node=atomic_recipe.AtomicRecipe(
+            recipe=atomic_recipe.AtomicRecipe(
                 reference=makers.make_reference(qualname="try_func"),  # no defaults
                 inputs=["x", "extra"],
                 outputs=["y"],
@@ -361,7 +361,7 @@ class TestTryRecipeFullySourcing(unittest.TestCase):
                 exceptions=[_VALUE_ERROR_INFO],
                 body=helper_models.LabeledRecipe(
                     label="except_0",
-                    node=atomic_recipe.AtomicRecipe(
+                    recipe=atomic_recipe.AtomicRecipe(
                         reference=makers.make_reference(
                             qualname="handle_error"
                         ),  # no defaults
@@ -397,7 +397,7 @@ class TestTryRecipeFullySourcing(unittest.TestCase):
         """Try body input without edge but with default → accepted."""
         try_node = helper_models.LabeledRecipe(
             label="try_body",
-            node=atomic_recipe.AtomicRecipe(
+            recipe=atomic_recipe.AtomicRecipe(
                 reference=makers.make_reference(
                     qualname="try_func", inputs_with_defaults=["extra"]
                 ),
@@ -425,7 +425,7 @@ class TestTryRecipeFullySourcing(unittest.TestCase):
                 ]
             },
         )
-        self.assertIn("extra", node.try_node.node.inputs)
+        self.assertIn("extra", node.try_node.recipe.inputs)
 
     def test_mixed_try_edged_except_unsourced_raises(self):
         """Try body fully edged, except_1 missing edge and default → fails."""
@@ -656,10 +656,10 @@ class TestTryRecipeProspectiveOutputEdgesValidation(unittest.TestCase):
             inputs=["x"],
             outputs=["out1", "out2"],
         )
-        try_node = helper_models.LabeledRecipe(label="try_body", node=body_node)
+        try_node = helper_models.LabeledRecipe(label="try_body", recipe=body_node)
         exception_case = helper_models.ExceptionCase(
             exceptions=[_VALUE_ERROR_INFO],
-            body=helper_models.LabeledRecipe(label="except_body", node=body_node),
+            body=helper_models.LabeledRecipe(label="except_body", recipe=body_node),
         )
         node = try_recipe.TryRecipe(
             inputs=["inp"],
@@ -691,7 +691,7 @@ class TestTryRecipeProspectiveOutputEdgesValidation(unittest.TestCase):
         """TryRecipe with no outputs requires empty prospective_output_edges."""
         try_node = helper_models.LabeledRecipe(
             label="try_body",
-            node=atomic_recipe.AtomicRecipe(
+            recipe=atomic_recipe.AtomicRecipe(
                 reference=base_models.PythonReference(
                     info=versions.VersionInfo(
                         module="mod", qualname="func", version=None
@@ -705,7 +705,7 @@ class TestTryRecipeProspectiveOutputEdgesValidation(unittest.TestCase):
             exceptions=[_VALUE_ERROR_INFO],
             body=helper_models.LabeledRecipe(
                 label="handler",
-                node=atomic_recipe.AtomicRecipe(
+                recipe=atomic_recipe.AtomicRecipe(
                     reference=makers.make_reference(qualname="handler"),
                     inputs=["x"],
                     outputs=[],

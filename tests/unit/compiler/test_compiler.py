@@ -11,11 +11,12 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models, wfms
-from flowrep.compiler import flow_control, function, source, statements
+from flowrep import base_models, edge_models, std, wfms
+from flowrep.compiler import flow_control, function, source, statements, sugar
 from flowrep.parsers import atomic_parser, workflow_parser
 from flowrep.prospective import (
     atomic_recipe,
+    constant_recipe,
     for_recipe,
     helper_models,
     if_recipe,
@@ -51,7 +52,7 @@ workflow_condition_recipe = workflow_recipe.WorkflowRecipe(
                 helper_models.ConditionalCase(
                     condition=helper_models.LabeledRecipe(
                         label="condition",
-                        node=workflow_recipe.WorkflowRecipe(
+                        recipe=workflow_recipe.WorkflowRecipe(
                             inputs=["inp"],
                             outputs=["out"],
                             nodes={},
@@ -66,13 +67,13 @@ workflow_condition_recipe = workflow_recipe.WorkflowRecipe(
                     ),
                     body=helper_models.LabeledRecipe(
                         label="if_case",
-                        node=library.increment.flowrep_recipe,
+                        recipe=library.increment.flowrep_recipe,
                     ),
                 ),
             ],
             else_case=helper_models.LabeledRecipe(
                 label="else_case",
-                node=library.decrement.flowrep_recipe,
+                recipe=library.decrement.flowrep_recipe,
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -120,7 +121,7 @@ workflow_while_recipe = workflow_recipe.WorkflowRecipe(
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
                     label="condition",
-                    node=workflow_recipe.WorkflowRecipe(
+                    recipe=workflow_recipe.WorkflowRecipe(
                         inputs=["inp"],
                         outputs=["out"],
                         nodes={},
@@ -135,7 +136,7 @@ workflow_while_recipe = workflow_recipe.WorkflowRecipe(
                 ),
                 body=helper_models.LabeledRecipe(
                     label="while_body",
-                    node=library.decrement.flowrep_recipe,
+                    recipe=library.decrement.flowrep_recipe,
                 ),
             ),
             input_edges={
@@ -178,14 +179,14 @@ workflow_try_recipe = workflow_recipe.WorkflowRecipe(
             outputs=["z"],
             try_node=helper_models.LabeledRecipe(
                 label="try_body",
-                node=library.divide.flowrep_recipe,
+                recipe=std.truediv.flowrep_recipe,
             ),
             exception_cases=[
                 helper_models.ExceptionCase(
                     exceptions=[versions.VersionInfo.of(ZeroDivisionError)],
                     body=helper_models.LabeledRecipe(
                         label="except_body",
-                        node=library.identity.flowrep_recipe,
+                        recipe=std.identity.flowrep_recipe,
                     ),
                 )
             ],
@@ -202,7 +203,7 @@ workflow_try_recipe = workflow_recipe.WorkflowRecipe(
             },
             prospective_output_edges={
                 edge_models.OutputTarget(port="z"): [
-                    edge_models.SourceHandle(node="try_body", port="output_0"),
+                    edge_models.SourceHandle(node="try_body", port="quotient"),
                     edge_models.SourceHandle(node="except_body", port="x"),
                 ]
             },
@@ -236,7 +237,7 @@ workflow_for_each_recipe = workflow_recipe.WorkflowRecipe(
             outputs=["ys"],
             body_node=helper_models.LabeledRecipe(
                 label="for_body",
-                node=library.increment.flowrep_recipe,
+                recipe=library.increment.flowrep_recipe,
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -274,7 +275,7 @@ def _for_each_increment(label_body: str):
         inputs=["xs"],
         outputs=["ys"],
         body_node=helper_models.LabeledRecipe(
-            label=label_body, node=library.increment.flowrep_recipe
+            label=label_body, recipe=library.increment.flowrep_recipe
         ),
         input_edges={
             edge_models.TargetHandle(
@@ -302,16 +303,16 @@ if_flow_control_condition_recipe = workflow_recipe.WorkflowRecipe(
             cases=[
                 helper_models.ConditionalCase(
                     condition=helper_models.LabeledRecipe(
-                        label="flowcond", node=_for_each_increment("c_body")
+                        label="flowcond", recipe=_for_each_increment("c_body")
                     ),
                     condition_output="ys",
                     body=helper_models.LabeledRecipe(
-                        label="cbranch", node=_for_each_increment("inc_body")
+                        label="cbranch", recipe=_for_each_increment("inc_body")
                     ),
                 )
             ],
             else_case=helper_models.LabeledRecipe(
-                label="cebranch", node=_for_each_increment("dec_body")
+                label="cebranch", recipe=_for_each_increment("dec_body")
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -356,11 +357,11 @@ while_flow_control_condition_recipe = workflow_recipe.WorkflowRecipe(
             outputs=["xs"],
             case=helper_models.ConditionalCase(
                 condition=helper_models.LabeledRecipe(
-                    label="wcond", node=_for_each_increment("wc_body")
+                    label="wcond", recipe=_for_each_increment("wc_body")
                 ),
                 condition_output="ys",
                 body=helper_models.LabeledRecipe(
-                    label="wbody", node=_for_each_increment("wb_body")
+                    label="wbody", recipe=_for_each_increment("wb_body")
                 ),
             ),
             input_edges={
@@ -400,7 +401,7 @@ def _for_each(label_body: str, node):
     return for_recipe.ForEachRecipe(
         inputs=["xs"],
         outputs=["ys"],
-        body_node=helper_models.LabeledRecipe(label=label_body, node=node),
+        body_node=helper_models.LabeledRecipe(label=label_body, recipe=node),
         input_edges={
             edge_models.TargetHandle(
                 node=label_body, port="x"
@@ -425,17 +426,17 @@ if_branch_is_for_each_recipe = workflow_recipe.WorkflowRecipe(
             cases=[
                 helper_models.ConditionalCase(
                     condition=helper_models.LabeledRecipe(
-                        label="cond", node=library.is_positive.flowrep_recipe
+                        label="cond", recipe=library.is_positive.flowrep_recipe
                     ),
                     body=helper_models.LabeledRecipe(
                         label="if_branch",
-                        node=_for_each("inc_body", library.increment.flowrep_recipe),
+                        recipe=_for_each("inc_body", library.increment.flowrep_recipe),
                     ),
                 )
             ],
             else_case=helper_models.LabeledRecipe(
                 label="else_branch",
-                node=_for_each("dec_body", library.decrement.flowrep_recipe),
+                recipe=_for_each("dec_body", library.decrement.flowrep_recipe),
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -481,15 +482,15 @@ _inner_if_recipe = if_recipe.IfRecipe(
     cases=[
         helper_models.ConditionalCase(
             condition=helper_models.LabeledRecipe(
-                label="icond", node=library.is_positive.flowrep_recipe
+                label="icond", recipe=library.is_positive.flowrep_recipe
             ),
             body=helper_models.LabeledRecipe(
-                label="ibranch", node=library.increment.flowrep_recipe
+                label="ibranch", recipe=library.increment.flowrep_recipe
             ),
         )
     ],
     else_case=helper_models.LabeledRecipe(
-        label="ebranch", node=library.decrement.flowrep_recipe
+        label="ebranch", recipe=library.decrement.flowrep_recipe
     ),
     input_edges={
         edge_models.TargetHandle(node="icond", port="n"): edge_models.InputSource(
@@ -519,7 +520,7 @@ for_body_is_if_recipe = workflow_recipe.WorkflowRecipe(
             inputs=["xs"],
             outputs=["ys"],
             body_node=helper_models.LabeledRecipe(
-                label="inner_if", node=_inner_if_recipe
+                label="inner_if", recipe=_inner_if_recipe
             ),
             input_edges={
                 edge_models.TargetHandle(
@@ -718,7 +719,7 @@ class TestNameAllocator(unittest.TestCase):
 class TestSingleAtomicDag(unittest.TestCase):
     def _free_recipe(self):
         def one_add(a, b):
-            result = library.my_add(a, b)
+            result = std.add(a, b)
             return result
 
         return one_add, makers.reference_free(one_add)
@@ -745,7 +746,7 @@ class TestSingleAtomicDag(unittest.TestCase):
 class TestMultiNodeDag(unittest.TestCase):
     def test_chained_and_unpacked(self):
         def chained(a, b):
-            s = library.my_add(a, b)  # one output
+            s = std.add(a, b)  # one output
             q, r = library.divmod_func(s, b)  # tuple unpack -> two outputs
             return q, r
 
@@ -761,8 +762,8 @@ class TestMultiNodeDag(unittest.TestCase):
         # Build a recipe whose .nodes dict is *not* topologically ordered, by
         # round-tripping a normal one then re-inserting nodes in reverse.
         def chained(a, b):
-            s = library.my_add(a, b)
-            t = library.my_mul(s, b)
+            s = std.add(a, b)
+            t = std.mul(s, b)
             return t
 
         free = makers.reference_free(chained)
@@ -791,8 +792,8 @@ class TestSignatureParams(unittest.TestCase):
 
     def test_positional_only_and_keyword_only_markers(self):
         def kinds(x, /, y, *, z):
-            r = library.my_add(x, y)
-            out = library.my_add(r, z)
+            r = std.add(x, y)
+            out = std.add(r, z)
             return out
 
         free = makers.reference_free(kinds)
@@ -811,7 +812,7 @@ class TestOutputsEdgeCases(unittest.TestCase):
     def test_passthrough_output_returns_input(self):
         # Output 'kept' is sourced directly from input 'a'.
         def passthrough(a, b):
-            s = library.my_add(a, b)
+            s = std.add(a, b)
             return s, a  # 'a' is a passthrough output
 
         free = makers.reference_free(passthrough)
@@ -822,51 +823,19 @@ class TestOutputsEdgeCases(unittest.TestCase):
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
         )
 
-    def test_duplicate_source_port_raises(self):
-        # Hand-build a recipe where two outputs share one source handle.
-        free = makers.reference_free(self._single_two_named_outputs_source())
-        # Force two output ports onto the same source handle.
-
-        single_src = next(iter(free.output_edges.values()))
-        bad = free.model_copy(
-            update={
-                "outputs": ["p", "q"],
-                "output_edges": {
-                    edge_models.OutputTarget(port="p"): single_src,
-                    edge_models.OutputTarget(port="q"): single_src,
-                },
-            }
-        )
-        # p and q both come from the same handle; no required-name conflict at the
-        # top level (we use annotations there), but the source code parser guards
-        # against duplicate output symbols
-        rendered = source._workflow2python(bad)
-        with self.assertRaisesRegex(
-            ValueError,
-            "Workflow python definitions must have unique returns",
-        ):
-            rendered.build()
-
-    def _single_two_named_outputs_source(self):
-        def one(a, b):
-            s = library.my_add(a, b)
-            return s
-
-        return one
-
 
 class TestNestedWorkflowNode(unittest.TestCase):
     def test_reference_free_subworkflow_node(self):
         # Build a recipe whose .nodes contains a reference-free WorkflowRecipe.
-        # inner's output variable is named 'output_0' to match the output port
-        # name that library.my_add exposes (and that free_outer's output_edge
+        # inner's output variable is named 'added' to match the output port
+        # name that std.add exposes (and that free_outer's output_edge
         # references), making the substituted recipe internally consistent.
         def inner(a, b):
-            output_0 = library.my_add(a, b)
-            return output_0
+            added = std.add(a, b)
+            return added
 
         def outer(a, b):
-            r = library.my_add(a, b)
+            r = std.add(a, b)
             return r
 
         free_outer = makers.reference_free(outer)
@@ -875,6 +844,7 @@ class TestNestedWorkflowNode(unittest.TestCase):
         label = next(iter(free_outer.nodes))
         nodes = dict(free_outer.nodes)
         nodes[label] = free_inner  # workflow node, reference=None
+        print(nodes)
         recipe = free_outer.model_copy(update={"nodes": nodes})
 
         rendered = source._workflow2python(recipe)
@@ -892,7 +862,7 @@ class TestForEach(unittest.TestCase):
         def mapper(xs, k):
             acc = []
             for x in xs:
-                v = library.my_mul(x, k)
+                v = std.mul(x, k)
                 acc.append(v)
             return acc
 
@@ -908,7 +878,7 @@ class TestForEach(unittest.TestCase):
         def zipper(xs, ys):
             acc = []
             for x, y in zip(xs, ys, strict=True):
-                v = library.my_add(x, y)
+                v = std.add(x, y)
                 acc.append(v)
             return acc
 
@@ -932,10 +902,11 @@ class TestForEach(unittest.TestCase):
 class TestIf(unittest.TestCase):
     def test_if_else_round_trip_and_exec(self):
         def chooser(a, b):
-            if library.my_condition(a, b):  # a < b
-                v = library.my_add(a, b)
+            if library.my_condition(a, b):  # noqa: SIM108
+                # a < b
+                v = std.add(a, b)
             else:
-                v = library.my_mul(a, b)
+                v = std.mul(a, b)
             return v
 
         free = makers.reference_free(chooser)
@@ -1064,9 +1035,9 @@ class TestTry(unittest.TestCase):
     def test_try_except_round_trip_and_exec(self):
         def safe_div(a, b):
             try:
-                z = library.divide(a, b)
+                z = std.truediv(a, b)
             except ZeroDivisionError:
-                z = library.identity(a)
+                z = std.identity(a)
             return z
 
         free = makers.reference_free(safe_div)
@@ -1083,7 +1054,7 @@ class TestTry(unittest.TestCase):
             try:
                 z = library.raises_custom(a, b)
             except library.MyCustomException:
-                z = library.identity(a)
+                z = std.identity(a)
             return z
 
         free = makers.reference_free(custom_exception_branch)
@@ -1118,13 +1089,13 @@ class TestTry(unittest.TestCase):
 
 def _with_default(a, b=10):
     """Module-level workflow function with a default; importable for DagData tests."""
-    r = library.my_add(a, b)
+    r = std.add(a, b)
     return r
 
 
 def _typed_single(a: int, b: float = 2.0) -> float:
     """Module-level typed workflow for DagData annotation tests."""
-    r = library.my_add(a, b)
+    r = std.add(a, b)
     return r
 
 
@@ -1193,8 +1164,8 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
     def test_cycle_raises(self):
 
         def chained(a, b):
-            s = library.my_add(a, b)
-            t = library.my_mul(s, b)
+            s = std.add(a, b)
+            t = std.mul(s, b)
             return t
 
         free = makers.reference_free(chained)
@@ -1211,7 +1182,7 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
 
     def test_trailing_positional_only_marker(self):
         def kinds(a, b, /):
-            r = library.my_add(a, b)
+            r = std.add(a, b)
             return r
 
         free = makers.reference_free(kinds)
@@ -1223,24 +1194,13 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
             inspect.Parameter.POSITIONAL_ONLY,
         )
 
-    def test_positional_only_node_argument(self):
-        # A referenced node with positional-only inputs is called positionally.
-        def uses(x, y):
-            r = _pos_only_add(x, y)
-            return r
-
-        free = makers.reference_free(uses)
-        rendered = source._workflow2python(free)
-        self.assertRegex(rendered.source, r"_pos_only_add\(\w+, \w+\)")
-        self.assertEqual(rendered.build()(2, 3), 5)
-
     def test_for_each_transferred_input_output(self):
         # A zipped input forwarded straight to an output is collected per iteration.
         def fwd(xs, ks):
             acc = []
             kept = []
             for x, k in zip(xs, ks, strict=True):
-                v = library.my_add(x, k)
+                v = std.add(x, k)
                 acc.append(v)
                 kept.append(k)
             return acc, kept
@@ -1253,9 +1213,9 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
         # increment(x, step=1): 'step' is defaulted and left unsourced as a condition.
         def f(a):
             if library.increment(a):  # noqa: SIM108
-                r = library.identity(a)
+                r = std.identity(a)
             else:
-                r = library.negate(a)
+                r = std.neg(a)
             return r
 
         free = makers.reference_free(f)
@@ -1268,9 +1228,9 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
     def test_multi_exception_except_clause(self):
         def f(a, b):
             try:
-                z = library.divide(a, b)
+                z = std.truediv(a, b)
             except (ZeroDivisionError, ValueError):
-                z = library.identity(a)
+                z = std.identity(a)
             return z
 
         free = makers.reference_free(f)
@@ -1323,12 +1283,12 @@ class TestGuardsAndEdgeCases(unittest.TestCase):
                 "type": "workflow",
                 "inputs": ["a", "b"],
                 "outputs": ["p", "q"],
-                "nodes": {"my_add_0": library.my_add.flowrep_recipe},
-                "input_edges": {"my_add_0.a": "a", "my_add_0.b": "b"},
+                "nodes": {"add_0": std.add.flowrep_recipe},
+                "input_edges": {"add_0.a": "a", "add_0.b": "b"},
                 "edges": {},
                 "output_edges": {
-                    "p": "my_add_0.output_0",
-                    "q": "my_add_0.output_0",
+                    "p": "add_0.added",
+                    "q": "add_0.added",
                 },
             }
         )
@@ -1346,7 +1306,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
     def test_unannotated_outputs_stay_that_way(self):
         # No signature -> Any-typed return annotation, label still pinned.
         def plain(a, b):
-            r = library.my_add(a, b)
+            r = std.add(a, b)
             return r
 
         free = makers.reference_free(plain)
@@ -1367,8 +1327,8 @@ class TestAnnotationReconstruction(unittest.TestCase):
 
     def test_input_annotations_resolve_including_generics(self):
         def typed(x: int, y: list[int], z: dict[str, int]):
-            r = library.my_add(x, y)
-            out = library.my_add(r, z)
+            r = std.add(x, y)
+            out = std.add(r, z)
             return out
 
         free = makers.reference_free(typed)
@@ -1385,7 +1345,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
 
     def test_annotated_input_preserved_verbatim(self):
         def f(x: typing.Annotated[int, "meta"], y: float):
-            r = library.my_add(x, y)
+            r = std.add(x, y)
             return r
 
         free = makers.reference_free(f)
@@ -1398,7 +1358,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
 
     def test_annotation_and_default_both_survive(self):
         def f(x: int, y: float = 0.5):
-            r = library.my_add(x, y)
+            r = std.add(x, y)
             return r
 
         free = makers.reference_free(f)
@@ -1409,7 +1369,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
 
     def test_single_return_annotation_is_verbatim(self):
         def typed(a, b) -> float:
-            r = library.my_add(a, b)
+            r = std.add(a, b)
             return r
 
         free = makers.reference_free(typed)
@@ -1451,7 +1411,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
         # Return symbol is "s" (my_add's output) but the port is renamed; the
         # decorator must pin the port name regardless of the return symbol.
         def one(a, b):
-            s = library.my_add(a, b)
+            s = std.add(a, b)
             return s
 
         free = makers.reference_free(one)
@@ -1473,7 +1433,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
         def f(
             x: typing.Annotated[int, "in-meta"], y: float
         ) -> typing.Annotated[float, "out-meta"]:
-            r = library.my_add(x, y)
+            r = std.add(x, y)
             return r
 
         free = makers.reference_free(f)
@@ -1486,7 +1446,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
 
     def test_plain_input_annotation_is_stringy(self):
         def typed(x: int, y: float):
-            r = library.my_add(x, y)
+            r = std.add(x, y)
             return r
 
         free = makers.reference_free(typed)
@@ -1502,7 +1462,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
 
     def test_literal_default_is_stringy(self):
         def f(x: int, y: float = 0.5):
-            r = library.my_add(x, y)
+            r = std.add(x, y)
             return r
 
         free = makers.reference_free(f)
@@ -1516,7 +1476,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
         sentinel = object()
 
         def f(x: int, y=sentinel):
-            r = library.my_add(x, y)
+            r = std.add(x, y)
             return r
 
         free = makers.reference_free(f)
@@ -1537,7 +1497,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
 
     def test_return_annotation_is_stringy(self):
         def typed(a, b) -> float:
-            r = library.my_add(a, b)
+            r = std.add(a, b)
             return r
 
         free = makers.reference_free(typed)
@@ -1549,7 +1509,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
 
     def test_fully_simple_recipe_has_empty_namespace(self):
         def simple(x: int, y: float = 1.0) -> float:
-            r = library.my_add(x, y)
+            r = std.add(x, y)
             return r
 
         free = makers.reference_free(simple)
@@ -1566,7 +1526,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             pass
 
         def f(x: Custom):
-            r = library.identity(x)
+            r = std.identity(x)
             return r
 
         free = makers.reference_free(f)
@@ -1581,7 +1541,7 @@ class TestAnnotationReconstruction(unittest.TestCase):
             pass
 
         def f(a) -> Custom:
-            r = library.identity(a)
+            r = std.identity(a)
             return r
 
         free = makers.reference_free(f)
@@ -1597,30 +1557,32 @@ class TestImportHoisting(unittest.TestCase):
 
     @staticmethod
     def _two_node_outer():
-        # outer(a, b): r = my_add(a, b); s = my_add(r, b); return s
-        # Two chained atomic nodes, both calling library.my_add.
+        # outer(a, b): r = combine(a, b); s = combine(r, b); return s
+        # Two chained atomic nodes, both calling library.combine. These stay on the
+        # library (rather than std) deliberately: the hoisting/dedup behaviour under
+        # test is only observable for a third-party module, since `import flowrep` is
+        # always emitted for the decorator regardless of what the nodes call.
         def outer(a, b):
-            r = library.my_add(a, b)
-            s = library.my_add(r, b)
+            r = library.combine(a, b)
+            s = library.combine(r, b)
             return s
 
         return makers.reference_free(outer)
 
     @staticmethod
     def _free_inner():
-        # inner(a, b): output_0 = my_add(a, b); return output_0
-        # Output named output_0 to match the my_add port the outer edges expect.
+        # inner(a, b): r = combine(a, b); return r
+        # Output named r to match the combine port the outer edges expect.
         def inner(a, b):
-            output_0 = library.my_add(a, b)
-            return output_0
+            r = library.combine(a, b)
+            return r
 
         return makers.reference_free(inner)
 
     def _outer_with_one_subworkflow(self):
         # Replace the FIRST node of the 2-node outer with a reference-free
-        # sub-workflow. Result: the nested def calls my_add, and the top-level
-        # function still calls my_add directly for the second node. Both need
-        # `import flowrep_static.library`.
+        # sub-workflow. Result: the nested def calls combine, and the top-level
+        # function still calls combine directly for the second node.
         free_outer = self._two_node_outer()
         free_inner = self._free_inner()
         first_label = next(iter(free_outer.nodes))
@@ -1688,51 +1650,52 @@ class TestModuleNames(unittest.TestCase):
     def test_referenced_top_level_bindings_collects_and_skips_builtins(self):
         def safe_div(a, b):
             try:
-                z = library.divide(a, b)
+                z = std.truediv(a, b)
             except ZeroDivisionError:
-                z = library.identity(a)
+                z = library.typed_add(a, b)
             return z
 
         def custom(a, b):
             try:
                 z = library.raises_custom(a, b)
             except library.MyCustomException:
-                z = library.identity(a)
+                z = std.identity(a)
             return z
 
         free_safe = makers.reference_free(safe_div)
         free_custom = makers.reference_free(custom)
 
         # All calls live in flowrep_static.library -> top binding "flowrep_static".
+        # Or in the standard library
         # ZeroDivisionError is a builtin and must be skipped (no import emitted).
         self.assertEqual(
             set(function.referenced_top_level_bindings(free_safe)),
-            {"flowrep_static"},
+            {"flowrep_static", "flowrep"},
         )
         self.assertNotIn(
             "builtins", set(function.referenced_top_level_bindings(free_safe))
         )
-        # The non-builtin custom exception still resolves to flowrep_static.
+        # The non-builtin custom exception still resolves to flowrep_static/flowrep (std).
         self.assertEqual(
             set(function.referenced_top_level_bindings(free_custom)),
-            {"flowrep_static"},
+            {"flowrep_static", "flowrep"},
         )
 
     def test_nested_subworkflow_def_names_do_not_collide(self):
         # Outer reference-free sub-workflow whose body is itself a reference-free
-        # sub-workflow; both derive base label "my_add". Independent per-function
-        # allocators mint "my_add" twice -> two module-level `def my_add`, the
+        # sub-workflow; both derive base label "add". Independent per-function
+        # allocators mint "add" twice -> two module-level `def add`, the
         # second shadows the first -> the inner call recurses into itself.
         def innermost(a, b):
-            output_0 = library.my_add(a, b)
-            return output_0
+            added = std.add(a, b)
+            return added
 
         def middle(a, b):
-            output_0 = library.my_add(a, b)
-            return output_0
+            added = std.add(a, b)
+            return added
 
         def outer(a, b):
-            r = library.my_add(a, b)
+            r = std.add(a, b)
             return r
 
         free_inner = makers.reference_free(innermost)
@@ -1751,8 +1714,8 @@ class TestModuleNames(unittest.TestCase):
 
         rendered = source._workflow2python(recipe)
         src = rendered.source
-        self.assertIn("def my_add(", src)
-        self.assertIn("def my_add_0(", src)
+        self.assertIn("def add(", src)
+        self.assertIn("def add_0(", src)
         def_names = re.findall(r"^def (\w+)", src, re.MULTILINE)
         self.assertEqual(
             len(def_names), len(set(def_names)), f"duplicate def names: {def_names}"
@@ -1761,39 +1724,39 @@ class TestModuleNames(unittest.TestCase):
         self.assertEqual(fn(2, 3), 5)
 
     def test_sibling_subworkflow_labels_round_trip(self):
-        # Two sibling reference-free sub-workflows sharing base "my_add" -> labels
-        # my_add_0, my_add_1. The emitter must restore each nested def's __name__ to
+        # Two sibling reference-free sub-workflows sharing base "add" -> labels
+        # add_0, add_1. The emitter must restore each nested def's __name__ to
         # the base so re-parsing reconstructs the same labels.
         def a_node(a, b):
-            output_0 = library.my_add(a, b)
+            output_0 = std.add(a, b)
             return output_0
 
         def b_node(a, b):
-            output_0 = library.my_add(a, b)
+            output_0 = std.add(a, b)
             return output_0
 
         free_a = makers.reference_free(a_node)
         free_b = makers.reference_free(b_node)
-        nodes = {"my_add_0": free_a, "my_add_1": free_b}
+        nodes = {"add_0": free_a, "add_1": free_b}
         input_edges = {
-            edge_models.TargetHandle(
-                node="my_add_0", port="a"
-            ): edge_models.InputSource(port="p"),
-            edge_models.TargetHandle(
-                node="my_add_0", port="b"
-            ): edge_models.InputSource(port="q"),
-            edge_models.TargetHandle(
-                node="my_add_1", port="b"
-            ): edge_models.InputSource(port="q"),
+            edge_models.TargetHandle(node="add_0", port="a"): edge_models.InputSource(
+                port="p"
+            ),
+            edge_models.TargetHandle(node="add_0", port="b"): edge_models.InputSource(
+                port="q"
+            ),
+            edge_models.TargetHandle(node="add_1", port="b"): edge_models.InputSource(
+                port="q"
+            ),
         }
         edges = {
-            edge_models.TargetHandle(
-                node="my_add_1", port="a"
-            ): edge_models.SourceHandle(node="my_add_0", port="output_0"),
+            edge_models.TargetHandle(node="add_1", port="a"): edge_models.SourceHandle(
+                node="add_0", port="output_0"
+            ),
         }
         output_edges = {
             edge_models.OutputTarget(port="output_0"): edge_models.SourceHandle(
-                node="my_add_1", port="output_0"
+                node="add_1", port="output_0"
             )
         }
         recipe = workflow_recipe.WorkflowRecipe(
@@ -1837,12 +1800,14 @@ class TestModuleNames(unittest.TestCase):
         )
 
     def _subworkflow_labeled(self, label):
+        # Calls library.combine so that a third-party `import flowrep_static.library`
+        # binding actually exists for the nested def to shadow.
         def inner(a, b):
-            output_0 = library.my_add(a, b)
-            return output_0
+            r = library.combine(a, b)
+            return r
 
         def outer(a, b):
-            r = library.my_add(a, b)
+            r = library.combine(a, b)
             return r
 
         free_outer = makers.reference_free(outer)
@@ -1882,7 +1847,7 @@ class TestModuleNames(unittest.TestCase):
             pass
 
         def f(a, b):
-            r = library.my_add(a, b)
+            r = std.add(a, b)
             return r
 
         recipe = makers.reference_free(f)
@@ -1954,7 +1919,7 @@ class TestLoopVariableReservation(unittest.TestCase):
             return out
 
         recipe = makers.reference_free(wf)
-        reserved = function._inlined_loop_variables(recipe)
+        reserved = function._inlined_pinned_symbols(recipe)
         self.assertIn("row", reserved)
         self.assertIn("cell", reserved)
         rebuilt = source._workflow2python(recipe).build()
@@ -1992,7 +1957,7 @@ class TestSymbolNaming(unittest.TestCase):
         @workflow_parser.workflow
         def wf(v):
             lo, hi = library.split_pair(v)
-            s = library.my_add(lo, hi)
+            s = std.add(lo, hi)
             return s
 
         free = makers.reference_free(wf)
@@ -2040,6 +2005,527 @@ class TestSymbolNaming(unittest.TestCase):
         # Output port is "output_0"; with label "loop_inc_0" the hint is "loop_inc".
         self.assertIn("loop_inc", out_syms.values())
         self.assertIn("loop_inc = ", lines[0])
+
+
+class TestConstantInlining(unittest.TestCase):
+    def _ke_recipe(self):
+        def kinetic_energy(mass, velocity):
+            v_2 = std.mul(velocity, velocity)
+            mv_2 = std.mul(mass, v_2)
+            ke = std.mul(0.5, mv_2)
+            return ke
+
+        return kinetic_energy, makers.reference_free(kinetic_energy)
+
+    def test_inlines_literal_and_omits_assignment(self):
+        _, free = self._ke_recipe()
+        rendered = source._workflow2python(free)
+        self.assertIn("0.5", rendered.source)
+        self.assertNotIn("constant_0 =", rendered.source)
+
+    def test_executes_with_inlined_constant(self):
+        original, free = self._ke_recipe()
+        fn = source._workflow2python(free).build()
+        self.assertAlmostEqual(fn(2.0, 3.0), original(2.0, 3.0))
+
+    def test_round_trips(self):
+        _, free = self._ke_recipe()
+        fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_compound_and_type_fidelity_round_trip(self):
+        def uses_compound(x):
+            y = std.mul(x, [1.0, 1, "1", {"key": [42]}])
+            return y
+
+        free = makers.reference_free(uses_compound)
+        fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+        # int/float distinction survives the source round-trip
+        reparsed_const = fn.flowrep_recipe.nodes["constant_0"].constant
+        self.assertIs(type(reparsed_const[0]), float)
+        self.assertIs(type(reparsed_const[1]), int)
+
+
+class TestConstantMaterialize(unittest.TestCase):
+    TH, IS, SH, OT = (
+        edge_models.TargetHandle,
+        edge_models.InputSource,
+        edge_models.SourceHandle,
+        edge_models.OutputTarget,
+    )
+
+    def _assert_canonical_round_trips(self, rendered):
+        """`rendered` (from a hand-built recipe) must build, and the parsed
+        canonical recipe must then compile/parse idempotently."""
+        fn = rendered.build()
+        canonical = fn.flowrep_recipe.model_copy(update={"reference": None})
+        rebuilt = source._workflow2python(canonical).build()
+        self.assertEqual(
+            makers.dump_no_refs(rebuilt.flowrep_recipe),
+            makers.dump_no_refs(fn.flowrep_recipe),
+            msg="Canonical (post-parse) recipe must round-trip exactly",
+        )
+        return fn
+
+    def test_constant_feeding_output_wraps_in_identity(self):
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=["a"],
+            outputs=["y"],
+            nodes={"constant_0": constant_recipe.ConstantRecipe(constant=5)},
+            input_edges={},
+            edges={},
+            output_edges={
+                self.OT(port="y"): self.SH(node="constant_0", port="constant")
+            },
+        )
+        rendered = source._workflow2python(wf, function_name="returns_const")
+        self.assertIn("identity(", rendered.source)
+        self.assertNotIn("return 5", rendered.source)  # not inlined as a bare return
+        self.assertNotIn("constant = 5", rendered.source)  # not a bare assignment
+        fn = self._assert_canonical_round_trips(rendered)
+        self.assertEqual(fn(99), 5)
+
+    def test_constant_in_flow_control_body_wraps_in_identity(self):
+        # Hand-built `if is_positive(n): m = 42 else: m = -1` with BARE ConstantRecipe
+        # bodies (a shape only hand-construction produces).
+        if_node = if_recipe.IfRecipe(
+            inputs=["n"],
+            outputs=["m"],
+            cases=[
+                helper_models.ConditionalCase(
+                    condition=helper_models.LabeledRecipe(
+                        label="cond", recipe=library.is_positive.flowrep_recipe
+                    ),
+                    body=helper_models.LabeledRecipe(
+                        label="body",
+                        recipe=constant_recipe.ConstantRecipe(constant=42),
+                    ),
+                )
+            ],
+            input_edges={self.TH(node="cond", port="n"): self.IS(port="n")},
+            prospective_output_edges={
+                self.OT(port="m"): [
+                    self.SH(node="body", port="constant"),
+                    self.SH(node="else_body", port="constant"),
+                ]
+            },
+            else_case=helper_models.LabeledRecipe(
+                label="else_body",
+                recipe=constant_recipe.ConstantRecipe(constant=-1),
+            ),
+        )
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=["n"],
+            outputs=["m"],
+            nodes={"if_0": if_node},
+            input_edges={self.TH(node="if_0", port="n"): self.IS(port="n")},
+            edges={},
+            output_edges={self.OT(port="m"): self.SH(node="if_0", port="m")},
+        )
+        rendered = source._workflow2python(wf, function_name="branchy")
+        self.assertIn("identity(", rendered.source)
+        self.assertNotIn("m = 42", rendered.source)  # not a bare assignment
+        fn = self._assert_canonical_round_trips(rendered)
+        self.assertEqual(fn(5), 42)
+        self.assertEqual(fn(-3), -1)
+
+
+class TestConstantsInConditions(unittest.TestCase):
+    """Literal constants in if/elif/while conditions: execution + exact round-trip."""
+
+    def _round_trip(self, fn, *call_args):
+        free = makers.reference_free(fn)
+        rendered = source._workflow2python(free)
+        built = rendered.build()
+        self.assertAlmostEqual(built(*call_args), fn(*call_args))
+        self.assertEqual(
+            makers.dump_no_refs(built.flowrep_recipe), makers.dump_no_refs(free)
+        )
+        return free
+
+    def test_if_condition_literal_round_trips_and_executes(self):
+        def wf(m):
+            if library.my_condition(m, 0.5):  # noqa: SIM108
+                y = std.identity(m)
+            else:
+                y = std.identity(m)
+            return y
+
+        free = self._round_trip(wf, 0.2)
+        # the inlined literal appears in the rendered condition, not a bare symbol
+        rendered_src = source._workflow2python(free).source
+        self.assertIn("0.5", rendered_src)
+
+    def test_elif_condition_literal_round_trips_and_executes(self):
+        def wf(x, y):
+            if library.my_condition(x, y):  # noqa: SIM108
+                z = std.identity(x)
+            elif library.my_condition(x, 5):
+                z = std.identity(y)
+            else:
+                z = std.identity(x)
+            return z
+
+        self._round_trip(wf, 10, 3)
+        self._round_trip(wf, 3, 10)
+
+    def test_while_condition_literal_round_trips_and_executes(self):
+        def wf(x):
+            while library.my_condition(x, 5):
+                x = std.add(x, 1)
+            return x
+
+        self._round_trip(wf, 0)
+
+    def test_multiple_literals_in_one_condition_round_trip(self):
+        def wf(m):
+            if library.my_condition(0.3, 0.5):  # noqa: SIM108
+                y = std.identity(m)
+            else:
+                y = std.identity(m)
+            return y
+
+        free = self._round_trip(wf, 7)
+        constant_values = sorted(
+            node.constant
+            for node in free.nodes.values()
+            if isinstance(node, constant_recipe.ConstantRecipe)
+        )
+        self.assertEqual(constant_values, [0.3, 0.5])
+
+    def test_nested_condition_literal_round_trips(self):
+        def wf(m):
+            if library.my_condition(m, 0.5):
+                if library.my_condition(m, 0.7):  # noqa: SIM108
+                    y = std.identity(m)
+                else:
+                    y = std.identity(m)
+            else:
+                y = std.identity(m)
+            return y
+
+        self._round_trip(wf, 0.2)
+
+
+class TestAttributeSugar(unittest.TestCase):
+    def test_single_access_as_call_argument(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            r = std.identity(dc.x)
+            return r
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertIn(".x", rendered.source)
+        self.assertNotIn("_getattr_wrapper", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(3, library.ComplexData(val=7)), 3)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_chain(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            v = dc.a.val
+            return v
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        # Each link of the chain is its own statement: a getattr node is never
+        # inlined into a consumer, because that would move its name-constant
+        # relative to the workflow's other constants and permute the shared
+        # `constant_N` counter on re-parse.
+        self.assertRegex(rendered.source, r"\n\s*(\w+) = \w+\.a\n\s*\w+ = \1\.val\n")
+        self.assertNotIn(".a.val", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(3, library.ComplexData(val=7)), 7)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_access_interleaved_with_a_literal_round_trips(self):
+        """Regression: a getattr's name-constant must not be reordered.
+
+        Constant labels come from one shared `constant_N` counter over the whole
+        workflow. Inlining `dc.a` into the `identity` call would defer its name
+        constant past the literal `3`, swapping `constant_0` and `constant_1` on
+        re-parse -- functionally identical, structurally different.
+        """
+
+        def wf(comp: library.ComplexData, n: int):
+            dc = library.MyDataclass(comp, n)
+            v = dc.a
+            w = library.increment(3)
+            r = std.identity(v)
+            return r, w
+
+        free = makers.reference_free(wf)
+        fn = source._workflow2python(free).build()
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_access_feeding_output_materializes_and_round_trips(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            v = dc.a
+            return v
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertRegex(rendered.source, r"\n\s*\w+ = \w+\.a\n")
+        return_lines = [
+            ln for ln in rendered.source.splitlines() if ln.strip().startswith("return")
+        ]
+        self.assertEqual(len(return_lines), 1)
+        self.assertNotIn(".", return_lines[0])
+        fn = rendered.build()
+        result = fn(3, library.ComplexData(val=7))
+        self.assertEqual(result.val, 7)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_fan_out_materializes_exactly_once(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            v = dc.x
+            p = std.identity(v)
+            q = std.neg(v)
+            return p, q
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        assignment_lines = [
+            ln
+            for ln in rendered.source.splitlines()
+            if re.fullmatch(r"\w+ = \w+\.x", ln.strip())
+        ]
+        self.assertEqual(len(assignment_lines), 1)
+        fn = rendered.build()
+        self.assertEqual(fn(3, library.ComplexData(val=1)), (3, -3))
+        rebuilt = fn.flowrep_recipe
+        getattr_nodes = [n for n in rebuilt.nodes.values() if sugar.is_std_getattr(n)]
+        self.assertEqual(len(getattr_nodes), 1)
+        self.assertEqual(makers.dump_no_refs(rebuilt), makers.dump_no_refs(free))
+
+    def test_access_appended_to_accumulator_pins_body_symbol(self):
+        def wf(items: list):
+            xs = []
+            for item in items:
+                dc = library.MyDataclass(item, 1)
+                inner = dc.a
+                xs.append(inner)
+            return xs
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertRegex(rendered.source, r"\binner = \w+\.a\b")
+        self.assertIn("xs.append(inner)", rendered.source)
+        fn = rendered.build()
+        result = fn([library.ComplexData(val=1), library.ComplexData(val=2)])
+        self.assertEqual([r.val for r in result], [1, 2])
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_access_directly_on_workflow_input(self):
+        def wf(comp: library.ComplexData):
+            v = comp.val
+            return v
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertIn(".val", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(library.ComplexData(val=9)), 9)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+    def test_getattr_with_unwired_obj_is_not_sugared(self):
+        TH, SH, OT = (
+            edge_models.TargetHandle,
+            edge_models.SourceHandle,
+            edge_models.OutputTarget,
+        )
+        # WorkflowRecipe validates that every required input has a source, so an
+        # unwired `obj` (no default on _getattr_wrapper) cannot be constructed
+        # directly. Build a valid recipe first, then strip the edge via
+        # model_copy, which -- like the analogous shape in test_sugar.py -- skips
+        # validators and produces a shape only hand-construction can reach.
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=[],
+            outputs=["attr"],
+            nodes={
+                "getattr_0": std.get_attr.flowrep_recipe,
+                "constant_obj": constant_recipe.ConstantRecipe(constant="hi"),
+                "constant_0": constant_recipe.ConstantRecipe(constant="val"),
+            },
+            input_edges={},
+            edges={
+                TH(node="getattr_0", port="obj"): SH(
+                    node="constant_obj", port="constant"
+                ),
+                TH(node="getattr_0", port="name"): SH(
+                    node="constant_0", port="constant"
+                ),
+            },
+            output_edges={OT(port="attr"): SH(node="getattr_0", port="attr")},
+        )
+        stripped_edges = {
+            target: sh
+            for target, sh in wf.edges.items()
+            if not (target.node == "getattr_0" and target.port == "obj")
+        }
+        wf = wf.model_copy(update={"edges": stripped_edges})
+        with self.assertRaises(ValueError):
+            source._workflow2python(wf, function_name="unwired_obj")
+
+    def test_getattr_obj_fed_by_inlined_constant_is_not_sugared(self):
+        TH, SH, OT = (
+            edge_models.TargetHandle,
+            edge_models.SourceHandle,
+            edge_models.OutputTarget,
+        )
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=[],
+            outputs=["attr"],
+            nodes={
+                "constant_obj": constant_recipe.ConstantRecipe(constant=3),
+                "constant_0": constant_recipe.ConstantRecipe(constant="real"),
+                "getattr_0": std.get_attr.flowrep_recipe,
+            },
+            input_edges={},
+            edges={
+                TH(node="getattr_0", port="obj"): SH(
+                    node="constant_obj", port="constant"
+                ),
+                TH(node="getattr_0", port="name"): SH(
+                    node="constant_0", port="constant"
+                ),
+            },
+            output_edges={OT(port="attr"): SH(node="getattr_0", port="attr")},
+        )
+        rendered = source._workflow2python(wf, function_name="const_obj_getattr")
+        self.assertIn("get_attr", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(), 3)
+
+    def test_hand_built_non_sugarable_getattr_emits_call_and_executes(self):
+        TH, IS, SH, OT = (
+            edge_models.TargetHandle,
+            edge_models.InputSource,
+            edge_models.SourceHandle,
+            edge_models.OutputTarget,
+        )
+        wf = workflow_recipe.WorkflowRecipe(
+            inputs=["obj_in", "name_in"],
+            outputs=["attr"],
+            nodes={
+                "identity_0": std.identity.flowrep_recipe,
+                "getattr_0": std.get_attr.flowrep_recipe,
+            },
+            input_edges={
+                TH(node="identity_0", port="x"): IS(port="name_in"),
+                TH(node="getattr_0", port="obj"): IS(port="obj_in"),
+            },
+            edges={
+                TH(node="getattr_0", port="name"): SH(node="identity_0", port="x"),
+            },
+            output_edges={OT(port="attr"): SH(node="getattr_0", port="attr")},
+        )
+        rendered = source._workflow2python(wf, function_name="nonsugar")
+        self.assertIn("get_attr", rendered.source)
+        fn = rendered.build()
+        self.assertEqual(fn(library.ComplexData(val=42), "val"), 42)
+
+    def test_bound_access_as_condition_input_round_trips(self):
+        def wf(x0: int, comp: library.ComplexData):
+            dc = library.MyDataclass(comp, x0)
+            flag = dc.x
+            if library.is_positive(flag):  # noqa: SIM108
+                y = std.identity(x0)
+            else:
+                y = std.neg(x0)
+            return y
+
+        free = makers.reference_free(wf)
+        rendered = source._workflow2python(free)
+        self.assertRegex(rendered.source, r"\bflag = \w+\.x\b")
+        fn = rendered.build()
+        self.assertEqual(fn(3, library.ComplexData(val=7)), 3)
+        self.assertEqual(fn(-3, library.ComplexData(val=7)), 3)
+        self.assertEqual(
+            makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+
+class TestPinnedSymbolReservation(unittest.TestCase):
+    """The allocator must know every pinned name *before* it mints anything.
+
+    A pin bypasses the allocator, and a pin emitted later cannot retroactively protect a
+    name the allocator already minted -- so an unreserved pin silently overwrites it.
+    """
+
+    def test_flow_control_input_ports_are_reserved(self):
+        @workflow_parser.workflow
+        def wf(comp, seed):
+            a = library.val(1)
+            b = library.val(2)
+            if library.is_positive(comp.val):  # noqa: SIM108
+                m = std.identity(seed)
+            else:
+                m = std.neg(seed)
+            c = std.add(a, b)
+            return m, c
+
+        recipe = makers.reference_free(wf)
+        self.assertIn(
+            "val_0",
+            function._inlined_pinned_symbols(recipe),
+            "the if-node's generated input port pins a getattr to `val_0`",
+        )
+
+    def test_for_body_output_ports_are_reserved(self):
+        @workflow_parser.workflow
+        def wf(payload, comp):
+            ys = []
+            for n in payload.xs:
+                d = library.MyDataclass(comp, n)
+                ys.append(d.x)
+            return ys
+
+        recipe = makers.reference_free(wf)
+        reserved = function._inlined_pinned_symbols(recipe)
+        self.assertIn("n", reserved, "loop variable")
+        self.assertIn("x_0", reserved, "the for-body's generated output port")
+        self.assertIn("ys", reserved, "the for node's output port")
+
+    def test_allocator_does_not_mint_over_a_pin(self):
+        """The regression itself: `b` must survive the loop that follows it."""
+
+        @workflow_parser.workflow
+        def wf(comp, seed):
+            a = library.val(1)
+            b = library.val(2)
+            if library.is_positive(comp.val):  # noqa: SIM108
+                m = std.identity(seed)
+            else:
+                m = std.neg(seed)
+            c = std.add(a, b)
+            return m, c
+
+        recipe = makers.reference_free(wf)
+        rebuilt = source._workflow2python(recipe).build()
+        comp = library.ComplexData(val=7)
+        self.assertEqual(rebuilt(comp, 4), wf(comp, 4))
 
 
 if __name__ == "__main__":

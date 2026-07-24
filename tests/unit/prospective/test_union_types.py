@@ -72,7 +72,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "outputs": ["results"],
                     "body_node": {
                         "label": "body",
-                        "node": {
+                        "recipe": {
                             "type": "atomic",
                             "reference": reference_dict(),
                             "inputs": ["item"],
@@ -96,7 +96,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "case": {
                         "condition": {
                             "label": "c",
-                            "node": {
+                            "recipe": {
                                 "type": "atomic",
                                 "reference": reference_dict("m", "f"),
                                 "inputs": [],
@@ -105,7 +105,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                         },
                         "body": {
                             "label": "b",
-                            "node": {
+                            "recipe": {
                                 "type": "atomic",
                                 "reference": reference_dict("m", "g"),
                                 "inputs": [],
@@ -130,7 +130,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                         {
                             "condition": {
                                 "label": "condition_0",
-                                "node": {
+                                "recipe": {
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["result"],
@@ -138,17 +138,15 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                         qualname="check",
                                         inputs_with_defaults=["x"],
                                     ),
-                                    "unpack_mode": "tuple",
                                 },
                             },
                             "body": {
                                 "label": "body_0",
-                                "node": {
+                                "recipe": {
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["y"],
                                     "reference": reference_dict(qualname="handle"),
-                                    "unpack_mode": "tuple",
                                 },
                             },
                             "condition_output": None,
@@ -170,7 +168,7 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                         {
                             "condition": {
                                 "label": "condition_0",
-                                "node": {
+                                "recipe": {
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["result"],
@@ -178,17 +176,15 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                                         qualname="check",
                                         inputs_with_defaults=["x"],
                                     ),
-                                    "unpack_mode": "tuple",
                                 },
                             },
                             "body": {
                                 "label": "body_0",
-                                "node": {
+                                "recipe": {
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["y"],
                                     "reference": reference_dict(qualname="hanlde"),
-                                    "unpack_mode": "tuple",
                                 },
                             },
                             "condition_output": None,
@@ -198,12 +194,11 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "prospective_output_edges": {"out": ["body_0.y", "else_body.y"]},
                     "else_case": {
                         "label": "else_body",
-                        "node": {
+                        "recipe": {
                             "type": "atomic",
                             "inputs": ["x"],
                             "outputs": ["y"],
                             "reference": reference_dict(qualname="handle"),
-                            "unpack_mode": "tuple",
                         },
                     },
                 },
@@ -217,12 +212,11 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                     "outputs": ["out"],
                     "try_node": {
                         "label": "try_body",
-                        "node": {
+                        "recipe": {
                             "type": "atomic",
                             "inputs": ["x"],
                             "outputs": ["y"],
                             "reference": reference_dict(qualname="try_func"),
-                            "unpack_mode": "tuple",
                         },
                     },
                     "exception_cases": [
@@ -230,14 +224,13 @@ class TestDiscriminatedUnionRoundtrip(unittest.TestCase):
                             "exceptions": [versions.VersionInfo.of(ValueError)],
                             "body": {
                                 "label": "except_0",
-                                "node": {
+                                "recipe": {
                                     "type": "atomic",
                                     "inputs": ["x"],
                                     "outputs": ["y"],
                                     "reference": reference_dict(
                                         qualname="handle_error"
                                     ),
-                                    "unpack_mode": "tuple",
                                 },
                             },
                         }
@@ -473,7 +466,7 @@ class TestNestedUnionResolution(unittest.TestCase):
                     "outputs": ["out"],
                     "body_node": {
                         "label": "body",
-                        "node": {
+                        "recipe": {
                             "type": "atomic",
                             "reference": reference_dict(qualname="transform"),
                             "inputs": ["item"],
@@ -496,7 +489,7 @@ class TestNestedUnionResolution(unittest.TestCase):
         self.assertIsInstance(wf, workflow_recipe.WorkflowRecipe)
         self.assertIsInstance(wf.nodes["for_node"], for_recipe.ForEachRecipe)
         self.assertIsInstance(
-            wf.nodes["for_node"].body_node.node, atomic_recipe.AtomicRecipe
+            wf.nodes["for_node"].body_node.recipe, atomic_recipe.AtomicRecipe
         )
 
     def test_deeply_nested_workflows(self):
