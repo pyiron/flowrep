@@ -853,37 +853,52 @@ class TestRecipe2LiveVariadicPropagation(unittest.TestCase):
 class TestDataView(unittest.TestCase):
     def test_node_data_view(self):
         node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
-        with mock.patch(
-            "flowrep.retrospective.datastructures._display_json"
-        ) as mocked_display:
-            mocked_display.return_value = "shown"
-            shown = node.view(expanded=True)
-        self.assertEqual(shown, "shown")
-        mocked_display.assert_called_once_with(mock.ANY, expanded=True)
-        data = mocked_display.call_args.args[0]
+        shown = node.view(expanded=True)
+        self.assertIsInstance(shown, IPythonJSON)
+        data = shown.data
         self.assertEqual(data["type"], "AtomicData")
         self.assertIn("input_ports", data)
 
     def test_composite_data_view(self):
         node = datastructures.DagData.from_recipe(_linear_workflow())
-        with mock.patch(
-            "flowrep.retrospective.datastructures._display_json"
-        ) as mocked_display:
-            mocked_display.return_value = "shown"
-            shown = node.view()
-        self.assertEqual(shown, "shown")
-        mocked_display.assert_called_once()
-        data = mocked_display.call_args.args[0]
+        shown = node.view()
+        self.assertIsInstance(shown, IPythonJSON)
+        data = shown.data
         self.assertEqual(data["type"], "DagData")
         self.assertIn("nodes", data)
         self.assertIn("add_0", data["nodes"])
 
+    def test_view_expanded_flag(self):
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
+        shown = node.view(expanded=True)
+        _, metadata = shown._repr_json_()
+        self.assertTrue(metadata["expanded"])
+
     def test_display_json_helper(self):
-        shown = datastructures._display_json({"x": 1}, expanded=True)
+        from flowrep.retrospective import viewer
+
+        shown = viewer._view_json({"x": 1}, expanded=True)
         self.assertIsInstance(shown, IPythonJSON)
         self.assertEqual(shown.data, {"x": 1})
         _, metadata = shown._repr_json_()
         self.assertTrue(metadata["expanded"])
+
+
+class TestViewerStrFallback(unittest.TestCase):
+    def test_view_str_returns_string(self):
+        from flowrep.retrospective import viewer
+
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
+        result = viewer._view_str(node)
+        self.assertIsInstance(result, str)
+
+    def test_view_without_ipython_falls_back_to_str(self):
+        from flowrep.retrospective import viewer
+
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
+        with mock.patch.object(viewer, "_has_ipython", False):
+            result = viewer.view(node)
+        self.assertIsInstance(result, str)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
