@@ -852,7 +852,7 @@ class TestRecipe2LiveVariadicPropagation(unittest.TestCase):
 @unittest.skipUnless(_has_ipython, "IPython not installed")
 class TestDataView(unittest.TestCase):
     def test_node_data_view(self):
-        node = datastructures.AtomicData.from_recipe(library.identity.flowrep_recipe)
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
         with mock.patch(
             "flowrep.retrospective.datastructures._display_json"
         ) as mocked_display:
