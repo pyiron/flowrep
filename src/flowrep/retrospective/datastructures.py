@@ -17,7 +17,7 @@ import abc
 import dataclasses
 import inspect
 import types
-from collections.abc import Callable, Mapping, MutableMapping
+from collections.abc import Callable, MutableMapping
 from typing import Any, Generic, Self, TypeVar, get_args, get_origin, get_type_hints
 
 from pyiron_snippets import retrieve, singleton
