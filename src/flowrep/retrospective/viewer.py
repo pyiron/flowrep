@@ -18,7 +18,7 @@ try:
     from IPython.display import JSON as _JSON
 
     _has_ipython = True
-except ImportError:
+except ImportError:  # pragma: no cover
     _has_ipython = False
 
 
