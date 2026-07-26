@@ -887,6 +887,9 @@ class TestDataView(unittest.TestCase):
         jsond = viewer._to_jsonable(MyType)
         self.assertEqual(jsond, f"{MyType.__module__}.{MyType.__qualname__}")
 
+    def test_non_string_key_falls_back_to_repr(self):
+        self.assertEqual(viewer._to_jsonable({42: "v"}), {"42": "v"})
+
 
 class TestViewerStrFallback(unittest.TestCase):
     def test_view_str_returns_string(self):
