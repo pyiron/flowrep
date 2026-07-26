@@ -101,6 +101,9 @@ class NodeData(Generic[RecipeType], abc.ABC):
         """
         return viewer.view(self, expanded=expanded)
 
+    def _repr_json_(self):
+        return self.view()._repr_json_()
+
 
 def recipe2data(
     recipe: union_types.RecipeDiscrimination, allow_variadic_inputs: bool = True
