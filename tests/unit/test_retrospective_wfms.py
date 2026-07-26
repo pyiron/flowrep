@@ -22,7 +22,7 @@ from flowrep.prospective import (
     while_recipe,
     workflow_recipe,
 )
-from flowrep.retrospective import datastructures
+from flowrep.retrospective import datastructures, viewer
 from flowrep.retrospective.datastructures import NOT_DATA
 
 from flowrep_static import library
@@ -875,8 +875,6 @@ class TestDataView(unittest.TestCase):
         self.assertTrue(metadata["expanded"])
 
     def test_display_json_helper(self):
-        from flowrep.retrospective import viewer
-
         shown = viewer._view_json({"x": 1}, expanded=True)
         self.assertIsInstance(shown, IPythonJSON)
         self.assertEqual(shown.data, {"x": 1})
