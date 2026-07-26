@@ -33,6 +33,7 @@ from flowrep.prospective import (
     while_recipe,
     workflow_recipe,
 )
+from flowrep.retrospective import viewer
 
 
 class NotData(metaclass=singleton.Singleton):
@@ -98,8 +99,6 @@ class NodeData(Generic[RecipeType], abc.ABC):
         Display this data object as structured JSON in a notebook and return the display
         object. Falls back to a plain-text representation when IPython is not available.
         """
-        from flowrep.retrospective import viewer
-
         return viewer.view(self, expanded=expanded)
 
 
@@ -398,6 +397,3 @@ def _parse_return_tuple(
     else:
         output_ports = {outputs[0]: OutputDataPort(annotation=return_annotation)}
     return output_ports
-
-
-
