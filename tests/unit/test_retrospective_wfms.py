@@ -874,6 +874,12 @@ class TestDataView(unittest.TestCase):
         _, metadata = shown._repr_json_()
         self.assertTrue(metadata["expanded"])
 
+    def test_repr_json(self):
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
+        repr_json = node._repr_json_()
+        self.assertIsInstance(repr_json, tuple)
+        self.assertEqual(len(repr_json), 2)
+
     def test_display_json_helper(self):
         shown = viewer._view_json({"x": 1}, expanded=True)
         self.assertIsInstance(shown, IPythonJSON)
