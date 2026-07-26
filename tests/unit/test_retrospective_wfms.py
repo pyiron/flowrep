@@ -6,6 +6,7 @@ import dataclasses
 import pickle
 import unittest
 from typing import TYPE_CHECKING, NamedTuple, get_origin
+from unittest import mock
 
 from pyiron_snippets import versions
 
@@ -21,13 +22,20 @@ from flowrep.prospective import (
     while_recipe,
     workflow_recipe,
 )
-from flowrep.retrospective import datastructures
+from flowrep.retrospective import datastructures, viewer
 from flowrep.retrospective.datastructures import NOT_DATA
 
 from flowrep_static import library
 
 if TYPE_CHECKING:
     from pyiron_snippets.colors import SeabornColors
+
+try:
+    from IPython.display import JSON as IPythonJSON
+
+    _has_ipython = True
+except ImportError:
+    _has_ipython = False
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -839,6 +847,71 @@ class TestRecipe2LiveVariadicPropagation(unittest.TestCase):
         wf = datastructures.recipe2data(wf_recipe, allow_variadic_inputs=True)
         self.assertIsInstance(wf, datastructures.DagData)
         self.assertIsInstance(wf.nodes["splitter_0"], datastructures.AtomicData)
+
+
+@unittest.skipUnless(_has_ipython, "IPython not installed")
+class TestDataView(unittest.TestCase):
+    def test_node_data_view(self):
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
+        shown = node.view(expanded=True)
+        self.assertIsInstance(shown, IPythonJSON)
+        data = shown.data
+        self.assertEqual(data["type"], "AtomicData")
+        self.assertIn("input_ports", data)
+
+    def test_composite_data_view(self):
+        node = datastructures.DagData.from_recipe(_linear_workflow())
+        shown = node.view()
+        self.assertIsInstance(shown, IPythonJSON)
+        data = shown.data
+        self.assertEqual(data["type"], "DagData")
+        self.assertIn("nodes", data)
+        self.assertIn("add_0", data["nodes"])
+
+    def test_view_expanded_flag(self):
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
+        shown = node.view(expanded=True)
+        _, metadata = shown._repr_json_()
+        self.assertTrue(metadata["expanded"])
+
+    def test_repr_json(self):
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
+        repr_json = node._repr_json_()
+        self.assertIsInstance(repr_json, tuple)
+        self.assertEqual(len(repr_json), 2)
+
+    def test_display_json_helper(self):
+        shown = viewer._view_json({"x": 1}, expanded=True)
+        self.assertIsInstance(shown, IPythonJSON)
+        self.assertEqual(shown.data, {"x": 1})
+        _, metadata = shown._repr_json_()
+        self.assertTrue(metadata["expanded"])
+
+    def test_type_branch(self):
+        class MyType: ...
+
+        jsond = viewer._to_jsonable(MyType)
+        self.assertEqual(jsond, f"{MyType.__module__}.{MyType.__qualname__}")
+
+    def test_non_string_key_falls_back_to_repr(self):
+        self.assertEqual(viewer._to_jsonable({42: "v"}), {"42": "v"})
+
+
+class TestViewerStrFallback(unittest.TestCase):
+    def test_view_str_returns_string(self):
+        from flowrep.retrospective import viewer
+
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
+        result = viewer._view_str(node)
+        self.assertIsInstance(result, str)
+
+    def test_view_without_ipython_falls_back_to_str(self):
+        from flowrep.retrospective import viewer
+
+        node = datastructures.AtomicData.from_recipe(std.identity.flowrep_recipe)
+        with mock.patch.object(viewer, "_has_ipython", False):
+            result = viewer.view(node)
+        self.assertIsInstance(result, str)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

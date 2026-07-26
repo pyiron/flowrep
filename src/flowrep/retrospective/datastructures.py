@@ -33,6 +33,7 @@ from flowrep.prospective import (
     while_recipe,
     workflow_recipe,
 )
+from flowrep.retrospective import viewer
 
 
 class NotData(metaclass=singleton.Singleton):
@@ -92,6 +93,16 @@ class NodeData(Generic[RecipeType], abc.ABC):
     @classmethod
     @abc.abstractmethod
     def from_recipe(cls, recipe: RecipeType) -> Self: ...
+
+    def view(self, expanded: bool = False):
+        """
+        Display this data object as structured JSON in a notebook and return the display
+        object. Falls back to a plain-text representation when IPython is not available.
+        """
+        return viewer.view(self, expanded=expanded)
+
+    def _repr_json_(self):
+        return self.view()._repr_json_()
 
 
 def recipe2data(
