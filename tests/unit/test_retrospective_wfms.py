@@ -881,6 +881,12 @@ class TestDataView(unittest.TestCase):
         _, metadata = shown._repr_json_()
         self.assertTrue(metadata["expanded"])
 
+    def test_type_branch(self):
+        class MyType: ...
+
+        jsond = viewer._to_jsonable(MyType)
+        self.assertEqual(jsond, f"{MyType.__module__}.{MyType.__qualname__}")
+
 
 class TestViewerStrFallback(unittest.TestCase):
     def test_view_str_returns_string(self):
