@@ -30,6 +30,10 @@ from flowrep.prospective import (
 from flowrep.retrospective import datastructures
 
 
+def _unsupported_recipe(recipe: Any) -> TypeError:
+    return TypeError(f"Unsupported recipe type: {type(recipe).__name__}")
+
+
 def run_recipe(
     recipe: union_types.RecipeDiscrimination, **kwargs: Any
 ) -> datastructures.NodeData:
@@ -37,7 +41,12 @@ def run_recipe(
     Execute a flowrep recipe, returning a populated :class:`LiveNode`.
 
     All inputs are passed as keyword arguments matching the recipe's input port names.
+    Inputs backed by a python default may be omitted; anything else must be supplied.
     """
+    if not isinstance(recipe, base_models.NodeRecipe):
+        # Guard before binding, which needs the recipe's input labels
+        raise _unsupported_recipe(recipe)
+    kwargs = variadic_to_inputs(recipe, **kwargs)
     match recipe:
         case atomic_recipe.AtomicRecipe():
             return _run_atomic(recipe, **kwargs)
@@ -54,7 +63,7 @@ def run_recipe(
         case while_recipe.WhileRecipe():
             return _run_while(recipe, **kwargs)
         case _:
-            raise TypeError(f"Unsupported recipe type: {type(recipe).__name__}")
+            raise _unsupported_recipe(recipe)
 
 
 # ---------------------------------------------------------------------------
@@ -527,13 +536,14 @@ def _populate_prospective_outputs(
 def variadic_to_inputs(recipe: base_models.NodeRecipe, /, *args, **kwargs):
     """
     Bind ``*args`` and ``**kwargs`` onto ``recipe.inputs``, as a helper for
-    ``NodeRecipe.__call__`` implementations.
+    ``NodeRecipe.__call__`` implementations and the generic recipe runner.
 
-    Every input must be filled. Only recipes backed by an underlying python function
-    (all atomic recipes, and workflow recipes carrying a reference) have defaults to
-    fall back on, and those call their function directly rather than coming here -- so
-    by the time we are binding arguments, an unfilled input is simply a missing value
-    that nothing downstream can supply.
+    Every input must be filled except those in ``recipe.inputs_with_defaults``, which
+    only recipes backed by an underlying python function have any of. Nothing else can
+    supply a value after the fact, so an unfilled input is simply a missing one --
+    which is exactly the invariant
+    :func:`subgraph_validation.validate_nodes_are_fully_sourced` already holds children
+    to, so validated recipes bind their own children by construction.
 
     Binding failures raise :class:`TypeError`, mirroring python's own behaviour for
     bad call signatures. (Deliberately not :class:`ValueError`: recipes catch
@@ -563,7 +573,11 @@ def variadic_to_inputs(recipe: base_models.NodeRecipe, /, *args, **kwargs):
                 f"One of your {who} calls got an unexpected input '{label}' -- its "
                 f"inputs are {recipe.inputs}"
             )
-    missing = [label for label in recipe.inputs if label not in inputs]
+    missing = [
+        label
+        for label in recipe.inputs
+        if label not in inputs and label not in recipe.inputs_with_defaults
+    ]
     if missing:
         raise TypeError(
             f"One of your {who} calls is missing {len(missing)} required "
