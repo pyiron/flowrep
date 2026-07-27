@@ -1,5 +1,8 @@
+import dataclasses
 import inspect
 import unittest
+
+from pyiron_snippets import versions
 
 from flowrep import std
 from flowrep.parsers import atomic_parser, workflow_parser
@@ -77,11 +80,7 @@ single_iteration_node = workflow_recipe.WorkflowRecipe.model_validate(
             "vecs": "for_each_0.vecs",
         },
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_for_nodes",
-                "qualname": "single_iteration",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(single_iteration)),
             "inputs_with_defaults": [],
         },
     }
@@ -176,11 +175,9 @@ zbat_wf_node = workflow_recipe.WorkflowRecipe.model_validate(
             "sums": "for_each_0.sums",
         },
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_for_nodes",
-                "qualname": "zipped_broadcast_and_transferred",
-                "version": None,
-            },
+            "info": dataclasses.asdict(
+                versions.VersionInfo.of(zipped_broadcast_and_transferred)
+            ),
             "inputs_with_defaults": [],
         },
     }
@@ -284,11 +281,7 @@ nested_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"sq_sums": "for_each_0.sq_sums"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_for_nodes",
-                "qualname": "nested",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(nested)),
             "inputs_with_defaults": [],
         },
     }
@@ -410,11 +403,9 @@ nested_with_passed_input_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"sq_sums": "for_each_0.sq_sums"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_for_nodes",
-                "qualname": "nested_with_passed_input",
-                "version": None,
-            },
+            "info": dataclasses.asdict(
+                versions.VersionInfo.of(nested_with_passed_input)
+            ),
             "inputs_with_defaults": [],
         },
     }

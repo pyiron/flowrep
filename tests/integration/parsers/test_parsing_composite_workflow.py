@@ -1,3 +1,4 @@
+import dataclasses
 import inspect
 import unittest
 
@@ -264,11 +265,7 @@ full_composite_node = workflow_recipe.WorkflowRecipe.model_validate(
         },
         "output_edges": {"result": "identity_0.x"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_composite_workflow",
-                "qualname": "full_composite",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(full_composite)),
             "inputs_with_defaults": [],
             "restricted_input_kinds": {
                 "x": "POSITIONAL_ONLY",
