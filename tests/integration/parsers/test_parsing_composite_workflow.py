@@ -398,6 +398,17 @@ class TestCallingCompositeRecipes(unittest.TestCase):
                     self._via_wfms(all_flows_by_recipe_call, x, y, bound),
                 )
 
+    def test_underfilled_call_is_not_swallowed_by_the_handler(self):
+        """``bound`` is consumed by the while-condition, three levels inside a try
+        that handles ValueError. A missing input must not be mistaken for a domain
+        error and quietly answered with the except branch."""
+        with self.assertRaises(TypeError) as ctx:
+            _try_flow(3, 2)
+        self.assertEqual(
+            str(ctx.exception),
+            "One of your TryRecipe() calls is missing 1 required input: ['bound']",
+        )
+
     def test_every_flow_control_type_is_called(self):
         """Guard the premise of :func:`all_flows_by_recipe_call`: if a refactor of the
         static recipe above changes what gets pulled out, the test above could quietly

@@ -1113,6 +1113,24 @@ class TestRunFor(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "equal lengths"):
             wfms.run_recipe(_for_add_zipped(), xs=[1, 2], ys=[10, 20, 30])
 
+    def test_unfilled_nested_port_raises(self):
+        """There is no default to fall back on when there is nothing to iterate, so
+        say so rather than leaking a NotData into itertools.product."""
+        with self.assertRaises(ValueError) as ctx:
+            wfms.run_recipe(_for_negate())
+        self.assertEqual(
+            str(ctx.exception),
+            "Iterated input 'xs' (body port 'a') has no value to iterate over",
+        )
+
+    def test_unfilled_zipped_port_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            wfms.run_recipe(_for_add_zipped(), xs=[1, 2])
+        self.assertEqual(
+            str(ctx.exception),
+            "Iterated input 'ys' (body port 'b') has no value to iterate over",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # wfms.py tests — while
@@ -1247,16 +1265,11 @@ class TestVariadicToInputs(unittest.TestCase):
             msg="Positional and keyword arguments should be combinable",
         )
 
-    def test_underfilled(self):
-        self.assertDictEqual(
-            wfms.variadic_to_inputs(self.recipe, 1),
-            {"a": 1},
-            msg="Unfilled inputs should simply be absent -- resolving them against "
-            "defaults is the runner's business, not ours",
+    def test_no_inputs_to_fill(self):
+        recipe = workflow_recipe.WorkflowRecipe(
+            inputs=[], outputs=[], nodes={}, input_edges={}, edges={}, output_edges={}
         )
-
-    def test_empty(self):
-        self.assertDictEqual(wfms.variadic_to_inputs(self.recipe), {})
+        self.assertDictEqual(wfms.variadic_to_inputs(recipe), {})
 
     def test_recipe_is_positional_only(self):
         """The recipe itself must not shadow an input that happens to be named
@@ -1264,20 +1277,57 @@ class TestVariadicToInputs(unittest.TestCase):
         recipe = _variadic_recipe(variadic_kwargs, ["recipe"])
         self.assertDictEqual(wfms.variadic_to_inputs(recipe, recipe=42), {"recipe": 42})
 
+    def test_underfilled(self):
+        """Nothing downstream can supply a missing input: only reference-backed
+        recipes have defaults, and those never reach this helper."""
+        with self.assertRaises(TypeError) as ctx:
+            wfms.variadic_to_inputs(self.recipe, 1)
+        self.assertEqual(
+            str(ctx.exception),
+            "One of your AtomicRecipe() calls is missing 1 required input: ['b']",
+        )
+
+    def test_underfilled_multiple(self):
+        with self.assertRaises(TypeError) as ctx:
+            wfms.variadic_to_inputs(self.recipe)
+        self.assertEqual(
+            str(ctx.exception),
+            "One of your AtomicRecipe() calls is missing 2 required input: "
+            "['a', 'b']",
+        )
+
     def test_too_many_positional(self):
-        with self.assertRaises(ValueError) as ctx:
+        with self.assertRaises(TypeError) as ctx:
             wfms.variadic_to_inputs(self.recipe, 1, 2, 3)
-        self.assertIn("too many", str(ctx.exception))
+        self.assertEqual(
+            str(ctx.exception),
+            "One of your AtomicRecipe() calls takes 2 inputs but 3 positional "
+            "arguments were given -- its inputs are ['a', 'b']",
+        )
 
     def test_duplicate(self):
-        with self.assertRaises(ValueError) as ctx:
+        with self.assertRaises(TypeError) as ctx:
             wfms.variadic_to_inputs(self.recipe, 1, a=2)
-        self.assertIn("Duplicate input 'a'", str(ctx.exception))
+        self.assertIn("got multiple values for input 'a'", str(ctx.exception))
 
     def test_unknown_keyword(self):
-        with self.assertRaises(ValueError) as ctx:
-            wfms.variadic_to_inputs(self.recipe, c=3)
-        self.assertIn("'c' not found", str(ctx.exception))
+        with self.assertRaises(TypeError) as ctx:
+            wfms.variadic_to_inputs(self.recipe, a=1, b=2, c=3)
+        self.assertIn("got an unexpected input 'c'", str(ctx.exception))
+
+    def test_binding_errors_are_not_value_errors(self):
+        """A try-recipe handling ValueError must not be able to swallow its caller's
+        mistake and quietly return partial data."""
+        for label, call in (
+            ("underfilled", lambda: wfms.variadic_to_inputs(self.recipe, 1)),
+            ("overfilled", lambda: wfms.variadic_to_inputs(self.recipe, 1, 2, 3)),
+            ("duplicate", lambda: wfms.variadic_to_inputs(self.recipe, 1, a=2)),
+            ("unknown", lambda: wfms.variadic_to_inputs(self.recipe, a=1, b=2, c=3)),
+        ):
+            with self.subTest(label):
+                with self.assertRaises(TypeError) as ctx:
+                    call()
+                self.assertNotIsInstance(ctx.exception, ValueError)
 
 
 class TestDataToReturn(unittest.TestCase):

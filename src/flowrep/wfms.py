@@ -205,6 +205,25 @@ def _populate_workflow_outputs(
 # ---------------------------------------------------------------------------
 
 
+def _iterated_value(
+    node: datastructures.ForEachData, for_port: str, body_port: str
+) -> Collection:
+    """
+    The value to scatter over one iterated port.
+
+    A for-node cannot fall back on a default here the way an atomic child can -- there
+    is nothing to iterate -- so an unfilled port is reported directly, rather than
+    leaking a bare ``NotData`` into ``itertools.product``.
+    """
+    value = node.input_ports[for_port].value
+    if isinstance(value, datastructures.NotData):
+        raise ValueError(
+            f"Iterated input '{for_port}' (body port '{body_port}') has no value to "
+            f"iterate over"
+        )
+    return cast(Collection, value)
+
+
 def _run_for(
     recipe: for_recipe.ForEachRecipe, **kwargs: Any
 ) -> datastructures.ForEachData:
@@ -244,15 +263,14 @@ def _run_for(
 
     # Build iteration axes
     nested_iters = [
-        cast(Collection, node.input_ports[body_to_for[p]].value)
-        for p in recipe.nested_ports
+        _iterated_value(node, body_to_for[p], p) for p in recipe.nested_ports
     ]
     zipped_iters = [
-        cast(Collection, node.input_ports[body_to_for[p]].value)
-        for p in recipe.zipped_ports
+        _iterated_value(node, body_to_for[p], p) for p in recipe.zipped_ports
     ]
-    # Note that we simply cast iterated input values to the form we expect, and let the
-    # user pay the price if runtime data is non-compliant.
+    # Note that beyond insisting the value arrived at all, we simply cast iterated
+    # input values to the form we expect, and let the user pay the price if runtime
+    # data is non-compliant.
 
     nested_combos = list(itertools.product(*nested_iters)) if nested_iters else [()]
     if zipped_iters:
@@ -507,25 +525,50 @@ def _populate_prospective_outputs(
 
 
 def variadic_to_inputs(recipe: base_models.NodeRecipe, /, *args, **kwargs):
-    """A helper for ``NodeRecipe.__call__`` implementations"""
+    """
+    Bind ``*args`` and ``**kwargs`` onto ``recipe.inputs``, as a helper for
+    ``NodeRecipe.__call__`` implementations.
+
+    Every input must be filled. Only recipes backed by an underlying python function
+    (all atomic recipes, and workflow recipes carrying a reference) have defaults to
+    fall back on, and those call their function directly rather than coming here -- so
+    by the time we are binding arguments, an unfilled input is simply a missing value
+    that nothing downstream can supply.
+
+    Binding failures raise :class:`TypeError`, mirroring python's own behaviour for
+    bad call signatures. (Deliberately not :class:`ValueError`: recipes catch
+    exceptions by type, and a try-recipe handling ``ValueError`` must not be able to
+    swallow its caller's mistake and quietly return partial data.)
+    """
+    who = f"{type(recipe).__name__}()"
     if len(args) > len(recipe.inputs):
-        raise ValueError(
-            f"Got {len(args)} positional arguments, which is too many for available inputs: {recipe.inputs}"
+        raise TypeError(
+            f"One of your {who} calls takes {len(recipe.inputs)} inputs but "
+            f"{len(args)} positional arguments were given -- its inputs are "
+            f"{recipe.inputs}"
         )
     inputs = {}
     for label, val in zip(recipe.inputs, args, strict=False):
         inputs[label] = val
     for label, val in kwargs.items():
         if label in inputs:
-            raise ValueError(
-                f"Duplicate input '{label}' -- received as a kwarg ({val}) and as a positional arg ({inputs[label]})"
+            raise TypeError(
+                f"One of your {who} calls got multiple values for input '{label}' -- "
+                f"as a positional arg ({inputs[label]}) and as a kwarg ({val})"
             )
         if label in recipe.inputs:
             inputs[label] = val
         else:
-            raise ValueError(
-                f"Input '{label}' not found in recipe inputs: {recipe.inputs}"
+            raise TypeError(
+                f"One of your {who} calls got an unexpected input '{label}' -- its "
+                f"inputs are {recipe.inputs}"
             )
+    missing = [label for label in recipe.inputs if label not in inputs]
+    if missing:
+        raise TypeError(
+            f"One of your {who} calls is missing {len(missing)} required "
+            f"input: {missing}"
+        )
     return inputs
 
 
