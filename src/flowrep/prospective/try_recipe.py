@@ -103,3 +103,9 @@ class TryRecipe(base_models.NodeRecipe):
             self.prospective_nodes, self.input_edges
         )
         return self
+
+    def __call__(self, *args, **kwargs):
+        from flowrep import wfms
+
+        data = wfms._run_try(self, **wfms.variadic_to_inputs(self, *args, **kwargs))
+        return wfms.data_to_return(data)

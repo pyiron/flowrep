@@ -17,6 +17,9 @@ class _ValidTestRecipe(base_models.NodeRecipe):
         default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
 
+    def __call__(self, *args, **kwargs):
+        return {"args": args, "kwargs": kwargs}
+
 
 class TestLabelValidation(unittest.TestCase):
     """Tests for Label type alias and _validate_label."""
@@ -134,6 +137,9 @@ class TestNodeModelTypeFieldConstraints(unittest.TestCase):
             type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
                 default=base_models.RecipeElementType.WORKFLOW, frozen=True
             )
+
+            def __call__(self, *args, **kwargs):
+                return {"args": args, "kwargs": kwargs}
 
         node = _Valid(inputs=[], outputs=[])
         self.assertEqual(node.type, base_models.RecipeElementType.WORKFLOW)
@@ -294,10 +300,16 @@ class TestNodeModelMultipleSubclasses(unittest.TestCase):
                 default=base_models.RecipeElementType.ATOMIC, frozen=True
             )
 
+            def __call__(self, *args, **kwargs):
+                return {"args": args, "kwargs": kwargs}
+
         class _TypeB(base_models.NodeRecipe):
             type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
                 default=base_models.RecipeElementType.WORKFLOW, frozen=True
             )
+
+            def __call__(self, *args, **kwargs):
+                return {"args": args, "kwargs": kwargs}
 
         a = _TypeA(inputs=[], outputs=[])
         b = _TypeB(inputs=[], outputs=[])

@@ -504,3 +504,35 @@ def _populate_prospective_outputs(
                     source.port
                 ].value
                 break
+
+
+def variadic_to_inputs(recipe: base_models.NodeRecipe, /, *args, **kwargs):
+    """A helper for ``NodeRecipe.__call__`` implementations"""
+    if len(args) > len(recipe.inputs):
+        raise ValueError(
+            f"Got {len(args)} positional arguments, which is too many for available inputs: {recipe.inputs}"
+        )
+    inputs = {}
+    for label, val in zip(recipe.inputs, args, strict=False):
+        inputs[label] = val
+    for label, val in kwargs.items():
+        if label in inputs:
+            raise ValueError(
+                f"Duplicate input '{label}' -- received as a kwarg ({val}) and as a positional arg ({inputs[label]})"
+            )
+        if label in recipe.inputs:
+            inputs[label] = val
+        else:
+            raise ValueError(
+                f"Input '{label}' not found in recipe inputs: {recipe.inputs}"
+            )
+    return inputs
+
+
+def data_to_return(data: datastructures.NodeData):
+    """A helper for ``NodeRecipe.__call__`` implementations"""
+    returns = tuple(p.value for p in data.output_ports.values())
+    if len(returns) == 1:
+        return returns[0]
+    else:
+        return returns
