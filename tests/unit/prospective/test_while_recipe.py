@@ -11,7 +11,36 @@ from flowrep.prospective import (
     workflow_recipe,
 )
 
-from flowrep_static import makers
+from flowrep_static import library, makers
+
+
+def _make_runnable_while_node() -> while_recipe.WhileRecipe:
+    """Decrement ``n`` for as long as it is positive."""
+    return while_recipe.WhileRecipe(
+        inputs=["n"],
+        outputs=["n"],
+        case=helper_models.ConditionalCase(
+            condition=helper_models.LabeledRecipe(
+                label="condition", recipe=library.is_positive.flowrep_recipe
+            ),
+            body=helper_models.LabeledRecipe(
+                label="body", recipe=library.decrement.flowrep_recipe
+            ),
+        ),
+        input_edges={
+            edge_models.TargetHandle(
+                node="condition", port="n"
+            ): edge_models.InputSource(port="n"),
+            edge_models.TargetHandle(node="body", port="x"): edge_models.InputSource(
+                port="n"
+            ),
+        },
+        output_edges={
+            edge_models.OutputTarget(port="n"): edge_models.SourceHandle(
+                node="body", port="output_0"
+            ),
+        },
+    )
 
 
 def make_valid_while_node(
@@ -101,10 +130,22 @@ class TestWhileRecipeBasic(unittest.TestCase):
         self.assertEqual(len(wn.input_edges), 3)
         self.assertEqual(len(wn.output_edges), 1)
 
-    def test_call_raises(self):
-        recipe = make_valid_while_node()
-        with self.assertRaises(NotImplementedError):
-            recipe(42)
+    def test_call(self):
+        """Calling a while-recipe iterates its body until the condition fails."""
+        recipe = _make_runnable_while_node()
+        self.assertEqual(recipe(3), 0)
+
+    def test_call_with_keywords(self):
+        recipe = _make_runnable_while_node()
+        self.assertEqual(recipe(n=3), 0)
+
+    def test_call_condition_false_immediately(self):
+        recipe = _make_runnable_while_node()
+        self.assertEqual(
+            recipe(0),
+            0,
+            msg="With the body never running, the input should pass straight through",
+        )
 
 
 class TestWhileRecipeIOValidation(unittest.TestCase):

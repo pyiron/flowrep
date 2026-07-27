@@ -1216,6 +1216,102 @@ class TestUnrecognizedRecipe(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# wfms.py tests — NodeRecipe.__call__ helpers
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestVariadicToInputs(unittest.TestCase):
+    """``std.add`` is a convenient stand-in: its inputs are ``a`` then ``b``."""
+
+    def setUp(self):
+        self.recipe = std.add.flowrep_recipe
+
+    def test_positional(self):
+        self.assertDictEqual(
+            wfms.variadic_to_inputs(self.recipe, 1, 2),
+            {"a": 1, "b": 2},
+            msg="Positional arguments should map onto inputs in declaration order",
+        )
+
+    def test_keyword(self):
+        self.assertDictEqual(
+            wfms.variadic_to_inputs(self.recipe, b=2, a=1),
+            {"a": 1, "b": 2},
+            msg="Keyword arguments should map by name, regardless of the order given",
+        )
+
+    def test_mixed(self):
+        self.assertDictEqual(
+            wfms.variadic_to_inputs(self.recipe, 1, b=2),
+            {"a": 1, "b": 2},
+            msg="Positional and keyword arguments should be combinable",
+        )
+
+    def test_underfilled(self):
+        self.assertDictEqual(
+            wfms.variadic_to_inputs(self.recipe, 1),
+            {"a": 1},
+            msg="Unfilled inputs should simply be absent -- resolving them against "
+            "defaults is the runner's business, not ours",
+        )
+
+    def test_empty(self):
+        self.assertDictEqual(wfms.variadic_to_inputs(self.recipe), {})
+
+    def test_recipe_is_positional_only(self):
+        """The recipe itself must not shadow an input that happens to be named
+        ``recipe``."""
+        recipe = _variadic_recipe(variadic_kwargs, ["recipe"])
+        self.assertDictEqual(wfms.variadic_to_inputs(recipe, recipe=42), {"recipe": 42})
+
+    def test_too_many_positional(self):
+        with self.assertRaises(ValueError) as ctx:
+            wfms.variadic_to_inputs(self.recipe, 1, 2, 3)
+        self.assertIn("too many", str(ctx.exception))
+
+    def test_duplicate(self):
+        with self.assertRaises(ValueError) as ctx:
+            wfms.variadic_to_inputs(self.recipe, 1, a=2)
+        self.assertIn("Duplicate input 'a'", str(ctx.exception))
+
+    def test_unknown_keyword(self):
+        with self.assertRaises(ValueError) as ctx:
+            wfms.variadic_to_inputs(self.recipe, c=3)
+        self.assertIn("'c' not found", str(ctx.exception))
+
+
+class TestDataToReturn(unittest.TestCase):
+    def test_single_output(self):
+        data = wfms.run_recipe(std.add.flowrep_recipe, a=1, b=2)
+        self.assertEqual(
+            wfms.data_to_return(data),
+            3,
+            msg="A lone output should come back bare, like a single-return function",
+        )
+
+    def test_multiple_outputs(self):
+        data = wfms.run_recipe(library.divmod_func.flowrep_recipe, a=7, b=2)
+        self.assertTupleEqual(
+            wfms.data_to_return(data),
+            (3, 1),
+            msg="Multiple outputs should come back as a tuple in port order",
+        )
+
+    def test_no_outputs(self):
+        data = wfms.run_recipe(
+            workflow_recipe.WorkflowRecipe(
+                inputs=[],
+                outputs=[],
+                nodes={},
+                input_edges={},
+                edges={},
+                output_edges={},
+            )
+        )
+        self.assertTupleEqual(wfms.data_to_return(data), ())
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # wfms.py tests — provenance walk (integration)
 # ═══════════════════════════════════════════════════════════════════════════
 

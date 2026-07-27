@@ -4,10 +4,16 @@ import unittest
 
 from pyiron_snippets import versions
 
-from flowrep import std
+from flowrep import std, wfms
 from flowrep.compiler import source
 from flowrep.parsers import atomic_parser, workflow_parser
-from flowrep.prospective import workflow_recipe
+from flowrep.prospective import (
+    for_recipe,
+    if_recipe,
+    try_recipe,
+    while_recipe,
+    workflow_recipe,
+)
 
 from flowrep_static import library, makers
 
@@ -310,6 +316,101 @@ class TestParsingFullComposite(unittest.TestCase):
             self.assertEqual(fn(x, y, bound=bound), full_composite(x, y, bound=bound))
         self.assertEqual(
             makers.dump_no_refs(fn.flowrep_recipe), makers.dump_no_refs(free)
+        )
+
+
+# =====================================================================
+# Calling the recipes instead of writing the python
+# =====================================================================
+
+# The static recipe above already spells out one recipe of every flow-control type,
+# nested inside each other. Pull them back out and call them directly.
+
+_try_flow = full_composite_node.nodes["try_0"]
+_while_flow = _try_flow.try_node.recipe.nodes["while_0"]
+_for_flow = _while_flow.case.body.recipe.nodes["for_each_0"]
+_for_body = _for_flow.body_node.recipe  # A reference-free workflow
+_if_flow = _for_body.nodes["if_0"]
+
+
+@workflow_parser.workflow
+def try_by_recipe_call(x, /, y, *, bound):
+    """:func:`full_composite` with its ``try`` block replaced by a recipe call."""
+    a = std.add(x, y)
+    b, z = _try_flow(a, y, bound)
+    result = std.identity(z)
+    return result
+
+
+@workflow_parser.workflow
+def all_flows_by_recipe_call(x, /, y, *, bound):
+    """One call to every recipe type, chained so that each feeds the next.
+
+    Not equivalent to any of the functions above -- the point is only that a single
+    workflow exercises all five ``__call__`` implementations at once.
+    """
+    a = std.add(x, y)
+    b, z = _try_flow(a, y, bound)
+    n = _while_flow(b, bound, y)
+    rs = library.my_range(y)
+    acc = _for_flow(y, n, rs)
+    s = my_sum(acc)
+    v = _if_flow(s, y, n)
+    w = _for_body(v, y, n)
+    result = std.add(z, w)
+    return result
+
+
+class TestCallingCompositeRecipes(unittest.TestCase):
+    """
+    Integration test that recipes are callable: a workflow whose nodes are invoked as
+    recipe objects must give the same answer run as plain python and run by the WfMS.
+    """
+
+    _CASES = [(1, 2, 10), (3, 1, 8)]
+
+    def _via_wfms(self, func, x, y, bound):
+        data = wfms.run_recipe(func.flowrep_recipe, x=x, y=y, bound=bound)
+        return data.output_ports["result"].value
+
+    def test_try_call_matches_python_syntax(self):
+        """Calling the try-recipe stands in for writing the ``try`` block by hand."""
+        for x, y, bound in self._CASES:
+            with self.subTest(x=x, y=y, bound=bound):
+                self.assertEqual(
+                    try_by_recipe_call(x, y, bound=bound),
+                    full_composite(x, y, bound=bound),
+                )
+
+    def test_try_call_matches_wfms(self):
+        for x, y, bound in self._CASES:
+            with self.subTest(x=x, y=y, bound=bound):
+                self.assertEqual(
+                    try_by_recipe_call(x, y, bound=bound),
+                    self._via_wfms(try_by_recipe_call, x, y, bound),
+                )
+
+    def test_all_flows_call_matches_wfms(self):
+        for x, y, bound in self._CASES:
+            with self.subTest(x=x, y=y, bound=bound):
+                self.assertEqual(
+                    all_flows_by_recipe_call(x, y, bound=bound),
+                    self._via_wfms(all_flows_by_recipe_call, x, y, bound),
+                )
+
+    def test_every_flow_control_type_is_called(self):
+        """Guard the premise of :func:`all_flows_by_recipe_call`: if a refactor of the
+        static recipe above changes what gets pulled out, the test above could quietly
+        stop covering a recipe type."""
+        self.assertIsInstance(_try_flow, try_recipe.TryRecipe)
+        self.assertIsInstance(_while_flow, while_recipe.WhileRecipe)
+        self.assertIsInstance(_for_flow, for_recipe.ForEachRecipe)
+        self.assertIsInstance(_if_flow, if_recipe.IfRecipe)
+        self.assertIsInstance(_for_body, workflow_recipe.WorkflowRecipe)
+        self.assertIsNone(
+            _for_body.reference,
+            msg="A referenced workflow would defer to its python function instead of "
+            "running its own graph",
         )
 
 

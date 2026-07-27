@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep import base_models, edge_models, subgraph_validation
+from flowrep import base_models, edge_models, std, subgraph_validation
 from flowrep.prospective import (
     atomic_recipe,
     helper_models,
@@ -10,7 +10,7 @@ from flowrep.prospective import (
     workflow_recipe,
 )
 
-from flowrep_static import makers
+from flowrep_static import library, makers
 
 
 def _make_conditional_cases(n: int) -> list[helper_models.ConditionalCase]:
@@ -66,6 +66,44 @@ def _make_valid_if_node(n_cases=1, with_else=True):
     )
 
 
+def _make_runnable_if_node() -> if_recipe.IfRecipe:
+    """Return ``x`` if it is positive, else its negation -- i.e. ``abs``."""
+    return if_recipe.IfRecipe(
+        inputs=["x"],
+        outputs=["y"],
+        cases=[
+            helper_models.ConditionalCase(
+                condition=helper_models.LabeledRecipe(
+                    label="condition_0", recipe=library.is_positive.flowrep_recipe
+                ),
+                body=helper_models.LabeledRecipe(
+                    label="body_0", recipe=std.identity.flowrep_recipe
+                ),
+            )
+        ],
+        else_case=helper_models.LabeledRecipe(
+            label="else_body", recipe=std.neg.flowrep_recipe
+        ),
+        input_edges={
+            edge_models.TargetHandle(
+                node="condition_0", port="n"
+            ): edge_models.InputSource(port="x"),
+            edge_models.TargetHandle(node="body_0", port="x"): edge_models.InputSource(
+                port="x"
+            ),
+            edge_models.TargetHandle(
+                node="else_body", port="a"
+            ): edge_models.InputSource(port="x"),
+        },
+        prospective_output_edges={
+            edge_models.OutputTarget(port="y"): [
+                edge_models.SourceHandle(node="body_0", port="x"),
+                edge_models.SourceHandle(node="else_body", port="negative"),
+            ]
+        },
+    )
+
+
 class TestIfRecipeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
@@ -100,10 +138,18 @@ class TestIfRecipeBasic(unittest.TestCase):
             node.type = base_models.RecipeElementType.WORKFLOW
         self.assertIn("frozen", str(ctx.exception).lower())
 
-    def test_call_raises(self):
-        recipe = _make_valid_if_node()
-        with self.assertRaises(NotImplementedError):
-            recipe(42)
+    def test_call(self):
+        """Calling an if-recipe runs the branch its condition selects."""
+        recipe = _make_runnable_if_node()
+        self.assertEqual(recipe(5), 5)
+
+    def test_call_with_keywords(self):
+        recipe = _make_runnable_if_node()
+        self.assertEqual(recipe(x=5), 5)
+
+    def test_call_else_branch(self):
+        recipe = _make_runnable_if_node()
+        self.assertEqual(recipe(-3), 3)
 
 
 class TestIfRecipeCasesValidation(unittest.TestCase):
