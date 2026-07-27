@@ -5,9 +5,10 @@ from __future__ import annotations
 import dataclasses
 import pickle
 import unittest
-from typing import TYPE_CHECKING, NamedTuple, get_origin
+from typing import TYPE_CHECKING, Literal, NamedTuple, get_origin
 from unittest import mock
 
+import pydantic
 from pyiron_snippets import versions
 
 from flowrep import base_models, edge_models, std, wfms
@@ -495,6 +496,17 @@ def _variadic_recipe(func, inputs, outputs=("result",)):
     )
 
 
+class _UnrunnableRecipe(base_models.NodeRecipe):
+    """A well-formed recipe of a type the WfMS has no runner for."""
+
+    type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
+        default=base_models.RecipeElementType.ATOMIC, frozen=True
+    )
+
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # datastructures.py tests
 # ═══════════════════════════════════════════════════════════════════════════
@@ -943,8 +955,36 @@ class TestRunAtomic(unittest.TestCase):
         self.assertAlmostEqual(node.output_ports["remainder"].value, 2.0)
 
     def test_missing_input_raises(self):
-        with self.assertRaisesRegex(ValueError, "no value and no default"):
+        """``std.add`` has no defaults at all, so 'a' alone leaves 'b' unsourced."""
+        with self.assertRaises(TypeError) as ctx:
             wfms.run_recipe(std.add.flowrep_recipe, a=3)
+        self.assertEqual(
+            str(ctx.exception),
+            "One of your AtomicRecipe() calls is missing 1 required input: ['b']",
+        )
+
+    def test_not_data_input_raises(self):
+        """Binding insists an input be *given*, but a parent can legitimately hand
+        down a port it never set, so the runner still has to catch NOT_DATA."""
+        with self.assertRaises(ValueError) as ctx:
+            wfms.run_recipe(std.add.flowrep_recipe, a=1, b=NOT_DATA)
+        self.assertEqual(
+            str(ctx.exception), "Input port 'b' has no value and no default"
+        )
+
+    def test_defaulted_input_may_be_omitted(self):
+        """``increment(x, step=1)`` carries a reference, so 'step' need not be given
+        -- but 'x' still must be."""
+        recipe = library.increment.flowrep_recipe
+        self.assertListEqual(recipe.inputs_with_defaults, ["step"])
+        node = wfms.run_recipe(recipe, x=5)
+        self.assertEqual(node.output_ports["output_0"].value, 6)
+        with self.assertRaises(TypeError) as ctx:
+            wfms.run_recipe(recipe, step=2)
+        self.assertEqual(
+            str(ctx.exception),
+            "One of your AtomicRecipe() calls is missing 1 required input: ['x']",
+        )
 
     def test_input_ports_populated(self):
         node = wfms.run_recipe(std.add.flowrep_recipe, a=3, b=4)
@@ -961,10 +1001,10 @@ class TestRunAtomic(unittest.TestCase):
         self.assertEqual(node.output_ports["result"].value, (0, 1))
 
     def test_unrecognized_input_raises(self):
-        with self.assertRaises(ValueError) as ctx:
-            wfms.run_recipe(std.add.flowrep_recipe, a=3, not_an_input=4)
+        with self.assertRaises(TypeError) as ctx:
+            wfms.run_recipe(std.add.flowrep_recipe, a=3, b=4, not_an_input=5)
         self.assertIn("not_an_input", str(ctx.exception))
-        self.assertIn("not found", str(ctx.exception))
+        self.assertIn("unexpected input", str(ctx.exception))
         self.assertIn(str(std.add.flowrep_recipe.inputs), str(ctx.exception))
 
     def test_positional_only_arguments(self):
@@ -983,6 +1023,27 @@ class TestRunWorkflow(unittest.TestCase):
         wf = wfms.run_recipe(_linear_workflow(), x=1, y=2, z=3)
         self.assertIsInstance(wf, datastructures.DagData)
         self.assertEqual(wf.output_ports["result"].value, (1 + 2) * 3)
+
+    def test_missing_input_raises(self):
+        """A reference-free workflow has no defaults to relax against, so every one
+        of its inputs must be supplied."""
+        recipe = _linear_workflow()
+        self.assertIsNone(recipe.reference)
+        self.assertListEqual(recipe.inputs_with_defaults, [])
+        with self.assertRaises(TypeError) as ctx:
+            wfms.run_recipe(recipe, x=1)
+        self.assertEqual(
+            str(ctx.exception),
+            "One of your WorkflowRecipe() calls is missing 2 required input: "
+            "['y', 'z']",
+        )
+
+    def test_referenced_workflow_defaults_may_be_omitted(self):
+        """``_passthrough_workflow(x=42)`` carries a reference, so 'x' is optional."""
+        recipe = _passthrough_workflow.flowrep_recipe
+        self.assertListEqual(recipe.inputs_with_defaults, ["x"])
+        wf = wfms.run_recipe(recipe)
+        self.assertEqual(wf.output_ports["x"].value, 42)
 
     def test_diamond(self):
         wf = wfms.run_recipe(_diamond_workflow.flowrep_recipe, a=3, b=7)
@@ -1113,6 +1174,29 @@ class TestRunFor(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "equal lengths"):
             wfms.run_recipe(_for_add_zipped(), xs=[1, 2], ys=[10, 20, 30])
 
+    def test_unfilled_nested_port_raises(self):
+        """There is no default to fall back on when there is nothing to iterate, so
+        say so rather than leaking a NotData into itertools.product.
+
+        Omitting the input outright is now caught up front by the argument binding, so
+        the surviving route here is a value that *arrives* as NOT_DATA -- which is what
+        a parent hands down for an input port nothing ever set.
+        """
+        with self.assertRaises(ValueError) as ctx:
+            wfms.run_recipe(_for_negate(), xs=NOT_DATA)
+        self.assertEqual(
+            str(ctx.exception),
+            "Iterated input 'xs' (body port 'a') has no value to iterate over",
+        )
+
+    def test_unfilled_zipped_port_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            wfms.run_recipe(_for_add_zipped(), xs=[1, 2], ys=NOT_DATA)
+        self.assertEqual(
+            str(ctx.exception),
+            "Iterated input 'ys' (body port 'b') has no value to iterate over",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # wfms.py tests — while
@@ -1207,12 +1291,160 @@ class TestRunTry(unittest.TestCase):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+class TestPopulateInputPorts(unittest.TestCase):
+    def test_unknown_port_raises(self):
+        """No public path reaches this any more -- ``variadic_to_inputs`` rejects
+        unknown labels at the boundary first -- so it is pinned directly, as the
+        invariant every caller of this helper is required to have established.
+        """
+        node = datastructures.recipe2data(std.add.flowrep_recipe)
+        with self.assertRaises(ValueError) as ctx:
+            wfms._populate_input_ports(node, {"not_a_port": 1})
+        self.assertIn("Input port 'not_a_port' not found", str(ctx.exception))
+
+
 class TestUnrecognizedRecipe(unittest.TestCase):
     def test_unrecognized_input(self):
+        """Rejected by the guard that precedes argument binding, which would
+        otherwise trip over the missing ``inputs``."""
         not_a_recipe = "not at all"
         with self.assertRaises(TypeError) as ctx:
             wfms.run_recipe(not_a_recipe)
-        self.assertIn("Unsupported recipe type", str(ctx.exception))
+        self.assertIn("Unsupported recipe type: str", str(ctx.exception))
+
+    def test_unrecognized_recipe_subclass(self):
+        """A NodeRecipe the dispatch has no runner for still falls through."""
+        with self.assertRaises(TypeError) as ctx:
+            wfms.run_recipe(_UnrunnableRecipe(inputs=[], outputs=[]))
+        self.assertIn("Unsupported recipe type: _UnrunnableRecipe", str(ctx.exception))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# wfms.py tests — NodeRecipe.__call__ helpers
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestVariadicToInputs(unittest.TestCase):
+    """``std.add`` is a convenient stand-in: its inputs are ``a`` then ``b``."""
+
+    def setUp(self):
+        self.recipe = std.add.flowrep_recipe
+
+    def test_positional(self):
+        self.assertDictEqual(
+            wfms.variadic_to_inputs(self.recipe, 1, 2),
+            {"a": 1, "b": 2},
+            msg="Positional arguments should map onto inputs in declaration order",
+        )
+
+    def test_keyword(self):
+        self.assertDictEqual(
+            wfms.variadic_to_inputs(self.recipe, b=2, a=1),
+            {"a": 1, "b": 2},
+            msg="Keyword arguments should map by name, regardless of the order given",
+        )
+
+    def test_mixed(self):
+        self.assertDictEqual(
+            wfms.variadic_to_inputs(self.recipe, 1, b=2),
+            {"a": 1, "b": 2},
+            msg="Positional and keyword arguments should be combinable",
+        )
+
+    def test_no_inputs_to_fill(self):
+        recipe = workflow_recipe.WorkflowRecipe(
+            inputs=[], outputs=[], nodes={}, input_edges={}, edges={}, output_edges={}
+        )
+        self.assertDictEqual(wfms.variadic_to_inputs(recipe), {})
+
+    def test_recipe_is_positional_only(self):
+        """The recipe itself must not shadow an input that happens to be named
+        ``recipe``."""
+        recipe = _variadic_recipe(variadic_kwargs, ["recipe"])
+        self.assertDictEqual(wfms.variadic_to_inputs(recipe, recipe=42), {"recipe": 42})
+
+    def test_underfilled(self):
+        """Nothing downstream can supply a missing input: only reference-backed
+        recipes have defaults, and those never reach this helper."""
+        with self.assertRaises(TypeError) as ctx:
+            wfms.variadic_to_inputs(self.recipe, 1)
+        self.assertEqual(
+            str(ctx.exception),
+            "One of your AtomicRecipe() calls is missing 1 required input: ['b']",
+        )
+
+    def test_underfilled_multiple(self):
+        with self.assertRaises(TypeError) as ctx:
+            wfms.variadic_to_inputs(self.recipe)
+        self.assertEqual(
+            str(ctx.exception),
+            "One of your AtomicRecipe() calls is missing 2 required input: "
+            "['a', 'b']",
+        )
+
+    def test_too_many_positional(self):
+        with self.assertRaises(TypeError) as ctx:
+            wfms.variadic_to_inputs(self.recipe, 1, 2, 3)
+        self.assertEqual(
+            str(ctx.exception),
+            "One of your AtomicRecipe() calls takes 2 inputs but 3 positional "
+            "arguments were given -- its inputs are ['a', 'b']",
+        )
+
+    def test_duplicate(self):
+        with self.assertRaises(TypeError) as ctx:
+            wfms.variadic_to_inputs(self.recipe, 1, a=2)
+        self.assertIn("got multiple values for input 'a'", str(ctx.exception))
+
+    def test_unknown_keyword(self):
+        with self.assertRaises(TypeError) as ctx:
+            wfms.variadic_to_inputs(self.recipe, a=1, b=2, c=3)
+        self.assertIn("got an unexpected input 'c'", str(ctx.exception))
+
+    def test_binding_errors_are_not_value_errors(self):
+        """A try-recipe handling ValueError must not be able to swallow its caller's
+        mistake and quietly return partial data."""
+        for label, call in (
+            ("underfilled", lambda: wfms.variadic_to_inputs(self.recipe, 1)),
+            ("overfilled", lambda: wfms.variadic_to_inputs(self.recipe, 1, 2, 3)),
+            ("duplicate", lambda: wfms.variadic_to_inputs(self.recipe, 1, a=2)),
+            ("unknown", lambda: wfms.variadic_to_inputs(self.recipe, a=1, b=2, c=3)),
+        ):
+            with self.subTest(label):
+                with self.assertRaises(TypeError) as ctx:
+                    call()
+                self.assertNotIsInstance(ctx.exception, ValueError)
+
+
+class TestDataToReturn(unittest.TestCase):
+    def test_single_output(self):
+        data = wfms.run_recipe(std.add.flowrep_recipe, a=1, b=2)
+        self.assertEqual(
+            wfms.data_to_return(data),
+            3,
+            msg="A lone output should come back bare, like a single-return function",
+        )
+
+    def test_multiple_outputs(self):
+        data = wfms.run_recipe(library.divmod_func.flowrep_recipe, a=7, b=2)
+        self.assertTupleEqual(
+            wfms.data_to_return(data),
+            (3, 1),
+            msg="Multiple outputs should come back as a tuple in port order",
+        )
+
+    def test_no_outputs(self):
+        data = wfms.run_recipe(
+            workflow_recipe.WorkflowRecipe(
+                inputs=[],
+                outputs=[],
+                nodes={},
+                input_edges={},
+                edges={},
+                output_edges={},
+            )
+        )
+        self.assertTupleEqual(wfms.data_to_return(data), ())
 
 
 # ═══════════════════════════════════════════════════════════════════════════

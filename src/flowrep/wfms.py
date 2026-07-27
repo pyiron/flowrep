@@ -30,6 +30,10 @@ from flowrep.prospective import (
 from flowrep.retrospective import datastructures
 
 
+def _unsupported_recipe(recipe: Any) -> TypeError:
+    return TypeError(f"Unsupported recipe type: {type(recipe).__name__}")
+
+
 def run_recipe(
     recipe: union_types.RecipeDiscrimination, **kwargs: Any
 ) -> datastructures.NodeData:
@@ -37,7 +41,12 @@ def run_recipe(
     Execute a flowrep recipe, returning a populated :class:`LiveNode`.
 
     All inputs are passed as keyword arguments matching the recipe's input port names.
+    Inputs backed by a python default may be omitted; anything else must be supplied.
     """
+    if not isinstance(recipe, base_models.NodeRecipe):
+        # Guard before binding, which needs the recipe's input labels
+        raise _unsupported_recipe(recipe)
+    kwargs = variadic_to_inputs(recipe, **kwargs)
     match recipe:
         case atomic_recipe.AtomicRecipe():
             return _run_atomic(recipe, **kwargs)
@@ -54,7 +63,7 @@ def run_recipe(
         case while_recipe.WhileRecipe():
             return _run_while(recipe, **kwargs)
         case _:
-            raise TypeError(f"Unsupported recipe type: {type(recipe).__name__}")
+            raise _unsupported_recipe(recipe)
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +214,25 @@ def _populate_workflow_outputs(
 # ---------------------------------------------------------------------------
 
 
+def _iterated_value(
+    node: datastructures.ForEachData, for_port: str, body_port: str
+) -> Collection:
+    """
+    The value to scatter over one iterated port.
+
+    A for-node cannot fall back on a default here the way an atomic child can -- there
+    is nothing to iterate -- so an unfilled port is reported directly, rather than
+    leaking a bare ``NotData`` into ``itertools.product``.
+    """
+    value = node.input_ports[for_port].value
+    if isinstance(value, datastructures.NotData):
+        raise ValueError(
+            f"Iterated input '{for_port}' (body port '{body_port}') has no value to "
+            f"iterate over"
+        )
+    return cast(Collection, value)
+
+
 def _run_for(
     recipe: for_recipe.ForEachRecipe, **kwargs: Any
 ) -> datastructures.ForEachData:
@@ -244,15 +272,14 @@ def _run_for(
 
     # Build iteration axes
     nested_iters = [
-        cast(Collection, node.input_ports[body_to_for[p]].value)
-        for p in recipe.nested_ports
+        _iterated_value(node, body_to_for[p], p) for p in recipe.nested_ports
     ]
     zipped_iters = [
-        cast(Collection, node.input_ports[body_to_for[p]].value)
-        for p in recipe.zipped_ports
+        _iterated_value(node, body_to_for[p], p) for p in recipe.zipped_ports
     ]
-    # Note that we simply cast iterated input values to the form we expect, and let the
-    # user pay the price if runtime data is non-compliant.
+    # Note that beyond insisting the value arrived at all, we simply cast iterated
+    # input values to the form we expect, and let the user pay the price if runtime
+    # data is non-compliant.
 
     nested_combos = list(itertools.product(*nested_iters)) if nested_iters else [()]
     if zipped_iters:
@@ -504,3 +531,65 @@ def _populate_prospective_outputs(
                     source.port
                 ].value
                 break
+
+
+def variadic_to_inputs(recipe: base_models.NodeRecipe, /, *args, **kwargs):
+    """
+    Bind ``*args`` and ``**kwargs`` onto ``recipe.inputs``, as a helper for
+    ``NodeRecipe.__call__`` implementations and the generic recipe runner.
+
+    Every input must be filled except those in ``recipe.inputs_with_defaults``, which
+    only recipes backed by an underlying python function have any of. Nothing else can
+    supply a value after the fact, so an unfilled input is simply a missing one --
+    which is exactly the invariant
+    :func:`subgraph_validation.validate_nodes_are_fully_sourced` already holds children
+    to, so validated recipes bind their own children by construction.
+
+    Binding failures raise :class:`TypeError`, mirroring python's own behaviour for
+    bad call signatures. (Deliberately not :class:`ValueError`: recipes catch
+    exceptions by type, and a try-recipe handling ``ValueError`` must not be able to
+    swallow its caller's mistake and quietly return partial data.)
+    """
+    who = f"{type(recipe).__name__}()"
+    if len(args) > len(recipe.inputs):
+        raise TypeError(
+            f"One of your {who} calls takes {len(recipe.inputs)} inputs but "
+            f"{len(args)} positional arguments were given -- its inputs are "
+            f"{recipe.inputs}"
+        )
+    inputs = {}
+    for label, val in zip(recipe.inputs, args, strict=False):
+        inputs[label] = val
+    for label, val in kwargs.items():
+        if label in inputs:
+            raise TypeError(
+                f"One of your {who} calls got multiple values for input '{label}' -- "
+                f"as a positional arg ({inputs[label]}) and as a kwarg ({val})"
+            )
+        if label in recipe.inputs:
+            inputs[label] = val
+        else:
+            raise TypeError(
+                f"One of your {who} calls got an unexpected input '{label}' -- its "
+                f"inputs are {recipe.inputs}"
+            )
+    missing = [
+        label
+        for label in recipe.inputs
+        if label not in inputs and label not in recipe.inputs_with_defaults
+    ]
+    if missing:
+        raise TypeError(
+            f"One of your {who} calls is missing {len(missing)} required "
+            f"input: {missing}"
+        )
+    return inputs
+
+
+def data_to_return(data: datastructures.NodeData):
+    """A helper for ``NodeRecipe.__call__`` implementations"""
+    returns = tuple(p.value for p in data.output_ports.values())
+    if len(returns) == 1:
+        return returns[0]
+    else:
+        return returns

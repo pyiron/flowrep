@@ -1,4 +1,7 @@
+import dataclasses
 import unittest
+
+from pyiron_snippets import versions
 
 from flowrep import std
 from flowrep.parsers import workflow_parser
@@ -78,11 +81,7 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"z": "if_0.z"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_if_nodes",
-                "qualname": "simple_if_else",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(simple_if_else)),
             "inputs_with_defaults": [],
         },
     }
@@ -189,11 +188,7 @@ elif_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"z": "if_0.z"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_if_nodes",
-                "qualname": "if_elif_else",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(if_elif_else)),
             "inputs_with_defaults": [],
         },
     }
@@ -275,11 +270,7 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {"if_0.x": "add_0.added", "identity_0.x": "if_0.y"},
         "output_edges": {"z": "identity_0.x"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_if_nodes",
-                "qualname": "if_with_context",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(if_with_context)),
             "inputs_with_defaults": [],
         },
     }
@@ -380,11 +371,7 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"a": "if_0.a", "b": "if_0.b"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_if_nodes",
-                "qualname": "multi_output_if",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(multi_output_if)),
             "inputs_with_defaults": [],
         },
     }
@@ -448,11 +435,7 @@ no_else_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"z": "if_0.z"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_if_nodes",
-                "qualname": "if_no_else",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(if_no_else)),
             "inputs_with_defaults": [],
         },
     }

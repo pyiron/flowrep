@@ -962,7 +962,18 @@ class TestWorkflowRecipeHasDefault(unittest.TestCase):
 
 
 class TestWorkflowRecipeCall(unittest.TestCase):
-    def test_call_without_reference_raises(self):
+    def test_call_without_reference(self):
+        """Without an underlying python function to defer to, the recipe's own graph
+        gets executed."""
+        recipe = makers.make_simple_workflow_recipe()
+        self.assertIsNone(recipe.reference)
+        self.assertEqual(recipe(1, 2), 3)
+
+    def test_call_without_reference_with_keywords(self):
+        recipe = makers.make_simple_workflow_recipe()
+        self.assertEqual(recipe(1, b=2), 3)
+
+    def test_call_without_reference_or_nodes(self):
         recipe = workflow_recipe.WorkflowRecipe(
             inputs=[],
             outputs=[],
@@ -971,14 +982,12 @@ class TestWorkflowRecipeCall(unittest.TestCase):
             edges={},
             output_edges={},
         )
-        with self.assertRaises(
-            ValueError,
-            msg="Calling a workflow recipe without a reference should alert us to "
-            "the reference's absence",
-        ) as ctx:
-            recipe()
-        self.assertIn("only callable when", str(ctx.exception))
-        self.assertIn("reference field", str(ctx.exception))
+        self.assertTupleEqual(
+            recipe(),
+            (),
+            msg="An empty graph has nothing to return, like a function with a bare "
+            "`return`",
+        )
 
     def test_call_with_reference(self):
         recipe = workflow_recipe.WorkflowRecipe(

@@ -2,7 +2,7 @@ import unittest
 
 import pydantic
 
-from flowrep import base_models, edge_models, subgraph_validation
+from flowrep import base_models, edge_models, std, subgraph_validation
 from flowrep.prospective import (
     atomic_recipe,
     for_recipe,
@@ -11,6 +11,28 @@ from flowrep.prospective import (
 )
 
 from flowrep_static import makers
+
+
+def _make_runnable_for_node() -> for_recipe.ForEachRecipe:
+    """Negate each element of ``xs``, collecting the results into ``ys``."""
+    return for_recipe.ForEachRecipe(
+        inputs=["xs"],
+        outputs=["ys"],
+        body_node=helper_models.LabeledRecipe(
+            label="body", recipe=std.neg.flowrep_recipe
+        ),
+        input_edges={
+            edge_models.TargetHandle(node="body", port="a"): edge_models.InputSource(
+                port="xs"
+            ),
+        },
+        output_edges={
+            edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
+                node="body", port="negative"
+            ),
+        },
+        nested_ports=["a"],
+    )
 
 
 class TestForEachRecipeBasic(unittest.TestCase):
@@ -118,22 +140,14 @@ class TestForEachRecipeBasic(unittest.TestCase):
         self.assertEqual(for_node.nested_ports, ["a"])
         self.assertEqual(for_node.zipped_ports, ["b", "c"])
 
-    def test_call_raises(self):
-        recipe = for_recipe.ForEachRecipe(
-            inputs=["x"],
-            outputs=[],
-            body_node=makers.make_labeled_atomic(
-                "body",
-                inputs=["item"],
-                outputs=["result"],
-                inputs_with_defaults=["item"],
-            ),
-            input_edges={},
-            output_edges={},
-            nested_ports=["item"],
-        )
-        with self.assertRaises(NotImplementedError):
-            recipe(42)
+    def test_call(self):
+        """Calling a for-recipe maps its body over the iterated input."""
+        recipe = _make_runnable_for_node()
+        self.assertListEqual(recipe([1, 2, 3]), [-1, -2, -3])
+
+    def test_call_with_keywords(self):
+        recipe = _make_runnable_for_node()
+        self.assertListEqual(recipe(xs=[1, 2, 3]), [-1, -2, -3])
 
 
 class TestForEachRecipeLoopPortValidation(unittest.TestCase):

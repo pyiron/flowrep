@@ -1,4 +1,7 @@
+import dataclasses
 import unittest
+
+from pyiron_snippets import versions
 
 from flowrep import std
 from flowrep.parsers import workflow_parser
@@ -75,11 +78,7 @@ simple_while_node = workflow_recipe.WorkflowRecipe.model_validate(
         },
         "output_edges": {"y": "identity_1.x"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_while_nodes",
-                "qualname": "simple_while",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(simple_while)),
             "inputs_with_defaults": ["a", "b", "c"],
         },
     }
@@ -191,11 +190,7 @@ nest_while_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {"while_0.y": "identity_0.x"},
         "output_edges": {"x": "while_0.x", "y": "while_0.y"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_while_nodes",
-                "qualname": "nested_while",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(nested_while)),
             "inputs_with_defaults": [],
         },
     }
@@ -276,11 +271,7 @@ multi_reassign_node = workflow_recipe.WorkflowRecipe.model_validate(
             "y": "while_0.y",
         },
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_while_nodes",
-                "qualname": "multi_reassign",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(multi_reassign)),
             "inputs_with_defaults": [],
         },
     }
@@ -368,11 +359,7 @@ sequential_whiles_node = workflow_recipe.WorkflowRecipe.model_validate(
             "x": "while_1.x",
         },
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_while_nodes",
-                "qualname": "sequential_whiles",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(sequential_whiles)),
             "inputs_with_defaults": [],
         },
     }
@@ -444,11 +431,7 @@ chained_body_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"x": "while_0.x"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_while_nodes",
-                "qualname": "chained_body",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(chained_body)),
             "inputs_with_defaults": [],
         },
     }

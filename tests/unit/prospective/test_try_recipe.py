@@ -3,7 +3,7 @@ import unittest
 import pydantic
 from pyiron_snippets import versions
 
-from flowrep import base_models, edge_models, subgraph_validation
+from flowrep import base_models, edge_models, std, subgraph_validation
 from flowrep.prospective import (
     atomic_recipe,
     helper_models,
@@ -65,6 +65,42 @@ def _make_valid_try_node(n_exception_cases=1):
     )
 
 
+def _make_runnable_try_node() -> try_recipe.TryRecipe:
+    """Divide ``a`` by ``b``, falling back to ``a`` on a zero denominator."""
+    return try_recipe.TryRecipe(
+        inputs=["a", "b"],
+        outputs=["result"],
+        try_node=helper_models.LabeledRecipe(
+            label="try_body", recipe=std.truediv.flowrep_recipe
+        ),
+        exception_cases=[
+            helper_models.ExceptionCase(
+                exceptions=[versions.VersionInfo.of(ZeroDivisionError)],
+                body=helper_models.LabeledRecipe(
+                    label="except_body_0", recipe=std.identity.flowrep_recipe
+                ),
+            )
+        ],
+        input_edges={
+            edge_models.TargetHandle(
+                node="try_body", port="a"
+            ): edge_models.InputSource(port="a"),
+            edge_models.TargetHandle(
+                node="try_body", port="b"
+            ): edge_models.InputSource(port="b"),
+            edge_models.TargetHandle(
+                node="except_body_0", port="x"
+            ): edge_models.InputSource(port="a"),
+        },
+        prospective_output_edges={
+            edge_models.OutputTarget(port="result"): [
+                edge_models.SourceHandle(node="try_body", port="quotient"),
+                edge_models.SourceHandle(node="except_body_0", port="x"),
+            ]
+        },
+    )
+
+
 class TestTryRecipeBasic(unittest.TestCase):
     def test_schema_generation(self):
         """model_json_schema() fails if forward refs aren't resolved."""
@@ -86,10 +122,22 @@ class TestTryRecipeBasic(unittest.TestCase):
         node = _make_valid_try_node(n_exception_cases=3)
         self.assertEqual(len(node.exception_cases), 3)
 
-    def test_call_raises(self):
-        recipe = _make_valid_try_node()
-        with self.assertRaises(NotImplementedError):
-            recipe(42)
+    def test_call(self):
+        """Calling a try-recipe runs its try body when nothing goes wrong."""
+        recipe = _make_runnable_try_node()
+        self.assertEqual(recipe(10, 2), 5.0)
+
+    def test_call_with_keywords(self):
+        recipe = _make_runnable_try_node()
+        self.assertEqual(recipe(10, b=2), 5.0)
+
+    def test_call_exception_case(self):
+        recipe = _make_runnable_try_node()
+        self.assertEqual(
+            recipe(7, 0),
+            7,
+            msg="A ZeroDivisionError should be caught and handled by the except body",
+        )
 
 
 class TestTryRecipeExceptionCasesValidation(unittest.TestCase):

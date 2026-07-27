@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import inspect
 import keyword
 from collections.abc import Hashable
@@ -94,7 +95,7 @@ UniqueList = Annotated[list[T], pydantic.AfterValidator(validate_unique)]
 Labels = UniqueList[Label]
 
 
-class NodeRecipe(pydantic.BaseModel):
+class NodeRecipe(pydantic.BaseModel, abc.ABC):
     type: RecipeElementType
     inputs: Labels
     outputs: Labels
@@ -131,6 +132,7 @@ class NodeRecipe(pydantic.BaseModel):
     def validate_internal_data_completeness(self):
         return self
 
+    @abc.abstractmethod
     def __call__(self, *args, **kwargs):
         raise NotImplementedError(
             f"{self.__class__.__name__} is not a callable recipe type"

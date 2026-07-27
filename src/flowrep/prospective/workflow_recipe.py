@@ -87,10 +87,12 @@ class WorkflowRecipe(base_models.NodeRecipe):
 
     def __call__(self, *args, **kwargs):
         if self.reference is None:
-            raise ValueError(
-                f"{self.__class__.__name__} recipes are only callable when they are "
-                f"attached to an underlying python definiton in their reference field."
+            from flowrep import wfms
+
+            data = wfms._run_workflow(
+                self, **wfms.variadic_to_inputs(self, *args, **kwargs)
             )
+            return wfms.data_to_return(data)
         func = retrieve.import_from_string(self.reference.info.fully_qualified_name)
         return func(*args, **kwargs)
 

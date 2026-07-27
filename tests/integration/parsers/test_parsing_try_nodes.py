@@ -1,3 +1,4 @@
+import dataclasses
 import unittest
 
 from pyiron_snippets import versions
@@ -80,11 +81,7 @@ simple_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"z": "try_0.z"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_try_nodes",
-                "qualname": "simple_try_except",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(simple_try_except)),
             "inputs_with_defaults": [],
         },
     }
@@ -185,11 +182,7 @@ multi_except_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"z": "try_0.z"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_try_nodes",
-                "qualname": "try_multi_except",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(try_multi_except)),
             "inputs_with_defaults": [],
         },
     }
@@ -273,11 +266,7 @@ context_node = workflow_recipe.WorkflowRecipe.model_validate(
         },
         "output_edges": {"z": "identity_0.x"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_try_nodes",
-                "qualname": "try_with_context",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(try_with_context)),
             "inputs_with_defaults": [],
         },
     }
@@ -372,11 +361,7 @@ multi_output_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"a": "try_0.a", "b": "try_0.b"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_try_nodes",
-                "qualname": "multi_output_try",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(multi_output_try)),
             "inputs_with_defaults": [],
         },
     }
@@ -456,11 +441,7 @@ tuple_exc_node = workflow_recipe.WorkflowRecipe.model_validate(
         "edges": {},
         "output_edges": {"z": "try_0.z"},
         "reference": {
-            "info": {
-                "module": "integration.parsers.test_parsing_try_nodes",
-                "qualname": "try_tuple_exceptions",
-                "version": None,
-            },
+            "info": dataclasses.asdict(versions.VersionInfo.of(try_tuple_exceptions)),
             "inputs_with_defaults": [],
         },
     }

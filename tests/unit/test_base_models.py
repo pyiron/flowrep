@@ -17,6 +17,41 @@ class _ValidTestRecipe(base_models.NodeRecipe):
         default=base_models.RecipeElementType.ATOMIC, frozen=True
     )
 
+    def __call__(self, *args, **kwargs):
+        return {"args": args, "kwargs": kwargs}
+
+
+class TestNodeRecipeCall(unittest.TestCase):
+    """Tests for the abstract ``NodeRecipe.__call__``."""
+
+    def test_subclass_must_implement(self):
+        class _NoCall(base_models.NodeRecipe):
+            type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
+                default=base_models.RecipeElementType.ATOMIC, frozen=True
+            )
+
+        with self.assertRaises(TypeError) as ctx:
+            _NoCall(inputs=[], outputs=[])
+        self.assertIn("abstract", str(ctx.exception))
+        self.assertIn("__call__", str(ctx.exception))
+
+    def test_super_call_reports_uncallable(self):
+        """Subclasses that defer upwards get told the recipe type is not callable,
+        rather than something opaque about abstract methods."""
+
+        class _DefersUpwards(base_models.NodeRecipe):
+            type: Literal[base_models.RecipeElementType.ATOMIC] = pydantic.Field(
+                default=base_models.RecipeElementType.ATOMIC, frozen=True
+            )
+
+            def __call__(self, *args, **kwargs):
+                return super().__call__(*args, **kwargs)
+
+        with self.assertRaises(NotImplementedError) as ctx:
+            _DefersUpwards(inputs=[], outputs=[])()
+        self.assertIn("_DefersUpwards", str(ctx.exception))
+        self.assertIn("not a callable recipe type", str(ctx.exception))
+
 
 class TestLabelValidation(unittest.TestCase):
     """Tests for Label type alias and _validate_label."""
@@ -134,6 +169,9 @@ class TestNodeModelTypeFieldConstraints(unittest.TestCase):
             type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
                 default=base_models.RecipeElementType.WORKFLOW, frozen=True
             )
+
+            def __call__(self, *args, **kwargs):
+                return {"args": args, "kwargs": kwargs}
 
         node = _Valid(inputs=[], outputs=[])
         self.assertEqual(node.type, base_models.RecipeElementType.WORKFLOW)
@@ -294,10 +332,16 @@ class TestNodeModelMultipleSubclasses(unittest.TestCase):
                 default=base_models.RecipeElementType.ATOMIC, frozen=True
             )
 
+            def __call__(self, *args, **kwargs):
+                return {"args": args, "kwargs": kwargs}
+
         class _TypeB(base_models.NodeRecipe):
             type: Literal[base_models.RecipeElementType.WORKFLOW] = pydantic.Field(
                 default=base_models.RecipeElementType.WORKFLOW, frozen=True
             )
+
+            def __call__(self, *args, **kwargs):
+                return {"args": args, "kwargs": kwargs}
 
         a = _TypeA(inputs=[], outputs=[])
         b = _TypeB(inputs=[], outputs=[])
