@@ -1499,6 +1499,14 @@ class TestWfMSConstants(unittest.TestCase):
         node = wfms.run_recipe(constant_recipe.ConstantRecipe(constant=7))
         self.assertEqual(node.output_ports["constant"].value, 7)
 
+    def test_shortcut(self):
+        recipe = constant_recipe.ConstantRecipe(constant=7)
+        data = datastructures.ConstantData.from_recipe(recipe)
+        self.assertEqual(
+            data.output_ports[constant_recipe.ConstantRecipe.std_label].value,
+            data.value,
+        )
+
     def test_end_to_end_kinetic_energy(self):
         recipe = workflow_parser.parse_workflow(_kinetic_energy)
         result = wfms.run_recipe(recipe, mass=2.0, velocity=3.0)

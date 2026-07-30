@@ -173,6 +173,10 @@ class ConstantData(NodeData[constant_recipe.ConstantRecipe]):
             },
         )
 
+    @property
+    def value(self):
+        return self.output_ports[constant_recipe.ConstantRecipe.std_label].value
+
 
 @dataclasses.dataclass(frozen=False)
 class CompositeData(NodeData, Generic[RecipeType], abc.ABC):
