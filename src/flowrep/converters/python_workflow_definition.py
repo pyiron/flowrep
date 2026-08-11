@@ -184,7 +184,7 @@ def flowrep2pwd(
         OutputContractError: If any child has more than one output port.
     """
     _validate_flat_workflow(wf)
-    _validate_mono_output(wf)
+    _validate_flowrep_output_contract(wf)
     _validate_terminal_inputs(wf, terminal_inputs)
 
     id_counter = _IdCounter()
@@ -466,7 +466,7 @@ def _validate_flat_workflow(wf: workflow_recipe.WorkflowRecipe) -> None:
             )
 
 
-def _validate_mono_output(wf: workflow_recipe.WorkflowRecipe) -> None:
+def _validate_flowrep_output_contract(wf: workflow_recipe.WorkflowRecipe) -> None:
     """
     Raise :class:`OutputContractError` if any child has more than one output.
 
@@ -527,7 +527,7 @@ def _build_pwd_edges(
     edge-list order (e.g. ``get_list``).
 
     Every function-node source emits ``sourcePort=None``.  A flowrep child has
-    exactly one output (enforced by :func:`_validate_mono_output`) and that
+    exactly one output (enforced by :func:`_validate_flowrep_output_contract`) and that
     output *is* the whole return value, which is precisely what pwd spells as a
     null ``sourcePort``.  The flowrep port's name is therefore not carried over.
     """
