@@ -36,6 +36,23 @@ _DEFAULT_OUTPUT_PORT: str = "__result__"
 _PORT_SANITIZE_PREFIX: str = "flowrep_sanitized_"
 
 
+class OutputContractError(ValueError):
+    """
+    A node's output contract is not representable in the target format.
+
+    flowrep and pwd disagree about how a function's return value maps onto
+    output ports.  pwd says ``sourcePort: null`` is the entire return value and
+    a named ``sourcePort`` is a key of a returned dict; flowrep says a single
+    output port is the entire return value and N>1 ports unpack an N-tuple.
+    The two overlap only on *exactly one output, meaning the whole return
+    value*.  Converting a node outside that overlap would produce a recipe that
+    executes incorrectly, so we refuse rather than mistranslate.
+
+    Subclasses :class:`ValueError` so that callers already handling the
+    converter's other validation failures keep working.
+    """
+
+
 def _needs_sanitization(port: str) -> bool:
     """Return ``True`` if *port* is not a valid flowrep :class:`Label`."""
     return not base_models.is_valid_label(port)
@@ -55,7 +72,12 @@ def _sanitize_port(port: str) -> str:
 
 
 def _desanitize_port(port: str) -> str:
-    """Reverse :func:`_sanitize_port` when converting back to pwd."""
+    """
+    Reverse :func:`_sanitize_port` when converting back to pwd.
+
+    Only input (``targetPort``) names need this; output ports never round-trip
+    through pwd by name — see :func:`_build_pwd_edges`.
+    """
     if port.startswith(_PORT_SANITIZE_PREFIX):
         candidate = port[len(_PORT_SANITIZE_PREFIX) :]
         if candidate and _needs_sanitization(candidate):
@@ -136,8 +158,10 @@ def flowrep2pwd(
     Raises:
         ValueError: If any child is non-atomic, or if *terminal_inputs* does
             not exactly cover the workflow's inputs.
+        OutputContractError: If any child has more than one output port.
     """
     _validate_flat_workflow(wf)
+    _validate_mono_output(wf)
     _validate_terminal_inputs(wf, terminal_inputs)
 
     id_counter = _IdCounter()
@@ -385,6 +409,33 @@ def _validate_flat_workflow(wf: workflow_recipe.WorkflowRecipe) -> None:
             )
 
 
+def _validate_mono_output(wf: workflow_recipe.WorkflowRecipe) -> None:
+    """
+    Raise :class:`OutputContractError` if any child has more than one output.
+
+    Must be called *after* :func:`_validate_flat_workflow`, which guarantees
+    every child is an :class:`AtomicRecipe`.
+    """
+    offenders: list[str] = []
+    for label, node in wf.nodes.items():
+        # Guaranteed by _validate_flat_workflow
+        assert isinstance(node, atomic_recipe.AtomicRecipe)
+        if len(node.outputs) > 1:
+            offenders.append(
+                f"'{label}' ({node.fully_qualified_name}) has "
+                f"{len(node.outputs)} outputs {node.outputs}"
+            )
+    if offenders:
+        raise OutputContractError(
+            "flowrep2pwd requires every child to have exactly one output. "
+            "flowrep reads multiple output ports as unpacking a tuple, whereas "
+            "pwd reads them as keys of a single returned dict, so the converted "
+            "workflow would not execute correctly. Offending nodes: "
+            + "; ".join(offenders)
+            + "."
+        )
+
+
 def _validate_terminal_inputs(
     wf: workflow_recipe.WorkflowRecipe,
     terminal_inputs: dict[str, Any],
@@ -405,19 +456,6 @@ def _validate_terminal_inputs(
         )
 
 
-def _flowrep_port_to_pwd_source_port(port: str) -> str | None:
-    """
-    Map a flowrep output-port name back to a pwd ``sourcePort`` value.
-
-    Returns ``None`` for the default-output sentinel so that the PWD edge
-    validator stores it as :data:`pwd.INTERNAL_DEFAULT_HANDLE`.  Otherwise
-    reverses any sanitisation applied by :func:`_sanitize_port`.
-    """
-    if port == _DEFAULT_OUTPUT_PORT:
-        return None
-    return _desanitize_port(port)
-
-
 def _build_pwd_edges(
     wf: workflow_recipe.WorkflowRecipe,
     input_node_ids: dict[str, int],
@@ -430,6 +468,11 @@ def _build_pwd_edges(
     Edges are emitted in a deterministic order that preserves the input-port
     ordering of each child node — this is important for consumers that rely on
     edge-list order (e.g. ``get_list``).
+
+    Every function-node source emits ``sourcePort=None``.  A flowrep child has
+    exactly one output (enforced by :func:`_validate_mono_output`) and that
+    output *is* the whole return value, which is precisely what pwd spells as a
+    null ``sourcePort``.  The flowrep port's name is therefore not carried over.
     """
     pwd_edges: list[pwd.PythonWorkflowDefinitionEdge] = []
 
@@ -456,7 +499,7 @@ def _build_pwd_edges(
                 pwd_edges.append(
                     pwd.PythonWorkflowDefinitionEdge(
                         source=func_node_ids[source.node],
-                        sourcePort=_flowrep_port_to_pwd_source_port(source.port),
+                        sourcePort=None,
                         target=func_node_ids[label],
                         targetPort=target_port_pwd,
                     )
@@ -480,7 +523,7 @@ def _build_pwd_edges(
                 pwd_edges.append(
                     pwd.PythonWorkflowDefinitionEdge(
                         source=func_node_ids[source.node],
-                        sourcePort=_flowrep_port_to_pwd_source_port(source.port),
+                        sourcePort=None,
                         target=output_node_ids[port],
                         targetPort=None,
                     )
