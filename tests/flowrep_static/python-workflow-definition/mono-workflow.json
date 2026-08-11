@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "nodes": [
+    {"id": 0, "type": "function", "value": "workflow.scale"},
+    {"id": 1, "type": "function", "value": "workflow.scale"},
+    {"id": 2, "type": "function", "value": "python_workflow_definition.shared.get_list"},
+    {"id": 3, "type": "function", "value": "workflow.summarize"},
+    {"id": 4, "type": "input", "value": 2, "name": "x"},
+    {"id": 5, "type": "input", "value": {"a": [1, 2], "b": {"c": 3}}, "name": "options"},
+    {"id": 6, "type": "output", "name": "summary"},
+    {"id": 7, "type": "output", "name": "passthrough"}
+  ],
+  "edges": [
+    {"target": 0, "targetPort": "v", "source": 4, "sourcePort": null},
+    {"target": 1, "targetPort": "v", "source": 4, "sourcePort": null},
+    {"target": 2, "targetPort": "0", "source": 0, "sourcePort": null},
+    {"target": 2, "targetPort": "1", "source": 1, "sourcePort": null},
+    {"target": 3, "targetPort": "values", "source": 2, "sourcePort": null},
+    {"target": 3, "targetPort": "options", "source": 5, "sourcePort": null},
+    {"target": 6, "targetPort": null, "source": 3, "sourcePort": null},
+    {"target": 7, "targetPort": null, "source": 5, "sourcePort": null}
+  ]
+}

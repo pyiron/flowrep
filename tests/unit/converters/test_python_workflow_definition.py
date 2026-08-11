@@ -121,6 +121,36 @@ def _assert_pwd_structurally_equal(
     tc.assertEqual(_input_defaults(pwd1), _input_defaults(pwd2))
 
 
+def _canonical_outputs(node: atomic_recipe.AtomicRecipe) -> list[str]:
+    """A single output's name is canonicalized to the sentinel by a round-trip."""
+    if len(node.outputs) == 1:
+        return [pwd_conv._DEFAULT_OUTPUT_PORT]
+    return list(node.outputs)
+
+
+def _canonical_edge_map(
+    wf: workflow_recipe.WorkflowRecipe,
+    edge_map: dict,
+) -> dict:
+    """Rewrite SourceHandles onto the canonical mono-output port name."""
+    mono = {
+        label: node.outputs[0]
+        for label, node in wf.nodes.items()
+        if len(node.outputs) == 1
+    }
+    canonical = {}
+    for target, source in edge_map.items():
+        if (
+            isinstance(source, edge_models.SourceHandle)
+            and mono.get(source.node) == source.port
+        ):
+            source = edge_models.SourceHandle(
+                node=source.node, port=pwd_conv._DEFAULT_OUTPUT_PORT
+            )
+        canonical[target] = source
+    return canonical
+
+
 def _assert_flowrep_roundtrip_equal(
     tc: unittest.TestCase,
     wf_orig: workflow_recipe.WorkflowRecipe,
@@ -131,22 +161,30 @@ def _assert_flowrep_roundtrip_equal(
     """
     Compare original and round-tripped flowrep.
 
-    The pwd format preserves explicit ``sourcePort`` names, so output-port
-    names are not lost in the round-trip.  ``reference``, ``source_code``,
-    and ``inputs_with_defaults`` are not represented in pwd and are therefore
-    excluded from comparison.
+    A node's sole output port name is *not* preserved: ``flowrep2pwd`` emits it
+    as pwd's unnamed ``sourcePort``, and it returns as the default sentinel.
+    The original is canonicalized the same way before comparison, so a failure
+    here means something other than that known loss went wrong.
+
+    ``reference``, ``source_code``, and ``inputs_with_defaults`` are not
+    represented in pwd and are therefore excluded from comparison.
     """
     tc.assertEqual(wf_orig.inputs, wf_rt.inputs)
     tc.assertEqual(wf_orig.outputs, wf_rt.outputs)
     tc.assertEqual(set(wf_orig.nodes.keys()), set(wf_rt.nodes.keys()))
     for label in wf_orig.nodes:
         n1, n2 = wf_orig.nodes[label], wf_rt.nodes[label]
+        # pwd conversion only ever produces AtomicRecipe children.
+        assert isinstance(n1, atomic_recipe.AtomicRecipe)
+        assert isinstance(n2, atomic_recipe.AtomicRecipe)
         tc.assertEqual(n1.inputs, n2.inputs)
-        tc.assertEqual(n1.outputs, n2.outputs)
+        tc.assertEqual(_canonical_outputs(n1), n2.outputs)
         tc.assertEqual(n1.fully_qualified_name, n2.fully_qualified_name)
     tc.assertEqual(wf_orig.input_edges, wf_rt.input_edges)
-    tc.assertEqual(wf_orig.edges, wf_rt.edges)
-    tc.assertEqual(wf_orig.output_edges, wf_rt.output_edges)
+    tc.assertEqual(_canonical_edge_map(wf_orig, wf_orig.edges), wf_rt.edges)
+    tc.assertEqual(
+        _canonical_edge_map(wf_orig, wf_orig.output_edges), wf_rt.output_edges
+    )
     tc.assertEqual(terminal_inputs, defaults_rt)
 
 
@@ -212,113 +250,141 @@ class TestPortSanitization(unittest.TestCase):
 
 
 @unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
-class TestPwd2FlowrepArithmetic(unittest.TestCase):
-    """Smoke-test conversion of the arithmetic example."""
+class TestPwd2FlowrepMono(unittest.TestCase):
+    """
+    Structural conversion of the all-single-output fixture.
+
+    Every ``sourcePort`` in this fixture is null, so it is the only shipped
+    fixture that survives the output-contract guard.  It deliberately carries
+    the structural features the real-world fixtures exercise: input fan-out,
+    a repeated function value, nested-JSON defaults, non-identifier input
+    ports, and a pass-through edge.
+    """
 
     def setUp(self):
-        pwd_wf = _load_pwd_workflow("arithmetic-workflow.json")
+        pwd_wf = _load_pwd_workflow("mono-workflow.json")
         self.wf, self.defaults = pwd_conv.pwd2flowrep(pwd_wf)
 
     def test_inputs(self):
-        self.assertEqual(set(self.wf.inputs), {"x", "y"})
+        self.assertEqual(self.wf.inputs, ["x", "options"])
 
     def test_outputs(self):
-        self.assertEqual(self.wf.outputs, ["result"])
+        self.assertEqual(self.wf.outputs, ["summary", "passthrough"])
 
-    def test_defaults(self):
-        self.assertEqual(self.defaults, {"x": 1, "y": 2})
+    def test_nested_defaults(self):
+        self.assertEqual(
+            self.defaults,
+            {"x": 2, "options": {"a": [1, 2], "b": {"c": 3}}},
+        )
 
-    def test_node_count(self):
-        self.assertEqual(len(self.wf.nodes), 3)
+    def test_repeated_function_labels(self):
+        """Two nodes sharing a value get distinct, index-suffixed labels."""
+        self.assertIn("scale_0", self.wf.nodes)
+        self.assertIn("scale_1", self.wf.nodes)
 
     def test_all_atomic(self):
         for node in self.wf.nodes.values():
             self.assertIsInstance(node, atomic_recipe.AtomicRecipe)
 
-    def test_multi_output_node(self):
-        """get_prod_and_div should have two named outputs."""
-        prod_div = [
-            n
-            for n in self.wf.nodes.values()
-            if n.fully_qualified_name == "workflow.get_prod_and_div"
-        ]
-        self.assertEqual(len(prod_div), 1)
-        self.assertEqual(set(prod_div[0].outputs), {"prod", "div"})
-
-
-@unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
-class TestPwd2FlowrepNfdi(unittest.TestCase):
-    """Smoke-test conversion of the NFDI example."""
-
-    def setUp(self):
-        pwd_wf = _load_pwd_workflow("nfdi-workflow.json")
-        self.wf, self.defaults = pwd_conv.pwd2flowrep(pwd_wf)
-
-    def test_inputs(self):
-        self.assertEqual(set(self.wf.inputs), {"domain_size", "source_directory"})
-
-    def test_defaults(self):
-        self.assertEqual(self.defaults["domain_size"], 2.0)
-        self.assertEqual(self.defaults["source_directory"], "source")
-
-    def test_node_count(self):
-        self.assertEqual(len(self.wf.nodes), 6)
+    def test_every_node_has_one_output(self):
+        for label, node in self.wf.nodes.items():
+            with self.subTest(label=label):
+                self.assertEqual(node.outputs, [pwd_conv._DEFAULT_OUTPUT_PORT])
 
     def test_fan_out_input(self):
-        """source_directory feeds multiple children."""
-        source_edges = [
-            target
+        """Input 'x' feeds both scale nodes."""
+        targets = [
+            target.node
             for target, source in self.wf.input_edges.items()
-            if source.port == "source_directory"
+            if source.port == "x"
         ]
-        # Nodes 2, 3, 4, 5 in the original all receive source_directory
-        self.assertGreater(len(source_edges), 1)
+        self.assertEqual(sorted(targets), ["scale_0", "scale_1"])
+
+    def test_get_list_ports_sanitized(self):
+        get_list = self.wf.nodes["get_list_0"]
+        self.assertEqual(
+            get_list.inputs,
+            [
+                pwd_conv._PORT_SANITIZE_PREFIX + "0",
+                pwd_conv._PORT_SANITIZE_PREFIX + "1",
+            ],
+        )
+
+    def test_pass_through_edge(self):
+        """Workflow input wired straight to a workflow output."""
+        source = self.wf.output_edges[edge_models.OutputTarget(port="passthrough")]
+        self.assertEqual(source, edge_models.InputSource(port="options"))
 
 
 @unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
-class TestPwd2FlowrepQuantumEspresso(unittest.TestCase):
-    """Smoke-test conversion of the quantum-espresso example."""
+class TestOutputContractRejection(unittest.TestCase):
+    """
+    Real-world PWD workflows that flowrep cannot faithfully represent.
 
-    def setUp(self):
+    A named ``sourcePort`` means "subscript the return value with this key".
+    A flowrep atomic node has no way to say that — its outputs are either the
+    whole return value (one port) or a tuple unpacking (many) — so converting
+    would silently change what the workflow computes.  All three shipped
+    real-world fixtures fall in this category, which is why the mono fixture
+    exists.
+    """
+
+    def test_arithmetic_rejected(self):
+        pwd_wf = _load_pwd_workflow("arithmetic-workflow.json")
+        with self.assertRaises(pwd_conv.OutputContractError):
+            pwd_conv.pwd2flowrep(pwd_wf)
+
+    def test_nfdi_rejected(self):
+        pwd_wf = _load_pwd_workflow("nfdi-workflow.json")
+        with self.assertRaises(pwd_conv.OutputContractError):
+            pwd_conv.pwd2flowrep(pwd_wf)
+
+    def test_quantum_espresso_rejected(self):
         pwd_wf = _load_pwd_workflow("quantum_espresso-workflow.json")
-        self.wf, self.defaults = pwd_conv.pwd2flowrep(pwd_wf)
+        with self.assertRaises(pwd_conv.OutputContractError):
+            pwd_conv.pwd2flowrep(pwd_wf)
 
-    def test_complex_defaults(self):
-        """Dict and list default values survive conversion."""
-        self.assertEqual(
-            self.defaults["pseudopotentials"],
-            {"Al": "Al.pbe-n-kjpaw_psl.1.0.0.UPF"},
+    def test_error_names_node_function_and_ports(self):
+        pwd_wf = _load_pwd_workflow("arithmetic-workflow.json")
+        with self.assertRaises(pwd_conv.OutputContractError) as ctx:
+            pwd_conv.pwd2flowrep(pwd_wf)
+
+        message = str(ctx.exception)
+        self.assertIn("workflow.get_prod_and_div", message)
+        self.assertIn("prod", message)
+        self.assertIn("div", message)
+
+    def test_single_named_source_port_rejected(self):
+        """
+        One named key is no better than several.
+
+        flowrep cannot express "the 'value' key of this node's single return"
+        without inserting a getter node, which is out of scope.
+        """
+        wf = pwd_models.PythonWorkflowDefinitionWorkflow.model_validate(
+            {
+                "version": "0.1.0",
+                "nodes": [
+                    {"id": 0, "type": "function", "value": "workflow.make"},
+                    {"id": 1, "type": "function", "value": "workflow.use"},
+                    {"id": 2, "type": "input", "value": 1, "name": "x"},
+                    {"id": 3, "type": "output", "name": "result"},
+                ],
+                "edges": [
+                    {"target": 0, "targetPort": "x", "source": 2, "sourcePort": None},
+                    {
+                        "target": 1,
+                        "targetPort": "v",
+                        "source": 0,
+                        "sourcePort": "value",
+                    },
+                    {"target": 3, "targetPort": None, "source": 1, "sourcePort": None},
+                ],
+            }
         )
-        self.assertEqual(self.defaults["kpts"], [3, 3, 3])
-        self.assertEqual(self.defaults["strain_lst"], [0.9, 0.95, 1.0, 1.05, 1.1])
-
-    def test_repeated_function(self):
-        """calculate_qe appears multiple times → distinct labels."""
-        calc_nodes = [
-            label
-            for label, n in self.wf.nodes.items()
-            if "calculate_qe" in n.fully_qualified_name
-        ]
-        self.assertEqual(len(calc_nodes), 6)
-        # All labels must be unique
-        self.assertEqual(len(calc_nodes), len(set(calc_nodes)))
-
-    def test_get_list_ports_sanitized(self):
-        """get_list input ports like '0', '1' must be sanitized to valid labels."""
-        list_nodes = [
-            n
-            for n in self.wf.nodes.values()
-            if n.fully_qualified_name == "python_workflow_definition.shared.get_list"
-        ]
-        self.assertGreater(len(list_nodes), 0)
-        for node in list_nodes:
-            for port in node.inputs:
-                with self.subTest(port=port):
-                    self.assertTrue(
-                        port.isidentifier(),
-                        f"Port {port!r} is not a valid identifier",
-                    )
-                    self.assertTrue(port.startswith(pwd_conv._PORT_SANITIZE_PREFIX))
+        with self.assertRaises(pwd_conv.OutputContractError) as ctx:
+            pwd_conv.pwd2flowrep(wf)
+        self.assertIn("value", str(ctx.exception))
 
 
 @unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
@@ -525,6 +591,10 @@ class TestFlowrep2PwdValidation(unittest.TestCase):
         self.assertIn("AtomicRecipe", str(ctx.exception))
         self.assertIn("nested", str(ctx.exception))
 
+    def test_output_contract_error_is_a_value_error(self):
+        """Subclassing ValueError keeps existing ``except ValueError`` callers working."""
+        self.assertTrue(issubclass(pwd_conv.OutputContractError, ValueError))
+
     def test_exact_terminal_inputs_succeeds(self):
         wf = self._make_flat_workflow()
         result = pwd_conv.flowrep2pwd(wf, x=1, y=2)
@@ -546,14 +616,8 @@ class TestRoundTripPwdToFlowrep(unittest.TestCase):
         # Also verify the pwd representations directly, modulo node IDs
         _assert_pwd_structurally_equal(self, pwd_orig, pwd_rt)
 
-    def test_arithmetic(self):
-        self._assert_roundtrip("arithmetic-workflow.json")
-
-    def test_nfdi(self):
-        self._assert_roundtrip("nfdi-workflow.json")
-
-    def test_quantum_espresso(self):
-        self._assert_roundtrip("quantum_espresso-workflow.json")
+    def test_mono(self):
+        self._assert_roundtrip("mono-workflow.json")
 
 
 @unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
@@ -591,8 +655,8 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
         node = workflow_parser.parse_workflow(wf)
         self._assert_roundtrip(node, {"x": 3.0, "y": 4.0})
 
-    def test_multi_output(self):
-        """A function returning multiple values."""
+    def test_multi_output_raises(self):
+        """A node with >1 output cannot be represented in pwd."""
 
         def wf(x: float) -> float:
             a, b = library.multi_result(x)
@@ -600,7 +664,26 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
             return c
 
         node = workflow_parser.parse_workflow(wf)
-        self._assert_roundtrip(node, {"x": 5.0})
+        with self.assertRaises(pwd_conv.OutputContractError):
+            pwd_conv.flowrep2pwd(node, x=5.0)
+
+    def test_multi_output_error_names_the_node(self):
+        """The error identifies the offending node, its function, and its ports."""
+
+        def wf(x: float) -> float:
+            a, b = library.multi_result(x)
+            c = library.typed_add(a, b)
+            return c
+
+        node = workflow_parser.parse_workflow(wf)
+        with self.assertRaises(pwd_conv.OutputContractError) as ctx:
+            pwd_conv.flowrep2pwd(node, x=5.0)
+
+        message = str(ctx.exception)
+        self.assertIn("multi_result_0", message)
+        self.assertIn("multi_result", message)
+        for port in node.nodes["multi_result_0"].outputs:
+            self.assertIn(port, message)
 
     def test_single_node(self):
         """Simplest case: one function, all inputs wired, one output."""
@@ -612,44 +695,30 @@ class TestRoundTripFlowrepToPwd(unittest.TestCase):
         node = workflow_parser.parse_workflow(wf)
         self._assert_roundtrip(node, {"x": 10.0, "y": 1.0})
 
-    def test_multi_output_ports_preserved(self):
-        """Named output ports on multi-output nodes survive the round-trip."""
+    def test_single_output_port_name_canonicalized(self):
+        """
+        A single output's name is deliberately *not* preserved.
 
-        def wf(x: float) -> float:
-            a, b = library.multi_result(x)
-            c = library.typed_add(a, b)
-            return c
-
-        node = workflow_parser.parse_workflow(wf)
-        pwd_wf = pwd_conv.flowrep2pwd(node, x=5.0)
-        fr_rt, _ = pwd_conv.pwd2flowrep(pwd_wf)
-
-        # multi_result has >1 output, so port names are preserved exactly
-        orig_mr = [
-            n for n in node.nodes.values() if "multi_result" in n.fully_qualified_name
-        ][0]
-        rt_mr = [
-            n for n in fr_rt.nodes.values() if "multi_result" in n.fully_qualified_name
-        ][0]
-        self.assertEqual(orig_mr.outputs, rt_mr.outputs)
-
-    def test_single_output_port_name_preserved(self):
-        """Explicit single-output port names round-trip via sourcePort strings."""
+        A flowrep mono-output is the whole return value, and pwd spells that
+        ``sourcePort: null`` — which comes back as the default sentinel.  The
+        name is the price of a recipe that actually executes.
+        """
 
         def wf(x: float, y: float) -> float:
             z = library.typed_add(x, y)
             return z
 
         node = workflow_parser.parse_workflow(wf)
-        # The add node's single output has a real name (not __result__)
         add_node = node.nodes["typed_add_0"]
         self.assertNotEqual(add_node.outputs[0], pwd_conv._DEFAULT_OUTPUT_PORT)
 
         pwd_wf = pwd_conv.flowrep2pwd(node, x=10.0, y=1.0)
         fr_rt, _ = pwd_conv.pwd2flowrep(pwd_wf)
 
-        # Port name must survive
-        self.assertEqual(add_node.outputs, fr_rt.nodes["typed_add_0"].outputs)
+        self.assertEqual(
+            fr_rt.nodes["typed_add_0"].outputs,
+            [pwd_conv._DEFAULT_OUTPUT_PORT],
+        )
 
 
 @unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
@@ -658,105 +727,87 @@ class TestDefaultOutputPort(unittest.TestCase):
 
     def test_single_output_uses_sentinel(self):
         """A PWD node with sourcePort=null produces an output with the default name."""
-        pwd_wf = _load_pwd_workflow("arithmetic-workflow.json")
+        pwd_wf = _load_pwd_workflow("mono-workflow.json")
         wf, _ = pwd_conv.pwd2flowrep(pwd_wf)
-        # get_square (the last function node) has a single unnamed output
-        square_nodes = [
-            n
-            for n in wf.nodes.values()
-            if n.fully_qualified_name == "workflow.get_square"
-        ]
-        self.assertEqual(len(square_nodes), 1)
-        self.assertIn(pwd_conv._DEFAULT_OUTPUT_PORT, square_nodes[0].outputs)
+        self.assertEqual(
+            wf.nodes["summarize_0"].outputs,
+            [pwd_conv._DEFAULT_OUTPUT_PORT],
+        )
 
     def test_sentinel_roundtrips_to_null(self):
-        """default name port serializes back to sourcePort=null in PWD."""
-        pwd_orig = _load_pwd_workflow("arithmetic-workflow.json")
+        """The default-name port serializes back to sourcePort=null in PWD."""
+        pwd_orig = _load_pwd_workflow("mono-workflow.json")
         fr, defaults = pwd_conv.pwd2flowrep(pwd_orig)
         pwd_rt = pwd_conv.flowrep2pwd(fr, **defaults)
 
-        null_source_edges = [
-            e
-            for e in pwd_rt.edges
-            if e.sourcePort == pwd_models.INTERNAL_DEFAULT_HANDLE
-        ]
-        orig_null = [
-            e
-            for e in pwd_orig.edges
-            if e.sourcePort == pwd_models.INTERNAL_DEFAULT_HANDLE
-        ]
-        self.assertEqual(len(null_source_edges), len(orig_null))
+        self.assertTrue(
+            all(
+                e.sourcePort == pwd_models.INTERNAL_DEFAULT_HANDLE for e in pwd_rt.edges
+            )
+        )
 
-    def test_explicit_source_port_preserved(self):
-        """Named sourcePorts like 'prod' must NOT become null in round-trip."""
-        pwd_orig = _load_pwd_workflow("arithmetic-workflow.json")
-        fr, defaults = pwd_conv.pwd2flowrep(pwd_orig)
-        pwd_rt = pwd_conv.flowrep2pwd(fr, **defaults)
+    def test_named_single_output_canonicalized_to_null(self):
+        """
+        A single output named anything else still emits sourcePort=null.
 
-        named_orig = {
-            (e.source, e.sourcePort)
-            for e in pwd_orig.edges
-            if e.sourcePort != pwd_models.INTERNAL_DEFAULT_HANDLE
-        }
-        named_rt = {
-            (e.source, e.sourcePort)
-            for e in pwd_rt.edges
-            if e.sourcePort != pwd_models.INTERNAL_DEFAULT_HANDLE
-        }
-        # Can't compare source IDs across pwd instances, but count must match
-        self.assertEqual(len(named_orig), len(named_rt))
+        pwd reads a named ``sourcePort`` as a dict key, so emitting the flowrep
+        port name would produce a workflow that subscripts a non-dict at run time.
+        """
+
+        def wf(x: float, y: float) -> float:
+            z = library.typed_add(x, y)
+            return z
+
+        node = workflow_parser.parse_workflow(wf)
+        self.assertNotEqual(
+            node.nodes["typed_add_0"].outputs[0],
+            pwd_conv._DEFAULT_OUTPUT_PORT,
+        )
+
+        pwd_wf = pwd_conv.flowrep2pwd(node, x=1.0, y=2.0)
+        self.assertTrue(
+            all(
+                e.sourcePort == pwd_models.INTERNAL_DEFAULT_HANDLE for e in pwd_wf.edges
+            )
+        )
 
 
 @unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
 class TestSanitizedPortRoundTrip(unittest.TestCase):
-    """Integer-string ports from ``get_list`` survive a full round-trip."""
+    """Integer-string ports from a ``get_list`` node survive a full round-trip."""
 
-    def test_quantum_espresso_get_list_ports(self):
-        """Ports '0'–'4' on get_list nodes round-trip correctly."""
-        pwd_orig = _load_pwd_workflow("quantum_espresso-workflow.json")
+    def test_mono_get_list_ports(self):
+        """Ports '0' and '1' on the get_list node survive a full round-trip."""
+        pwd_orig = _load_pwd_workflow("mono-workflow.json")
         fr_1, defaults_1 = pwd_conv.pwd2flowrep(pwd_orig)
 
-        # Verify sanitized port names in flowrep
-        list_nodes = [
-            (label, n)
-            for label, n in fr_1.nodes.items()
-            if n.fully_qualified_name == "python_workflow_definition.shared.get_list"
-        ]
-        for _, node in list_nodes:
-            for port in node.inputs:
-                self.assertTrue(port.startswith(pwd_conv._PORT_SANITIZE_PREFIX))
+        for port in fr_1.nodes["get_list_0"].inputs:
+            self.assertTrue(port.startswith(pwd_conv._PORT_SANITIZE_PREFIX))
 
-        # Full round-trip
         pwd_rt = pwd_conv.flowrep2pwd(fr_1, **defaults_1)
         fr_2, defaults_2 = pwd_conv.pwd2flowrep(pwd_rt)
 
         _assert_flowrep_roundtrip_equal(self, fr_1, fr_2, defaults_1, defaults_2)
 
-    def test_desanitized_ports_match_original(self):
-        """PWD edge targetPorts are restored to original integer strings."""
-        pwd_orig = _load_pwd_workflow("quantum_espresso-workflow.json")
+    def test_mono_desanitized_ports_match_original(self):
+        """PWD edge targetPorts are restored to the original integer strings."""
+        pwd_orig = _load_pwd_workflow("mono-workflow.json")
         fr, defaults = pwd_conv.pwd2flowrep(pwd_orig)
         pwd_rt = pwd_conv.flowrep2pwd(fr, **defaults)
 
-        # Collect targetPorts targeting get_list nodes in both
-        def _get_list_target_ports(
+        def _numeric_target_ports(
             wf: pwd_models.PythonWorkflowDefinitionWorkflow,
         ) -> set[str]:
-            list_ids = {
-                n.id
-                for n in wf.nodes
-                if isinstance(n, pwd_models.PythonWorkflowDefinitionFunctionNode)
-                and n.value == "python_workflow_definition.shared.get_list"
-            }
             return {
                 e.targetPort
                 for e in wf.edges
-                if e.target in list_ids and e.targetPort is not None
+                if e.targetPort is not None and not e.targetPort.isidentifier()
             }
 
+        self.assertEqual(_numeric_target_ports(pwd_orig), {"0", "1"})
         self.assertEqual(
-            _get_list_target_ports(pwd_orig),
-            _get_list_target_ports(pwd_rt),
+            _numeric_target_ports(pwd_orig),
+            _numeric_target_ports(pwd_rt),
         )
 
 
@@ -772,14 +823,8 @@ class TestRoundTripEdgeNodeCounts(unittest.TestCase):
         self.assertEqual(len(pwd_orig.nodes), len(pwd_rt.nodes))
         self.assertEqual(len(pwd_orig.edges), len(pwd_rt.edges))
 
-    def test_arithmetic(self):
-        self._assert_counts_preserved("arithmetic-workflow.json")
-
-    def test_nfdi(self):
-        self._assert_counts_preserved("nfdi-workflow.json")
-
-    def test_quantum_espresso(self):
-        self._assert_counts_preserved("quantum_espresso-workflow.json")
+    def test_mono(self):
+        self._assert_counts_preserved("mono-workflow.json")
 
 
 @unittest.skipUnless(_has_pwd, "python_workflow_definition not installed")
