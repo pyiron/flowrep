@@ -216,3 +216,13 @@ def single_autoencoder(only):
     dc = Single(only)
     o = Single.flowrep_recipe_unpacking(dc)
     return o
+
+
+def prod_and_div_dict(x, y):
+    """
+    PWD's output axiom: several outputs are keys of one returned dict.
+
+    Deliberately *not* decorated -- pwd's ``purepython`` runner filters nodes
+    with :func:`inspect.isfunction`.
+    """
+    return {"prod": x * y, "div": x / y}

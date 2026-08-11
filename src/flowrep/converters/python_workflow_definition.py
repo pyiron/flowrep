@@ -4,6 +4,24 @@ Bidirectional converter between flowrep and python-workflow-definition formats.
 The ``python_workflow_definition`` (pwd) package is an **optional** dependency.
 It represents workflows as flat, non-nested DAGs of atomic function calls with
 explicit input/output nodes carrying JSON-serializable default values.
+
+The two formats hold different axioms about how a function's return value maps
+onto a node's output ports:
+
+===========  ==========================  ================================
+             whole return value          component of return
+===========  ==========================  ================================
+pwd          ``sourcePort: null``        ``sourcePort: "<key>"`` →
+                                         ``result["<key>"]``
+flowrep      exactly one output port     N>1 ports unpack an N-tuple
+===========  ==========================  ================================
+
+They overlap only on *exactly one output, meaning the whole return value*.
+Anything outside that overlap raises :class:`OutputContractError` rather than
+being mistranslated into a recipe that computes the wrong answer.  As a
+corollary, a flowrep node's sole output port name is not preserved across a
+round-trip: it becomes pwd's unnamed ``sourcePort`` and returns as
+:data:`_DEFAULT_OUTPUT_PORT`.
 """
 
 from __future__ import annotations
@@ -99,8 +117,13 @@ def pwd2flowrep(
         A ``(WorkflowRecipe, defaults)`` pair where *defaults* maps each
         workflow-input name to the default value carried by the corresponding
         PWD input node.
+
+    Raises:
+        OutputContractError: If any function node is consumed via a named
+            ``sourcePort``.
     """
     input_nodes, output_nodes, function_nodes = _categorize_pwd_nodes(wf.nodes)
+    _validate_pwd_output_contracts(wf.edges, function_nodes)
 
     label_map = _build_label_map(function_nodes)
     node_inputs, node_outputs = _collect_function_node_ports(
@@ -240,6 +263,45 @@ def _categorize_pwd_nodes(
     return input_nodes, output_nodes, function_nodes
 
 
+def _validate_pwd_output_contracts(
+    edges: list[pwd.PythonWorkflowDefinitionEdge],
+    function_nodes: dict[int, pwd.PythonWorkflowDefinitionFunctionNode],
+) -> None:
+    """
+    Raise :class:`OutputContractError` for function nodes consumed by key.
+
+    A named ``sourcePort`` tells pwd to subscript the node's single return value
+    with that key.  A flowrep atomic node cannot express that: its outputs are
+    either the whole return value (one port) or a tuple unpacking (many ports).
+    Inspects raw ``sourcePort`` values, before sanitisation, so the message
+    quotes the author's own port names.
+    """
+    named: dict[int, list[str]] = {}
+    for edge in edges:
+        if edge.source not in function_nodes:
+            continue
+        port = edge.sourcePort
+        if port is None or port == pwd.INTERNAL_DEFAULT_HANDLE:
+            continue
+        ports = named.setdefault(edge.source, [])
+        if port not in ports:
+            ports.append(port)
+
+    if named:
+        offenders = [
+            f"node {nid} ({function_nodes[nid].value}) is consumed via "
+            f"sourcePort(s) {sorted(named[nid])}"
+            for nid in sorted(named)
+        ]
+        raise OutputContractError(
+            "pwd2flowrep requires every function node to be consumed via a null "
+            "sourcePort. pwd reads a named sourcePort as a key of a single "
+            "returned dict, which a flowrep atomic node cannot express — its "
+            "outputs are either the whole return value (one port) or a tuple "
+            "unpacking (many). Offending nodes: " + "; ".join(offenders) + "."
+        )
+
+
 def _build_label_map(
     function_nodes: dict[int, pwd.PythonWorkflowDefinitionFunctionNode],
 ) -> dict[int, str]:
@@ -261,13 +323,6 @@ def _build_label_map(
     return label_map
 
 
-def _resolve_source_port(port: str | None) -> str:
-    """Map pwd's internal sourcePort to a flowrep output-port name."""
-    if port is None or port == pwd.INTERNAL_DEFAULT_HANDLE:
-        return _DEFAULT_OUTPUT_PORT
-    return _sanitize_port(port)
-
-
 def _collect_function_node_ports(
     edges: list[pwd.PythonWorkflowDefinitionEdge],
     function_nodes: dict[int, pwd.PythonWorkflowDefinitionFunctionNode],
@@ -275,8 +330,9 @@ def _collect_function_node_ports(
     """
     Collect ordered, unique input/output port names for each function node.
 
-    Port names that are not valid flowrep Labels are sanitized via
-    :func:`_sanitize_port`.
+    Input port names that are not valid flowrep Labels are sanitized via
+    :func:`_sanitize_port`.  Output ports are always the single
+    :data:`_DEFAULT_OUTPUT_PORT`.
     """
     node_inputs: dict[int, list[str]] = {nid: [] for nid in function_nodes}
     node_outputs: dict[int, list[str]] = {nid: [] for nid in function_nodes}
@@ -289,12 +345,13 @@ def _collect_function_node_ports(
             if port not in ports:
                 ports.append(port)
 
-        # Source ports (outputs of the function node)
+        # Outputs of the function node.  Guaranteed null-sourced by
+        # _validate_pwd_output_contracts, so every such node has exactly the
+        # one default-named output port.
         if edge.source in function_nodes:
-            port = _resolve_source_port(edge.sourcePort)
             ports = node_outputs[edge.source]
-            if port not in ports:
-                ports.append(port)
+            if _DEFAULT_OUTPUT_PORT not in ports:
+                ports.append(_DEFAULT_OUTPUT_PORT)
 
     return node_inputs, node_outputs
 
@@ -369,7 +426,7 @@ def _build_flowrep_edges(
             # Function node → workflow output
             out_name = output_nodes[edge.target].name
             source_label = label_map[edge.source]
-            source_port = _resolve_source_port(edge.sourcePort)
+            source_port = _DEFAULT_OUTPUT_PORT
             fr_output_edges[edge_models.OutputTarget(port=out_name)] = (
                 edge_models.SourceHandle(node=source_label, port=source_port)
             )
@@ -378,7 +435,7 @@ def _build_flowrep_edges(
             # Function node → function node (sibling edge)
             source_label = label_map[edge.source]
             target_label = label_map[edge.target]
-            source_port = _resolve_source_port(edge.sourcePort)
+            source_port = _DEFAULT_OUTPUT_PORT
             target_port = _sanitize_port(edge.targetPort)
             fr_edges[edge_models.TargetHandle(node=target_label, port=target_port)] = (
                 edge_models.SourceHandle(node=source_label, port=source_port)
