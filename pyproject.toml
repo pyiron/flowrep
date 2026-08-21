@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     "packaging==26.3",
     "pydantic==2.12.5",
-    "pyiron_snippets==1.4.0",
+    "pyiron_snippets==1.5.0",
     "typing-extensions==4.16.0",
 ]
 dynamic = [ "version",]
