@@ -94,7 +94,8 @@ def get_scope(func: Callable[..., Any] | type[Any]) -> ScopeProxy:
             "inspect.getmodule() returned None and no resolvable __module__ "
             "attribute was found."
         )
-    return ScopeProxy(module.__dict__ | vars(builtins))
+    scope = module.__dict__ | getattr(func, "__globals__", {})
+    return ScopeProxy(scope | vars(builtins))
 
 
 def resolve_attribute_to_object(attribute: str, scope: ScopeProxy | object) -> object:
