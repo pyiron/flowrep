@@ -136,6 +136,24 @@ class TestGetScope(unittest.TestCase):
         self.assertIs(scope.Outer, Outer)
         self.assertIs(scope.object_scope, object_scope)
 
+    def test_prefers_function_globals_when_module_differs(self):
+        """Resolve names from a function's globals when its module is unrelated."""
+        module = types.ModuleType("_test_unrelated_mod")
+        sys.modules[module.__name__] = module
+        marker = object()
+        try:
+            func = types.FunctionType(
+                (lambda: None).__code__,
+                {"marker": marker},
+                "_test_func",
+            )
+            func.__module__ = module.__name__
+            with patch.object(object_scope.inspect, "getmodule", return_value=module):
+                scope = object_scope.get_scope(func)
+            self.assertIs(scope.marker, marker)
+        finally:
+            del sys.modules[module.__name__]
+
     def test_includes_builtins(self):
         scope = object_scope.get_scope(add)
         self.assertIs(scope.len, len)
