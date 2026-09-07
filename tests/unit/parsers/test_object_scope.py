@@ -281,6 +281,29 @@ class TestResolveSymbolToObject(unittest.TestCase):
         f = object_scope.resolve_attribute_to_object("ast.literal_eval", scope)
         self.assertIs(f, ast.literal_eval)
 
+    def test_submodule_still_importing_resolves_via_sys_modules(self):
+        """A parent package gains its submodule attribute only once that submodule
+        has finished importing, but ``sys.modules`` carries the entry from the start.
+        Anything that resolves a dotted name while the submodule is mid-import -- such
+        as re-parsing compiled source at module scope -- sees the gap."""
+        parent = types.ModuleType("_test_half_imported_pkg")
+        child = types.ModuleType("_test_half_imported_pkg.child")
+        marker = object()
+        child.marker = marker  # type: ignore[attr-defined]
+        sys.modules[parent.__name__] = parent
+        sys.modules[child.__name__] = child
+        # Deliberately *not* `parent.child = child`: that is what the import machinery
+        # does last, after the child's body has run to completion.
+        try:
+            scope = object_scope.ScopeProxy({parent.__name__: parent})
+            resolved = object_scope.resolve_attribute_to_object(
+                f"{child.__name__}.marker", scope
+            )
+            self.assertIs(marker, resolved)
+        finally:
+            del sys.modules[child.__name__]
+            del sys.modules[parent.__name__]
+
 
 if __name__ == "__main__":
     unittest.main()
