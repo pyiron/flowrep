@@ -18,9 +18,21 @@ import dataclasses
 import inspect
 import types
 from collections.abc import Callable, MutableMapping
-from typing import Any, Generic, Self, TypeVar, get_args, get_origin, get_type_hints
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    Self,
+    TypeVar,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from pyiron_snippets import retrieve, singleton
+
+if TYPE_CHECKING:
+    import graphviz
 
 from flowrep import base_models, edge_models
 from flowrep.prospective import (
@@ -100,6 +112,29 @@ class NodeData(Generic[RecipeType], abc.ABC):
         object. Falls back to a plain-text representation when IPython is not available.
         """
         return viewer.view(self, expanded=expanded)
+
+    def draw(self, depth: int | None = None) -> graphviz.Digraph:
+        """
+        Draw this data object's topology, ports and labels as a graphviz graph.
+
+        Where :meth:`view` shows the data, this shows the shape. Renders inline in
+        a Jupyter notebook, and also offers ``.render()``, ``.pipe()`` and
+        ``.source``.
+
+        Args:
+            depth: How many generations of nested subgraph to expand below this
+                node's own children. The node itself always expands. Defaults to 0.
+
+        Returns:
+            The drawn graph.
+
+        Raises:
+            ImportAlarmError: If the optional drawing dependency is missing. The
+                message names both the pip and conda install routes.
+        """
+        from flowrep import drawing
+
+        return drawing.draw(self, depth=depth)
 
     def _repr_json_(self):
         return self.view()._repr_json_()
