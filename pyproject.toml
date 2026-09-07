@@ -59,6 +59,9 @@ storage-widget = [
 dataviewer = [
     "ipython",
 ]
+drawing = [
+    "graphviz==0.21",
+]
 
 [tool.hatch.build]
 include = [
