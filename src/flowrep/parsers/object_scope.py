@@ -112,13 +112,21 @@ def resolve_attribute_to_object(attribute: str, scope: ScopeProxy | object) -> o
     Returns:
         The object that the attribute resolves to in the given scope.
     """
-    obj = None
-    try:
-        for attr in attribute.split("."):
+    obj, prefix = None, []
+    for attr in attribute.split("."):
+        prefix.append(attr)
+        try:
             obj = getattr(obj or scope, attr)
-        return obj
-    except AttributeError as e:
-        raise ValueError(f"Could not find attribute '{attr}' of {attribute}") from e
+        except AttributeError as e:
+            # A package's attribute for a still-executing submodule isn't set until
+            # that import finishes; sys.modules already has it.
+            try:
+                obj = sys.modules[".".join(prefix)]
+            except KeyError:
+                raise ValueError(
+                    f"Could not find attribute '{attr}' of {attribute}"
+                ) from e
+    return obj
 
 
 def resolve_symbol_to_object(
