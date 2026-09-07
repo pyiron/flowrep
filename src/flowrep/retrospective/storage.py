@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from packaging import version
 from pyiron_snippets import import_alarm
 
-from flowrep import base_models
+from flowrep import base_models, lexical
 from flowrep.retrospective import datastructures, storage_widget
 
 with import_alarm.ImportAlarm(
@@ -129,7 +129,7 @@ def _collect_lexical_paths(
     prefix: str,
     paths: list[str],
 ) -> None:
-    for io_type in tuple(base_models.IOTypes):
+    for io_type in base_models.IOTypes:
         io_storage = (
             _path_to_input_ports(storage_path)
             if io_type == base_models.IOTypes.INPUTS
@@ -137,7 +137,9 @@ def _collect_lexical_paths(
         )
         port_names = bag.open_group(io_storage)
         for port in port_names:
-            paths.append(f"{prefix}{io_type}.{port}")
+            paths.append(
+                lexical.port_path(prefix.rstrip(lexical.DELIMITER), io_type, port)
+            )
 
     nodes_storage = _path_to_nodes(storage_path)
     try:
@@ -145,9 +147,9 @@ def _collect_lexical_paths(
     except KeyError:
         return
     for node in node_names:
-        lexical = f"{prefix}{node}"
-        paths.append(lexical)
-        _collect_lexical_paths(bag, f"{nodes_storage}/{node}", f"{lexical}.", paths)
+        node_path = f"{prefix}{node}"
+        paths.append(node_path)
+        _collect_lexical_paths(bag, f"{nodes_storage}/{node}", f"{node_path}.", paths)
 
 
 def _path_to_input_ports(path: str) -> str:
