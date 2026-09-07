@@ -11,6 +11,7 @@ from flowrep.converters.python_workflow_definition import (
 )
 from flowrep.converters.python_workflow_definition import flowrep2pwd as flowrep2pwd
 from flowrep.converters.python_workflow_definition import pwd2flowrep as pwd2flowrep
+from flowrep.drawing import draw as draw
 from flowrep.parsers.atomic_parser import atomic as atomic
 from flowrep.parsers.atomic_parser import parse_atomic as parse_atomic
 from flowrep.parsers.dataclass_parser import dataclass as dataclass
