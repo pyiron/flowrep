@@ -16,6 +16,13 @@ from flowrep.retrospective import datastructures
 
 from flowrep_static import library
 
+try:
+    import graphviz  # noqa: F401
+
+    _has_graphviz = True
+except ImportError:
+    _has_graphviz = False
+
 
 def _nested_workflow() -> workflow_recipe.WorkflowRecipe:
     """A workflow whose child is itself a workflow, so ``depth`` actually bites."""
@@ -41,6 +48,7 @@ def _nested_workflow() -> workflow_recipe.WorkflowRecipe:
     )
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestRecipeDraw(unittest.TestCase):
     def test_matches_the_module_level_drawer(self):
         recipe = std.neg.flowrep_recipe
@@ -97,6 +105,7 @@ class TestRecipeDraw(unittest.TestCase):
         self.assertIn("cond_i", recipe.draw().source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestDataDraw(unittest.TestCase):
     def setUp(self):
         self.data = datastructures.recipe2data(library.simple_workflow.flowrep_recipe)

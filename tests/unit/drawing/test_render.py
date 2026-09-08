@@ -14,6 +14,13 @@ from flowrep.prospective import (
 
 from flowrep_static import library
 
+try:
+    import graphviz  # noqa: F401
+
+    _has_graphviz = True
+except ImportError:
+    _has_graphviz = False
+
 
 def _while_recipe():
     return while_recipe.WhileRecipe(
@@ -101,6 +108,7 @@ def _if_recipe():
     )
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestLeafRendering(unittest.TestCase):
     def setUp(self):
         self.source = render.render(prospective.build(std.neg.flowrep_recipe)).source
@@ -120,6 +128,7 @@ class TestLeafRendering(unittest.TestCase):
         self.assertIn(fill, self.source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestCompositeRendering(unittest.TestCase):
     def setUp(self):
         graph = prospective.build(library.simple_workflow.flowrep_recipe, depth=0)
@@ -139,6 +148,7 @@ class TestCompositeRendering(unittest.TestCase):
                 self.assertIn(child.path, self.source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestNestedIdsAreQuoted(unittest.TestCase):
     def test_dotted_child_path_is_quoted(self):
         """A dotted lexical path is not a bare DOT identifier, so Graphviz quotes it."""
@@ -166,6 +176,7 @@ class TestNestedIdsAreQuoted(unittest.TestCase):
         self.assertIn('"inner.typed_add_0"', source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestCycleHandling(unittest.TestCase):
     def test_back_edges_are_unconstrained(self):
         """While-loop feedback would otherwise destroy the rankdir=LR layout."""
@@ -181,12 +192,14 @@ class TestCycleHandling(unittest.TestCase):
         self.assertNotIn("constraint=false", source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestConditionalEdges(unittest.TestCase):
     def test_conditional_edges_dashed(self):
         source = render.render(prospective.build(_while_recipe(), depth=0)).source
         self.assertIn("style=dashed", source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestGroupOrdering(unittest.TestCase):
     def test_groups_emit_in_reverse_declaration_order(self):
         """Under rankdir=LR, Graphviz stacks same-rank clusters bottom-up in
@@ -196,6 +209,7 @@ class TestGroupOrdering(unittest.TestCase):
         self.assertLess(source.index("else"), source.index("case 0"))
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestEscaping(unittest.TestCase):
     def test_special_characters_in_subtitle_are_escaped(self):
         graph = prospective.build(constant_recipe.ConstantRecipe(constant="<a & b>"))
@@ -204,6 +218,7 @@ class TestEscaping(unittest.TestCase):
         self.assertIn("&lt;a &amp; b&gt;", source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestPortPaddingBranches(unittest.TestCase):
     def test_more_inputs_than_outputs_pads_output_column(self):
         source = render.render(prospective.build(library.combine.flowrep_recipe)).source
@@ -216,6 +231,7 @@ class TestPortPaddingBranches(unittest.TestCase):
         self.assertIn("<TD></TD>", source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestEmptyIoComposite(unittest.TestCase):
     def test_composite_with_no_own_io_draws_no_io_boxes(self):
         recipe = workflow_recipe.WorkflowRecipe(
@@ -231,6 +247,7 @@ class TestEmptyIoComposite(unittest.TestCase):
         self.assertNotIn("outputs.", source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestMultipleOwnOutputsRankSame(unittest.TestCase):
     def test_two_own_outputs_are_rank_aligned(self):
         source = render.render(
@@ -239,6 +256,7 @@ class TestMultipleOwnOutputsRankSame(unittest.TestCase):
         self.assertIn("rank=same", source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestBadgePreferredOverHint(unittest.TestCase):
     def test_badge_wins_when_both_set(self):
         node = model.DrawNode(
@@ -256,6 +274,7 @@ class TestBadgePreferredOverHint(unittest.TestCase):
         self.assertNotIn(">int<", source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestRetrospectiveNote(unittest.TestCase):
     def test_no_recorded_edges_note_appears_in_cluster_label(self):
         """The known WfMS limitation surfaces as an italic note on the cluster."""
@@ -265,6 +284,7 @@ class TestRetrospectiveNote(unittest.TestCase):
         self.assertIn("no recorded edges", source)
 
 
+@unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestActuallyRenders(unittest.TestCase):
     @unittest.skipIf(shutil.which("dot") is None, "Graphviz `dot` binary not installed")
     def test_dot_accepts_the_source(self):
