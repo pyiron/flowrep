@@ -51,3 +51,5 @@ from flowrep.retrospective.datastructures import OutputDataPorts as OutputDataPo
 from flowrep.retrospective.datastructures import TryData as TryData
 from flowrep.retrospective.datastructures import WhileData as WhileData
 from flowrep.subgraph_validation import ProspectiveOutputEdges as ProspectiveOutputEdges
+from flowrep.transformers import Transform1toN as Transform1toN
+from flowrep.transformers import TransformNto1 as TransformNto1
