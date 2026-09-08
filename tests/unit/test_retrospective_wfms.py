@@ -217,6 +217,31 @@ def _for_add_zipped() -> for_recipe.ForEachRecipe:
     )
 
 
+def _for_add_nested_2x3() -> for_recipe.ForEachRecipe:
+    """Cartesian product of `xs` (outer) and `ys` (inner), computing `add(a, b)`."""
+    return for_recipe.ForEachRecipe(
+        inputs=["xs", "ys"],
+        outputs=["sums"],
+        body_node=helper_models.LabeledRecipe(
+            label="body", recipe=std.add.flowrep_recipe
+        ),
+        input_edges={
+            edge_models.TargetHandle(node="body", port="a"): edge_models.InputSource(
+                port="xs"
+            ),
+            edge_models.TargetHandle(node="body", port="b"): edge_models.InputSource(
+                port="ys"
+            ),
+        },
+        output_edges={
+            edge_models.OutputTarget(port="sums"): edge_models.SourceHandle(
+                node="body", port="added"
+            ),
+        },
+        nested_ports=["a", "b"],
+    )
+
+
 def _decrement_body_workflow() -> workflow_recipe.WorkflowRecipe:
     """`n -> decrement(n) -> n` — single-step body for while loops."""
     return _single_node_workflow(
@@ -1164,7 +1189,9 @@ class TestRunFor(unittest.TestCase):
 
     def test_body_instances_stored(self):
         node = wfms.run_recipe(_for_negate(), xs=[1, 2])
-        self.assertEqual(len(node.nodes), 2)
+        self.assertEqual(
+            list(node.nodes), ["scatter_xs", "body_0", "body_1", "aggregate_ys"]
+        )
 
     def test_zipped_ports(self):
         node = wfms.run_recipe(_for_add_zipped(), xs=[1, 2, 3], ys=[10, 20, 30])
@@ -1198,6 +1225,164 @@ class TestRunFor(unittest.TestCase):
         )
 
 
+class TestRunForRecordsEdges(unittest.TestCase):
+    """The for-node materializes its fan-out and fan-in as real nodes, so every
+    recorded edge is 1:1 and the record describes what actually ran."""
+
+    def test_scatter_and_aggregate_nodes_exist(self):
+        node = wfms.run_recipe(_for_negate(), xs=[1, 2, 3])
+        self.assertEqual(
+            list(node.nodes),
+            ["scatter_xs", "body_0", "body_1", "body_2", "aggregate_ys"],
+        )
+
+    def test_parent_input_feeds_the_scatter(self):
+        node = wfms.run_recipe(_for_negate(), xs=[1, 2, 3])
+        self.assertEqual(
+            node.input_edges[edge_models.TargetHandle(node="scatter_xs", port="items")],
+            edge_models.InputSource(port="xs"),
+        )
+
+    def test_scatter_feeds_each_body_instance(self):
+        node = wfms.run_recipe(_for_negate(), xs=[1, 2, 3])
+        for i in range(3):
+            self.assertEqual(
+                node.edges[edge_models.TargetHandle(node=f"body_{i}", port="a")],
+                edge_models.SourceHandle(node="scatter_xs", port=f"output_{i}"),
+                msg=f"body_{i} should draw element {i}",
+            )
+
+    def test_each_body_instance_feeds_the_aggregator(self):
+        node = wfms.run_recipe(_for_negate(), xs=[1, 2, 3])
+        for i in range(3):
+            self.assertEqual(
+                node.edges[
+                    edge_models.TargetHandle(node="aggregate_ys", port=f"item_{i}")
+                ],
+                edge_models.SourceHandle(node=f"body_{i}", port="negative"),
+            )
+
+    def test_aggregator_feeds_the_parent_output(self):
+        node = wfms.run_recipe(_for_negate(), xs=[1, 2, 3])
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="ys")],
+            edge_models.SourceHandle(node="aggregate_ys", port="output_0"),
+        )
+
+    def test_broadcast_input_goes_to_every_instance_directly(self):
+        node = wfms.run_recipe(_for_add_broadcast(), xs=[10, 20, 30], offset=5)
+        for i in range(3):
+            self.assertEqual(
+                node.input_edges[edge_models.TargetHandle(node=f"body_{i}", port="b")],
+                edge_models.InputSource(port="offset"),
+            )
+
+    def test_transferred_output_is_sourced_from_the_scatter(self):
+        """`inputs_used` collects the scattered element itself, not a body output, so
+        it must be recorded as coming from the scatter node."""
+        node = wfms.run_recipe(_for_add_broadcast(), xs=[10, 20, 30], offset=5)
+        for i in range(3):
+            self.assertEqual(
+                node.edges[
+                    edge_models.TargetHandle(
+                        node="aggregate_inputs_used", port=f"item_{i}"
+                    )
+                ],
+                edge_models.SourceHandle(node="scatter_xs", port=f"output_{i}"),
+            )
+
+    def test_zipped_ports_share_an_index(self):
+        node = wfms.run_recipe(_for_add_zipped(), xs=[1, 2, 3], ys=[10, 20, 30])
+        for i in range(3):
+            self.assertEqual(
+                node.edges[edge_models.TargetHandle(node=f"body_{i}", port="a")],
+                edge_models.SourceHandle(node="scatter_xs", port=f"output_{i}"),
+            )
+            self.assertEqual(
+                node.edges[edge_models.TargetHandle(node=f"body_{i}", port="b")],
+                edge_models.SourceHandle(node="scatter_ys", port=f"output_{i}"),
+            )
+
+    def test_nested_strides(self):
+        """`xs` is the outer axis and `ys` the inner, matching the instance ordering
+        `itertools.product` produced before this rewrite."""
+        node = wfms.run_recipe(_for_add_nested_2x3(), xs=[1, 2], ys=[10, 20, 30])
+        expected = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
+        for i, (xi, yi) in enumerate(expected):
+            self.assertEqual(
+                node.edges[edge_models.TargetHandle(node=f"body_{i}", port="a")],
+                edge_models.SourceHandle(node="scatter_xs", port=f"output_{xi}"),
+                msg=f"body_{i} outer axis",
+            )
+            self.assertEqual(
+                node.edges[edge_models.TargetHandle(node=f"body_{i}", port="b")],
+                edge_models.SourceHandle(node="scatter_ys", port=f"output_{yi}"),
+                msg=f"body_{i} inner axis",
+            )
+
+    def test_nested_values_match_the_recorded_edges(self):
+        node = wfms.run_recipe(_for_add_nested_2x3(), xs=[1, 2], ys=[10, 20, 30])
+        self.assertEqual(node.output_ports["sums"].value, [11, 21, 31, 12, 22, 32])
+
+    def test_empty_input_builds_aggregators_but_no_scatters(self):
+        """A zero-length input means zero body steps, so a scatter would need zero
+        outputs -- which no atomic recipe can express -- and nothing would consume."""
+        node = wfms.run_recipe(_for_negate(), xs=[])
+        self.assertEqual(list(node.nodes), ["aggregate_ys"])
+        self.assertEqual(node.input_edges, {})
+        self.assertEqual(node.edges, {})
+        self.assertEqual(node.output_ports["ys"].value, [])
+
+    def test_label_collision_raises(self):
+        recipe = _for_negate().model_copy(
+            update={
+                "body_node": helper_models.LabeledRecipe(
+                    label="aggregate_ys", recipe=std.neg.flowrep_recipe
+                ),
+                "input_edges": {
+                    edge_models.TargetHandle(
+                        node="aggregate_ys", port="a"
+                    ): edge_models.InputSource(port="xs")
+                },
+                "output_edges": {
+                    edge_models.OutputTarget(port="ys"): edge_models.SourceHandle(
+                        node="aggregate_ys", port="negative"
+                    )
+                },
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "label collision"):
+            wfms.run_recipe(recipe, xs=[1])
+
+    def test_two_iterated_ports_sharing_one_input_raises(self):
+        """One scatter is built per for-node input port, so two iterated body ports
+        fed by the same input would share a scatter -- and an index -- collapsing two
+        independent axes into one. Refuse rather than quietly iterate over less."""
+        recipe = for_recipe.ForEachRecipe(
+            inputs=["xs"],
+            outputs=["sums"],
+            body_node=helper_models.LabeledRecipe(
+                label="body", recipe=std.add.flowrep_recipe
+            ),
+            input_edges={
+                edge_models.TargetHandle(
+                    node="body", port="a"
+                ): edge_models.InputSource(port="xs"),
+                edge_models.TargetHandle(
+                    node="body", port="b"
+                ): edge_models.InputSource(port="xs"),
+            },
+            output_edges={
+                edge_models.OutputTarget(port="sums"): edge_models.SourceHandle(
+                    node="body", port="added"
+                )
+            },
+            nested_ports=["a", "b"],
+        )
+        with self.assertRaisesRegex(ValueError, "distinct for-node inputs"):
+            wfms.run_recipe(recipe, xs=[1, 2])
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # wfms.py tests — while
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1220,6 +1405,64 @@ class TestRunWhile(unittest.TestCase):
         node = wfms.run_recipe(_while_countdown(), n=3)
         # 3 body iterations + 4 condition evaluations
         self.assertEqual(len(node.nodes), 3 + 4)
+
+
+class TestRunWhileRecordsEdges(unittest.TestCase):
+    def test_first_iteration_comes_from_the_while_inputs(self):
+        node = wfms.run_recipe(_while_countdown(), n=3)
+        for child in ("condition_0", "body_0"):
+            self.assertEqual(
+                node.input_edges[edge_models.TargetHandle(node=child, port="n")],
+                edge_models.InputSource(port="n"),
+                msg=f"{child} should read the while-node's own input",
+            )
+
+    def test_later_conditions_come_from_the_previous_body(self):
+        node = wfms.run_recipe(_while_countdown(), n=3)
+        for k in range(1, 4):  # condition_1 … condition_3
+            self.assertEqual(
+                node.edges[edge_models.TargetHandle(node=f"condition_{k}", port="n")],
+                edge_models.SourceHandle(node=f"body_{k - 1}", port="n"),
+            )
+
+    def test_later_bodies_come_from_the_previous_body(self):
+        node = wfms.run_recipe(_while_countdown(), n=3)
+        for k in range(1, 3):  # body_1, body_2 -- there is no body_3
+            self.assertEqual(
+                node.edges[edge_models.TargetHandle(node=f"body_{k}", port="n")],
+                edge_models.SourceHandle(node=f"body_{k - 1}", port="n"),
+            )
+
+    def test_no_edge_for_a_body_that_never_ran(self):
+        node = wfms.run_recipe(_while_countdown(), n=3)
+        self.assertNotIn(edge_models.TargetHandle(node="body_3", port="n"), node.edges)
+
+    def test_output_comes_from_the_last_body(self):
+        node = wfms.run_recipe(_while_countdown(), n=3)
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="n")],
+            edge_models.SourceHandle(node="body_2", port="n"),
+        )
+
+    def test_output_falls_back_to_the_input_when_the_body_never_ran(self):
+        node = wfms.run_recipe(_while_countdown(), n=0)
+        self.assertEqual(list(node.nodes), ["condition_0"])
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="n")],
+            edge_models.InputSource(port="n"),
+        )
+        self.assertEqual(node.edges, {})
+
+    def test_single_iteration(self):
+        node = wfms.run_recipe(_while_countdown(), n=1)
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="n")],
+            edge_models.SourceHandle(node="body_0", port="n"),
+        )
+        self.assertEqual(
+            node.edges[edge_models.TargetHandle(node="condition_1", port="n")],
+            edge_models.SourceHandle(node="body_0", port="n"),
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1284,6 +1527,67 @@ class TestRunTry(unittest.TestCase):
     def test_unhandled_exception_propagates(self):
         with self.assertRaisesRegex(ValueError, "That's what I do"):
             wfms.run_recipe(_failing_try.flowrep_recipe, x=42)
+
+
+class TestRunIfRecordsEdges(unittest.TestCase):
+    def test_positive_branch_records_only_what_ran(self):
+        node = wfms.run_recipe(_if_abs(), x=5)
+        self.assertEqual(
+            set(node.input_edges),
+            {
+                edge_models.TargetHandle(node="condition_0", port="n"),
+                edge_models.TargetHandle(node="body_0", port="x"),
+            },
+        )
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="y")],
+            edge_models.SourceHandle(node="body_0", port="y"),
+        )
+
+    def test_else_branch_records_only_what_ran(self):
+        node = wfms.run_recipe(_if_abs(), x=-5)
+        self.assertEqual(
+            set(node.input_edges),
+            {
+                edge_models.TargetHandle(node="condition_0", port="n"),
+                edge_models.TargetHandle(node="else_body", port="x"),
+            },
+        )
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="y")],
+            edge_models.SourceHandle(node="else_body", port="y"),
+        )
+
+    def test_no_sibling_edges(self):
+        node = wfms.run_recipe(_if_abs(), x=5)
+        self.assertEqual(node.edges, {})
+
+
+class TestRunTryRecordsEdges(unittest.TestCase):
+    def test_success_records_the_try_body(self):
+        node = wfms.run_recipe(_try_safe_divide(), a=10, b=2)
+        self.assertEqual(
+            set(node.input_edges),
+            {
+                edge_models.TargetHandle(node="try_body", port="a"),
+                edge_models.TargetHandle(node="try_body", port="b"),
+            },
+        )
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="result")],
+            edge_models.SourceHandle(node="try_body", port="result"),
+        )
+
+    def test_handled_exception_records_the_handler(self):
+        node = wfms.run_recipe(_try_safe_divide(), a=10, b=0)
+        self.assertIn(
+            edge_models.TargetHandle(node="except_body_0", port="a"),
+            node.input_edges,
+        )
+        self.assertEqual(
+            node.output_edges[edge_models.OutputTarget(port="result")],
+            edge_models.SourceHandle(node="except_body_0", port="result"),
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

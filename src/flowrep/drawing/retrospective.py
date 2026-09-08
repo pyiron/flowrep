@@ -67,9 +67,10 @@ def _note(
 ) -> str | None:
     """A user-facing note when a composite expanded with children but no edges.
 
-    The toy WfMS never records actualized edges for flow-control instances
-    (only ``DagData`` copies edges from its recipe), so a run flow-control node
-    otherwise draws as a set of unconnected boxes.
+    The toy WfMS records actualized edges for the flow-control nodes it runs, but the
+    retrospective format does not oblige every WfMS to, so a composite can still
+    arrive with children and no wiring. Say so, rather than drawing a set of
+    unconnected boxes that reads as a rendering fault.
     """
     if children and not edges:
         return "(no recorded edges)"

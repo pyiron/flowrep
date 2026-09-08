@@ -277,8 +277,21 @@ class TestBadgePreferredOverHint(unittest.TestCase):
 @unittest.skipUnless(_has_graphviz, "graphviz not installed")
 class TestRetrospectiveNote(unittest.TestCase):
     def test_no_recorded_edges_note_appears_in_cluster_label(self):
-        """The known WfMS limitation surfaces as an italic note on the cluster."""
-        data = wfms.run_recipe(_for_recipe(), xs=[1, 2, 3])
+        """A composite with children but no wiring surfaces an italic note.
+
+        The toy WfMS records actualized edges, so this is not reachable through it.
+        The retrospective format does not oblige every WfMS to record them, though,
+        so stripping the edges back off a run node stands in for one that doesn't.
+        """
+        recipe = workflow_recipe.WorkflowRecipe(
+            inputs=[],
+            outputs=[],
+            nodes={"n": constant_recipe.ConstantRecipe(constant=1)},
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
+        data = wfms.run_recipe(recipe)
         graph = retrospective.build(data, depth=0)
         source = render.render(graph).source
         self.assertIn("no recorded edges", source)
