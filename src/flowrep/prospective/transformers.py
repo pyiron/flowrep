@@ -6,9 +6,6 @@ outputs back into one list. The edge models describe strictly 1:1 connections --
 :data:`~flowrep.edge_models.OutputEdges` admits exactly one source per output target --
 so a WfMS records that fan-out and fan-in honestly by building nodes for it, rather
 than leaving it implicit and unrecordable.
-
-These mirror ``pyiron_workflow.transformers`` deliberately, down to the port labels and
-function names, so that records produced by different WfMS describe the same shape.
 """
 
 from __future__ import annotations
