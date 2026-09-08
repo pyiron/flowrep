@@ -29,6 +29,8 @@ from flowrep.prospective.helper_models import ConditionalCase as ConditionalCase
 from flowrep.prospective.helper_models import ExceptionCase as ExceptionCase
 from flowrep.prospective.helper_models import LabeledRecipe as LabeledRecipe
 from flowrep.prospective.if_recipe import IfRecipe as IfRecipe
+from flowrep.prospective.transformers import Transform1toN as Transform1toN
+from flowrep.prospective.transformers import TransformNto1 as TransformNto1
 from flowrep.prospective.try_recipe import TryRecipe as TryRecipe
 from flowrep.prospective.union_types import RecipeDiscrimination as RecipeDiscrimination
 from flowrep.prospective.union_types import Recipes as Recipes
@@ -51,5 +53,3 @@ from flowrep.retrospective.datastructures import OutputDataPorts as OutputDataPo
 from flowrep.retrospective.datastructures import TryData as TryData
 from flowrep.retrospective.datastructures import WhileData as WhileData
 from flowrep.subgraph_validation import ProspectiveOutputEdges as ProspectiveOutputEdges
-from flowrep.transformers import Transform1toN as Transform1toN
-from flowrep.transformers import TransformNto1 as TransformNto1

@@ -14,7 +14,7 @@ from typing import Any, cast
 
 from pyiron_snippets import retrieve
 
-from flowrep import base_models, edge_models, subgraph_validation, transformers
+from flowrep import base_models, edge_models, subgraph_validation
 from flowrep.parsers import label_helpers
 from flowrep.prospective import (
     atomic_recipe,
@@ -22,6 +22,7 @@ from flowrep.prospective import (
     for_recipe,
     helper_models,
     if_recipe,
+    transformers,
     try_recipe,
     union_types,
     while_recipe,

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from flowrep import transformers, wfms
+from flowrep import wfms
+from flowrep.prospective import transformers
 
 
 class TestTransform1toN(unittest.TestCase):
