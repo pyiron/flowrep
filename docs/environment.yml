@@ -16,4 +16,5 @@ dependencies:
 - bagofholding =0.1.12
 - ipython
 - ipytree =0.2.2
+- python-graphviz =0.21
 - python-workflow-definition =0.1.5
