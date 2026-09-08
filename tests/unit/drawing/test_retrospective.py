@@ -201,35 +201,61 @@ class TestOutputEdgePassthrough(unittest.TestCase):
 
 
 class TestExecutedFlowControl(unittest.TestCase):
-    """A run for-node has instance children but, per the known limitation, no edges."""
+    """A run for-node draws its materialized scatter/body/aggregate DAG."""
 
     def setUp(self):
         self.data = wfms.run_recipe(_for_recipe(), xs=[1, 2, 3])
         self.graph = retrospective.build(self.data, depth=0)
 
-    def test_instance_children_present(self):
-        self.assertEqual(len(self.graph.children), 3)
-
-    def test_instance_paths_are_lexical(self):
+    def test_children_include_the_transformer_nodes(self):
         self.assertEqual(
-            sorted(c.path for c in self.graph.children), ["body_0", "body_1", "body_2"]
+            sorted(c.path for c in self.graph.children),
+            ["aggregate_ys", "body_0", "body_1", "body_2", "scatter_xs"],
         )
 
-    def test_note_explains_the_missing_edges(self):
-        self.assertEqual(self.graph.note, "(no recorded edges)")
+    def test_edges_are_drawn(self):
+        self.assertNotEqual(self.graph.edges, ())
 
-    def test_no_edges_drawn(self):
-        self.assertEqual(self.graph.edges, ())
+    def test_no_note_now_that_edges_are_recorded(self):
+        self.assertIsNone(self.graph.note)
 
 
 class TestUnexpandedCompositeHasNoNote(unittest.TestCase):
-    """A composite that never expands (depth < 0 branch skipped) must not get the note."""
+    """A composite that never expands (depth < 0 branch skipped) must not get the note,
+    even though its own ``.nodes`` is non-empty -- exercising the ``depth >= 0`` guard
+    in ``_build`` rather than an accident of the composite having nothing inside it."""
 
-    def test_depth_zero_but_no_children_no_note(self):
-        data = wfms.run_recipe(_for_recipe(), xs=[])
-        graph = retrospective.build(data, depth=0)
-        self.assertEqual(graph.children, ())
-        self.assertIsNone(graph.note)
+    def setUp(self):
+        from flowrep import edge_models
+        from flowrep.prospective import workflow_recipe
+
+        inner = library.simple_workflow.flowrep_recipe
+        recipe = workflow_recipe.WorkflowRecipe(
+            inputs=["p", "q"],
+            outputs=["r"],
+            nodes={"inner": inner},
+            input_edges={
+                edge_models.TargetHandle(
+                    node="inner", port="a"
+                ): edge_models.InputSource(port="p"),
+                edge_models.TargetHandle(
+                    node="inner", port="b"
+                ): edge_models.InputSource(port="q"),
+            },
+            edges={},
+            output_edges={
+                edge_models.OutputTarget(port="r"): edge_models.SourceHandle(
+                    node="inner", port=inner.outputs[0]
+                )
+            },
+        )
+        self.data = wfms.run_recipe(recipe, p=1, q=2)
+
+    def test_depth_zero_leaves_the_inner_composite_unexpanded(self):
+        graph = retrospective.build(self.data, depth=0)
+        inner = _by_path(graph, "inner")
+        self.assertEqual(inner.children, ())
+        self.assertIsNone(inner.note)
 
 
 def _for_recipe():

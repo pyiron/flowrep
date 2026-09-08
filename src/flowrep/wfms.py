@@ -8,13 +8,13 @@ fully-fledged WfMS can refer.
 
 from __future__ import annotations
 
-import itertools
+import math
 from collections.abc import Collection
 from typing import Any, cast
 
 from pyiron_snippets import retrieve
 
-from flowrep import base_models, edge_models, subgraph_validation
+from flowrep import base_models, edge_models, subgraph_validation, transformers
 from flowrep.parsers import label_helpers
 from flowrep.prospective import (
     atomic_recipe,
@@ -144,12 +144,18 @@ def _run_workflow(
     _populate_input_ports(node, kwargs)
 
     for child_label in _topo_sort_children(recipe):
-        child_inputs = _gather_child_inputs(child_label, recipe, node)
         child_recipe = recipe.nodes[child_label]
+        child_inputs = _gather_child_inputs(
+            child_label,
+            child_recipe.inputs,
+            recipe.input_edges,
+            recipe.edges,
+            node,
+        )
         child_node = run_recipe(child_recipe, **child_inputs)
         node.nodes[child_label] = child_node  # Overwrite with _executed_ child
 
-    _populate_workflow_outputs(node, recipe)
+    _populate_outputs_from_edges(node, recipe.output_edges)
     return node
 
 
@@ -168,44 +174,49 @@ def _topo_sort_children(recipe: workflow_recipe.WorkflowRecipe) -> list[str]:
 
 
 def _gather_child_inputs(
-    child_label: str,
-    recipe: workflow_recipe.WorkflowRecipe,
-    workflow_node: datastructures.DagData,
+    child_label: base_models.Label,
+    child_inputs: base_models.Labels,
+    input_edges: edge_models.InputEdges,
+    edges: edge_models.Edges,
+    parent: datastructures.CompositeData,
 ) -> dict[str, Any]:
     """
-    Resolve input values for a child node from workflow input ports and sibling
-    output ports according to the recipe edges.
+    Resolve input values for a child node from the parent's input ports and sibling
+    output ports, according to the given edges.
 
-    Ports not covered by any edge are omitted — the child's own defaults (if any)
+    Ports not covered by any edge are omitted -- the child's own defaults (if any)
     will be used downstream.
+
+    Taking the edges explicitly rather than reading them off a recipe is what lets a
+    for-node, whose edges only exist at runtime, share this resolution path with a
+    static workflow.
     """
-    child_recipe = recipe.nodes[child_label]
     inputs: dict[str, Any] = {}
 
-    for port in child_recipe.inputs:
+    for port in child_inputs:
         th = edge_models.TargetHandle(node=child_label, port=port)
 
-        if th in recipe.input_edges:
-            parent_source = recipe.input_edges[th]
-            inputs[port] = workflow_node.input_ports[parent_source.port].get_data()
-        elif th in recipe.edges:
-            sibling_source = recipe.edges[th]
-            sibling = workflow_node.nodes[sibling_source.node]
+        if th in input_edges:
+            inputs[port] = parent.input_ports[input_edges[th].port].get_data()
+        elif th in edges:
+            sibling_source = edges[th]
+            sibling = parent.nodes[sibling_source.node]
             inputs[port] = sibling.output_ports[sibling_source.port].value
         # else: port has a default on the child, _call_atomic will handle it
 
     return inputs
 
 
-def _populate_workflow_outputs(
-    node: datastructures.DagData, recipe: workflow_recipe.WorkflowRecipe
+def _populate_outputs_from_edges(
+    node: datastructures.CompositeData,
+    output_edges: edge_models.OutputEdges,
 ) -> None:
-    for target, source in recipe.output_edges.items():
-        if isinstance(source, edge_models.InputSource):
+    """Fill the composite's own output ports by following its output edges."""
+    for target, source in output_edges.items():
+        if source.node is None:
             val = node.input_ports[source.port].get_data()
         else:
-            child = node.nodes[source.node]
-            val = child.output_ports[source.port].value
+            val = node.nodes[source.node].output_ports[source.port].value
         node.output_ports[target.port].value = val
 
 
@@ -233,94 +244,344 @@ def _iterated_value(
     return cast(Collection, value)
 
 
+def _scatter_label(parent_port: base_models.Label) -> base_models.Label:
+    return f"scatter_{parent_port}"
+
+
+def _aggregate_label(output_port: base_models.Label) -> base_models.Label:
+    return f"aggregate_{output_port}"
+
+
+def _body_to_parent_ports(
+    recipe: for_recipe.ForEachRecipe, body_ports: base_models.Labels
+) -> dict[base_models.Label, base_models.Label]:
+    """Map iterated body port names to the for-node input ports that feed them."""
+    body_label = recipe.body_node.label
+    return {
+        port: recipe.input_edges[
+            edge_models.TargetHandle(node=body_label, port=port)
+        ].port
+        for port in body_ports
+    }
+
+
+def _nested_strides(
+    total_steps: int, nested_lengths: dict[base_models.Label, int]
+) -> dict[base_models.Label, int]:
+    """
+    Per-port strides for mixed-radix decomposition of the body index.
+
+    Nested ports are the outer dimensions, in ``nested_ports`` order; zipped ports
+    occupy the innermost dimension (stride 1) and are not represented here.
+    """
+    if total_steps == 0:
+        return {}  # No body indices exist, so there is nothing to decompose
+
+    strides: dict[base_models.Label, int] = {}
+    running = total_steps
+    for parent_port, length in nested_lengths.items():
+        running //= length
+        strides[parent_port] = running
+    return strides
+
+
+def _guard_generated_labels(
+    recipe: for_recipe.ForEachRecipe,
+    scattered: dict[base_models.Label, int],
+    total_steps: int,
+) -> None:
+    """
+    The for-node invents labels for its scatter, body and aggregate instances, and
+    nothing in the recipe validators knows about them. Two generated labels coinciding
+    would silently drop a node from the record; a body node named ``aggregate_ys``
+    sitting beside a generated ``aggregate_ys_0`` would merely be unreadable. Refuse
+    both, rather than corrupting the record or handing back a graph nobody can follow.
+    """
+    body_label = recipe.body_node.label
+    generated = (
+        [_scatter_label(port) for port in scattered]
+        + [body_label]
+        + [label_helpers.index_label(body_label, i) for i in range(total_steps)]
+        + [_aggregate_label(port) for port in recipe.outputs]
+    )
+    seen: set[base_models.Label] = set()
+    for label in generated:
+        if label in seen:
+            raise ValueError(
+                f"For-node label collision: '{label}' would name two different "
+                f"instances. Rename the body node or the colliding port."
+            )
+        seen.add(label)
+
+
+def _guard_distinct_iterated_sources(
+    nested_map: dict[base_models.Label, base_models.Label],
+    zipped_map: dict[base_models.Label, base_models.Label],
+) -> None:
+    """
+    One scatter node is built per *parent* port, so two iterated body ports fed by the
+    same parent port would share a scatter and therefore an index -- collapsing what
+    used to be two independent axes into one. Refuse rather than silently change what
+    the loop iterates over.
+    """
+    parents = list(nested_map.values()) + list(zipped_map.values())
+    duplicated = {port for port in parents if parents.count(port) > 1}
+    if duplicated:
+        raise ValueError(
+            f"Iterated body ports must draw from distinct for-node inputs, but "
+            f"{sorted(duplicated)} feeds more than one. Duplicate the input port to "
+            f"iterate over the same data on two axes."
+        )
+
+
 def _run_for(
     recipe: for_recipe.ForEachRecipe, **kwargs: Any
 ) -> datastructures.ForEachData:
     """
-    Execute a for-node by scattering iterated inputs across body instances and
-    collecting outputs into lists.
+    Execute a for-node as a real DAG: scatter nodes fan the iterated inputs out across
+    body instances, and aggregate nodes gather their outputs back into lists.
 
     Nested ports drive a Cartesian product; zipped ports are iterated in lockstep.
     Broadcast (non-iterated) inputs are passed unchanged to every body instance.
-    Transferred outputs collect the per-iteration value of a scattered input,
-    preserving the link between input element and body output element.
+    Transferred outputs collect the per-iteration value of a scattered input, so they
+    are sourced from the scatter node rather than from a body output.
+
+    Execution follows the recorded edges rather than running alongside them, so the
+    record cannot drift from what actually happened.
     """
     node = datastructures.ForEachData.from_recipe(recipe)
     _populate_input_ports(node, kwargs)
 
     body_label = recipe.body_node.label
     body_recipe = recipe.body_node.recipe
-    iterated_ports = recipe.iterated_ports
 
-    # body iterated port -> for-node input name
-    body_to_for: dict[str, str] = {}
-    for port in iterated_ports:
-        th = edge_models.TargetHandle(node=body_label, port=port)
-        body_to_for[port] = recipe.input_edges[th].port
+    nested_map = _body_to_parent_ports(recipe, recipe.nested_ports)
+    zipped_map = _body_to_parent_ports(recipe, recipe.zipped_ports)
+    _guard_distinct_iterated_sources(nested_map, zipped_map)
 
-    # Reverse mapping for transferred outputs
-    for_to_body: dict[str, str] = {v: k for k, v in body_to_for.items()}
+    # Note that beyond insisting the value arrived at all, we simply take the length of
+    # iterated input values, and let the user pay the price if runtime data is
+    # non-compliant.
+    nested_lengths = {
+        parent_port: len(_iterated_value(node, parent_port, body_port))
+        for body_port, parent_port in nested_map.items()
+    }
+    zipped_lengths = {
+        parent_port: len(_iterated_value(node, parent_port, body_port))
+        for body_port, parent_port in zipped_map.items()
+    }
+    if len(set(zipped_lengths.values())) > 1:
+        raise ValueError("Zipped inputs must have equal lengths")
 
-    # Broadcast inputs (non-iterated body ports sourced from for-node inputs)
-    broadcast: dict[str, Any] = {}
-    for port in body_recipe.inputs:
-        if port not in iterated_ports:
-            th = edge_models.TargetHandle(node=body_label, port=port)
-            if th in recipe.input_edges:
-                src = recipe.input_edges[th]
-                broadcast[port] = node.input_ports[src.port].value
+    zip_len = next(iter(zipped_lengths.values()), 1)
+    total_steps = math.prod(nested_lengths.values()) * zip_len
+    strides = _nested_strides(total_steps, nested_lengths)
 
-    # Build iteration axes
-    nested_iters = [
-        _iterated_value(node, body_to_for[p], p) for p in recipe.nested_ports
-    ]
-    zipped_iters = [
-        _iterated_value(node, body_to_for[p], p) for p in recipe.zipped_ports
-    ]
-    # Note that beyond insisting the value arrived at all, we simply cast iterated
-    # input values to the form we expect, and let the user pay the price if runtime
-    # data is non-compliant.
+    # An empty iterated port means zero body steps. Scatter nodes would then need zero
+    # outputs, which no atomic recipe can express -- and nothing would consume them
+    # anyway -- so only the aggregators get built, and they collect empty lists.
+    scattered = {**nested_lengths, **zipped_lengths} if total_steps > 0 else {}
+    _guard_generated_labels(recipe, scattered, total_steps)
 
-    nested_combos = list(itertools.product(*nested_iters)) if nested_iters else [()]
-    if zipped_iters:
-        zip_len = len(zipped_iters[0])
-        for zi in zipped_iters:
-            if len(zi) != zip_len:
-                raise ValueError("Zipped inputs must have equal lengths")
-        zipped_combos = list(zip(*zipped_iters, strict=True))
-    else:
-        zipped_combos = [()]
+    for parent_port, length in scattered.items():
+        node.nodes[_scatter_label(parent_port)] = run_recipe(
+            transformers.Transform1toN(length).recipe,
+            **{
+                transformers.Transform1toN.input_label: node.input_ports[
+                    parent_port
+                ].value
+            },
+        )
 
-    accumulators: dict[str, list[Any]] = {port: [] for port in recipe.outputs}
+    node.input_edges = _for_input_edges(recipe, scattered, total_steps)
+    node.edges = _for_edges(
+        recipe,
+        {**nested_map, **zipped_map},
+        nested_lengths,
+        strides,
+        zip_len,
+        total_steps,
+    )
+    node.output_edges = _for_output_edges(recipe)
 
-    for nested_vals, zipped_vals in itertools.product(nested_combos, zipped_combos):
-        body_kwargs = dict(broadcast)
-        for port, val in zip(recipe.nested_ports, nested_vals, strict=True):
-            body_kwargs[port] = val
-        for port, val in zip(recipe.zipped_ports, zipped_vals, strict=True):
-            body_kwargs[port] = val
+    for i in range(total_steps):
+        instance_label = label_helpers.index_label(body_label, i)
+        node.nodes[instance_label] = run_recipe(
+            body_recipe,
+            **_gather_child_inputs(
+                instance_label,
+                body_recipe.inputs,
+                node.input_edges,
+                node.edges,
+                node,
+            ),
+        )
 
-        child = run_recipe(body_recipe, **body_kwargs)
-        idx = len(node.nodes)
-        node.nodes[label_helpers.index_label(body_label, idx)] = child
+    for output_port in recipe.outputs:
+        aggregate_recipe = transformers.TransformNto1(total_steps).recipe
+        label = _aggregate_label(output_port)
+        node.nodes[label] = run_recipe(
+            aggregate_recipe,
+            **_gather_child_inputs(
+                label,
+                aggregate_recipe.inputs,
+                node.input_edges,
+                node.edges,
+                node,
+            ),
+        )
 
-        for target, source in recipe.output_edges.items():
-            if isinstance(source, edge_models.SourceHandle):
-                accumulators[target.port].append(child.output_ports[source.port].value)
-            else:
-                # Transferred output: collect the scattered input element
-                body_port = for_to_body[source.port]
-                accumulators[target.port].append(body_kwargs[body_port])
-
-    for port, values in accumulators.items():
-        node.output_ports[port].value = values
+    _populate_outputs_from_edges(node, node.output_edges)
 
     return node
+
+
+def _for_input_edges(
+    recipe: for_recipe.ForEachRecipe,
+    scattered: dict[base_models.Label, int],
+    total_steps: int,
+) -> edge_models.InputEdges:
+    """
+    Parent inputs feed the scatter nodes, and broadcast inputs feed every body
+    instance directly. Iterated ports are deliberately absent: they reach the bodies
+    through a scatter node, which is the whole point of building one.
+    """
+    body_label = recipe.body_node.label
+    input_edges: edge_models.InputEdges = {
+        edge_models.TargetHandle(
+            node=_scatter_label(parent_port),
+            port=transformers.Transform1toN.input_label,
+        ): edge_models.InputSource(port=parent_port)
+        for parent_port in scattered
+    }
+    for target, source in recipe.input_edges.items():
+        if target.port in recipe.iterated_ports:
+            continue
+        for i in range(total_steps):
+            input_edges[
+                edge_models.TargetHandle(
+                    node=label_helpers.index_label(body_label, i), port=target.port
+                )
+            ] = edge_models.InputSource(port=source.port)
+    return input_edges
+
+
+def _for_edges(
+    recipe: for_recipe.ForEachRecipe,
+    iterated_map: dict[base_models.Label, base_models.Label],
+    nested_lengths: dict[base_models.Label, int],
+    strides: dict[base_models.Label, int],
+    zip_len: int,
+    total_steps: int,
+) -> edge_models.Edges:
+    """Scatters to bodies, and bodies (or scatters) to aggregators."""
+    body_label = recipe.body_node.label
+
+    def scatter_source(
+        parent_port: base_models.Label, i: int
+    ) -> edge_models.SourceHandle:
+        if parent_port in nested_lengths:
+            index = (i // strides[parent_port]) % nested_lengths[parent_port]
+        else:
+            index = i % zip_len
+        return edge_models.SourceHandle(
+            node=_scatter_label(parent_port),
+            port=transformers.Transform1toN.output_label(index),
+        )
+
+    edges: edge_models.Edges = {
+        edge_models.TargetHandle(
+            node=label_helpers.index_label(body_label, i), port=body_port
+        ): scatter_source(parent_port, i)
+        for body_port, parent_port in iterated_map.items()
+        for i in range(total_steps)
+    }
+
+    for target, source in recipe.output_edges.items():
+        aggregate = _aggregate_label(target.port)
+        for i in range(total_steps):
+            handle = edge_models.TargetHandle(
+                node=aggregate, port=transformers.TransformNto1.input_label(i)
+            )
+            if source.node is None:
+                # Transferred output: the scattered input element itself
+                edges[handle] = scatter_source(source.port, i)
+            else:
+                edges[handle] = edge_models.SourceHandle(
+                    node=label_helpers.index_label(body_label, i), port=source.port
+                )
+    return edges
+
+
+def _for_output_edges(recipe: for_recipe.ForEachRecipe) -> edge_models.OutputEdges:
+    return {
+        edge_models.OutputTarget(port=port): edge_models.SourceHandle(
+            node=_aggregate_label(port),
+            port=transformers.TransformNto1.output_label,
+        )
+        for port in recipe.outputs
+    }
 
 
 # ---------------------------------------------------------------------------
 # While
 # ---------------------------------------------------------------------------
+
+
+def _record_while_child_edges(
+    node: datastructures.WhileData,
+    recipe: while_recipe.WhileRecipe,
+    child_label: base_models.Label,
+    iteration: int,
+) -> None:
+    """
+    Record where one condition or body instance's inputs actually came from.
+
+    Iteration 0 draws everything from the while-node's own inputs. Later iterations
+    draw the looped ports from the previous body instance, and the rest -- ports the
+    body never writes back -- from the while-node's inputs, still.
+    """
+    body_label = recipe.case.body.label
+    looped = (
+        recipe.body_condition_edges
+        if child_label == recipe.case.condition.label
+        else recipe.body_body_edges
+    )
+    instance = label_helpers.index_label(child_label, iteration)
+
+    for target, source in recipe.input_edges.items():
+        if target.node != child_label:
+            continue
+        retargeted = edge_models.TargetHandle(node=instance, port=target.port)
+        if iteration > 0 and target in looped:
+            node.edges[retargeted] = edge_models.SourceHandle(
+                node=label_helpers.index_label(body_label, iteration - 1),
+                port=looped[target].port,
+            )
+        else:
+            node.input_edges[retargeted] = edge_models.InputSource(port=source.port)
+
+
+def _record_while_output_edges(
+    node: datastructures.WhileData,
+    recipe: while_recipe.WhileRecipe,
+    body_runs: int,
+) -> None:
+    """
+    Record where the while-node's outputs actually came from: the last body instance,
+    or -- if the body never ran -- the while-node's own inputs passed straight
+    through, which validation guarantees is possible since outputs are a subset of
+    inputs.
+    """
+    body_label = recipe.case.body.label
+    for target, source in recipe.output_edges.items():
+        if body_runs > 0:
+            node.output_edges[target] = edge_models.SourceHandle(
+                node=label_helpers.index_label(body_label, body_runs - 1),
+                port=source.port,
+            )
+        else:
+            node.output_edges[target] = edge_models.InputSource(port=target.port)
 
 
 def _run_while(
@@ -349,6 +610,7 @@ def _run_while(
     iteration = 0
     while True:
         # --- condition ---
+        _record_while_child_edges(node, recipe, cond_label, iteration)
         cond_kwargs = _gather_dynamic_child_inputs(
             cond_label, recipe.input_edges, current
         )
@@ -359,6 +621,7 @@ def _run_while(
             break
 
         # --- body ---
+        _record_while_child_edges(node, recipe, body_label, iteration)
         body_kwargs = _gather_dynamic_child_inputs(
             body_label, recipe.input_edges, current
         )
@@ -370,6 +633,8 @@ def _run_while(
             current[target.port] = body_node.output_ports[source.port].value
 
         iteration += 1
+
+    _record_while_output_edges(node, recipe, iteration)
 
     for name in recipe.outputs:
         node.output_ports[name].value = current[name]
@@ -402,12 +667,14 @@ def _run_if(recipe: if_recipe.IfRecipe, **kwargs: Any) -> datastructures.IfData:
 
         if _evaluate_condition(case, cond_node):
             _execute_if_branch(node, recipe, case.body)
+            _record_executed_input_edges(node, recipe.input_edges)
             return node
 
     # No case matched — try else
     if recipe.else_case is not None:
         _execute_if_branch(node, recipe, recipe.else_case)
 
+    _record_executed_input_edges(node, recipe.input_edges)
     return node
 
 
@@ -446,6 +713,7 @@ def _run_try(recipe: try_recipe.TryRecipe, **kwargs: Any) -> datastructures.TryD
         _populate_prospective_outputs(
             node, recipe.prospective_output_edges, recipe.try_node.label
         )
+        _record_executed_input_edges(node, recipe.input_edges)
         return node
     except BaseException as exc:
         for case in recipe.exception_cases:
@@ -462,6 +730,7 @@ def _run_try(recipe: try_recipe.TryRecipe, **kwargs: Any) -> datastructures.TryD
                 _populate_prospective_outputs(
                     node, recipe.prospective_output_edges, case.body.label
                 )
+                _record_executed_input_edges(node, recipe.input_edges)
                 return node
         raise
 
@@ -515,6 +784,20 @@ def _evaluate_condition(
     return bool(cond_node.output_ports[output_name].value)
 
 
+def _record_executed_input_edges(
+    node: datastructures.IfData | datastructures.TryData,
+    input_edges: edge_models.InputEdges,
+) -> None:
+    """
+    Record input edges for the children that actually ran -- the conditions evaluated
+    plus the branch or handler chosen. The recipe describes every branch that might
+    have run; the record describes the one that did.
+    """
+    for target, source in input_edges.items():
+        if target.node in node.nodes:
+            node.input_edges[target] = source
+
+
 def _populate_prospective_outputs(
     node: datastructures.IfData | datastructures.TryData,
     prospective_output_edges: dict[
@@ -530,6 +813,7 @@ def _populate_prospective_outputs(
                 node.output_ports[target.port].value = child.output_ports[
                     source.port
                 ].value
+                node.output_edges[target] = source
                 break
 
 
