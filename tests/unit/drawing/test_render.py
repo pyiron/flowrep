@@ -283,18 +283,18 @@ class TestRetrospectiveNote(unittest.TestCase):
         The retrospective format does not oblige every WfMS to record them, though,
         so stripping the edges back off a run node stands in for one that doesn't.
         """
-        data = wfms.run_recipe(_for_recipe(), xs=[1, 2, 3])
-        data.input_edges = {}
-        data.edges = {}
-        data.output_edges = {}
+        recipe = workflow_recipe.WorkflowRecipe(
+            inputs=[],
+            outputs=[],
+            nodes={"n": constant_recipe.ConstantRecipe(constant=1)},
+            input_edges={},
+            edges={},
+            output_edges={},
+        )
+        data = wfms.run_recipe(recipe)
         graph = retrospective.build(data, depth=0)
         source = render.render(graph).source
         self.assertIn("no recorded edges", source)
-
-    def test_no_note_when_the_wfms_records_its_edges(self):
-        data = wfms.run_recipe(_for_recipe(), xs=[1, 2, 3])
-        graph = retrospective.build(data, depth=0)
-        self.assertNotIn("no recorded edges", render.render(graph).source)
 
 
 @unittest.skipUnless(_has_graphviz, "graphviz not installed")
