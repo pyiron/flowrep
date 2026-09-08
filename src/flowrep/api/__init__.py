@@ -12,6 +12,7 @@ from flowrep.api import schemas as schemas
 from flowrep.api import tools as tools
 from flowrep.api.tools import atomic as atomic
 from flowrep.api.tools import dataclass as dataclass
+from flowrep.api.tools import draw as draw
 from flowrep.api.tools import parse_atomic as parse_atomic
 from flowrep.api.tools import parse_workflow as parse_workflow
 from flowrep.api.tools import workflow as workflow

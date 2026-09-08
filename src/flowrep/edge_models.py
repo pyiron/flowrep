@@ -4,14 +4,14 @@ from typing import ClassVar
 
 import pydantic
 
-from flowrep import base_models
+from flowrep import base_models, lexical
 
 
 class HandleModel(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(frozen=True)
     node: base_models.Label | None
     port: base_models.Label
-    delimiter: ClassVar[str] = "."
+    delimiter: ClassVar[str] = lexical.DELIMITER
 
     @pydantic.model_serializer
     def serialize(self) -> str:

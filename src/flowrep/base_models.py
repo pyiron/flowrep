@@ -5,11 +5,14 @@ import inspect
 import keyword
 from collections.abc import Hashable
 from enum import StrEnum
-from typing import Annotated, ClassVar, Self, TypeVar
+from typing import TYPE_CHECKING, Annotated, ClassVar, Self, TypeVar
 
 import pydantic
 import pydantic_core
 from pyiron_snippets import versions
+
+if TYPE_CHECKING:
+    import graphviz
 
 
 class RecipeElementType(StrEnum):
@@ -131,6 +134,29 @@ class NodeRecipe(pydantic.BaseModel, abc.ABC):
     @pydantic.model_validator(mode="after")
     def validate_internal_data_completeness(self):
         return self
+
+    def draw(self, depth: int | None = None) -> graphviz.Digraph:
+        """
+        Draw this recipe's topology, ports and labels as a graphviz graph.
+
+        Renders inline in a Jupyter notebook, and also offers ``.render()``,
+        ``.pipe()`` and ``.source``.
+
+        Args:
+            depth: How many generations of nested subgraph to expand below this
+                recipe's own children. The recipe itself always expands.
+                Defaults to 1.
+
+        Returns:
+            The drawn graph.
+
+        Raises:
+            ImportAlarmError: If the optional drawing dependency is missing. The
+                message names both the pip and conda install routes.
+        """
+        from flowrep import drawing
+
+        return drawing.draw(self, depth=depth)
 
     @abc.abstractmethod
     def __call__(self, *args, **kwargs):
