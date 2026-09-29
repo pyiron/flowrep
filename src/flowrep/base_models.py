@@ -42,7 +42,7 @@ def is_valid_label(label: str) -> bool:
     )
 
 
-def _validate_label(v: str) -> str:
+def validate_label(v: str) -> str:
     if not isinstance(v, str) or not is_valid_label(v):
         raise ValueError(
             f"Label must be a valid Python identifier and not in "
@@ -51,7 +51,7 @@ def _validate_label(v: str) -> str:
     return v
 
 
-Label = Annotated[str, pydantic.BeforeValidator(_validate_label)]
+Label = Annotated[str, pydantic.BeforeValidator(validate_label)]
 
 
 T = TypeVar("T", bound=Hashable)
