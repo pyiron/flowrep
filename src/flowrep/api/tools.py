@@ -5,6 +5,8 @@ Intended for users who want to go beyond the simple parsers and decorators, as w
 for downstream library developers.
 """
 
+from flowrep.base_models import is_valid_label as is_valid_label
+from flowrep.base_models import validate_label as validate_label
 from flowrep.compiler.source import flowrep2python as flowrep2python
 from flowrep.converters.python_workflow_definition import (
     OutputContractError as OutputContractError,
@@ -15,6 +17,7 @@ from flowrep.drawing import draw as draw
 from flowrep.parsers.atomic_parser import atomic as atomic
 from flowrep.parsers.atomic_parser import parse_atomic as parse_atomic
 from flowrep.parsers.dataclass_parser import dataclass as dataclass
+from flowrep.parsers.label_helpers import unique_suffix as unique_suffix
 from flowrep.parsers.workflow_parser import parse_workflow as parse_workflow
 from flowrep.parsers.workflow_parser import workflow as workflow
 from flowrep.prospective.constant_recipe import is_jsonable as is_jsonable
