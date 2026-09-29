@@ -5,6 +5,8 @@ Intended for users who want to go beyond the simple parsers and decorators, as w
 for downstream library developers.
 """
 
+from flowrep.base_models import is_valid_label as is_valid_label
+from flowrep.base_models import validate_label as validate_label
 from flowrep.compiler.source import flowrep2python as flowrep2python
 from flowrep.converters.python_workflow_definition import (
     OutputContractError as OutputContractError,
