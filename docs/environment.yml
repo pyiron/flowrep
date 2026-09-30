@@ -13,7 +13,7 @@ dependencies:
 - pydantic =2.12.5
 - pyiron_snippets =1.5.0
 - typing-extensions =4.16.0
-- bagofholding =0.1.12
+- bagofholding =0.1.14
 - ipython
 - ipytree =0.2.2
 - python-graphviz =0.21
