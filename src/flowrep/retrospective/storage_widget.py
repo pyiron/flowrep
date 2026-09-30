@@ -63,7 +63,7 @@ class LexicalBagTree(_Base):
 
         root = self._make_node(
             label="Workflow",
-            storage_path="object/",
+            storage_path=browser.storage_root,
             lexical_path="",
             icon="project-diagram",
             opened=True,
@@ -121,17 +121,24 @@ class LexicalBagTree(_Base):
 
     def _has_expandable_children(self, storage_path: str) -> bool:
         """True if storage_path has child nodes or IO port groups."""
-        for suffix in (
-            "/state/nodes",
-            "/state/input_ports",
-            "/state/output_ports",
-        ):
-            try:
-                if self._bag.open_group(f"{storage_path}{suffix}"):
-                    return True
-            except KeyError:
-                continue
-        return False
+        return any(
+            self._open_group_or_empty(f"{storage_path}{suffix}")
+            for suffix in (
+                "/state/nodes",
+                "/state/input_ports",
+                "/state/output_ports",
+            )
+        )
+
+    def _open_group_or_empty(self, storage_path: str) -> list[str]:
+        """The members of the group at storage_path, or none if there is no group.
+
+        Only composite node data has a group of child nodes.
+        """
+        try:
+            return self._bag.open_group(storage_path)
+        except KeyError:
+            return []
 
     def _lazy_expand(self, change: traitlets.Bunch) -> None:
         node = change["owner"]
@@ -175,7 +182,7 @@ class LexicalBagTree(_Base):
 
         # Child nodes ------------------------------------------------------
         nodes_storage = f"{storage_path}/state/nodes"
-        children = self._bag.open_group(nodes_storage)
+        children = self._open_group_or_empty(nodes_storage)
         for child in children:
             child_node = self._make_node(
                 label=child,

@@ -1,7 +1,8 @@
 """
 Convenience tools for accessing :cls:`flowrep.datastructures.LiveWorkflow` data stored in
 *bagofholding* `H5Bag` objects using "lexical" paths (node names, "inputs"/"outputs",
-and port names).
+and port names). The data may be the bag's top-level object, or be kept somewhere inside
+it, e.g. as an attribute of some other saved object.
 """
 
 from __future__ import annotations
@@ -25,6 +26,25 @@ if TYPE_CHECKING:
     from bagofholding import H5Bag
 
 
+DEFAULT_STORAGE_ROOT = "object"
+"""Where a bag made by saving node data directly keeps that data."""
+
+_NODE_DATA_TYPES = (
+    datastructures.AtomicData,
+    datastructures.ConstantData,
+    datastructures.DagData,
+    datastructures.ForEachData,
+    datastructures.IfData,
+    datastructures.TryData,
+    datastructures.WhileData,
+)
+_LOADABLE_TYPES = (
+    *_NODE_DATA_TYPES,
+    datastructures.InputDataPort,
+    datastructures.OutputDataPort,
+)
+
+
 class LexicalBagBrowser:
     """
     A convenience class for browsing and loading data from
@@ -32,19 +52,26 @@ class LexicalBagBrowser:
 
     Lets you access data using the "lexical" paths (i.e. "."-joined paths of node names,
     "inputs/outputs", and port names) instead of the actual H5 path inside the file.
+    Node data kept inside some other saved object can be browsed by passing the storage
+    path to it as `storage_root`.
     """
 
     @_import_alarm
-    def __init__(self, bag: H5Bag | str | pathlib.Path):
+    def __init__(
+        self,
+        bag: H5Bag | str | pathlib.Path,
+        storage_root: str = DEFAULT_STORAGE_ROOT,
+    ):
         if isinstance(bag, (str, pathlib.Path)):
             self.bag = boh.H5Bag(bag)
         else:
             self.bag = bag
-        validate_bag(self.bag)
+        self.storage_root = _normalize_root(storage_root)
+        validate_bag(self.bag, self.storage_root)
 
     def list_paths(self) -> list[str]:
         """A list of all available lexical content paths."""
-        return list_lexical_paths(self.bag)
+        return list_lexical_paths(self.bag, self.storage_root)
 
     def widget(self) -> storage_widget.LexicalBagTree:
         """A jupyter-notebook widget for graphical browsing"""
@@ -61,6 +88,7 @@ class LexicalBagBrowser:
         self, path: str
     ) -> (
         datastructures.AtomicData
+        | datastructures.ConstantData
         | datastructures.DagData
         | datastructures.ForEachData
         | datastructures.IfData
@@ -70,16 +98,20 @@ class LexicalBagBrowser:
         | datastructures.WhileData
     ):
         """Load a node or IO port using its lexical path."""
-        return load_from_bag(self.bag, path)
+        return load_from_bag(self.bag, path, self.storage_root)
 
 
 @_import_alarm
-def validate_bag(bag: H5Bag):
+def validate_bag(bag: H5Bag, storage_root: str = DEFAULT_STORAGE_ROOT):
     if not isinstance(bag, boh.H5Bag):
         raise TypeError(f"Expected a {boh.H5Bag.__name__!r} object, got {bag!r}")
 
     _validate_bag_metadata(bag)
-    _validate_object_metadata(bag)
+    _validate_object_metadata(bag, storage_root)
+
+
+def _normalize_root(storage_root: str) -> str:
+    return storage_root.rstrip("/")
 
 
 def _validate_bag_metadata(bag: H5Bag):
@@ -103,23 +135,29 @@ def _validate_bag_metadata(bag: H5Bag):
         )
 
 
-def _validate_object_metadata(bag: H5Bag):
-    object_info = bag["object"]
-    if object_info.qualname != datastructures.DagData.__qualname__:
+def _validate_object_metadata(bag: H5Bag, storage_root: str = DEFAULT_STORAGE_ROOT):
+    root = _normalize_root(storage_root)
+    try:
+        object_info = bag[root]
+    except boh.exceptions.InvalidMetadataError:
+        raise ValueError(f"Nothing is stored at {root!r}") from None
+    qualnames = tuple(cls.__qualname__ for cls in _NODE_DATA_TYPES)
+    if object_info.qualname not in qualnames:
         raise TypeError(
-            "Can only load saved workflow data "
-            f"({datastructures.DagData.__qualname__!r} type), but got "
-            f"{object_info.qualname!r}"
+            f"Can only load saved node data (one of {qualnames}), but got "
+            f"{object_info.qualname!r} at {root!r}"
         )
 
 
-def list_lexical_paths(bag: boh.H5Bag) -> list[str]:
+def list_lexical_paths(
+    bag: boh.H5Bag, storage_root: str = DEFAULT_STORAGE_ROOT
+) -> list[str]:
     """
     Look through the bag and return a list of "."-separated lexical paths for nodes and
-    ports.
+    ports, starting from the node data stored at *storage_root*.
     """
     paths: list[str] = []
-    _collect_lexical_paths(bag, "object/", "", paths)
+    _collect_lexical_paths(bag, _normalize_root(storage_root), "", paths)
     return paths
 
 
@@ -165,9 +203,10 @@ def _path_to_nodes(path: str) -> str:
 
 
 def load_from_bag(
-    bag: H5Bag, lexical_path: str
+    bag: H5Bag, lexical_path: str, storage_root: str = DEFAULT_STORAGE_ROOT
 ) -> (
     datastructures.AtomicData
+    | datastructures.ConstantData
     | datastructures.DagData
     | datastructures.ForEachData
     | datastructures.IfData
@@ -184,11 +223,13 @@ def load_from_bag(
         bag (H5Bag): The bag containing the saved node data.
         lexical_path (str): The dot-separated path of node names, IO references, and/or
             port names.
+        storage_root (str): Where in the bag the node data is kept. Defaults to the
+            top-level object.
 
     Returns:
         A retrospective data node or IO data port
     """
-    storage_path = "object/"
+    storage_path = _normalize_root(storage_root)
     step = ""
     walked_path = step
     while lexical_path:
@@ -210,19 +251,9 @@ def load_from_bag(
             f"from among {tuple(obj.keys())}"
         )
 
-    expected_types = (
-        datastructures.AtomicData,
-        datastructures.DagData,
-        datastructures.ForEachData,
-        datastructures.IfData,
-        datastructures.InputDataPort,
-        datastructures.OutputDataPort,
-        datastructures.TryData,
-        datastructures.WhileData,
-    )
-    if not isinstance(obj, expected_types):
+    if not isinstance(obj, _LOADABLE_TYPES):
         raise TypeError(
-            f"Expected to load one of {tuple(cls.__name__ for cls in expected_types)}, "
+            f"Expected to load one of {tuple(cls.__name__ for cls in _LOADABLE_TYPES)}, "
             f"but got {type(obj).__name__}: {obj!r}"
         )
     return obj
