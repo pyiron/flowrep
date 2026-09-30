@@ -3,6 +3,7 @@ Tests for the storage module (bag validation, lexical path listing, loading,
 and the LexicalBagBrowser convenience class).
 """
 
+import dataclasses
 import os
 import pathlib
 import tempfile
@@ -12,7 +13,7 @@ from unittest import mock
 from flowrep import wfms
 from flowrep.retrospective import datastructures, storage, storage_widget
 
-from flowrep_static import library
+from flowrep_static import library, node_data
 
 try:
     import bagofholding as boh
@@ -354,6 +355,93 @@ class TestLexicalBagBrowserMethods(_BagTestCase):
     def test_widget_returns_tree(self):
         result = self.browser.widget()
         self.assertIsInstance(result, storage_widget.LexicalBagTree)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# storage_root
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@dataclasses.dataclass
+class _Holder:
+    """Something that keeps node data inside itself, as a pyiron_workflow Run does."""
+
+    result: datastructures.NodeData
+
+
+_HELD_ROOT = "object/state/result"
+
+
+class TestStorageRoot(_BagTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.top_path = self._bag_path("top.h5")
+        self.held_path = self._bag_path("held.h5")
+        wf_data = _save_workflow(self.top_path, a=3, b=4)
+        boh.H5Bag.save(_Holder(wf_data), self.held_path)
+
+    def test_held_data_lists_like_top_level_data(self):
+        self.assertEqual(
+            storage.list_lexical_paths(boh.H5Bag(self.top_path)),
+            storage.list_lexical_paths(boh.H5Bag(self.held_path), _HELD_ROOT),
+        )
+
+    def test_held_data_loads_like_top_level_data(self):
+        port = "typed_add_0.outputs.output_0"
+        self.assertEqual(
+            storage.load_from_bag(boh.H5Bag(self.top_path), port).value,
+            storage.load_from_bag(boh.H5Bag(self.held_path), port, _HELD_ROOT).value,
+        )
+
+    def test_browser_works_from_its_root(self):
+        browser = storage.LexicalBagBrowser(self.held_path, storage_root=_HELD_ROOT)
+        self.assertEqual(_HELD_ROOT, browser.storage_root)
+        self.assertIn("typed_add_0.outputs.output_0", browser.list_paths())
+        self.assertIsInstance(browser.load("typed_add_0"), datastructures.AtomicData)
+
+    def test_a_trailing_slash_is_tolerated(self):
+        browser = storage.LexicalBagBrowser(
+            self.held_path, storage_root=f"{_HELD_ROOT}/"
+        )
+        self.assertEqual(_HELD_ROOT, browser.storage_root)
+        self.assertIn("inputs.a", browser.list_paths())
+
+    def test_the_default_root_rejects_a_holder(self):
+        with self.assertRaisesRegex(TypeError, _Holder.__qualname__):
+            storage.LexicalBagBrowser(self.held_path)
+
+    def test_an_empty_root_raises(self):
+        with self.assertRaisesRegex(ValueError, "object/state/nothing"):
+            storage.LexicalBagBrowser(
+                self.held_path, storage_root="object/state/nothing"
+            )
+
+
+class TestEveryNodeDataType(_BagTestCase):
+    """Each kind of node data, saved as the bag's top-level object."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.samples = node_data.samples()
+
+    def test_samples_cover_every_node_data_type(self):
+        self.assertSetEqual(set(storage._NODE_DATA_TYPES), set(self.samples))
+
+    def test_each_type_validates_lists_and_loads(self):
+        for cls, data in self.samples.items():
+            with self.subTest(cls=cls.__name__):
+                path = self._bag_path(f"{cls.__name__}.h5")
+                boh.H5Bag.save(data, path)
+                browser = storage.LexicalBagBrowser(path)
+                paths = browser.list_paths()
+                self.assertTrue(
+                    {f"outputs.{port}" for port in data.output_ports}.issubset(paths)
+                )
+                self.assertIsInstance(browser.load(""), cls)
+                for lexical_path in paths:
+                    self.assertIsInstance(
+                        browser.load(lexical_path), storage._LOADABLE_TYPES
+                    )
 
 
 if __name__ == "__main__":

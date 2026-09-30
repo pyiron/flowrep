@@ -15,7 +15,7 @@ from flowrep.retrospective import (
     storage_widget as sw,
 )
 
-from flowrep_static import library
+from flowrep_static import library, node_data
 
 try:
     import bagofholding as boh
@@ -113,7 +113,18 @@ class TestTreeConstruction(_WidgetTestCase):
             with self.subTest(tree=tree):
                 meta = tree._meta(self._get_root_node(tree))
                 self.assertEqual(meta.lexical_path, "")
-                self.assertEqual(meta.storage_path, "object/")
+                self.assertEqual(meta.storage_path, self.browser.storage_root)
+
+    def test_root_follows_the_browser_storage_root(self):
+        self.browser.storage_root = "object/elsewhere"
+        with mock.patch.object(
+            storage_widget.LexicalBagTree,
+            "_has_expandable_children",
+            return_value=False,
+        ):
+            tree = storage_widget.LexicalBagTree(self.browser)
+        root = self._get_root_node(tree)
+        self.assertEqual("object/elsewhere", tree._meta(root).storage_path)
 
     def test_root_is_opened_and_loaded(self):
         for tree in (self.tree, self.void_tree):
@@ -317,6 +328,37 @@ class TestIOGroupExpansion(_WidgetTestCase):
         port_a = next(c for c in node.nodes if c.name == "a")
         meta = self.tree._meta(port_a)
         self.assertEqual(meta.lexical_path, "inputs.a")
+
+
+@unittest.skipUnless(_has_ipytree, "ipytree not installed")
+class TestEveryNodeDataType(unittest.TestCase):
+    """Each kind of node data, saved as the bag's top-level object."""
+
+    def setUp(self) -> None:
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmpdir.cleanup)
+
+    @staticmethod
+    def _expand_all(tree: "storage_widget.LexicalBagTree", node) -> None:
+        node.opened = True
+        for child in node.nodes:
+            if not child.disabled:
+                TestEveryNodeDataType._expand_all(tree, child)
+
+    def test_fully_expanded_tree_shows_what_storage_lists(self):
+        for cls, data in node_data.samples().items():
+            with self.subTest(cls=cls.__name__):
+                path = os.path.join(self._tmpdir.name, f"{cls.__name__}.h5")
+                boh.H5Bag.save(data, path)
+                browser = storage.LexicalBagBrowser(path)
+                tree = storage_widget.LexicalBagTree(browser)
+                self._expand_all(tree, tree.nodes[0])
+                shown = {
+                    meta.lexical_path
+                    for meta in tree._node_meta.values()
+                    if meta.lexical_path and not meta.is_io_group
+                }
+                self.assertSetEqual(set(browser.list_paths()), shown)
 
 
 if __name__ == "__main__":
