@@ -58,7 +58,10 @@ def parse_for_node(
     # axis has no parent symbol to remap, so its variable is added fresh instead.
     body_symbol_map = walker.symbol_map.fork(
         {axis.port: axis.variable for axis in all_iters if axis.binding is None},
-        added_symbols=[axis.variable for axis in all_iters if axis.binding is not None],
+        added_symbols=[
+            axis.variable if axis.binding is not None else axis.port
+            for axis in all_iters
+        ],
         available_accumulators=walker.symbol_map.declared_accumulators.copy(),
     )
 
@@ -161,7 +164,7 @@ def _wire_inputs(
         and s not in {axis.variable for axis in all_iters}
     ]  # Need to keep it consistently ordered, so don't use a simple set op
     scattered_symbols = [axis.port for axis in all_iters]
-    inputs = broadcast_symbols + scattered_symbols
+    inputs = list(dict.fromkeys(broadcast_symbols + scattered_symbols))
     broadcast_inputs = {
         edge_models.TargetHandle(
             node=FOR_BODY_LABEL, port=port
