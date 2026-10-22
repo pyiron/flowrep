@@ -446,5 +446,28 @@ class TestParsingForLoops(unittest.TestCase):
                 )
 
 
+def _nested_loops_with_inner_collection(xs, offset):
+    outer = []
+    for x in xs:
+        inner = []
+        for y in xs:
+            d = std.add(y, offset)
+            inner.append(d)
+        total = std.add(x, offset)
+        outer.append(total)
+    return outer
+
+
+class TestNestedLoops(unittest.TestCase):
+    def test_loop_in_loop_over_same_collection(self):
+        node = workflow_parser.parse_workflow(_nested_loops_with_inner_collection)
+        outer = node.nodes["for_each_0"]
+        self.assertEqual(outer.inputs, ["offset", "xs"])
+        self.assertEqual(outer.nested_ports, ["x"])
+        inner = outer.body_node.recipe.nodes["for_each_0"]
+        self.assertEqual(inner.nested_ports, ["y"])
+        self.assertEqual(inner.inputs, ["offset", "xs"])
+
+
 if __name__ == "__main__":
     unittest.main()
