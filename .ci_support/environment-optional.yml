@@ -1,7 +1,7 @@
 channels:
 - conda-forge
 dependencies:
-- bagofholding =0.1.14
+- bagofholding =0.1.16
 - ipython
 - ipytree =0.2.2
 - python-graphviz =0.21
